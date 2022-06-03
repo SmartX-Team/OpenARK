@@ -1,6 +1,6 @@
 # NetAI Cloud
 
-`NetAI Cloud` is a kind of Open-Source SaaS that supports individuals or organizations to freely integrate and operate their own or well-known (i.e. Amazon AWS) distributed resources.
+`NetAI Cloud` is a kind of Open-Source IaC (Infrastructure as Code) that supports individuals or organizations to freely integrate and operate their own or well-known (i.e. Amazon AWS) distributed resources.
 
 ‘NetAI Cloud’ is designed to be fully compatible with the [IPI Ecosystem](https://github.com/ulagbulag-village/ipis).
 
