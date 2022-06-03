@@ -8,7 +8,7 @@
 
 ## Note
 
-`NetAI Cloud` is the research result of [GIST's `NetAI` laboratory](https://netai.smartx.kr/). That is, this repository is operated for academic purposes, and there is **No commercial support in this repository**.
+`NetAI Cloud` is the research result of [GIST's `NetAI` Laboratory](https://netai.smartx.kr/), led by **Ho Kim** under professor **JongWon Kim** That is, this repository is operated for academic purposes, and there is **No commercial support in this repository**.
 
 ## Acknowledgement
 

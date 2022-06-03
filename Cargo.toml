@@ -1,2 +1,12 @@
 [workspace]
-members = []
+members = [
+    "ipwis-binding",
+    "kiss/ansible",
+    "kiss/api",
+    "kiss/bootstrap",
+    "kiss/kubernetes",
+    "kiss/network",
+    "kiss/runtime",
+    "kiss/storage",
+]
+default-members = ["kiss/runtime"]
