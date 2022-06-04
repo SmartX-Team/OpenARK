@@ -5,6 +5,7 @@ members = [
     "kiss/api",
     "kiss/bootstrap",
     "kiss/kubernetes",
+    "kiss/matchbox/api",
     "kiss/network",
     "kiss/runtime",
     "kiss/storage",
