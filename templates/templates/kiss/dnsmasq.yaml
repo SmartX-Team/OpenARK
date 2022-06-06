@@ -1,0 +1,108 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dnsmasq-dhcp-range
+  namespace: kiss
+data:
+  ipv4Begin: "172.20.64.1"
+  ipv4End: "172.20.127.254"
+  ipv4Duration: "7d"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dnsmasq-external-dns
+  namespace: kiss
+data:
+  ns1: "172.20.128.1"
+  ns2: "172.20.128.2"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dnsmasq
+  namespace: kiss
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: dnsmasq
+  template:
+    metadata:
+      labels:
+        name: dnsmasq
+    spec:
+      hostNetwork: true
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dnsmasq
+          image: quay.io/poseidon/dnsmasq:latest
+          args:
+            - -d
+            - --enable-tftp
+            - --tftp-root=/var/lib/tftpboot
+            - --dhcp-match=set:bios,option:client-arch,0
+            - --dhcp-boot=tag:bios,undionly.kpxe
+            - --dhcp-match=set:efi_x86,option:client-arch,6
+            - --dhcp-boot=tag:efi_x86,ipxe.efi
+            - --dhcp-match=set:efi_bc,option:client-arch,7
+            - --dhcp-boot=tag:efi_bc,ipxe.efi
+            - --dhcp-match=set:efi_amd64,option:client-arch,9
+            - --dhcp-boot=tag:efi_amd64,ipxe.efi
+            - --dhcp-match=set:efi_arm64,option:client-arch,11
+            - --dhcp-boot=tag:efi_arm64,ipxe.efi
+            - --dhcp-userclass=set:ipxe,iPXE
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss-cluster/assets/boot/boot.ipxe
+            - --dhcp-option=6,$(DNS_IPV4_NS1),$(DNS_IPV4_NS2)
+            - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
+            - --port=0
+            - --bind-dynamic
+            - --log-queries
+            - --log-dhcp
+          env:
+            - name: DNS_IPV4_NS1
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-external-dns
+                  key: ns1
+            - name: DNS_IPV4_NS2
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-external-dns
+                  key: ns2
+            - name: DHCP_RANGE_IPV4_BEGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-dhcp-range
+                  key: ipv4Begin
+            - name: DHCP_RANGE_IPV4_END
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-dhcp-range
+                  key: ipv4End
+            - name: DHCP_RANGE_IPV4_DURATION
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-dhcp-range
+                  key: ipv4Duration
+          ports:
+            - name: dhcp
+              protocol: UDP
+              containerPort: 67
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN

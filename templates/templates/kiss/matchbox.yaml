@@ -1,0 +1,361 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchbox-account
+  namespace: kiss
+data:
+  username: kiss
+  id_rsa.pub: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCoswuYyzWbcDjPEfENnbl69R+c2ELlMQ8AVjDIXlLqnlCp9MKYAuo2iNzB551JoHJz7ueAvLfssXpgQ4ocrtZ6EUJLVScg3Dzf6WuNs/keU1okpPsxtb7v/JdngYkj6VnvwfcnBSNlTC93uVj8iMlLlACPlFu0DDf1RdUoMHhWwovY2mmLU2A9x2FI2bL35XvLmolUB0Yk+fc0zaUD/+JOwKzog8KuHgfM77vjr3weH4mTJ3lAG4OmMcLHjAeq3obpWaCQqV2D18Py8+cW+8HnT/TG+iCWcboO24zfMal1YL1BqI3IQ2XKHZkUAGn7+7StvJCkXJsLeHDSMrnPcE0H26bXeFp7//q6owBbQVClusoqsycwvsMTP7rg4FeJdZzcH9amt1ZSKIdruI4+VG+EakzDG5avpad+ZjXMJVHHfnCvSC3nIcjwsQG5wqZH04yB1rQ6DoVy2EWLUzBWPaZUnjDWGvDrhHiuJ3yZ5IDr/8H2E/TUWjX7XESeOe4Tjc8=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: matchbox-account
+  namespace: kiss
+stringData:
+  id_rsa: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    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
+    -----END OPENSSH PRIVATE KEY-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchbox-boot
+  namespace: kiss
+data:
+  boot.ipxe: |
+    #!ipxe
+    chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchbox-groups
+  namespace: kiss
+data:
+  flatcar.json: |
+    {
+      "id": "flatcar",
+      "name": "Flatcar Linux",
+      "profile": "flatcar",
+      "selector": {},
+      "metadata": {}
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchbox-ignition
+  namespace: kiss
+data:
+  flatcar.yaml: |
+    ---
+    passwd:
+      users:
+        - name: ENV_USERNAME
+          ssh_authorized_keys:
+            - ENV_SSH_AUTHORIZED_KEYS
+          groups:
+            - sudo
+            - docker
+    storage:
+      directories:
+        - path: /etc/systemd/system/docker.service.d
+          filesystem: root
+      files:
+        - path: /etc/docker/daemon.json
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              {
+                "insecure-registries": [
+                  "docker-registry.kiss-cluster"
+                ],
+                "registry-mirrors": [
+                  "http://proxy.docker-registry.kiss-cluster"
+                ]
+              }
+        - path: /etc/hostname
+          filesystem: root
+          mode: 0644
+          contents:
+            inline: unknown.box.kiss-cluster
+        - path: /opt/bin/python
+          filesystem: root
+          mode: 0555
+          contents:
+            inline: |
+              #!/usr/bin/bash
+              HOME=$(eval echo ~$(logname))
+
+              ANSIBLE_HOME=$HOME/.ansible
+              mkdir -p $ANSIBLE_HOME
+
+              docker run --rm -it --ipc=host --net=host --privileged \
+                --volume $ANSIBLE_HOME:$ANSIBLE_HOME:rw \
+                --volume /:/rootfs:rw \
+                kerryeon/flatcar-python-kubernetes:latest python "${@:1}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchbox-profiles
+  namespace: kiss
+data:
+  flatcar.json: |
+    {
+      "id": "flatcar",
+      "name": "Flatcar Linux",
+      "boot": {
+        "kernel": "/assets/flatcar/${buildarch}/flatcar_production_pxe.vmlinuz",
+        "initrd": [
+          "/assets/flatcar/${buildarch}/flatcar_production_pxe_image.cpio.gz"
+        ],
+        "args": [
+          "initrd=flatcar_production_pxe_image.cpio.gz",
+          "flatcar.config.url=http://matchbox.kiss-cluster/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
+          "flatcar.first_boot=yes",
+          "console=tty0",
+          "console=ttyS0",
+          "flatcar.autologin"
+        ]
+      },
+      "ignition_id": "flatcar.yaml"
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matchbox
+  namespace: kiss
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: matchbox
+  template:
+    metadata:
+      labels:
+        name: matchbox
+    spec:
+      nodeName: netai-cloud-compute-6
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-assets
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              for arch_pair in $(echo ${OS_ARCHS}); do
+                arch_ipxe=$(echo ${arch_pair} | cut -d ':' -f 1)
+                arch_os=$(echo ${arch_pair} | cut -d ':' -f 2)
+
+                BASE_URL="https://${OS_CHANNEL}.release.flatcar-linux.net/${arch_os}-usr/${OS_VERSION}"
+                OUT_DIR="${ASSETS_DIR}/${GROUP_NAME}/${arch_ipxe}"
+                mkdir -p ${OUT_DIR}
+
+                for file in $(echo ${FILES}); do
+                  curl "${BASE_URL}/${file}" -o "${OUT_DIR}/${file}"
+                  curl "${BASE_URL}/${file}.sig" -o "${OUT_DIR}/${file}.sig"
+                done
+              done
+          env:
+            - name: ASSETS_DIR
+              value: /var/lib/matchbox/assets
+            - name: OS_ARCHS
+              value: >
+                x86_64:amd64
+              #  arm64:arm64
+            - name: OS_CHANNEL
+              value: stable
+            - name: OS_VERSION
+              value: current
+            - name: GROUP_NAME
+              value: flatcar
+            - name: FILES
+              value: >
+                flatcar_production_pxe.vmlinuz
+                flatcar_production_pxe_image.cpio.gz
+                flatcar_production_image.bin.bz2
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          volumeMounts:
+            - name: assets
+              mountPath: /var/lib/matchbox/assets
+        - name: init-data
+          image: ubuntu:rolling
+          command:
+            - bash
+            - -c
+            - |
+              cp /var/lib/matchbox/ignition-raw/*.yaml /var/lib/matchbox/ignition/
+              SSH_AUTHORIZED_KEYS_SED=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< ${SSH_AUTHORIZED_KEYS})
+              sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/ignition/*.yaml
+              sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/ignition/*.yaml
+          env:
+            - name: SSH_AUTHORIZED_KEYS
+              valueFrom:
+                configMapKeyRef:
+                  name: matchbox-account
+                  key: id_rsa.pub
+            - name: USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: matchbox-account
+                  key: username
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          volumeMounts:
+            - name: ignition
+              mountPath: /var/lib/matchbox/ignition
+            - name: ignition-raw
+              mountPath: /var/lib/matchbox/ignition-raw
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: matchbox
+          image: quay.io/poseidon/matchbox:latest
+          env:
+            - name: MATCHBOX_ADDRESS
+              value: 0.0.0.0:8080
+            - name: MATCHBOX_LOG_LEVEL
+              value: debug
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            initialDelaySeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          volumeMounts:
+            - name: assets
+              mountPath: /var/lib/matchbox/assets
+            - name: boot
+              mountPath: /var/lib/matchbox/assets/boot
+            - name: groups
+              mountPath: /var/lib/matchbox/groups
+            - name: ignition
+              mountPath: /var/lib/matchbox/ignition
+            - name: profiles
+              mountPath: /var/lib/matchbox/profiles
+      volumes:
+        - name: assets
+          emptyDir: {}
+        - name: boot
+          configMap:
+            name: matchbox-boot
+            defaultMode: 0400
+        - name: groups
+          configMap:
+            name: matchbox-groups
+            defaultMode: 0400
+        - name: ignition
+          emptyDir: {}
+        - name: ignition-raw
+          configMap:
+            name: matchbox-ignition
+            defaultMode: 0400
+        - name: profiles
+          configMap:
+            name: matchbox-profiles
+            defaultMode: 0400
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matchbox
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: matchbox
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matchbox
+  namespace: kiss
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: matchbox.kiss-cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: matchbox
+                port:
+                  number: 80

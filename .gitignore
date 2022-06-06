@@ -15,4 +15,4 @@ Cargo.lock
 
 # Editor
 /.vscode/
-/templates
+**/tmp/

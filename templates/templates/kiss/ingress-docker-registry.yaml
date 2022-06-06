@@ -1,0 +1,66 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: docker-registry
+  namespace: kiss
+spec:
+  type: ExternalName
+  externalName: docker-registry.kube-system
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: docker-registry-proxy
+  namespace: kiss
+spec:
+  type: ExternalName
+  externalName: docker-registry-proxy.kube-system
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docker-registry
+  namespace: kiss
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+    - host: docker-registry.kiss-cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docker-registry
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docker-registry-proxy
+  namespace: kiss
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+    - host: proxy.docker-registry.kiss-cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docker-registry-proxy
+                port:
+                  number: 80
