@@ -1,8 +1,7 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
+pub extern crate kube;
+pub extern crate serde_json;
+pub extern crate serde_yaml;
+
+pub mod ansible;
+pub mod r#box;
+pub mod manager;
