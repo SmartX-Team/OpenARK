@@ -58,7 +58,7 @@ spec:
             - --dhcp-match=set:efi_arm64,option:client-arch,11
             - --dhcp-boot=tag:efi_arm64,ipxe.efi
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss-cluster/assets/boot/boot.ipxe
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.netai-cloud/assets/boot/boot.ipxe
             - --dhcp-option=6,$(DNS_IPV4_NS1),$(DNS_IPV4_NS2)
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
             - --port=0

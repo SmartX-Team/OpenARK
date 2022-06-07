@@ -107,17 +107,17 @@ data:
             inline: |
               {
                 "insecure-registries": [
-                  "docker-registry.kiss-cluster"
+                  "docker-registry.kiss.netai-cloud"
                 ],
                 "registry-mirrors": [
-                  "http://proxy.docker-registry.kiss-cluster"
+                  "http://proxy.docker-registry.kiss.netai-cloud"
                 ]
               }
         - path: /etc/hostname
           filesystem: root
           mode: 0644
           contents:
-            inline: unknown.box.kiss-cluster
+            inline: unknown.box.kiss.netai-cloud
         - path: /opt/bin/python
           filesystem: root
           mode: 0555
@@ -151,7 +151,7 @@ data:
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
-          "flatcar.config.url=http://matchbox.kiss-cluster/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
+          "flatcar.config.url=http://matchbox.kiss.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
           "flatcar.first_boot=yes",
           "console=tty0",
           "console=ttyS0",
@@ -349,7 +349,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: matchbox.kiss-cluster
+    - host: matchbox.kiss.netai-cloud
       http:
         paths:
           - path: /

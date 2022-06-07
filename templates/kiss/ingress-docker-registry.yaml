@@ -30,7 +30,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 spec:
   rules:
-    - host: docker-registry.kiss-cluster
+    - host: docker-registry.kiss.netai-cloud
       http:
         paths:
           - path: /
@@ -54,7 +54,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 spec:
   rules:
-    - host: proxy.docker-registry.kiss-cluster
+    - host: proxy.docker-registry.kiss.netai-cloud
       http:
         paths:
           - path: /

@@ -1,4 +1,4 @@
-domain: kiss-cluster
+domain: kiss.netai-cloud
 secondary: kiss-exdns-2-k8s-gateway.kiss
 
 service:
