@@ -5,5 +5,5 @@ use kiss_api::manager::Ctx;
 
 #[tokio::main]
 async fn main() {
-    self::ctx::Ctx::spawn_crd().await
+    self::ctx::Ctx::spawn().await
 }

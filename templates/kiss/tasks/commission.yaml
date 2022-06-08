@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ansible-task-commission
+  namespace: kiss
+data:
+  main.yaml: |
+    ---
+    - include_tasks: hostname.yaml
+    - include_tasks: power.yaml
+    - include_tasks: network.yaml
+  hostname.yaml: |
+    ---
+    - name: Set machine hostname
+      shell: >
+        chroot /rootfs hostnamectl
+        set-hostname '{{ ansible_host }}'
+  power.yaml: |
+    ---
+    - name: Check whether IPMI exists
+      stat:
+        path: /rootfs/dev/ipmi0
+      register: ipmi
+
+    - name: Get IPMI IP Address
+      when: ipmi.stat.exists
+      shell: >
+        chroot /rootfs docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        lan print
+        | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
+      register: ipmi_address
+
+    - name: Set IPMI user 9 name
+      when: ipmi.stat.exists
+      shell: >
+        chroot /rootfs docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        user set name 9 'kiss'
+
+    - name: Set IPMI user 9 password
+      when: ipmi.stat.exists
+      shell: >
+        chroot /rootfs docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        user set password 9 'kiss'
+
+    - name: Enable IPMI user 9
+      when: ipmi.stat.exists
+      shell: >
+        chroot /rootfs docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        user enable 9
+
+    - name: Link on IPMI user 9 as ADMIN
+      when: ipmi.stat.exists
+      shell: >
+        chroot /rootfs docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
+  network.yaml: |
+    ---
+    - name: Get Network Interfaces
+      shell: ls /sys/class/net | grep -e '^en*'
+      register: netdev
+
+    - name: Get Network Interfaces
+      debug:
+        msg: "{{ netdev.stdout_lines }}"

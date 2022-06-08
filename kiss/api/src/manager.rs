@@ -1,3 +1,4 @@
+use core::future::Future;
 use std::sync::Arc;
 
 use ipis::{
@@ -16,8 +17,11 @@ use kube::{
 };
 use serde::de::DeserializeOwned;
 
+use crate::ansible::AnsibleClient;
+
 pub struct Manager<C> {
-    pub client: Client,
+    pub ansible: AnsibleClient,
+    pub kube: Client,
     pub ctx: Arc<RwLock<C>>,
 }
 
@@ -25,8 +29,7 @@ pub struct Manager<C> {
 pub trait Ctx
 where
     Self: 'static + Send + Sync + Default,
-    <Self as Ctx>::Data:
-        Send + Sync + Clone + ::core::fmt::Debug + DeserializeOwned + CustomResourceExt + Resource,
+    <Self as Ctx>::Data: Send + Sync + Clone + ::core::fmt::Debug + DeserializeOwned + Resource,
     <<Self as Ctx>::Data as Resource>::DynamicType:
         Clone + ::core::fmt::Debug + Default + Eq + Unpin + ::core::hash::Hash,
 {
@@ -34,34 +37,52 @@ where
 
     async fn spawn() {
         logger::init_once();
-        <Self as Ctx>::try_spawn()
+        <Self as Ctx>::try_spawn(|_, _| async move { Ok(()) })
             .await
             .expect("spawning a manager")
     }
 
-    async fn try_spawn() -> Result<()> {
+    async fn spawn_crd()
+    where
+        <Self as Ctx>::Data: CustomResourceExt,
+    {
+        logger::init_once();
+        <Self as Ctx>::try_spawn(|api, client| async move {
+            // Ensure CRD is installed before loop-watching
+            if api.list(&ListParams::default().limit(1)).await.is_err() {
+                let crd = <Self as Ctx>::Data::crd();
+                let name = crd.name();
+                let api = Api::<CustomResourceDefinition>::all(client);
+
+                let pp = PostParams {
+                    dry_run: false,
+                    field_manager: Some("kube-controller".into()),
+                };
+                api.create(&pp, &crd).await?;
+
+                info!("Created CRD: {name}");
+            }
+            Ok(())
+        })
+        .await
+        .expect("spawning a manager with CRD")
+    }
+
+    async fn try_spawn<F, Fut>(f_init: F) -> Result<()>
+    where
+        F: FnOnce(Api<<Self as Ctx>::Data>, Client) -> Fut + Send,
+        Fut: Future<Output = Result<()>> + Send,
+    {
         let client = Client::try_default().await?;
         let ctx = Arc::new(RwLock::new(Self::default()));
         let manager = Arc::new(Manager {
-            client: client.clone(),
+            ansible: Default::default(),
+            kube: client.clone(),
             ctx: ctx.clone(),
         });
 
         let api = Api::<<Self as Ctx>::Data>::all(client.clone());
-        // Ensure CRD is installed before loop-watching
-        if api.list(&ListParams::default().limit(1)).await.is_err() {
-            let crd = <Self as Ctx>::Data::crd();
-            let name = crd.name();
-            let api = Api::<CustomResourceDefinition>::all(client);
-
-            let pp = PostParams {
-                dry_run: false,
-                field_manager: Some("kube-controller".into()),
-            };
-            api.create(&pp, &crd).await?;
-
-            info!("Created CRD: {name}");
-        }
+        f_init(api.clone(), client).await?;
 
         // All good. Start controller and return its future.
         Controller::new(api, ListParams::default())

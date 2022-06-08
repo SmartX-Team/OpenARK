@@ -1,3 +1,9 @@
 [workspace]
-members = ["ipwis-binding", "kiss/api", "kiss/gateway", "kiss/controller"]
+members = [
+    "ipwis-binding",
+    "kiss/api",
+    "kiss/controller",
+    "kiss/gateway",
+    "kiss/monitor",
+]
 default-members = ["kiss/controller"]

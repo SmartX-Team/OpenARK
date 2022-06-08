@@ -7,6 +7,7 @@ use ipis::core::{
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -50,7 +51,18 @@ pub struct BoxStatus {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 pub enum BoxState {
     New,
@@ -59,7 +71,57 @@ pub enum BoxState {
     Joining,
     Running,
     Disconnected,
+    Reconnecting,
     Missing,
+    Failed,
+    Resetting,
+}
+
+impl BoxState {
+    pub fn as_task(&self) -> Option<&'static str> {
+        match self {
+            Self::New => None,
+            Self::Commissioning => Some("commission"),
+            Self::Ready => None,
+            Self::Joining => Some("join"),
+            Self::Running => None,
+            Self::Disconnected => None,
+            Self::Reconnecting => Some("reconnect"),
+            Self::Missing => None,
+            Self::Failed => None,
+            Self::Resetting => Some("reset"),
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        match self {
+            Self::New => Self::Commissioning,
+            Self::Commissioning => Self::Commissioning,
+            Self::Ready => Self::Joining,
+            Self::Joining => Self::Joining,
+            Self::Running => Self::Running,
+            Self::Disconnected => Self::Reconnecting,
+            Self::Reconnecting => Self::Reconnecting,
+            Self::Missing => Self::Missing,
+            Self::Failed => Self::Resetting,
+            Self::Resetting => Self::Resetting,
+        }
+    }
+
+    pub fn complete(&self) -> Option<Self> {
+        match self {
+            Self::New => None,
+            Self::Commissioning => Some(Self::Ready),
+            Self::Ready => None,
+            Self::Joining => Some(Self::Running),
+            Self::Running => None,
+            Self::Disconnected => None,
+            Self::Reconnecting => None,
+            Self::Missing => None,
+            Self::Failed => None,
+            Self::Resetting => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

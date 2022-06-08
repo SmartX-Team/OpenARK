@@ -1,0 +1,113 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ansible-playbook
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: ansible-playbook
+    namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+rules:
+  - apiGroups:
+      - kiss.netai-cloud
+    resources:
+      - boxes
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ansible-playbook
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: ansible-playbook
+    namespace: kiss
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ansible-playbook
+  namespace: kiss
+data:
+  playbook.yaml: |
+    ---
+    - hosts: localhost
+      gather_facts: false
+      tasks:
+        - name: Set common facts
+          set_fact:
+            ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
+            box_state_completed: "{{ lookup('env', 'box_state_completed') }}"
+        - name: Add hosts
+          add_host:
+            ansible_host: "{{ lookup('env', 'ansible_host') }}"
+            ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
+            ansible_user: "{{ lookup('env', 'ansible_user') }}"
+            ansible_host_key_checking: false
+            ansible_ssh_host: "{{ lookup('env', 'ansible_ssh_host') }}"
+            ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
+            ansible_ssh_private_key_file: "{{ lookup('env', 'ansible_ssh_private_key_file') }}"
+            ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
+            name: "{{ lookup('env', 'ansible_host_id') }}"
+            groups:
+              - all
+              - flatcar
+    - hosts: flatcar
+      gather_facts: false
+      tasks:
+        - name: Set common facts
+          set_fact:
+            ansible_python_interpreter: /opt/bin/python
+            bin_dir: /opt/bin
+    - hosts: all
+      tasks:
+        - name: Execute the main task
+          include_tasks: tasks/main.yaml
+    - hosts: localhost
+      tasks:
+        - name: Update the box status
+          when: box_spec is defined
+          k8s:
+            api_version: kiss.netai-cloud/v1alpha1
+            kind: Box
+            name: "{{ ansible_host_id }}"
+            definition:
+              spec: {{ box_spec }}

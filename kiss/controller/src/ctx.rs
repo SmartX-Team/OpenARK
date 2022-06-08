@@ -7,10 +7,11 @@ use ipis::{
     log::info,
 };
 use kiss_api::{
+    ansible::AnsibleJob,
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
-        Api, Error, ResourceExt,
+        Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
     r#box::{BoxCrd, BoxState, BoxStatus},
@@ -31,24 +32,39 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
-        let client = manager.client.clone();
         let name = data.name();
         let status = data.status.as_ref();
-        let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(client);
+        let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(manager.kube.clone());
 
         let old_state = status
             .as_ref()
             .map(|status| status.state)
             .unwrap_or(BoxState::New);
-        let new_state = match old_state {
-            BoxState::New => BoxState::Commissioning,
-            BoxState::Commissioning => BoxState::Commissioning,
-            _ => todo!(),
-        };
+        let new_state = old_state.next();
+        let completed_state = new_state.complete();
 
+        // spawn an Ansible job
+        if old_state != new_state {
+            if let Some(task) = new_state.as_task() {
+                manager
+                    .ansible
+                    .spawn(
+                        &manager.kube,
+                        AnsibleJob {
+                            task,
+                            access: &data.spec.access,
+                            machine: &data.spec.machine,
+                            completed_state,
+                        },
+                    )
+                    .await?;
+            }
+        }
+
+        let crd = BoxCrd::api_resource();
         let patch = Patch::Apply(json!({
-            "apiVersion": "kiss.netai-cloud/v1alpha1",
-            "kind": "Box",
+            "apiVersion": crd.api_version,
+            "kind": crd.kind,
             "status": BoxStatus {
                 state: new_state,
                 last_updated: if old_state == new_state {
@@ -62,9 +78,11 @@ impl ::kiss_api::manager::Ctx for Ctx {
             },
         }));
         let pp = PatchParams::apply("kiss-controller").force();
-        let _o = api.patch_status(&name, &pp, &patch).await?;
+        api.patch_status(&name, &pp, &patch).await?;
 
-        info!("Reconciled Document {name:?}");
+        if old_state != new_state {
+            info!("Reconciled Document {name:?}");
+        }
 
         // If no events were received, check back every 30 minutes
         Ok(Action::requeue(Duration::from_secs(30 * 60)))

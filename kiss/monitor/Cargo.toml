@@ -1,11 +1,11 @@
 [package]
-name = "kiss-api"
+name = "kiss-monitor"
 version = "0.1.0"
 edition = "2021"
 
 authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of NetAI Cloud"
-documentation = "https://docs.rs/kiss-api"
+documentation = "https://docs.rs/kiss-runtime"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 readme = "../README.md"
 homepage = "https://github.com/ulagbulag-village/netai-cloud"
@@ -15,10 +15,4 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 
 [dependencies]
 ipis = { git = "https://github.com/ulagbulag-village/ipis" }
-kube = { version = "0.73", features = ["client", "derive", "runtime"] }
-k8s-openapi = { version = "0.15", features = ["v1_24"] }
-schemars = { version = "*", features = ["chrono", "derive", "uuid1"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.8"
-strum = { version = "0.24", features = ["derive"] }
+kiss-api = { path = "../api" }

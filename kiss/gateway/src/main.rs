@@ -11,8 +11,13 @@ use ipis::{
     logger,
 };
 use kiss_api::{
-    kube::{api::PostParams, core::ObjectMeta, Api, Client},
+    kube::{
+        api::{Patch, PatchParams, PostParams},
+        core::ObjectMeta,
+        Api, Client, CustomResourceExt,
+    },
     r#box::{BoxAccessSpec, BoxCrd, BoxMachineSpec, BoxSpec, BoxState, BoxStatus},
+    serde_json::json,
 };
 
 #[get("/")]
@@ -29,7 +34,7 @@ async fn health() -> impl Responder {
 async fn get_new(
     client: Data<Arc<Client>>,
     req: HttpRequest,
-    Query(hardware): Query<BoxMachineSpec>,
+    Query(machine): Query<BoxMachineSpec>,
 ) -> impl Responder {
     async fn try_handle(
         client: Data<Arc<Client>>,
@@ -39,35 +44,49 @@ async fn get_new(
         let api = Api::<BoxCrd>::all((***client).clone());
 
         let name = machine.uuid.to_string();
-        let data = BoxCrd {
-            metadata: ObjectMeta {
-                name: Some(name.clone()),
-                ..Default::default()
-            },
-            spec: BoxSpec {
-                access: BoxAccessSpec { address },
-                machine,
-                power: None,
-            },
-            status: Some(BoxStatus {
-                state: BoxState::New,
-                last_updated: Utc::now(),
-            }),
-        };
-        let pp = PostParams {
-            dry_run: false,
-            field_manager: Some("kiss-gateway".into()),
-        };
 
         match api.get(&name).await {
-            Ok(_) => api.replace(&name, &pp, &data).await.map(|_| ())?,
-            Err(_) => api.create(&pp, &data).await.map(|_| ())?,
+            Ok(_) => {
+                let crd = BoxCrd::api_resource();
+                let patch = Patch::Apply(json!({
+                    "apiVersion": crd.api_version,
+                    "kind": crd.kind,
+                    "status": BoxStatus {
+                        state: BoxState::New,
+                        last_updated: Utc::now(),
+                    },
+                }));
+                let pp = PatchParams::apply("kiss-controller").force();
+                api.patch_status(&name, &pp, &patch).await?;
+            }
+            Err(_) => {
+                let data = BoxCrd {
+                    metadata: ObjectMeta {
+                        name: Some(name.clone()),
+                        ..Default::default()
+                    },
+                    spec: BoxSpec {
+                        access: BoxAccessSpec { address },
+                        machine,
+                        power: None,
+                    },
+                    status: Some(BoxStatus {
+                        state: BoxState::New,
+                        last_updated: Utc::now(),
+                    }),
+                };
+                let pp = PostParams {
+                    dry_run: false,
+                    field_manager: Some("kiss-gateway".into()),
+                };
+                api.create(&pp, &data).await?;
+            }
         }
         Ok(())
     }
 
     if let Some(addr) = req.peer_addr() {
-        match try_handle(client, addr.ip(), hardware).await {
+        match try_handle(client, addr.ip(), machine).await {
             Ok(()) => HttpResponse::Ok().json("Ok"),
             Err(e) => {
                 warn!("failed to register a client: {e}");
