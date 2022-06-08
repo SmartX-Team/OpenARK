@@ -4,10 +4,10 @@ use std::sync::Arc;
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
-    log::info,
+    log::{info, warn},
 };
 use kiss_api::{
-    ansible::AnsibleJob,
+    ansible::{AnsibleClient, AnsibleJob},
     k8s_openapi::api::batch::v1::Job,
     kube::{
         api::{Patch, PatchParams},
@@ -39,6 +39,18 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         // when the ansible job is succeeded
         if status.and_then(|e| e.succeeded) == Some(1) {
+            let completed_state = match data
+                .annotations()
+                .get(AnsibleClient::ANNOTATION_COMPLETED_STATE)
+            {
+                Some(state) => state,
+                None => {
+                    warn!("cannot find the job's expected completed state: {name}");
+                    return Ok(Action::requeue(Duration::from_secs(30 * 60)));
+                }
+            };
+
+            dbg!(&completed_state);
             dbg!(&data);
             todo!()
         }

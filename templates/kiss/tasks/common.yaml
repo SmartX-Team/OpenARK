@@ -110,4 +110,4 @@ data:
             kind: Box
             name: "{{ ansible_host_id }}"
             definition:
-              spec: {{ box_spec }}
+              spec: "{{ box_spec }}"

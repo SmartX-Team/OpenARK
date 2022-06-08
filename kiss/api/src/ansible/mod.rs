@@ -14,6 +14,8 @@ use crate::r#box::{BoxAccessSpec, BoxMachineSpec, BoxState};
 pub struct AnsibleClient {}
 
 impl AnsibleClient {
+    pub const ANNOTATION_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
+
     pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<(), Error> {
         let ns = "kiss";
         let name = format!("box-{}-{}", &job.task, &job.machine.uuid);
@@ -28,6 +30,15 @@ impl AnsibleClient {
             metadata: ObjectMeta {
                 name: Some(name.clone()),
                 namespace: Some(ns.into()),
+                annotations: job
+                    .completed_state
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .map(|state| {
+                        vec![(Self::ANNOTATION_COMPLETED_STATE.into(), state)]
+                            .into_iter()
+                            .collect()
+                    }),
                 ..Default::default()
             },
             spec: Some(JobSpec {
@@ -77,11 +88,6 @@ impl AnsibleClient {
                                 EnvVar {
                                     name: "ansible_ipmi_password".into(),
                                     value: Some("kiss".into()),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "box_state_completed".into(),
-                                    value: job.completed_state.as_ref().map(ToString::to_string),
                                     ..Default::default()
                                 },
                             ]),
