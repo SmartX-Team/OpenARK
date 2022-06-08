@@ -1,4 +1,3 @@
-use core::time::Duration;
 use std::sync::Arc;
 
 use ipis::{
@@ -84,8 +83,10 @@ impl ::kiss_api::manager::Ctx for Ctx {
             info!("Reconciled Document {name:?}");
         }
 
-        // If no events were received, check back every 30 minutes
-        Ok(Action::requeue(Duration::from_secs(30 * 60)))
+        // If no events were received, check back after a few minutes
+        Ok(Action::requeue(
+            <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+        ))
     }
 
     fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action

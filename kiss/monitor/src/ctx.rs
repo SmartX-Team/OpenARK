@@ -1,22 +1,12 @@
-use core::time::Duration;
 use std::sync::Arc;
 
-use ipis::{
-    async_trait::async_trait,
-    core::{anyhow::Result, chrono::Utc},
-    log::{info, warn},
-};
+use ipis::{async_trait::async_trait, core::anyhow::Result, log::warn};
 use kiss_api::{
-    ansible::{AnsibleClient, AnsibleJob},
+    ansible::AnsibleClient,
     k8s_openapi::api::batch::v1::Job,
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, CustomResourceExt, Error, ResourceExt,
-    },
+    kube::{runtime::controller::Action, Api, Error, ResourceExt},
     manager::Manager,
     r#box::{BoxCrd, BoxState, BoxStatus},
-    serde_json::json,
 };
 
 #[derive(Default)]
@@ -46,7 +36,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 Some(state) => state,
                 None => {
                     warn!("cannot find the job's expected completed state: {name}");
-                    return Ok(Action::requeue(Duration::from_secs(30 * 60)));
+                    return Ok(Action::requeue(
+                        <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                    ));
                 }
             };
 
@@ -61,7 +53,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
         // when the ansible job is not finished yet
         else {
-            Ok(Action::requeue(Duration::from_secs(30 * 60)))
+            Ok(Action::requeue(
+                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+            ))
         }
     }
 

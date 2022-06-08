@@ -1,5 +1,5 @@
 use core::future::Future;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ipis::{
     async_trait::async_trait,
@@ -34,6 +34,8 @@ where
         Clone + ::core::fmt::Debug + Default + Eq + Unpin + ::core::hash::Hash,
 {
     type Data;
+
+    const FALLBACK: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
     async fn spawn() {
         logger::init_once();
