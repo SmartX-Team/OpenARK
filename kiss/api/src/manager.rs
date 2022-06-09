@@ -1,5 +1,5 @@
-use core::future::Future;
-use std::{sync::Arc, time::Duration};
+use core::{future::Future, time::Duration};
+use std::sync::Arc;
 
 use ipis::{
     async_trait::async_trait,

@@ -1,13 +1,13 @@
 use std::net::IpAddr;
 
 use ipis::core::{
-    chrono::{DateTime, Utc},
+    chrono::{DateTime, Duration, Utc},
     uuid::Uuid,
 };
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use strum::Display;
+use strum::{Display, EnumString};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -55,6 +55,7 @@ pub struct BoxStatus {
     Clone,
     Debug,
     Display,
+    EnumString,
     PartialEq,
     Eq,
     PartialOrd,
@@ -70,56 +71,90 @@ pub enum BoxState {
     Ready,
     Joining,
     Running,
-    Disconnected,
-    Reconnecting,
-    Missing,
     Failed,
-    Resetting,
+    Disconnected,
+    Missing,
 }
 
 impl BoxState {
-    pub fn as_task(&self) -> Option<&'static str> {
+    pub const fn as_task(&self) -> Option<&'static str> {
         match self {
             Self::New => None,
             Self::Commissioning => Some("commission"),
             Self::Ready => None,
             Self::Joining => Some("join"),
             Self::Running => None,
-            Self::Disconnected => None,
-            Self::Reconnecting => Some("reconnect"),
-            Self::Missing => None,
             Self::Failed => None,
-            Self::Resetting => Some("reset"),
+            Self::Disconnected => Some("reset"),
+            Self::Missing => None,
         }
     }
 
-    pub fn next(&self) -> Self {
+    pub const fn fallback(&self) -> Option<&'static str> {
+        match self {
+            Self::New => None,
+            Self::Commissioning => Some("commission"),
+            Self::Ready => None,
+            Self::Joining => Some("join"),
+            Self::Running => None,
+            Self::Failed => None,
+            Self::Disconnected => Some("reset"),
+            Self::Missing => None,
+        }
+    }
+
+    pub const fn next(&self) -> Self {
         match self {
             Self::New => Self::Commissioning,
             Self::Commissioning => Self::Commissioning,
             Self::Ready => Self::Joining,
             Self::Joining => Self::Joining,
             Self::Running => Self::Running,
-            Self::Disconnected => Self::Reconnecting,
-            Self::Reconnecting => Self::Reconnecting,
+            Self::Failed => Self::Disconnected,
+            Self::Disconnected => Self::Disconnected,
             Self::Missing => Self::Missing,
-            Self::Failed => Self::Resetting,
-            Self::Resetting => Self::Resetting,
         }
     }
 
-    pub fn complete(&self) -> Option<Self> {
+    pub fn timeout(&self) -> Option<Duration> {
+        let fallback_update = Duration::hours(2);
+        let fallback_disconnected = Duration::weeks(1);
+
+        match self {
+            Self::New => Some(fallback_update),
+            Self::Commissioning => Some(fallback_update),
+            Self::Ready => Some(fallback_update),
+            Self::Joining => Some(fallback_update),
+            Self::Running => None,
+            Self::Failed => Some(fallback_disconnected),
+            Self::Disconnected => Some(fallback_disconnected),
+            Self::Missing => None,
+        }
+    }
+
+    pub const fn complete(&self) -> Option<Self> {
         match self {
             Self::New => None,
             Self::Commissioning => Some(Self::Ready),
             Self::Ready => None,
             Self::Joining => Some(Self::Running),
             Self::Running => None,
-            Self::Disconnected => None,
-            Self::Reconnecting => None,
-            Self::Missing => None,
             Self::Failed => None,
-            Self::Resetting => None,
+            Self::Disconnected => None,
+            Self::Missing => None,
+        }
+    }
+
+    pub const fn fail(&self) -> Self {
+        match self {
+            Self::New => Self::Failed,
+            Self::Commissioning => Self::Failed,
+            Self::Ready => Self::Failed,
+            Self::Joining => Self::Failed,
+            Self::Running => Self::Disconnected,
+            Self::Failed => Self::Disconnected,
+            Self::Disconnected => Self::Missing,
+            Self::Missing => Self::Missing,
         }
     }
 }
@@ -134,6 +169,12 @@ pub struct BoxAccessSpec {
 #[serde(rename_all = "camelCase")]
 pub struct BoxMachineSpec {
     pub uuid: Uuid,
+}
+
+impl BoxMachineSpec {
+    pub fn hostname(&self) -> String {
+        format!("{}.box.kiss.netai-cloud", &self.uuid)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

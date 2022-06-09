@@ -6,7 +6,11 @@ use k8s_openapi::api::{
         PodSpec, PodTemplateSpec, SecretVolumeSource, Volume, VolumeMount,
     },
 };
-use kube::{api::PostParams, core::ObjectMeta, Api, Client, Error};
+use kube::{
+    api::{DeleteParams, ListParams, PostParams},
+    core::ObjectMeta,
+    Api, Client, Error,
+};
 
 use crate::r#box::{BoxAccessSpec, BoxMachineSpec, BoxState};
 
@@ -14,35 +18,54 @@ use crate::r#box::{BoxAccessSpec, BoxMachineSpec, BoxState};
 pub struct AnsibleClient {}
 
 impl AnsibleClient {
-    pub const ANNOTATION_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
+    pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
+    pub const LABEL_BOX_ACCESS_ADDRESS: &'static str = "kiss.netai-cloud/box_access_address";
+    pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
+    pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
 
     pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<(), Error> {
         let ns = "kiss";
-        let name = format!("box-{}-{}", &job.task, &job.machine.uuid);
-
+        let box_name = job.machine.uuid.to_string();
+        let name = format!("box-{}-{}", &job.task, &box_name);
         let api = Api::<Job>::namespaced(kube.clone(), ns);
-        if api.get(&name).await.is_ok() {
-            info!("job is already running: {name}");
-            return Ok(());
+
+        // delete all previous jobs
+        {
+            let dp = DeleteParams::background();
+            let lp = ListParams {
+                label_selector: Some(format!("{}={}", AnsibleClient::LABEL_BOX_NAME, &box_name)),
+                ..Default::default()
+            };
+            api.delete_collection(&dp, &lp).await?;
         }
 
         let job = Job {
             metadata: ObjectMeta {
                 name: Some(name.clone()),
                 namespace: Some(ns.into()),
-                annotations: job
-                    .completed_state
-                    .as_ref()
-                    .map(ToString::to_string)
-                    .map(|state| {
-                        vec![(Self::ANNOTATION_COMPLETED_STATE.into(), state)]
-                            .into_iter()
-                            .collect()
-                    }),
+                labels: Some(
+                    vec![
+                        Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
+                        Some((
+                            Self::LABEL_BOX_ACCESS_ADDRESS.into(),
+                            job.access.address.to_string(),
+                        )),
+                        Some((
+                            Self::LABEL_BOX_MACHINE_UUID.into(),
+                            job.machine.uuid.to_string(),
+                        )),
+                        job.completed_state
+                            .as_ref()
+                            .map(ToString::to_string)
+                            .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+                ),
                 ..Default::default()
             },
             spec: Some(JobSpec {
-                ttl_seconds_after_finished: None,
                 template: PodTemplateSpec {
                     spec: Some(PodSpec {
                         restart_policy: Some("Never".into()),
@@ -55,12 +78,12 @@ impl AnsibleClient {
                             env: Some(vec![
                                 EnvVar {
                                     name: "ansible_host".into(),
-                                    value: Some(format!("{}.box.kiss-cluster", &job.machine.uuid)),
+                                    value: Some(job.machine.hostname()),
                                     ..Default::default()
                                 },
                                 EnvVar {
                                     name: "ansible_host_id".into(),
-                                    value: Some(job.machine.uuid.to_string()),
+                                    value: Some(box_name.to_string()),
                                     ..Default::default()
                                 },
                                 EnvVar {
@@ -164,7 +187,7 @@ impl AnsibleClient {
 }
 
 pub struct AnsibleJob<'a> {
-    pub task: &'a str,
+    pub task: &'static str,
     pub access: &'a BoxAccessSpec,
     pub machine: &'a BoxMachineSpec,
     pub completed_state: Option<BoxState>,

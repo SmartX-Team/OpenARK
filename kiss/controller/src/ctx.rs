@@ -39,7 +39,18 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .as_ref()
             .map(|status| status.state)
             .unwrap_or(BoxState::New);
-        let new_state = old_state.next();
+        let mut new_state = old_state.next();
+
+        // capture the timeout
+        let now = Utc::now();
+        if let Some(last_updated) = status.map(|status| status.last_updated) {
+            if let Some(time_threshold) = old_state.timeout() {
+                if now > last_updated + time_threshold {
+                    // update the status
+                    new_state = old_state.fail();
+                }
+            }
+        }
         let completed_state = new_state.complete();
 
         // spawn an Ansible job
@@ -72,7 +83,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         .map(|status| status.last_updated)
                         .unwrap_or_else(Utc::now)
                 } else {
-                    Utc::now()
+                    now
                 },
             },
         }));
