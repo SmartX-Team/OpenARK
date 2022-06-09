@@ -1,6 +1,6 @@
 ---
-kind: Service
 apiVersion: v1
+kind: Service
 metadata:
   name: docker-registry
   namespace: kiss
@@ -8,8 +8,8 @@ spec:
   type: ExternalName
   externalName: docker-registry.kube-system
 ---
-kind: Service
 apiVersion: v1
+kind: Service
 metadata:
   name: docker-registry-proxy
   namespace: kiss

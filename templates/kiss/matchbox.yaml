@@ -152,9 +152,7 @@ data:
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
           "flatcar.config.url=http://matchbox.kiss.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
-          "flatcar.first_boot=yes",
-          "console=tty0",
-          "console=ttyS0"
+          "flatcar.first_boot=yes"
         ]
       },
       "ignition_id": "flatcar.yaml"
