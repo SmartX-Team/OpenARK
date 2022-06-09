@@ -118,7 +118,7 @@ data:
           mode: 0644
           contents:
             inline: unknown.box.kiss.netai-cloud
-        - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+        - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444
           contents:
@@ -151,6 +151,11 @@ data:
                 --volume $ANSIBLE_HOME:$ANSIBLE_HOME:rw \
                 --volume /:/rootfs:rw \
                 kerryeon/flatcar-python-kubernetes:latest python "${@:1}"
+      links:
+        - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+          target: /etc/systemd/system/notify-new-box.service
+          filesystem: root
+          hard: false
 ---
 apiVersion: v1
 kind: ConfigMap
