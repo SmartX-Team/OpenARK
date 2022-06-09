@@ -118,6 +118,24 @@ data:
           mode: 0644
           contents:
             inline: unknown.box.kiss.netai-cloud
+        - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              [Unit]
+              Description=Notify to the kiss cluster that a new (this) box has been appeared.
+
+              [Service]
+              Type=oneshot
+              ExecStart=/bin/bash -c " \
+                  ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '172\.20\.') ;\
+                  UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
+                  curl \"http://gateway.kiss.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
+              "
+
+              [Install]
+              WantedBy=multi-user.target
         - path: /opt/bin/python
           filesystem: root
           mode: 0555

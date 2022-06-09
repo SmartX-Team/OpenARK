@@ -1,9 +1,9 @@
-use std::{net::IpAddr, sync::Arc};
+use std::sync::Arc;
 
 use actix_web::{
     get,
     web::{Data, Query},
-    App, HttpRequest, HttpResponse, HttpServer, Responder,
+    App, HttpResponse, HttpServer, Responder,
 };
 use ipis::{
     core::{anyhow::Result, chrono::Utc},
@@ -16,7 +16,7 @@ use kiss_api::{
         core::ObjectMeta,
         Api, Client, CustomResourceExt,
     },
-    r#box::{BoxAccessSpec, BoxCrd, BoxMachineSpec, BoxSpec, BoxState, BoxStatus},
+    r#box::{request::BoxQuery, BoxCrd, BoxSpec, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -31,19 +31,11 @@ async fn health() -> impl Responder {
 }
 
 #[get("/new")]
-async fn get_new(
-    client: Data<Arc<Client>>,
-    req: HttpRequest,
-    Query(machine): Query<BoxMachineSpec>,
-) -> impl Responder {
-    async fn try_handle(
-        client: Data<Arc<Client>>,
-        address: IpAddr,
-        machine: BoxMachineSpec,
-    ) -> Result<()> {
+async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxQuery>) -> impl Responder {
+    async fn try_handle(client: Data<Arc<Client>>, query: BoxQuery) -> Result<()> {
         let api = Api::<BoxCrd>::all((***client).clone());
 
-        let name = machine.uuid.to_string();
+        let name = query.machine.uuid.to_string();
 
         match api.get(&name).await {
             Ok(_) => {
@@ -66,8 +58,8 @@ async fn get_new(
                         ..Default::default()
                     },
                     spec: BoxSpec {
-                        access: BoxAccessSpec { address },
-                        machine,
+                        access: query.access,
+                        machine: query.machine,
                         power: None,
                     },
                     status: Some(BoxStatus {
@@ -85,16 +77,12 @@ async fn get_new(
         Ok(())
     }
 
-    if let Some(addr) = req.peer_addr() {
-        match try_handle(client, addr.ip(), machine).await {
-            Ok(()) => HttpResponse::Ok().json("Ok"),
-            Err(e) => {
-                warn!("failed to register a client: {e}");
-                HttpResponse::Forbidden().json("Err")
-            }
+    match try_handle(client, query).await {
+        Ok(()) => HttpResponse::Ok().json("Ok"),
+        Err(e) => {
+            warn!("failed to register a client: {e}");
+            HttpResponse::Forbidden().json("Err")
         }
-    } else {
-        HttpResponse::Unauthorized().json("Empty address")
     }
 }
 

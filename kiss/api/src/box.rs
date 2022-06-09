@@ -98,19 +98,6 @@ impl BoxState {
         }
     }
 
-    pub const fn fallback(&self) -> Option<&'static str> {
-        match self {
-            Self::New => None,
-            Self::Commissioning => Some("commission"),
-            Self::Ready => None,
-            Self::Joining => Some("join"),
-            Self::Running => None,
-            Self::Failed => None,
-            Self::Disconnected => Some("reset"),
-            Self::Missing => None,
-        }
-    }
-
     pub const fn next(&self) -> Self {
         match self {
             Self::New => Self::Commissioning,
@@ -189,4 +176,16 @@ impl BoxMachineSpec {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BoxPowerSpec {
     IPMI { address: IpAddr },
+}
+
+pub mod request {
+    use super::*;
+
+    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    pub struct BoxQuery {
+        #[serde(flatten)]
+        pub access: BoxAccessSpec,
+        #[serde(flatten)]
+        pub machine: BoxMachineSpec,
+    }
 }

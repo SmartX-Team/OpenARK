@@ -78,7 +78,7 @@ impl AnsibleClient {
         let spec = JobSpec {
             template: PodTemplateSpec {
                 spec: Some(PodSpec {
-                    restart_policy: Some("Never".into()),
+                    restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
