@@ -113,6 +113,6 @@ where
         Self: Sized,
         E: ::std::fmt::Debug,
     {
-        Action::await_change()
+        Action::requeue(<Self as Ctx>::FALLBACK)
     }
 }

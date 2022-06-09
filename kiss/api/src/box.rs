@@ -83,10 +83,18 @@ impl BoxState {
             Self::Commissioning => Some("commission"),
             Self::Ready => None,
             Self::Joining => Some("join"),
-            Self::Running => None,
+            Self::Running => Some("ping"),
             Self::Failed => None,
             Self::Disconnected => Some("reset"),
             Self::Missing => None,
+        }
+    }
+
+    pub const fn cron(&self) -> Option<&'static str> {
+        match self {
+            // Self::Running => Some("0 * * * *"),
+            Self::Running => Some("@hourly"),
+            _ => None,
         }
     }
 

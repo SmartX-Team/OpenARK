@@ -61,6 +61,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     .spawn(
                         &manager.kube,
                         AnsibleJob {
+                            cron: new_state.cron(),
                             task,
                             access: &data.spec.access,
                             machine: &data.spec.machine,
@@ -98,13 +99,5 @@ impl ::kiss_api::manager::Ctx for Ctx {
         Ok(Action::requeue(
             <Self as ::kiss_api::manager::Ctx>::FALLBACK,
         ))
-    }
-
-    fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action
-    where
-        Self: Sized,
-        E: ::std::fmt::Debug,
-    {
-        Action::await_change()
     }
 }

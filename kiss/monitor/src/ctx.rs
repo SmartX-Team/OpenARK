@@ -9,7 +9,7 @@ use kiss_api::{
     ansible::AnsibleClient,
     k8s_openapi::api::batch::v1::Job,
     kube::{
-        api::{DeleteParams, Patch, PatchParams},
+        api::{Patch, PatchParams},
         runtime::controller::Action,
         Api, CustomResourceExt, Error, ResourceExt,
     },
@@ -44,13 +44,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         // when the ansible job is succeeded
         if has_completed {
-            let fallback_state = completed_state.fail();
-            match fallback_state {
-                BoxState::Failed => Self::update_box_state(manager, data, fallback_state).await,
-                // do nothing when the job has no fallback state
-                _ => Ok(Action::await_change()),
-            }
-            // Self::update_box_state(manager, data, completed_state).await
+            Self::update_box_state(manager, data, completed_state).await
         }
         // when the ansible job is failed
         else if has_failed {
@@ -58,21 +52,17 @@ impl ::kiss_api::manager::Ctx for Ctx {
             match fallback_state {
                 BoxState::Failed => Self::update_box_state(manager, data, fallback_state).await,
                 // do nothing when the job has no fallback state
-                _ => Ok(Action::await_change()),
+                _ => Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                )),
             }
         }
         // when the ansible job is not finished yet
         else {
-            Ok(Action::await_change())
+            Ok(Action::requeue(
+                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+            ))
         }
-    }
-
-    fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action
-    where
-        Self: Sized,
-        E: ::std::fmt::Debug,
-    {
-        Action::requeue(<Self as ::kiss_api::manager::Ctx>::FALLBACK)
     }
 }
 
@@ -85,24 +75,16 @@ impl Ctx {
     where
         Self: Sized,
     {
-        // delete the job
-        {
-            let ns = "kiss";
-            let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::namespaced(
-                manager.kube.clone(),
-                ns,
-            );
-
-            let dp = DeleteParams::background();
-            api.delete(&data.name(), &dp).await?;
-        }
-
         // update the box
         {
             let box_name: String = match Self::get_label(&data, AnsibleClient::LABEL_BOX_NAME).await
             {
                 Some(e) => e,
-                None => return Ok(Action::await_change()),
+                None => {
+                    return Ok(Action::requeue(
+                        <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                    ))
+                }
             };
 
             let api = Api::<BoxCrd>::all(manager.kube.clone());
@@ -119,7 +101,9 @@ impl Ctx {
             api.patch_status(&box_name, &pp, &patch).await?;
         }
 
-        Ok(Action::await_change())
+        Ok(Action::requeue(
+            <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+        ))
     }
 
     async fn get_label<T>(
