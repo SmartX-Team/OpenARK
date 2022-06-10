@@ -142,15 +142,27 @@ data:
           contents:
             inline: |
               #!/usr/bin/bash
-              HOME=$(eval echo ~$(logname))
+              set -e
 
-              ANSIBLE_HOME=$HOME/.ansible
-              mkdir -p $ANSIBLE_HOME
+              # provision a python binary
+              if [ ! -d /opt/python ]; then
+                  # download python image
+                  sudo docker create --name python_bootstrap python:3
 
-              docker run --rm -it --ipc=host --net=host --privileged \
-                --volume $ANSIBLE_HOME:$ANSIBLE_HOME:rw \
-                --volume /:/rootfs:rw \
-                kerryeon/flatcar-python-kubernetes:latest python "${@:1}"
+                  # copy the python binaries
+                  sudo docker cp python_bootstrap:/usr/local/bin /opt/python_tmp
+                  sudo docker cp python_bootstrap:/usr/local/lib /opt/python_tmp
+
+                  # move directory
+                  sudo rm -rf /opt/python && sudo mv /opt/python_tmp /opt/python
+
+                  # cleanup
+                  sudo docker rm python_bootstrap
+              fi
+
+              # execute python
+              export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/python/lib
+              exec /opt/python/python "${@:1}"
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service

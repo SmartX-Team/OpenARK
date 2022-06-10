@@ -10,6 +10,7 @@ data:
     - include_tasks: hostname.yaml
     - include_tasks: power.yaml
     - include_tasks: network.yaml
+    - include_tasks: storage.yaml
   hostname.yaml: |
     ---
     - name: Set machine hostname
@@ -73,3 +74,6 @@ data:
     - name: Get Network Interfaces
       debug:
         msg: "{{ netdev.stdout_lines }}"
+  storage.yaml: |
+    ---
+    []
