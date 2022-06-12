@@ -18,3 +18,8 @@ kubectl apply -f matchbox.yaml
 kubectl apply \
     -f commission.yaml \
     -f common.yaml
+
+# TODO: kiss proxy
+kubectl apply \
+    -f tmp/assets.yaml \
+    -f tmp/gateway.yaml

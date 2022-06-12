@@ -90,6 +90,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxQuery>) -> im
 async fn main() {
     async fn try_main() -> Result<()> {
         // Initialize kubernetes client
+        let addr = "0.0.0.0:8080";
         let client = Arc::new(Client::try_default().await?);
 
         // Start web server
@@ -100,8 +101,8 @@ async fn main() {
                 .service(health)
                 .service(get_new)
         })
-        .bind("0.0.0.0:8089")
-        .expect("failed to bind to 0.0.0.0:8089")
+        .bind(addr)
+        .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
         .shutdown_timeout(5)
         .run()
         .await

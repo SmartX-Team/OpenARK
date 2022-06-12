@@ -2,6 +2,7 @@
 members = [
     "ipwis-binding",
     "kiss/api",
+    "kiss/assets",
     "kiss/controller",
     "kiss/gateway",
     "kiss/monitor",

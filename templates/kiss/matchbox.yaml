@@ -107,10 +107,15 @@ data:
             inline: |
               {
                 "insecure-registries": [
-                  "docker-registry.kiss.netai-cloud"
+                  "registry.kiss.netai-cloud",
+                  "docker.registry.kiss.netai-cloud",
+                  "gcr.registry.kiss.netai-cloud",
+                  "github.registry.kiss.netai-cloud",
+                  "kube.registry.kiss.netai-cloud",
+                  "quay.registry.kiss.netai-cloud"
                 ],
                 "registry-mirrors": [
-                  "http://proxy.docker-registry.kiss.netai-cloud"
+                  "http://proxy.registry.kiss.netai-cloud"
                 ]
               }
         - path: /etc/hostname
@@ -163,6 +168,10 @@ data:
               # execute python
               export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/python/lib
               exec /opt/python/python "${@:1}"
+        - path: /opt/bin/.bootstrapped
+          filesystem: root
+          mode: 0444
+          contents: ""
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
@@ -180,9 +189,9 @@ data:
       "id": "flatcar",
       "name": "Flatcar Linux",
       "boot": {
-        "kernel": "/assets/flatcar/${buildarch}/flatcar_production_pxe.vmlinuz",
+        "kernel": "http://assets.kiss.netai-cloud/flatcar-${buildarch}/flatcar_production_pxe.vmlinuz",
         "initrd": [
-          "/assets/flatcar/${buildarch}/flatcar_production_pxe_image.cpio.gz"
+          "http://assets.kiss.netai-cloud/flatcar-${buildarch}/flatcar_production_pxe_image.cpio.gz"
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
@@ -216,53 +225,6 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: init-assets
-          image: curlimages/curl:latest
-          command:
-            - sh
-            - -c
-            - |
-              for arch_pair in $(echo ${OS_ARCHS}); do
-                arch_ipxe=$(echo ${arch_pair} | cut -d ':' -f 1)
-                arch_os=$(echo ${arch_pair} | cut -d ':' -f 2)
-
-                BASE_URL="https://${OS_CHANNEL}.release.flatcar-linux.net/${arch_os}-usr/${OS_VERSION}"
-                OUT_DIR="${ASSETS_DIR}/${GROUP_NAME}/${arch_ipxe}"
-                mkdir -p ${OUT_DIR}
-
-                for file in $(echo ${FILES}); do
-                  curl "${BASE_URL}/${file}" -o "${OUT_DIR}/${file}"
-                  curl "${BASE_URL}/${file}.sig" -o "${OUT_DIR}/${file}.sig"
-                done
-              done
-          env:
-            - name: ASSETS_DIR
-              value: /var/lib/matchbox/assets
-            - name: OS_ARCHS
-              value: >
-                x86_64:amd64
-              #  arm64:arm64
-            - name: OS_CHANNEL
-              value: stable
-            - name: OS_VERSION
-              value: current
-            - name: GROUP_NAME
-              value: flatcar
-            - name: FILES
-              value: >
-                flatcar_production_pxe.vmlinuz
-                flatcar_production_pxe_image.cpio.gz
-                flatcar_production_image.bin.bz2
-          resources:
-            requests:
-              cpu: 30m
-              memory: 20Mi
-            limits:
-              cpu: 50m
-              memory: 50Mi
-          volumeMounts:
-            - name: assets
-              mountPath: /var/lib/matchbox/assets
         - name: init-data
           image: ubuntu:rolling
           command:
@@ -322,8 +284,6 @@ spec:
               cpu: 50m
               memory: 50Mi
           volumeMounts:
-            - name: assets
-              mountPath: /var/lib/matchbox/assets
             - name: boot
               mountPath: /var/lib/matchbox/assets/boot
             - name: groups
@@ -333,8 +293,6 @@ spec:
             - name: profiles
               mountPath: /var/lib/matchbox/profiles
       volumes:
-        - name: assets
-          emptyDir: {}
         - name: boot
           configMap:
             name: matchbox-boot

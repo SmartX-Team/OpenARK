@@ -1,11 +1,11 @@
 [package]
-name = "kiss-gateway"
+name = "kiss-assets"
 version = "0.1.0"
 edition = "2021"
 
 authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of NetAI Cloud"
-documentation = "https://docs.rs/kiss-gateway"
+documentation = "https://docs.rs/kiss-runtime"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 readme = "../README.md"
 homepage = "https://github.com/ulagbulag-village/netai-cloud"
@@ -18,3 +18,7 @@ ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 kiss-api = { path = "../api" }
 
 actix-web = "4.0"
+http-cache-reqwest = "0.4"
+mime = "0.3"
+reqwest = { version = "0.11", features = ["stream"] }
+reqwest-middleware = "0.1"

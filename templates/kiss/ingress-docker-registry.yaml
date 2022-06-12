@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: docker-registry
+  name: registry
   namespace: kiss
 spec:
   type: ExternalName
@@ -11,7 +11,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: docker-registry-proxy
+  name: registry-proxy
   namespace: kiss
 spec:
   type: ExternalName
@@ -20,7 +20,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: docker-registry
+  name: registry
   namespace: kiss
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -29,21 +29,21 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 spec:
   rules:
-    - host: docker-registry.kiss.netai-cloud
+    - host: registry.kiss.netai-cloud
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: docker-registry
+                name: registry
                 port:
                   number: 80
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: docker-registry-proxy
+  name: registry-proxy
   namespace: kiss
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -52,13 +52,13 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 spec:
   rules:
-    - host: proxy.docker-registry.kiss.netai-cloud
+    - host: proxy.registry.kiss.netai-cloud
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: docker-registry-proxy
+                name: registry-proxy
                 port:
                   number: 80

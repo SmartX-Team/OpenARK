@@ -6,3 +6,4 @@ pub extern crate serde_yaml;
 pub mod ansible;
 pub mod r#box;
 pub mod manager;
+pub mod proxy;
