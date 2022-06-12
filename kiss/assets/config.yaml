@@ -1,24 +1,5 @@
 sites:
-  # registries
-  - name: docker-registry
-    host: https://docker.io/
-  - name: gcr-registry
-    host: https://gcr.io/
-  - name: github-registry
-    host: https://ghcr.io/
-  - name: kube-registry
-    host: https://registry.k8s.io/
-  - name: quay-registry
-    host: https://quay.io/
-
-  # static files
   - name: flatcar-arm64
     host: https://stable.release.flatcar-linux.net/arm64-usr/current/
   - name: flatcar-x86_64
     host: https://stable.release.flatcar-linux.net/amd64-usr/current/
-  - name: google-storage
-    host: https://storage.googleapis.com/
-  - name: github
-    host: https://github.com/
-  - name: helm
-    host: https://get.helm.sh/

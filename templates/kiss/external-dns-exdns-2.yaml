@@ -1,7 +1,0 @@
-domain: kiss.netai-cloud
-secondary: kiss-exdns-1-k8s-gateway.kiss
-
-service:
-  annotations:
-    metallb.universe.tf/address-pool: kiss_dns
-  loadBalancerIP: 172.20.128.2

@@ -87,6 +87,14 @@ metadata:
 data:
   flatcar.yaml: |
     ---
+    ignition:
+      proxy:
+        httpProxy: socks5h://172.20.128.64
+        httpsProxy: socks5h://172.20.128.64
+        noProxy:
+          - 127.0.0.0/8
+          - 172.0.0.0/8
+          - 192.0.0.0/8
     passwd:
       users:
         - name: ENV_USERNAME
@@ -107,15 +115,7 @@ data:
             inline: |
               {
                 "insecure-registries": [
-                  "registry.kiss.netai-cloud",
-                  "docker.registry.kiss.netai-cloud",
-                  "gcr.registry.kiss.netai-cloud",
-                  "github.registry.kiss.netai-cloud",
-                  "kube.registry.kiss.netai-cloud",
-                  "quay.registry.kiss.netai-cloud"
-                ],
-                "registry-mirrors": [
-                  "http://proxy.registry.kiss.netai-cloud"
+                  "registry.kiss.netai-cloud"
                 ]
               }
         - path: /etc/hostname
@@ -171,12 +171,27 @@ data:
         - path: /opt/bin/.bootstrapped
           filesystem: root
           mode: 0444
-          contents: ""
+          contents:
+            inline: ""
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
           filesystem: root
           hard: false
+    systemd:
+      units:
+        - name: docker.service
+          enable: true
+          dropins:
+            - name: 20-http-proxy.conf
+              contents: |
+                [Service]
+                Environment="HTTP_PROXY=socks5://172.20.128.64"
+                Environment="HTTPS_PROXY=socks5://172.20.128.64"
+            - name: 30-increase-ulimit.conf
+              contents: |
+                [Service]
+                LimitMEMLOCK=infinity
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -226,7 +241,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-data
-          image: ubuntu:rolling
+          image: docker.io/ubuntu:rolling
           command:
             - bash
             - -c
@@ -284,6 +299,8 @@ spec:
               cpu: 50m
               memory: 50Mi
           volumeMounts:
+            - name: assets
+              mountPath: /var/lib/matchbox/assets
             - name: boot
               mountPath: /var/lib/matchbox/assets/boot
             - name: groups
@@ -293,6 +310,8 @@ spec:
             - name: profiles
               mountPath: /var/lib/matchbox/profiles
       volumes:
+        - name: assets
+          emptyDir: {}
         - name: boot
           configMap:
             name: matchbox-boot

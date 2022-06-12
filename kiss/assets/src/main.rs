@@ -80,13 +80,7 @@ async fn resolve(
 
                     let mut builder = HttpResponse::build(status);
                     for (key, value) in res.headers() {
-                        match key.as_str() {
-                            "docker-content-digest" => {}
-                            _ => {
-                                dbg!(key, value);
-                                builder.append_header((key, value));
-                            }
-                        }
+                        builder.append_header((key, value));
                     }
                     builder.streaming(res.bytes_stream())
                 }
