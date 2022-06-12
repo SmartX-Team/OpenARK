@@ -3,3 +3,9 @@ sites:
     host: https://stable.release.flatcar-linux.net/arm64-usr/
   - name: flatcar-x86_64
     host: https://stable.release.flatcar-linux.net/amd64-usr/
+  - name: github
+    host: https://github.com/
+  - name: google-storage
+    host: https://storage.googleapis.com/
+  - name: helm
+    host: https://get.helm.sh/
