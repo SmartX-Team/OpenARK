@@ -206,6 +206,7 @@ data:
                 [Service]
                 Environment="HTTP_PROXY=http://proxy.kiss.netai-cloud:1080"
                 Environment="HTTPS_PROXY=http://proxy.kiss.netai-cloud:1080"
+                Environment="NO_PROXY=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud"
             - name: 30-increase-ulimit.conf
               contents: |
                 [Service]
