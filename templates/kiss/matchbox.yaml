@@ -89,12 +89,13 @@ data:
     ---
     ignition:
       proxy:
-        httpProxy: socks5h://172.20.128.64
-        httpsProxy: socks5h://172.20.128.64
+        httpProxy: http://proxy.kiss.netai-cloud:1080
+        httpsProxy: http://proxy.kiss.netai-cloud:1080
         noProxy:
           - 127.0.0.0/8
           - 172.0.0.0/8
           - 192.0.0.0/8
+          - .netai-cloud
     passwd:
       users:
         - name: ENV_USERNAME
@@ -128,9 +129,9 @@ data:
           mode: 0555
           contents:
             inline: |
-              export ALL_PROXY=socks5h://172.20.128.64
-              export HTTP_PROXY=$ALL_PROXY
-              export HTTPS_PROXY=$ALL_PROXY
+              export HTTP_PROXY=http://proxy.kiss.netai-cloud:1080
+              export HTTPS_PROXY=$HTTP_PROXY
+              export NO_PROXY=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444
@@ -149,6 +150,15 @@ data:
 
               [Install]
               WantedBy=multi-user.target
+        - path: /etc/wgetrc
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              use_proxy=yes
+              http_proxy=http://proxy.kiss.netai-cloud:1080
+              https_proxy=$HTTP_PROXY
+              no_proxy=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud
         - path: /opt/bin/python
           filesystem: root
           mode: 0555
@@ -194,8 +204,8 @@ data:
             - name: 20-http-proxy.conf
               contents: |
                 [Service]
-                Environment="HTTP_PROXY=socks5://172.20.128.64"
-                Environment="HTTPS_PROXY=socks5://172.20.128.64"
+                Environment="HTTP_PROXY=http://proxy.kiss.netai-cloud:1080"
+                Environment="HTTPS_PROXY=http://proxy.kiss.netai-cloud:1080"
             - name: 30-increase-ulimit.conf
               contents: |
                 [Service]
@@ -212,9 +222,9 @@ data:
       "id": "flatcar",
       "name": "Flatcar Linux",
       "boot": {
-        "kernel": "http://assets.kiss.netai-cloud/flatcar-${buildarch}/flatcar_production_pxe.vmlinuz",
+        "kernel": "http://assets.kiss.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
         "initrd": [
-          "http://assets.kiss.netai-cloud/flatcar-${buildarch}/flatcar_production_pxe_image.cpio.gz"
+          "http://assets.kiss.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",

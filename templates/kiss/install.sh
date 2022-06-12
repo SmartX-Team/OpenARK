@@ -23,4 +23,4 @@ kubectl apply \
 kubectl apply \
     -f tmp/assets.yaml \
     -f tmp/gateway.yaml \
-    -f socks5_proxy.yaml
+    -f http_proxy.yaml

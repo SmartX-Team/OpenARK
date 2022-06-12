@@ -16,7 +16,6 @@ metadata:
   namespace: kiss
 data:
   ns1: "172.20.128.1"
-  ns2: "172.20.128.2"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -59,7 +58,7 @@ spec:
             - --dhcp-boot=tag:efi_arm64,ipxe.efi
             - --dhcp-userclass=set:ipxe,iPXE
             - --dhcp-boot=tag:ipxe,http://matchbox.kiss.netai-cloud/assets/boot/boot.ipxe
-            - --dhcp-option=6,$(DNS_IPV4_NS1),$(DNS_IPV4_NS2)
+            - --dhcp-option=6,$(DNS_IPV4_NS1)
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
             - --port=0
             - --bind-dynamic
@@ -71,11 +70,6 @@ spec:
                 configMapKeyRef:
                   name: dnsmasq-external-dns
                   key: ns1
-            - name: DNS_IPV4_NS2
-              valueFrom:
-                configMapKeyRef:
-                  name: dnsmasq-external-dns
-                  key: ns2
             - name: DHCP_RANGE_IPV4_BEGIN
               valueFrom:
                 configMapKeyRef:
