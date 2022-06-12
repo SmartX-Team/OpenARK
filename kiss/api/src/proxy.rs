@@ -29,11 +29,18 @@ impl ProxyConfig {
         }
     }
 
-    pub fn search(&self, site: &str, path: &str) -> Result<String> {
+    pub fn search(&self, site: &str, path: &str, query: &str) -> Result<String> {
         self.sites
             .iter()
             .find(|s| s.name == site)
-            .map(|s| format!("{}{path}", &s.host))
+            .map(|s| {
+                let host = &s.host;
+                if query.is_empty() {
+                    format!("{host}{path}")
+                } else {
+                    format!("{host}{path}?{query}")
+                }
+            })
             .ok_or_else(|| anyhow!("failed to find the site: {site}"))
     }
 }
