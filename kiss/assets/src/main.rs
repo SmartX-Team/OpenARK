@@ -5,6 +5,7 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use ipis::{
     futures::StreamExt,
     log::{info, warn},
@@ -15,6 +16,7 @@ use reqwest::{
     header::{HeaderName, HOST, ORIGIN, REFERER},
     Client, Method,
 };
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -30,7 +32,7 @@ async fn resolve(
     req: HttpRequest,
     method: Method,
     mut payload: Payload,
-    client: Data<Client>,
+    client: Data<ClientWithMiddleware>,
     config: Data<Arc<ProxyConfig>>,
     path: Path<(String, String)>,
 ) -> impl Responder {
@@ -75,6 +77,7 @@ async fn resolve(
 
             match builder.send().await {
                 Ok(res) => {
+                    let content_length = res.content_length();
                     let status = res.status();
                     info!("[{method}] {path:?} => {status}");
 
@@ -82,6 +85,10 @@ async fn resolve(
                     for (key, value) in res.headers() {
                         builder.append_header((key, value));
                     }
+                    if let Some(content_length) = content_length {
+                        builder.no_chunking(content_length);
+                    }
+
                     builder.streaming(res.bytes_stream())
                 }
                 Err(e) => {
@@ -101,7 +108,13 @@ async fn main() {
         let config = Arc::new(ProxyConfig::load().await?);
 
         // Initialize cache client
-        let client = Client::new();
+        let client = ClientBuilder::new(Client::new())
+            .with(Cache(HttpCache {
+                mode: CacheMode::Default,
+                manager: CACacheManager::default(),
+                options: None,
+            }))
+            .build();
 
         // Start web server
         HttpServer::new(move || {
