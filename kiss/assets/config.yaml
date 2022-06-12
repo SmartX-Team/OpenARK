@@ -1,5 +1,5 @@
 sites:
   - name: flatcar-arm64
-    host: https://stable.release.flatcar-linux.net/arm64-usr/current/
+    host: https://stable.release.flatcar-linux.net/arm64-usr/
   - name: flatcar-x86_64
-    host: https://stable.release.flatcar-linux.net/amd64-usr/current/
+    host: https://stable.release.flatcar-linux.net/amd64-usr/
