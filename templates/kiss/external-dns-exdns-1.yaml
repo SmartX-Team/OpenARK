@@ -5,6 +5,6 @@ service:
     metallb.universe.tf/address-pool: kiss_dns
   loadBalancerIP: 172.20.128.1
 
-sources:
-  - ingress
-  - service
+watchedResources:
+  - Ingress
+  - Service

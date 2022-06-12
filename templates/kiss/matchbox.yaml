@@ -123,6 +123,14 @@ data:
           mode: 0644
           contents:
             inline: unknown.box.kiss.netai-cloud
+        - path: /etc/profile.d/proxy.sh
+          filesystem: root
+          mode: 0555
+          contents:
+            inline: |
+              export ALL_PROXY=socks5h://172.20.128.64
+              export HTTP_PROXY=$ALL_PROXY
+              export HTTPS_PROXY=$ALL_PROXY
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444

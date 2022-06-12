@@ -49,7 +49,7 @@ metadata:
   namespace: kiss
   annotations:
     metallb.universe.tf/address-pool: kiss_proxy
-    external-dns.alpha.kubernetes.io/hostname: socks5.kiss.netai-cloud
+    coredns.io/hostname: socks5.kiss.netai-cloud
 spec:
   type: LoadBalancer
   selector:

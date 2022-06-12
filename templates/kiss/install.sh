@@ -22,4 +22,5 @@ kubectl apply \
 # TODO: kiss proxy
 kubectl apply \
     -f tmp/assets.yaml \
-    -f tmp/gateway.yaml
+    -f tmp/gateway.yaml \
+    -f socks5_proxy.yaml
