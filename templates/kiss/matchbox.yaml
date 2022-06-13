@@ -174,11 +174,11 @@ data:
               case $ARCH in
                 "x86_64")
                   PYPY_ARCH=linux64
-                  PYPI_HASH=d7a91f179076aaa28115ffc0a81e46c6a787785b2bc995c926fe3b02f0e9ad83
+                  PYPI_HASH=46818cb3d74b96b34787548343d266e2562b531ddbaf330383ba930ff1930ed5
                   ;;
                 "aarch64")
                   PYPY_ARCH=aarch64
-                  PYPI_HASH=164d6a0503c83dd328e1a6bf7fcb2b2e977c1d27c6fcc491a7174fd37bc32a12
+                  PYPI_HASH=2e1ae193d98bc51439642a7618d521ea019f45b8fb226940f7e334c548d2b4b9
                   ;;
                 *)
                   echo "Unsupported Architecture: ${ARCH}"
