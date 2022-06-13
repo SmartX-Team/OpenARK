@@ -150,6 +150,13 @@ data:
 
               [Install]
               WantedBy=multi-user.target
+        - path: /etc/systemd/timesyncd.conf
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              [Time]
+              NTP=ntp.kiss.netai-cloud
         - path: /etc/wgetrc
           filesystem: root
           mode: 0444

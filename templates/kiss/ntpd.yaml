@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntpd
+  namespace: kiss
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: ntpd
+  template:
+    metadata:
+      labels:
+        name: ntpd
+    spec:
+      hostNetwork: true
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ntpd
+          image: docker.io/cturra/ntp:latest
+          ports:
+            - name: ntp
+              protocol: UDP
+              containerPort: 123
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ntpd
+  namespace: kiss
+  annotations:
+    metallb.universe.tf/address-pool: kiss_ntp
+    coredns.io/hostname: ntp.kiss.netai-cloud
+spec:
+  type: LoadBalancer
+  selector:
+    name: ntpd
+  ports:
+    - name: ntp
+      protocol: UDP
+      port: 123
+      targetPort: 123
+  loadBalancerIP: 172.20.128.128

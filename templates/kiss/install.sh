@@ -23,4 +23,5 @@ kubectl apply \
 kubectl apply \
     -f tmp/assets.yaml \
     -f tmp/gateway.yaml \
-    -f http_proxy.yaml
+    -f http_proxy.yaml \
+    -f ntpd.yaml
