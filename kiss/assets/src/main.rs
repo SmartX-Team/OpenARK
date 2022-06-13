@@ -89,7 +89,12 @@ async fn resolve(
                         builder.no_chunking(content_length);
                     }
 
-                    builder.streaming(res.bytes_stream())
+                    // the response is already cached
+                    match res.bytes().await {
+                        Ok(body) => builder.body(body),
+                        Err(e) => HttpResponse::Forbidden()
+                            .body(format!("failed to download from url {path:?}: {e}")),
+                    }
                 }
                 Err(e) => {
                     HttpResponse::Forbidden().body(format!("failed to find the url {path:?}: {e}"))
