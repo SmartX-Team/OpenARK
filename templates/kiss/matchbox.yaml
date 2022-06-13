@@ -157,7 +157,7 @@ data:
             inline: |
               use_proxy=yes
               http_proxy=http://proxy.kiss.netai-cloud:1080
-              https_proxy=$HTTP_PROXY
+              https_proxy=http://proxy.kiss.netai-cloud:1080
               no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
@@ -165,27 +165,43 @@ data:
           contents:
             inline: |
               #!/usr/bin/bash
+              # origin: https://github.com/kubernetes-sigs/kubespray/blob/release-2.19/roles/bootstrap-os/files/bootstrap.sh
               set -e
 
+              ARCH=$(uname -m)
+              BINDIR="/opt/bin"
+
+              case $ARCH in
+                "x86_64")
+                  PYPY_ARCH=linux64
+                  PYPI_HASH=d7a91f179076aaa28115ffc0a81e46c6a787785b2bc995c926fe3b02f0e9ad83
+                  ;;
+                "aarch64")
+                  PYPY_ARCH=aarch64
+                  PYPI_HASH=164d6a0503c83dd328e1a6bf7fcb2b2e977c1d27c6fcc491a7174fd37bc32a12
+                  ;;
+                *)
+                  echo "Unsupported Architecture: ${ARCH}"
+                  exit 1
+              esac
+
+              PYTHON_VERSION=3.6
+              PYPY_VERSION=7.3.2
+              PYPY_FILENAME="pypy${PYTHON_VERSION}-v${PYPY_VERSION}-${PYPY_ARCH}"
+              PYPI_URL="https://downloads.python.org/pypy/${PYPY_FILENAME}.tar.bz2"
+
               # provision a python binary
-              if [ ! -d /opt/python ]; then
-                  # download python image
-                  sudo docker create --name python_bootstrap python:3
-
-                  # copy the python binaries
-                  sudo docker cp python_bootstrap:/usr/local/bin /opt/python_tmp
-                  sudo docker cp python_bootstrap:/usr/local/lib /opt/python_tmp
-
-                  # move directory
-                  sudo rm -rf /opt/python && sudo mv /opt/python_tmp /opt/python
-
-                  # cleanup
-                  sudo docker rm python_bootstrap
+              if [[ ! -e /opt/pypy3/bin/pypy3 ]]; then
+                TAR_FILE="${BINDIR}/pyp.tar.bz2"
+                sudo wget -O "${TAR_FILE}" "${PYPI_URL}"
+                echo "${PYPI_HASH} ${TAR_FILE}" | sha256sum -c -
+                sudo tar -xjf "${TAR_FILE}" && sudo rm "${TAR_FILE}"
+                sudo mv -n "${PYPY_FILENAME}" "${BINDIR}/../pypy3"
               fi
 
               # execute python
-              export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/python/lib
-              exec /opt/python/python "${@:1}"
+              export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/pypy3/lib
+              exec /opt/pypy3/bin/pypy3 "${@:1}"
         - path: /opt/bin/.bootstrapped
           filesystem: root
           mode: 0444

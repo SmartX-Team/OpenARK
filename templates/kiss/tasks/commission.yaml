@@ -52,7 +52,7 @@ data:
         docker run --rm
         --device /dev/ipmi0:/dev/ipmi0:rw 
         docker.io/mikeynap/ipmitool
-        user set password 9 'kiss'
+        user set password 9 'kiss.netai-cloud'
 
     - name: Enable IPMI user 9
       when: ipmi.stat.exists
