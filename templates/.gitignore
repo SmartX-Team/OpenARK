@@ -1,5 +1,3 @@
 /commission.sh
-/docker-registry
-/ingress-nginx
 /kubespray
 /lets-encrypt

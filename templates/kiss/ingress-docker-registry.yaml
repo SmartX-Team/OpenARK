@@ -8,15 +8,6 @@ spec:
   type: ExternalName
   externalName: docker-registry.kube-system
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: registry-proxy
-  namespace: kiss
-spec:
-  type: ExternalName
-  externalName: docker-registry-proxy.kube-system
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -37,28 +28,5 @@ spec:
             backend:
               service:
                 name: registry
-                port:
-                  number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: registry-proxy
-  namespace: kiss
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-spec:
-  rules:
-    - host: proxy.registry.kiss.netai-cloud
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: registry-proxy
                 port:
                   number: 80
