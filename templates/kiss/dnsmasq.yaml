@@ -68,8 +68,8 @@ spec:
             - --dhcp-boot=tag:bios,undionly.kpxe
             # - --dhcp-match=set:efi-i386,option:client-arch,6
             # - --dhcp-boot=tag:efi-i386,ipxe-i386.efi
-            # - --dhcp-match=set:efi-bc,option:client-arch,7
-            # - --dhcp-boot=tag:efi-bc,ipxe-i386.efi
+            - --dhcp-match=set:efi-bc,option:client-arch,7
+            - --dhcp-boot=tag:efi-bc,ipxe-x86_64.efi
             - --dhcp-match=set:efi-x86_64,option:client-arch,9
             - --dhcp-boot=tag:efi-x86_64,ipxe-x86_64.efi
             - --dhcp-match=set:efi-arm64,option:client-arch,11
