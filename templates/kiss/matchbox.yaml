@@ -131,7 +131,7 @@ data:
             inline: |
               export HTTP_PROXY=http://proxy.kiss.netai-cloud:1080
               export HTTPS_PROXY=$HTTP_PROXY
-              export NO_PROXY=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud
+              export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444
@@ -158,7 +158,7 @@ data:
               use_proxy=yes
               http_proxy=http://proxy.kiss.netai-cloud:1080
               https_proxy=$HTTP_PROXY
-              no_proxy=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud
+              no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
           mode: 0555
@@ -206,7 +206,7 @@ data:
                 [Service]
                 Environment="HTTP_PROXY=http://proxy.kiss.netai-cloud:1080"
                 Environment="HTTPS_PROXY=http://proxy.kiss.netai-cloud:1080"
-                Environment="NO_PROXY=10.0.0.0/8,172.0.0.0/8,192.0.0.0/8,.netai-cloud"
+                Environment="NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain"
             - name: 30-increase-ulimit.conf
               contents: |
                 [Service]
