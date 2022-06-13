@@ -279,6 +279,7 @@ spec:
           image: docker.io/ubuntu:rolling
           command:
             - bash
+          args:
             - -c
             - |
               cp /var/lib/matchbox/ignition-raw/*.yaml /var/lib/matchbox/ignition/

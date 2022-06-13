@@ -39,6 +39,24 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: init-tftpboot
+          image: docker.io/kerryeon/ipxe:latest
+          command:
+            - bash
+          args:
+            - -c
+            - cp /ipxe/* /var/lib/tftpboot
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          volumeMounts:
+            - name: tftpboot
+              mountPath: /var/lib/tftpboot
       containers:
         - name: dnsmasq
           image: quay.io/poseidon/dnsmasq:latest
@@ -48,14 +66,14 @@ spec:
             - --tftp-root=/var/lib/tftpboot
             - --dhcp-match=set:bios,option:client-arch,0
             - --dhcp-boot=tag:bios,undionly.kpxe
-            - --dhcp-match=set:efi_x86,option:client-arch,6
-            - --dhcp-boot=tag:efi_x86,ipxe.efi
-            - --dhcp-match=set:efi_bc,option:client-arch,7
-            - --dhcp-boot=tag:efi_bc,ipxe.efi
-            - --dhcp-match=set:efi_amd64,option:client-arch,9
-            - --dhcp-boot=tag:efi_amd64,ipxe.efi
-            - --dhcp-match=set:efi_arm64,option:client-arch,11
-            - --dhcp-boot=tag:efi_arm64,ipxe.efi
+            # - --dhcp-match=set:efi-i386,option:client-arch,6
+            # - --dhcp-boot=tag:efi-i386,ipxe-i386.efi
+            # - --dhcp-match=set:efi-bc,option:client-arch,7
+            # - --dhcp-boot=tag:efi-bc,ipxe-i386.efi
+            - --dhcp-match=set:efi-x86_64,option:client-arch,9
+            - --dhcp-boot=tag:efi-x86_64,ipxe-x86_64.efi
+            - --dhcp-match=set:efi-arm64,option:client-arch,11
+            - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             - --dhcp-userclass=set:ipxe,iPXE
             - --dhcp-boot=tag:ipxe,http://matchbox.kiss.netai-cloud/assets/boot/boot.ipxe
             - --dhcp-option=6,$(DNS_IPV4_NS1)
@@ -100,3 +118,9 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+          volumeMounts:
+            - name: tftpboot
+              mountPath: /var/lib/tftpboot
+      volumes:
+        - name: tftpboot
+          emptyDir: {}
