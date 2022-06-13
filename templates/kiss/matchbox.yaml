@@ -185,8 +185,8 @@ data:
                   exit 1
               esac
 
-              PYTHON_VERSION=3.6
-              PYPY_VERSION=7.3.2
+              PYTHON_VERSION=3.9
+              PYPY_VERSION=7.3.9
               PYPY_FILENAME="pypy${PYTHON_VERSION}-v${PYPY_VERSION}-${PYPY_ARCH}"
               PYPI_URL="https://downloads.python.org/pypy/${PYPY_FILENAME}.tar.bz2"
 
