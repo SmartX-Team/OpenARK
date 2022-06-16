@@ -124,6 +124,14 @@ data:
           mode: 0644
           contents:
             inline: unknown.box.kiss.netai-cloud
+        - path: /etc/modules-load.d/driver.conf
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              loop
+              i2c_core
+              ipmi_msghandler
         - path: /etc/profile.d/proxy.sh
           filesystem: root
           mode: 0555
@@ -147,6 +155,8 @@ data:
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
                   curl \"http://gateway.kiss.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
               "
+              Restart=on-failure
+              RestartSec=30
 
               [Install]
               WantedBy=multi-user.target
@@ -253,7 +263,10 @@ data:
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
           "flatcar.config.url=http://matchbox.kiss.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
-          "flatcar.first_boot=yes"
+          "flatcar.first_boot=yes",
+          "flatcar.autologin",
+          "console=tty0",
+          "console=ttyS0"
         ]
       },
       "ignition_id": "flatcar.yaml"

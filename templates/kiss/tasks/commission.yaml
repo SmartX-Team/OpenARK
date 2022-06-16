@@ -52,7 +52,7 @@ data:
         docker run --rm
         --device /dev/ipmi0:/dev/ipmi0:rw 
         docker.io/mikeynap/ipmitool
-        user set password 9 'kiss.netai-cloud'
+        user set password 9 'kiss.netaiCloud'
 
     - name: Enable IPMI user 9
       when: ipmi.stat.exists
@@ -71,6 +71,15 @@ data:
         --device /dev/ipmi0:/dev/ipmi0:rw 
         docker.io/mikeynap/ipmitool
         channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
+
+    - name: Change boot order to PXE-first
+      when: ipmi.stat.exists
+      become: true
+      shell: >
+        docker run --rm
+        --device /dev/ipmi0:/dev/ipmi0:rw 
+        docker.io/mikeynap/ipmitool
+        chassis bootparam set bootdev force_pxe
 
     - name: Change boot order to PXE-first
       when: ipmi.stat.exists
