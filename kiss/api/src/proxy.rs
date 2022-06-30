@@ -8,7 +8,7 @@ use ipis::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProxyConfig {
     sites: Vec<ProxySite>,
 }
@@ -45,7 +45,7 @@ impl ProxyConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProxySite {
     pub name: String,
     #[serde(with = "url_serde")]
