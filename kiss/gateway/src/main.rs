@@ -22,7 +22,7 @@ use kiss_api::{
 
 #[get("/")]
 async fn index() -> impl Responder {
-    HttpResponse::Ok().json("kiss-monitor")
+    HttpResponse::Ok().json("kiss-gateway")
 }
 
 #[get("/health")]
