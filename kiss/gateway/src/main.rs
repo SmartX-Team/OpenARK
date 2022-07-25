@@ -99,13 +99,14 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
+                    "spec": spec,
                     "status": BoxStatus {
                         state: BoxState::Ready,
                         last_updated: Utc::now(),
                     },
-                    "spec": spec,
                 }));
                 let pp = PatchParams::apply("kiss-controller").force();
+                api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
             Err(_) => {
