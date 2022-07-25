@@ -290,7 +290,7 @@ spec:
       labels:
         name: matchbox
     spec:
-      nodeName: netai-cloud-compute-6
+      nodeName: master.box.kiss.netai-cloud
       securityContext:
         seccompProfile:
           type: RuntimeDefault
