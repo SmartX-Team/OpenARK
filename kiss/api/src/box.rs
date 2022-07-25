@@ -173,16 +173,17 @@ impl BoxMachineSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type")]
 pub enum BoxPowerSpec {
-    IPMI { address: IpAddr },
+    #[serde(rename_all = "camelCase")]
+    Ipmi { address: IpAddr },
 }
 
 pub mod request {
     use super::*;
 
     #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-    pub struct BoxQuery {
+    pub struct BoxNewQuery {
         #[serde(flatten)]
         pub access: BoxAccessSpec,
         #[serde(flatten)]

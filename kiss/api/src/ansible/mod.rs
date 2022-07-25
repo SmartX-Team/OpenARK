@@ -97,6 +97,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "ansible_host_uuid".into(),
+                                value: Some(job.machine.uuid.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "ansible_ssh_host".into(),
                                 value: Some(job.access.address.to_string()),
                                 ..Default::default()

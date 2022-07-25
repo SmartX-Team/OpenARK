@@ -80,6 +80,7 @@ data:
           add_host:
             ansible_host: "{{ lookup('env', 'ansible_host') }}"
             ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
+            ansible_host_uuid: "{{ lookup('env', 'ansible_host_uuid') }}"
             ansible_user: "{{ lookup('env', 'ansible_user') }}"
             ansible_host_key_checking: false
             ansible_ssh_host: "{{ lookup('env', 'ansible_ssh_host') }}"

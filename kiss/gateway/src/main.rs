@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use actix_web::{
-    get,
-    web::{Data, Query},
+    get, post,
+    web::{Data, Json, Query},
     App, HttpResponse, HttpServer, Responder,
 };
 use ipis::{
@@ -16,7 +16,7 @@ use kiss_api::{
         core::ObjectMeta,
         Api, Client, CustomResourceExt,
     },
-    r#box::{request::BoxQuery, BoxCrd, BoxSpec, BoxState, BoxStatus},
+    r#box::{request::BoxNewQuery, BoxCrd, BoxSpec, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -31,8 +31,8 @@ async fn health() -> impl Responder {
 }
 
 #[get("/new")]
-async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxQuery>) -> impl Responder {
-    async fn try_handle(client: Data<Arc<Client>>, query: BoxQuery) -> Result<()> {
+async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) -> impl Responder {
+    async fn try_handle(client: Data<Arc<Client>>, query: BoxNewQuery) -> Result<()> {
         let api = Api::<BoxCrd>::all((***client).clone());
 
         let name = query.machine.uuid.to_string();
@@ -86,6 +86,59 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxQuery>) -> im
     }
 }
 
+#[post("/commission")]
+async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) -> impl Responder {
+    async fn try_handle(client: Data<Arc<Client>>, spec: BoxSpec) -> Result<()> {
+        let api = Api::<BoxCrd>::all((***client).clone());
+
+        let name = spec.machine.uuid.to_string();
+
+        match api.get(&name).await {
+            Ok(_) => {
+                let crd = BoxCrd::api_resource();
+                let patch = Patch::Apply(json!({
+                    "apiVersion": crd.api_version,
+                    "kind": crd.kind,
+                    "status": BoxStatus {
+                        state: BoxState::Ready,
+                        last_updated: Utc::now(),
+                    },
+                    "spec": spec,
+                }));
+                let pp = PatchParams::apply("kiss-controller").force();
+                api.patch_status(&name, &pp, &patch).await?;
+            }
+            Err(_) => {
+                let data = BoxCrd {
+                    metadata: ObjectMeta {
+                        name: Some(name.clone()),
+                        ..Default::default()
+                    },
+                    spec,
+                    status: Some(BoxStatus {
+                        state: BoxState::Ready,
+                        last_updated: Utc::now(),
+                    }),
+                };
+                let pp = PostParams {
+                    dry_run: false,
+                    field_manager: Some("kiss-gateway".into()),
+                };
+                api.create(&pp, &data).await?;
+            }
+        }
+        Ok(())
+    }
+
+    match try_handle(client, spec).await {
+        Ok(()) => HttpResponse::Ok().json("Ok"),
+        Err(e) => {
+            warn!("failed to commission a client: {e}");
+            HttpResponse::Forbidden().json("Err")
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() {
     async fn try_main() -> Result<()> {
@@ -100,6 +153,7 @@ async fn main() {
                 .service(index)
                 .service(health)
                 .service(get_new)
+                .service(get_commission)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

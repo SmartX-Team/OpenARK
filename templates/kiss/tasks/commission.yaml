@@ -11,6 +11,7 @@ data:
     - include_tasks: power.yaml
     - include_tasks: network.yaml
     # - include_tasks: storage.yaml
+    - include_tasks: submit.yaml
   hostname.yaml: |
     ---
     - name: Set machine hostname
@@ -44,6 +45,7 @@ data:
         --device /dev/ipmi0:/dev/ipmi0:rw 
         docker.io/mikeynap/ipmitool
         user set name 9 'kiss'
+        || true
 
     - name: Set IPMI user 9 password
       when: ipmi.stat.exists
@@ -101,3 +103,20 @@ data:
   storage.yaml: |
     ---
     []
+  submit.yaml: |
+    ---
+    - name: Submit results to kiss cluster
+      uri: 
+        url: http://gateway.kiss.netai-cloud/commission
+        method: POST
+        return_content: no
+        status_code: 200
+        body_format: json
+        body:
+          access:
+            address: "{{ ansible_ssh_host }}"
+          machine:
+            uuid: "{{ ansible_host_uuid }}"
+          power:
+            type: Ipmi
+            address: "{{ ipmi_address.stdout }}"
