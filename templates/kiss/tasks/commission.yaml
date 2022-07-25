@@ -31,7 +31,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         lan print
         | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
@@ -42,7 +42,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         user set name 9 'kiss'
         || true
@@ -52,7 +52,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         user set password 9 'kiss.netaiCloud'
 
@@ -61,7 +61,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         user enable 9
 
@@ -70,7 +70,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
 
@@ -79,7 +79,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         chassis bootparam set bootdev force_pxe
 
@@ -88,7 +88,7 @@ data:
       become: true
       shell: >
         docker run --rm
-        --device /dev/ipmi0:/dev/ipmi0:rw 
+        --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         chassis bootparam set bootflag force_pxe
   network.yaml: |
@@ -106,7 +106,7 @@ data:
   submit.yaml: |
     ---
     - name: Submit results to kiss cluster
-      uri: 
+      uri:
         url: http://gateway.kiss.netai-cloud/commission
         method: POST
         return_content: no
