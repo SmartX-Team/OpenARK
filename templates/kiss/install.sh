@@ -8,18 +8,18 @@ kubectl apply \
 # dependencies
 ./external-dns.sh
 ./ingress-nginx.sh
+sleep 30
 
 # services
-kubectl apply -f dnsmasq.yaml
-kubectl apply -f ingress-docker-registry.yaml
-kubectl apply -f matchbox.yaml
+kubectl apply \
+    -f dnsmasq.yaml \
+    -f ingress-docker-registry.yaml \
+    -f matchbox.yaml
 
 # ansible tasks
-kubectl apply \
-    -f commission.yaml \
-    -f common.yaml
+kubectl apply -R -f tasks
 
-# TODO: kiss proxy
+# kiss proxy
 kubectl apply \
     -f tmp/assets.yaml \
     -f tmp/gateway.yaml \

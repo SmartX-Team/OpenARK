@@ -81,8 +81,7 @@ data:
         docker run --rm
         --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
-        chassis bootparam set bootdev force_pxe
-        || true
+        chassis bootparam set bootflag force_pxe
 
     - name: Change boot order to PXE-first
       when: ipmi.stat.exists
@@ -91,7 +90,8 @@ data:
         docker run --rm
         --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
-        chassis bootparam set bootflag force_pxe
+        chassis bootdev pxe
+        || true
   network.yaml: |
     ---
     - name: Get Network Interfaces
