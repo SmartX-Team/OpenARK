@@ -53,4 +53,4 @@ spec:
       protocol: UDP
       port: 123
       targetPort: 123
-  loadBalancerIP: 172.20.128.128
+  loadBalancerIP: 10.47.1.1

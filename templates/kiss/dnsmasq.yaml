@@ -5,8 +5,8 @@ metadata:
   name: dnsmasq-dhcp-range
   namespace: kiss
 data:
-  ipv4Begin: "172.20.64.1"
-  ipv4End: "172.20.127.254"
+  ipv4Begin: "10.32.0.0"
+  ipv4End: "10.32.255.254"
   ipv4Duration: "7d"
 ---
 apiVersion: v1
@@ -15,7 +15,7 @@ metadata:
   name: dnsmasq-external-dns
   namespace: kiss
 data:
-  ns1: "172.20.128.1"
+  ns1: "10.47.0.1"
 ---
 apiVersion: apps/v1
 kind: Deployment
