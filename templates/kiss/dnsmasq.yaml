@@ -15,7 +15,7 @@ metadata:
   name: dnsmasq-external-dns
   namespace: kiss
 data:
-  ns1: "10.47.0.1"
+  ns1: "10.48.0.1"
 ---
 apiVersion: apps/v1
 kind: Deployment

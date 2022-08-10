@@ -52,4 +52,4 @@ spec:
       protocol: TCP
       port: 1080
       targetPort: 3128
-  loadBalancerIP: 10.47.2.1
+  loadBalancerIP: 10.48.2.1

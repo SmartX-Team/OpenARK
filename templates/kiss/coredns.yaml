@@ -12,7 +12,7 @@ data:
           lameduck 5s
       }
       ready
-      forward . 10.47.0.2:53
+      forward . 10.48.0.2:53
       cache 30
       loop
       reload
@@ -99,4 +99,4 @@ spec:
       protocol: UDP
       port: 53
       targetPort: 53
-  loadBalancerIP: 10.47.0.1
+  loadBalancerIP: 10.48.0.1

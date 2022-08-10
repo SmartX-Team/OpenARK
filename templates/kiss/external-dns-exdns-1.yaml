@@ -3,7 +3,7 @@ domain: kiss.netai-cloud
 service:
   annotations:
     metallb.universe.tf/address-pool: kiss_dns
-  loadBalancerIP: 10.47.0.2
+  loadBalancerIP: 10.8.0.2
 
 watchedResources:
   - Ingress
