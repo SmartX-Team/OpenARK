@@ -55,6 +55,7 @@ data:
         --device /dev/ipmi0:/dev/ipmi0:rw
         docker.io/mikeynap/ipmitool
         user set password 9 'kiss.netaiCloud'
+        || true
 
     - name: Enable IPMI user 9
       when: ipmi.stat.exists
@@ -108,7 +109,7 @@ data:
     ---
     - name: Submit results to kiss cluster
       uri:
-        url: http://gateway.kiss.netai-cloud/commission
+        url: http://gateway.kiss.svc.ops.netai-cloud:8080/commission
         method: POST
         return_content: no
         status_code: 200

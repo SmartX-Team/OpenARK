@@ -168,7 +168,7 @@ pub struct BoxMachineSpec {
 
 impl BoxMachineSpec {
     pub fn hostname(&self) -> String {
-        format!("{}.box.kiss.netai-cloud", &self.uuid)
+        format!("{}.box.netai-cloud", &self.uuid)
     }
 }
 

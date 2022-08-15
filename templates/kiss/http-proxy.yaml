@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         name: http-proxy
+        serviceType: proxy
     spec:
       securityContext:
         seccompProfile:
@@ -40,11 +41,8 @@ kind: Service
 metadata:
   name: http-proxy
   namespace: kiss
-  annotations:
-    metallb.universe.tf/address-pool: kiss_proxy
-    coredns.io/hostname: proxy.kiss.netai-cloud
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     name: http-proxy
   ports:
@@ -52,4 +50,3 @@ spec:
       protocol: TCP
       port: 1080
       targetPort: 3128
-  loadBalancerIP: 10.48.2.1

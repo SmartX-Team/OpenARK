@@ -3,3 +3,75 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kiss
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: kiss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ansible-task
+  namespace: kiss
+spec:
+  podSelector:
+    matchLabels:
+      serviceType: ansible-task
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.32.0.0/12
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal
+  namespace: kiss
+spec:
+  podSelector:
+    matchLabels:
+      serviceType: internal
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.32.0.0/12
+        - ipBlock:
+            cidr: 0.0.0.0/0 # TODO: disable it when kiss is deployed
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-proxy
+  namespace: kiss
+spec:
+  podSelector:
+    matchLabels:
+      serviceType: proxy
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.32.0.0/12
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0 # allow all outbound but no internal access
+            except:
+              - 10.0.0.0/8
+              - 127.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16

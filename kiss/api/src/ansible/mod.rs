@@ -64,6 +64,7 @@ impl AnsibleClient {
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.machine.uuid.to_string(),
                     )),
+                    Some(("serviceType".into(), "ansible-task".to_string())),
                     job.completed_state
                         .as_ref()
                         .map(ToString::to_string)
@@ -77,6 +78,10 @@ impl AnsibleClient {
         };
         let spec = JobSpec {
             template: PodTemplateSpec {
+                metadata: Some(ObjectMeta {
+                    labels: metadata.labels.clone(),
+                    ..Default::default()
+                }),
                 spec: Some(PodSpec {
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
@@ -184,7 +189,6 @@ impl AnsibleClient {
                     ]),
                     ..Default::default()
                 }),
-                ..Default::default()
             },
             ..Default::default()
         };

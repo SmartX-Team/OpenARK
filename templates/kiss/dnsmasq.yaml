@@ -15,7 +15,7 @@ metadata:
   name: dnsmasq-external-dns
   namespace: kiss
 data:
-  ns1: "10.48.0.1"
+  ns1: "10.112.0.3"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,6 +34,7 @@ spec:
     metadata:
       labels:
         name: dnsmasq
+        serviceType: internal
     spec:
       hostNetwork: true
       securityContext:
@@ -75,7 +76,7 @@ spec:
             - --dhcp-match=set:efi-arm64,option:client-arch,11
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.netai-cloud/assets/boot/boot.ipxe
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/boot.ipxe
             - --dhcp-option=6,$(DNS_IPV4_NS1)
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
             - --port=0

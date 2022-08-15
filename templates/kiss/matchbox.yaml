@@ -89,8 +89,8 @@ data:
     ---
     ignition:
       proxy:
-        httpProxy: http://proxy.kiss.netai-cloud:1080
-        httpsProxy: http://proxy.kiss.netai-cloud:1080
+        httpProxy: http://http-proxy.kiss.svc.ops.netai-cloud:1080
+        httpsProxy: http://http-proxy.kiss.svc.ops.netai-cloud:1080
         noProxy:
           - 10.0.0.0/8
           - 127.0.0.0/8
@@ -117,14 +117,14 @@ data:
             inline: |
               {
                 "insecure-registries": [
-                  "registry.kiss.netai-cloud"
+                  "registry.kiss.svc.ops.netai-cloud"
                 ]
               }
         - path: /etc/hostname
           filesystem: root
           mode: 0644
           contents:
-            inline: unknown.box.kiss.netai-cloud
+            inline: unknown.box.netai-cloud
         - path: /etc/modules-load.d/driver.conf
           filesystem: root
           mode: 0444
@@ -138,7 +138,7 @@ data:
           mode: 0555
           contents:
             inline: |
-              export HTTP_PROXY=http://proxy.kiss.netai-cloud:1080
+              export HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080
               export HTTPS_PROXY=$HTTP_PROXY
               export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /etc/systemd/system/notify-new-box.service
@@ -151,10 +151,11 @@ data:
 
               [Service]
               Type=oneshot
+              Restart=on-failure
               ExecStart=/bin/bash -c " \
-                  ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '172\.20\.') ;\
+                  ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.') ;\
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
-                  curl \"http://gateway.kiss.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
+                  curl \"http://gateway.kiss.svc.ops.netai-cloud:8080/new?address=$ADDRESS&uuid=$UUID\" ;\
               "
               Restart=on-failure
               RestartSec=30
@@ -167,15 +168,15 @@ data:
           contents:
             inline: |
               [Time]
-              NTP=ntp.kiss.netai-cloud
+              NTP=ntp.kiss.svc.ops.netai-cloud
         - path: /etc/wgetrc
           filesystem: root
           mode: 0444
           contents:
             inline: |
               use_proxy=yes
-              http_proxy=http://proxy.kiss.netai-cloud:1080
-              https_proxy=http://proxy.kiss.netai-cloud:1080
+              http_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:1080
+              https_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:1080
               no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
@@ -238,8 +239,8 @@ data:
             - name: 20-http-proxy.conf
               contents: |
                 [Service]
-                Environment="HTTP_PROXY=http://proxy.kiss.netai-cloud:1080"
-                Environment="HTTPS_PROXY=http://proxy.kiss.netai-cloud:1080"
+                Environment="HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080"
+                Environment="HTTPS_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080"
                 Environment="NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain"
             - name: 30-increase-ulimit.conf
               contents: |
@@ -259,13 +260,13 @@ data:
       "id": "flatcar",
       "name": "Flatcar Linux",
       "boot": {
-        "kernel": "http://assets.kiss.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
+        "kernel": "http://assets.kiss.svc.ops.netai-cloud:8888/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
         "initrd": [
-          "http://assets.kiss.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
+          "http://assets.kiss.svc.ops.netai-cloud:8888/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
-          "flatcar.config.url=http://matchbox.kiss.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
+          "flatcar.config.url=http://matchbox.kiss.svc.ops.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
           "flatcar.first_boot=yes",
           "flatcar.autologin",
           "console=tty0",
@@ -292,8 +293,11 @@ spec:
     metadata:
       labels:
         name: matchbox
+        serviceType: internal
     spec:
-      nodeName: master.box.kiss.netai-cloud
+      nodeSelector:
+        # control plane nodes should get ready for DHCP
+        node-role.kubernetes.io/control-plane: ""
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -406,24 +410,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: matchbox
-  namespace: kiss
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: matchbox.kiss.netai-cloud
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: matchbox
-                port:
-                  number: 80
