@@ -226,6 +226,13 @@ data:
           mode: 0444
           contents:
             inline: ""
+        - path: /root/.gitconfig
+          filesystem: root
+          mode: 0644
+          contents:
+            inline: |
+                [http]
+                proxy = http://http-proxy.kiss.svc.ops.netai-cloud:1080
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
@@ -234,7 +241,7 @@ data:
     systemd:
       units:
         - name: docker.service
-          enable: false
+          enable: true
           dropins:
             - name: 20-http-proxy.conf
               contents: |
@@ -246,8 +253,6 @@ data:
               contents: |
                 [Service]
                 LimitMEMLOCK=infinity
-        - name: docker.socket
-          enable: false
 ---
 apiVersion: v1
 kind: ConfigMap
