@@ -7,15 +7,9 @@ metadata:
 data:
   ipv4Begin: "10.32.0.0"
   ipv4End: "10.32.255.254"
+  ipv4Gateway: "10.47.255.254"
+  ipv4NameServer1: "10.112.0.3"
   ipv4Duration: "7d"
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: dnsmasq-external-dns
-  namespace: kiss
-data:
-  ns1: "10.112.0.3"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -77,18 +71,14 @@ spec:
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             - --dhcp-userclass=set:ipxe,iPXE
             - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/boot.ipxe
-            - --dhcp-option=6,$(DNS_IPV4_NS1)
+            - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
+            - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
             - --port=0
             - --bind-dynamic
             - --log-queries
             - --log-dhcp
           env:
-            - name: DNS_IPV4_NS1
-              valueFrom:
-                configMapKeyRef:
-                  name: dnsmasq-external-dns
-                  key: ns1
             - name: DHCP_RANGE_IPV4_BEGIN
               valueFrom:
                 configMapKeyRef:
@@ -99,6 +89,16 @@ spec:
                 configMapKeyRef:
                   name: dnsmasq-dhcp-range
                   key: ipv4End
+            - name: DHCP_RANGE_IPV4_GATEWAY
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-dhcp-range
+                  key: ipv4Gateway
+            - name: DHCP_RANGE_IPV4_NAMESERVER_1
+              valueFrom:
+                configMapKeyRef:
+                  name: dnsmasq-dhcp-range
+                  key: ipv4NameServer1
             - name: DHCP_RANGE_IPV4_DURATION
               valueFrom:
                 configMapKeyRef:
