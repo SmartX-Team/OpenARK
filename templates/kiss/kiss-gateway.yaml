@@ -18,13 +18,13 @@ spec:
         name: gateway
         serviceType: internal
     spec:
-      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: gateway
           image: ghcr.io/ulagbulag-village/netai-cloud:master
+          imagePullPolicy: Always
           command:
             - kiss-gateway
           env:

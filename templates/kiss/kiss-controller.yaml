@@ -18,13 +18,13 @@ spec:
         name: controller
         serviceType: internal
     spec:
-      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: controller
           image: ghcr.io/ulagbulag-village/netai-cloud:master
+          imagePullPolicy: Always
           command:
             - kiss-controller
           env:

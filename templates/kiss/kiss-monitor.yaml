@@ -18,13 +18,13 @@ spec:
         name: monitor
         serviceType: internal
     spec:
-      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: monitor
           image: ghcr.io/ulagbulag-village/netai-cloud:master
+          imagePullPolicy: Always
           command:
             - kiss-monitor
           env:
