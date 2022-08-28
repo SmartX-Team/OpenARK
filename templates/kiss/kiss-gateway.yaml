@@ -18,6 +18,7 @@ spec:
         name: gateway
         serviceType: internal
     spec:
+      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault

@@ -39,6 +39,7 @@ spec:
         name: assets
         serviceType: internal
     spec:
+      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault

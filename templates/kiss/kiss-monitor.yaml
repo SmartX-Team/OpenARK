@@ -18,6 +18,7 @@ spec:
         name: monitor
         serviceType: internal
     spec:
+      imagePullPolicy: Always
       securityContext:
         seccompProfile:
           type: RuntimeDefault
