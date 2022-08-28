@@ -36,7 +36,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-tftpboot
-          image: docker.io/kerryeon/ipxe:latest
+          image: ghcr.io/ulagbulag-village/netai-cloud-ipxe:master
           command:
             - bash
           args:
