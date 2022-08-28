@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: monitor
-          image: ghcr.io/ulagbulag-village/netai-cloud:latest
+          image: ghcr.io/ulagbulag-village/netai-cloud:master
           command:
             - kiss-monitor
           env:

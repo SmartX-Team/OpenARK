@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: controller
-          image: ghcr.io/ulagbulag-village/netai-cloud:latest
+          image: ghcr.io/ulagbulag-village/netai-cloud:master
           command:
             - kiss-controller
           env:

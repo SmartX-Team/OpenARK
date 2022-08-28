@@ -5,7 +5,7 @@ metadata:
   name: assets-config
   namespace: kiss
 data:
-  username: |
+  config.yaml: |
     sites:
     - name: flatcar-arm64
       host: https://stable.release.flatcar-linux.net/arm64-usr/
@@ -44,14 +44,14 @@ spec:
           type: RuntimeDefault
       containers:
         - name: assets
-          image: ghcr.io/ulagbulag-village/netai-cloud:latest
+          image: ghcr.io/ulagbulag-village/netai-cloud:master
           command:
             - kiss-assets
           env:
             - name: RUST_LOG
               value: INFO
             - name: KISS_PROXY_CONFIG_PATH
-              value: /etc/netai-cloud/kiss/assets/config
+              value: /etc/netai-cloud/kiss/assets/config.yaml
           ports:
             - name: http
               protocol: TCP
