@@ -155,7 +155,7 @@ data:
               ExecStart=/bin/bash -c " \
                   ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.') ;\
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
-                  curl \"http://gateway.kiss.svc.ops.netai-cloud:8080/new?address=$ADDRESS&uuid=$UUID\" ;\
+                  curl \"http://gateway.kiss.svc.ops.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
               "
               Restart=on-failure
               RestartSec=30
@@ -265,9 +265,9 @@ data:
       "id": "flatcar",
       "name": "Flatcar Linux",
       "boot": {
-        "kernel": "http://assets.kiss.svc.ops.netai-cloud:8888/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
+        "kernel": "http://assets.kiss.svc.ops.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
         "initrd": [
-          "http://assets.kiss.svc.ops.netai-cloud:8888/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
+          "http://assets.kiss.svc.ops.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",

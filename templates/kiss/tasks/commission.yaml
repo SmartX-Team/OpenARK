@@ -109,7 +109,7 @@ data:
     ---
     - name: Submit results to kiss cluster
       uri:
-        url: http://gateway.kiss.svc.ops.netai-cloud:8080/commission
+        url: http://gateway.kiss.svc.ops.netai-cloud/commission
         method: POST
         return_content: no
         status_code: 200

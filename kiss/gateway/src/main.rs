@@ -144,7 +144,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
 async fn main() {
     async fn try_main() -> Result<()> {
         // Initialize kubernetes client
-        let addr = "0.0.0.0:8080";
+        let addr = "0.0.0.0:80";
         let client = Arc::new(Client::try_default().await?);
 
         // Start web server

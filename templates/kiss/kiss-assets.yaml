@@ -1,0 +1,88 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: assets-config
+  namespace: kiss
+data:
+  username: |
+    sites:
+    - name: flatcar-arm64
+      host: https://stable.release.flatcar-linux.net/arm64-usr/
+    - name: flatcar-i386
+      host: https://stable.release.flatcar-linux.net/amd64-usr/
+    - name: flatcar-x86_64
+      host: https://stable.release.flatcar-linux.net/amd64-usr/
+    - name: github
+      host: https://github.com/
+    - name: google-storage
+      host: https://storage.googleapis.com/
+    - name: helm
+      host: https://get.helm.sh/
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assets
+  namespace: kiss
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: assets
+  template:
+    metadata:
+      labels:
+        name: assets
+        serviceType: internal
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: assets
+          image: ghcr.io/ulagbulag-village/netai-cloud:latest
+          command:
+            - kiss-assets
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: KISS_PROXY_CONFIG_PATH
+              value: /etc/netai-cloud/kiss/assets/config
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 80
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/netai-cloud/kiss/assets
+      volumes:
+        - name: config
+          configMap:
+            name: assets-config
+            defaultMode: 0400
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assets
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: assets
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80

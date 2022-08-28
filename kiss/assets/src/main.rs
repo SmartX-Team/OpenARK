@@ -109,7 +109,7 @@ async fn resolve(
 async fn main() {
     async fn try_main() -> ::ipis::core::anyhow::Result<()> {
         // Initialize config
-        let addr = "0.0.0.0:8888";
+        let addr = "0.0.0.0:80";
         let config = Arc::new(ProxyConfig::load().await?);
 
         // Initialize cache client

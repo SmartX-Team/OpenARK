@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ntpd
+  name: gateway
   namespace: kiss
 spec:
   replicas: 1
@@ -11,43 +11,47 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: ntpd
+      name: gateway
   template:
     metadata:
       labels:
-        name: ntpd
+        name: gateway
         serviceType: internal
     spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: ntpd
-          image: docker.io/cturra/ntp:latest
+        - name: gateway
+          image: ghcr.io/ulagbulag-village/netai-cloud:latest
+          command:
+            - kiss-gateway
+          env:
+            - name: RUST_LOG
+              value: INFO
           ports:
-            - name: ntp
-              protocol: UDP
-              containerPort: 123
+            - name: http
+              protocol: TCP
+              containerPort: 80
           resources:
             requests:
               cpu: 30m
               memory: 20Mi
             limits:
-              cpu: 50m
-              memory: 50Mi
+              cpu: 100m
+              memory: 100Mi
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ntpd
+  name: gateway
   namespace: kiss
 spec:
   type: ClusterIP
   selector:
-    name: ntpd
+    name: gateway
   ports:
-    - name: ntp
-      protocol: UDP
-      port: 123
-      targetPort: 123
-  loadBalancerIP: 10.112.0.2
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80

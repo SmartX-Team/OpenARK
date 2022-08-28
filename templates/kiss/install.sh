@@ -18,5 +18,7 @@ kubectl apply -R -f tasks
 
 # kiss service
 kubectl apply \
-    -f tmp/assets.yaml \
-    -f tmp/gateway.yaml
+    -f kiss-assets.yaml \
+    -f kiss-controller.yaml \
+    -f kiss-gateway.yaml \
+    -f kiss-monitor.yaml
