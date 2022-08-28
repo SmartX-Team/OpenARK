@@ -1,3 +1,11 @@
+#![deny(
+    clippy::all,
+    clippy::cargo,
+    clippy::nursery,
+    clippy::pedantic,
+    clippy::restriction
+)]
+
 mod ctx;
 
 use ipis::tokio;

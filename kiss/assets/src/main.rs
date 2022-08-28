@@ -1,3 +1,11 @@
+#![deny(
+    clippy::all,
+    clippy::cargo,
+    clippy::nursery,
+    clippy::pedantic,
+    clippy::restriction
+)]
+
 use std::sync::Arc;
 
 use actix_web::{
