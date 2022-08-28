@@ -126,7 +126,7 @@ jobs:
         with:
           tag_name: edge
           name: Automatic Release
-          body_path: Committed as ${{ github.sha }}
+          body: Committed as ${{ github.sha }}
           draft: false
           prerelease: true
           generate_release_notes: false
