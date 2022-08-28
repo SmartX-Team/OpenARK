@@ -1,0 +1,20 @@
+name: Finalize CI/CD Push Job
+
+on:
+  workflow_run:
+    workflows:
+      - Create and publish a Docker image (iPXE)
+      - Create and publish a Docker image (NetAI Cloud)
+    types:
+      - completed
+
+jobs:
+  finalize-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Release Edge release
+        uses: softprops/action-gh-release@v1
