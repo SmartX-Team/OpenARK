@@ -6,34 +6,28 @@
     clippy::restriction
 )]
 
+mod current;
+mod latest;
+
 use std::time::Duration;
 
 use ipis::{
     core::anyhow::Result,
-    env::infer,
     log::{info, warn},
     tokio,
 };
-use octocrab::repos::RepoHandler;
 use semver::Version;
 
-const REPOSITORY_OWNER: &str = "ulagbulag-village";
-const REPOSITORY_NAME: &str = "netai-cloud";
-
-async fn sync_cluster(repo: &RepoHandler<'_>) -> Result<()> {
-    // request the latest release info
-    let release = repo.releases().get_latest().await?;
-
-    // compare with the current release tag
-    if !release.tag_name.starts_with("v") {
-        warn!("Received unexpected version tag: {:?}", &release.tag_name);
-        return Ok(());
-    }
-    let latest = Version::parse(&release.tag_name[1..]).unwrap();
-    let current = Version::parse("0.0.1").unwrap();
+async fn sync_cluster(
+    current_handler: &self::current::Handler,
+    latest_handler: &self::latest::Handler,
+) -> Result<()> {
+    // request the release info
+    let latest = latest_handler.get().await?;
+    let current = current_handler.get(&latest).await?;
 
     // if possible, update the cluster
-    if latest > current {
+    if &latest > &current {
         info!("Found the newer version: {current} -> {latest}");
         upgrade_cluster(latest).await
     } else if latest < current {
@@ -51,17 +45,13 @@ async fn upgrade_cluster(version: Version) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // get environment variables
-    let repo_owner = infer("REPO_OWNER").unwrap_or_else(|_| REPOSITORY_OWNER.to_string());
-    let repo_name = infer("REPO_NAME").unwrap_or_else(|_| REPOSITORY_NAME.to_string());
-
-    // create a repository handler
-    let instance = octocrab::instance();
-    let handler = instance.repos(&repo_owner, &repo_name);
+    // create the handlers
+    let current = self::current::Handler::try_default().await?;
+    let latest = self::latest::Handler::default();
 
     // sync the cluster periodically
     loop {
-        sync_cluster(&handler).await?;
+        sync_cluster(&current, &latest).await?;
         tokio::time::sleep(Duration::from_secs(5 * 60)).await;
     }
 }
