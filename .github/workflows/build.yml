@@ -116,17 +116,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: rymndhng/release-on-push-action@master
         with:
-          tag_name: edge
-          name: Automatic Release
-          body: Committed as ${{ github.sha }}
-          draft: false
-          prerelease: true
-          generate_release_notes: false
+          release_name: Automatic Release of Cutting-Edge NetAI Cloud
+          release_body: Committed as ${{ github.sha }}
+          bump_version_scheme: patch
+          use_github_release_notes: false
