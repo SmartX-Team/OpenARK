@@ -143,7 +143,7 @@ impl Handler {
                 }
                 // when the job is failed
                 else if has_failed {
-                    warn!("Failed upgrading cluster: {name:?}",);
+                    warn!("Failed upgrading cluster: {name:?}");
 
                     // no changes are applied
                     Ok(true)

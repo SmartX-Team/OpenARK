@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager
+  namespace: kiss
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: manager
+  template:
+    metadata:
+      labels:
+        name: manager
+        serviceType: internal
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: kiss-controller
+      containers:
+        - name: manager
+          image: ghcr.io/ulagbulag-village/netai-cloud:master
+          imagePullPolicy: Always
+          command:
+            - kiss-manager
+          env:
+            - name: RUST_LOG
+              value: INFO
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 200Mi

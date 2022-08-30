@@ -21,4 +21,5 @@ kubectl apply \
     -f kiss-assets.yaml \
     -f kiss-controller.yaml \
     -f kiss-gateway.yaml \
+    -f kiss-manager.yaml \
     -f kiss-monitor.yaml
