@@ -19,20 +19,13 @@ WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
 # Install dependencies
-RUN apk add --no-cache \
-    libgcc
+RUN apk add --no-cache libgcc
 
 # Be ready for building
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
-# Builder environment variables
-ENV \
-    RUSTFLAGS="-C target-feature=-crt-static"
-
 # Install dependencies
-RUN apk add --no-cache \
-    musl-dev \
-    openssl-dev
+RUN apk add --no-cache musl-dev
 
 # Load source files
 ADD . /src
