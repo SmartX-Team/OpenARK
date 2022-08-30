@@ -37,7 +37,7 @@ spec:
     metadata:
       labels:
         name: assets
-        serviceType: internal
+        serviceType: proxy
     spec:
       securityContext:
         seccompProfile:
@@ -65,7 +65,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 100m
-              memory: 100Mi
+              memory: 4Gi
           volumeMounts:
             - name: config
               mountPath: /etc/netai-cloud/kiss/assets

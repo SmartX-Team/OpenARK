@@ -43,6 +43,7 @@ rules:
       - kiss.netai-cloud
     resources:
       - boxes
+      - boxes/status
     verbs:
       - "*"
 ---

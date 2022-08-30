@@ -21,6 +21,7 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      serviceAccount: kiss-controller
       containers:
         - name: gateway
           image: ghcr.io/ulagbulag-village/netai-cloud:master
