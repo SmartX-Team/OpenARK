@@ -49,6 +49,8 @@ spec:
           command:
             - kiss-assets
           env:
+            - name: BIND_ADDR
+              value: 0.0.0.0:80
             - name: RUST_LOG
               value: INFO
             - name: KISS_PROXY_CONFIG_PATH
