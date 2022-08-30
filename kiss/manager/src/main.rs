@@ -16,7 +16,6 @@ use ipis::{
     log::{info, warn},
     tokio,
 };
-use semver::Version;
 
 async fn sync_cluster(
     current_handler: &self::current::Handler,
@@ -24,12 +23,15 @@ async fn sync_cluster(
 ) -> Result<()> {
     // request the release info
     let latest = latest_handler.get_version().await?;
-    let current = current_handler.get_veresion(&latest).await?;
+    let current = match current_handler.get_version(&latest).await? {
+        Some(version) => version,
+        None => return Ok(()),
+    };
 
     // if possible, update the cluster
     if &latest > &current {
         info!("Found the newer version: {current} -> {latest}");
-        upgrade_cluster(latest).await
+        current_handler.upgrade(&current, &latest).await
     } else if latest < current {
         warn!("Current version is ahead of official release: {latest} > {current}");
         Ok(())
@@ -37,10 +39,6 @@ async fn sync_cluster(
         info!("The current version is the latest one: {current}");
         Ok(())
     }
-}
-
-async fn upgrade_cluster(version: Version) -> Result<()> {
-    todo!()
 }
 
 #[tokio::main]
