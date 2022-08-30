@@ -192,6 +192,7 @@ impl Handler {
                             image: Some(
                                 "ghcr.io/ulagbulag-village/netai-cloud-upgrade-kiss:master".into(),
                             ),
+                            image_pull_policy: Some("Always".into()),
                             env: Some(vec![
                                 EnvVar {
                                     name: "VERSION_SRC".into(),
