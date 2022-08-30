@@ -56,9 +56,11 @@ metadata:
   namespace: kiss
 rules:
   - apiGroups:
+      - ""
       - apiextensions.k8s.io
       - batch
     resources:
+      - configmaps
       - customresourcedefinitions
       - jobs
     verbs:

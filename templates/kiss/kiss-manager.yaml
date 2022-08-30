@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         name: manager
-        serviceType: internal
+        serviceType: proxy
     spec:
       securityContext:
         seccompProfile:

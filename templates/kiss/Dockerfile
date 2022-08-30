@@ -18,4 +18,5 @@ ADD *.sh **/*.yaml /src/
 
 # Job Configuration
 WORKDIR /src
-CMD [ "/bin/sh" "./install.sh" ]
+ENTRYPOINT [ "/bin/sh" ]
+CMD [ "./install.sh" ]
