@@ -29,7 +29,7 @@ impl Handler {
 }
 
 impl Handler {
-    pub async fn create(&self, version: &Version) -> Result<()> {
+    async fn create_config(&self, version: &Version) -> Result<()> {
         let config = ConfigMap {
             metadata: ObjectMeta {
                 name: Some("manager".into()),
@@ -51,11 +51,11 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn get(&self, latest: &Version) -> Result<Version> {
-        let config = match self.api.get("manager").await {
-            Ok(config) => config,
-            Err(_) => {
-                self.create(latest).await?;
+    pub async fn get_veresion(&self, latest: &Version) -> Result<Version> {
+        let config = match self.api.get_opt("manager").await? {
+            Some(config) => config,
+            None => {
+                self.create_config(latest).await?;
                 return Ok(latest.clone());
             }
         };
@@ -68,7 +68,7 @@ impl Handler {
         version.parse().map_err(Into::into)
     }
 
-    pub async fn patch(&self, version: Version) -> Result<()> {
+    pub async fn patch_version(&self, version: Version) -> Result<()> {
         let patch = Patch::Apply(json!({
             "apiVersion": ConfigMap::API_VERSION,
             "kind": ConfigMap::KIND,

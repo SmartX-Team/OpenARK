@@ -23,8 +23,8 @@ async fn sync_cluster(
     latest_handler: &self::latest::Handler,
 ) -> Result<()> {
     // request the release info
-    let latest = latest_handler.get().await?;
-    let current = current_handler.get(&latest).await?;
+    let latest = latest_handler.get_version().await?;
+    let current = current_handler.get_veresion(&latest).await?;
 
     // if possible, update the cluster
     if &latest > &current {
@@ -45,6 +45,9 @@ async fn upgrade_cluster(version: Version) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // initialize logger
+    ::ipis::logger::init_once();
+
     // create the handlers
     let current = self::current::Handler::try_default().await?;
     let latest = self::latest::Handler::default();

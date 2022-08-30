@@ -27,7 +27,7 @@ impl Handler {
     const REPOSITORY_NAME: &str = "netai-cloud";
     const REPOSITORY_OWNER: &str = "ulagbulag-village";
 
-    pub async fn get(&self) -> Result<Version> {
+    pub async fn get_version(&self) -> Result<Version> {
         // request the latest release info
         let release = self
             .instance
