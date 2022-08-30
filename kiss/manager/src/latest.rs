@@ -24,8 +24,8 @@ impl Default for Handler {
 }
 
 impl Handler {
-    const REPOSITORY_NAME: &str = "netai-cloud";
-    const REPOSITORY_OWNER: &str = "ulagbulag-village";
+    const REPOSITORY_NAME: &'static str = "netai-cloud";
+    const REPOSITORY_OWNER: &'static str = "ulagbulag-village";
 
     pub async fn get_version(&self) -> Result<Version> {
         // request the latest release info
