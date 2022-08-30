@@ -6,7 +6,7 @@
     clippy::restriction
 )]
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use actix_web::{
     get,
@@ -15,6 +15,7 @@ use actix_web::{
 };
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use ipis::{
+    env::infer,
     futures::StreamExt,
     log::{info, warn},
     logger,
@@ -117,7 +118,8 @@ async fn resolve(
 async fn main() {
     async fn try_main() -> ::ipis::core::anyhow::Result<()> {
         // Initialize config
-        let addr = "0.0.0.0:80";
+        let addr = infer::<_, SocketAddr>("BIND_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
         let config = Arc::new(ProxyConfig::load().await?);
 
         // Initialize cache client

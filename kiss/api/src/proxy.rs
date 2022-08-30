@@ -48,6 +48,5 @@ impl ProxyConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProxySite {
     pub name: String,
-    #[serde(with = "url_serde")]
     pub host: Url,
 }

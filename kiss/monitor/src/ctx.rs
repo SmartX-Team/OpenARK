@@ -118,12 +118,15 @@ impl Ctx {
             Some(value) => match value.parse() {
                 Ok(value) => Some(value),
                 Err(e) => {
-                    warn!("failed to parse the {label} label of {}: {e}", data.name(),);
+                    warn!(
+                        "failed to parse the {label} label of {}: {e}",
+                        data.name_any(),
+                    );
                     None
                 }
             },
             None => {
-                warn!("failed to get the {label} label: {}", data.name());
+                warn!("failed to get the {label} label: {}", data.name_any());
                 None
             }
         }

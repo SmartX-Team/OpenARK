@@ -31,7 +31,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
-        let name = data.name();
+        let name = data.name_any();
         let status = data.status.as_ref();
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(manager.kube.clone());
 

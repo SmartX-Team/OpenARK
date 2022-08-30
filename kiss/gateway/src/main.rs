@@ -6,7 +6,7 @@
     clippy::restriction
 )]
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use actix_web::{
     get, post,
@@ -15,6 +15,7 @@ use actix_web::{
 };
 use ipis::{
     core::{anyhow::Result, chrono::Utc},
+    env::infer,
     log::warn,
     logger,
 };
@@ -152,7 +153,8 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
 async fn main() {
     async fn try_main() -> Result<()> {
         // Initialize kubernetes client
-        let addr = "0.0.0.0:80";
+        let addr =
+            infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
         let client = Arc::new(Client::try_default().await?);
 
         // Start web server

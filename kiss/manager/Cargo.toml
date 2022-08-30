@@ -9,5 +9,7 @@ edition = "2021"
 ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 kiss-api = { path = "../api" }
 
-octocrab = "0.17"
+octocrab = { git = "https://github.com/ulagbulag-village/octocrab", default-features = false, features = [
+    "rustls-tls",
+] }
 semver = "1.0"

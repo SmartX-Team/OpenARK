@@ -53,7 +53,7 @@ where
             // Ensure CRD is installed before loop-watching
             if api.list(&ListParams::default().limit(1)).await.is_err() {
                 let crd = <Self as Ctx>::Data::crd();
-                let name = crd.name();
+                let name = crd.name_any();
                 let api = Api::<CustomResourceDefinition>::all(client);
 
                 let pp = PostParams {
