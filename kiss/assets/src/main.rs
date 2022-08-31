@@ -13,7 +13,6 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use ipis::{
     env::infer,
     futures::StreamExt,
@@ -98,12 +97,7 @@ async fn resolve(
                         builder.no_chunking(content_length);
                     }
 
-                    // the response is already cached
-                    match res.bytes().await {
-                        Ok(body) => builder.body(body),
-                        Err(e) => HttpResponse::Forbidden()
-                            .body(format!("failed to download from url {path:?}: {e}")),
-                    }
+                    builder.streaming(res.bytes_stream())
                 }
                 Err(e) => {
                     HttpResponse::Forbidden().body(format!("failed to find the url {path:?}: {e}"))
@@ -118,18 +112,12 @@ async fn resolve(
 async fn main() {
     async fn try_main() -> ::ipis::core::anyhow::Result<()> {
         // Initialize config
-        let addr = infer::<_, SocketAddr>("BIND_ADDR")
-            .unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
+        let addr =
+            infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
         let config = Arc::new(ProxyConfig::load().await?);
 
-        // Initialize cache client
-        let client = ClientBuilder::new(Client::new())
-            .with(Cache(HttpCache {
-                mode: CacheMode::Default,
-                manager: CACacheManager::default(),
-                options: None,
-            }))
-            .build();
+        // Initialize client
+        let client = ClientBuilder::new(Client::new()).build();
 
         // Start web server
         HttpServer::new(move || {

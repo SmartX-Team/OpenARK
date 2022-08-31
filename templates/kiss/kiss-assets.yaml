@@ -65,7 +65,7 @@ spec:
               memory: 20Mi
             limits:
               cpu: 100m
-              memory: 4Gi
+              memory: 100Mi
           volumeMounts:
             - name: config
               mountPath: /etc/netai-cloud/kiss/assets

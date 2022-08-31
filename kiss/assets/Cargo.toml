@@ -18,9 +18,8 @@ ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 kiss-api = { path = "../api" }
 
 actix-web = { version = "4.1", features = ["experimental-io-uring"] }
-http-cache-reqwest = "0.5"
 reqwest = { version = "0.11", default-features = false, features = [
-    "rustls",
+    "rustls-tls",
     "stream",
 ] }
 reqwest-middleware = "0.1"
