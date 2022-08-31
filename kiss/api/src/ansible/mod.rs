@@ -87,7 +87,7 @@ impl AnsibleClient {
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
-                        image: Some("cytopia/ansible:latest-awsk8s".into()),
+                        image: Some("quay.io/kubespray/kubespray:v2.19.0".into()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec!["-vvv".into(), "/opt/playbook/playbook.yaml".into()]),
                         env: Some(vec![
