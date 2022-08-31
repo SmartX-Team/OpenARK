@@ -14,7 +14,7 @@ LABEL \
     PACKAGE=${PACKAGE}
 
 # Load source files
-ADD *.sh **/*.yaml /src/
+ADD . /src/
 
 # Job Configuration
 WORKDIR /src
