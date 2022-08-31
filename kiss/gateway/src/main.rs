@@ -168,7 +168,6 @@ async fn main() {
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
-        .shutdown_timeout(5)
         .run()
         .await
         .map_err(Into::into)
