@@ -133,7 +133,7 @@ impl Handler {
                     // parse version tag
                     let version = job
                         .labels()
-                        .get("sourceVersion")
+                        .get("targetVersion")
                         .ok_or_else(|| anyhow!("failed to parse target version from Job"))
                         .and_then(|e| e.parse().map_err(Into::into))?;
 
