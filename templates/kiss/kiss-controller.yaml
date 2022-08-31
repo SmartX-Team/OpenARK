@@ -8,14 +8,17 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kiss-cronjobs
+  name: kiss-controller
   namespace: kiss
 rules:
   - apiGroups:
+      - ""
+      - apiextensions.k8s.io
+      - apps
       - batch
+      - networking.k8s.io
     resources:
-      - cronjobs
-      - jobs
+      - "*"
     verbs:
       - "*"
 ---
@@ -37,12 +40,12 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kiss-controller-cronjobs
+  name: kiss-controller
   namespace: kiss
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kiss-cronjobs
+  name: kiss-controller
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
@@ -64,6 +67,7 @@ rules:
       - rbac.authorization.k8s.io
     resources:
       - "*"
+      - clusterrolebindings
     verbs:
       - "*"
 ---
