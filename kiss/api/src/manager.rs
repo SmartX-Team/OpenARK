@@ -78,7 +78,7 @@ where
         let client = Client::try_default().await?;
         let ctx = Arc::new(RwLock::new(Self::default()));
         let manager = Arc::new(Manager {
-            ansible: Default::default(),
+            ansible: AnsibleClient::try_default()?,
             kube: client.clone(),
             ctx: ctx.clone(),
         });

@@ -63,8 +63,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         AnsibleJob {
                             cron: new_state.cron(),
                             task,
-                            access: &data.spec.access,
-                            machine: &data.spec.machine,
+                            spec: &data.spec,
                             completed_state,
                         },
                     )

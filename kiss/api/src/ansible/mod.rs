@@ -1,4 +1,4 @@
-use ipis::{core::anyhow::Result, log::info};
+use ipis::{core::anyhow::Result, env::infer, log::info};
 use k8s_openapi::api::{
     batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
     core::v1::{
@@ -12,10 +12,11 @@ use kube::{
     Api, Client, Error,
 };
 
-use crate::r#box::{BoxAccessSpec, BoxMachineSpec, BoxState};
+use crate::r#box::{BoxPowerSpec, BoxSpec, BoxState};
 
-#[derive(Default)]
-pub struct AnsibleClient {}
+pub struct AnsibleClient {
+    ansible_image: String,
+}
 
 impl AnsibleClient {
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
@@ -23,9 +24,17 @@ impl AnsibleClient {
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
 
+    pub const ANSIBLE_IMAGE: &'static str = "quay.io/kubespray/kubespray:v2.19.1";
+
+    pub fn try_default() -> Result<Self> {
+        Ok(Self {
+            ansible_image: infer("ANSIBLE_IMAGE").unwrap_or_else(|_| Self::ANSIBLE_IMAGE.into()),
+        })
+    }
+
     pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<(), Error> {
         let ns = "kiss";
-        let box_name = job.machine.uuid.to_string();
+        let box_name = job.spec.machine.uuid.to_string();
         let name = format!("box-{}-{}", &job.task, &box_name);
 
         // delete all previous cronjobs
@@ -58,11 +67,11 @@ impl AnsibleClient {
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
                     Some((
                         Self::LABEL_BOX_ACCESS_ADDRESS.into(),
-                        job.access.address.to_string(),
+                        job.spec.access.address.to_string(),
                     )),
                     Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
-                        job.machine.uuid.to_string(),
+                        job.spec.machine.uuid.to_string(),
                     )),
                     Some(("serviceType".into(), "ansible-task".to_string())),
                     job.completed_state
@@ -87,13 +96,20 @@ impl AnsibleClient {
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
-                        image: Some("quay.io/kubespray/kubespray:v2.19.0".into()),
+                        image: Some(self.ansible_image.clone()),
                         command: Some(vec!["ansible-playbook".into()]),
-                        args: Some(vec!["-vvv".into(), "/opt/playbook/playbook.yaml".into()]),
+                        args: Some(vec![
+                            "-vvv".into(),
+                            "--become".into(),
+                            "--become-user=root".into(),
+                            "--inventory".into(),
+                            "/root/ansible/hosts.yaml".into(),
+                            "/opt/playbook/playbook.yaml".into(),
+                        ]),
                         env: Some(vec![
                             EnvVar {
                                 name: "ansible_host".into(),
-                                value: Some(job.machine.hostname()),
+                                value: Some(job.spec.machine.hostname()),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -103,12 +119,12 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "ansible_host_uuid".into(),
-                                value: Some(job.machine.uuid.to_string()),
+                                value: Some(job.spec.machine.uuid.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
-                                value: Some(job.access.address.to_string()),
+                                value: Some(job.spec.access.address.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -129,12 +145,29 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "ansible_ipmi_host".into(),
+                                value: job
+                                    .spec
+                                    .power
+                                    .as_ref()
+                                    .and_then(|power| match power {
+                                        BoxPowerSpec::Ipmi { address } => Some(address),
+                                    })
+                                    .map(|address| address.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "ansible_ipmi_password".into(),
                                 value: Some("kiss".into()),
                                 ..Default::default()
                             },
                         ]),
                         volume_mounts: Some(vec![
+                            VolumeMount {
+                                name: "ansible".into(),
+                                mount_path: "/root/ansible".into(),
+                                ..Default::default()
+                            },
                             VolumeMount {
                                 name: "playbook".into(),
                                 mount_path: "/opt/playbook".into(),
@@ -154,6 +187,15 @@ impl AnsibleClient {
                         ..Default::default()
                     }],
                     volumes: Some(vec![
+                        Volume {
+                            name: "ansible".into(),
+                            config_map: Some(ConfigMapVolumeSource {
+                                name: Some("ansible-control-planes".into()),
+                                default_mode: Some(0o400),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
                         Volume {
                             name: "playbook".into(),
                             config_map: Some(ConfigMapVolumeSource {
@@ -234,7 +276,6 @@ impl AnsibleClient {
 pub struct AnsibleJob<'a> {
     pub cron: Option<&'static str>,
     pub task: &'static str,
-    pub access: &'a BoxAccessSpec,
-    pub machine: &'a BoxMachineSpec,
+    pub spec: &'a BoxSpec,
     pub completed_state: Option<BoxState>,
 }

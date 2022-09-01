@@ -87,11 +87,14 @@ data:
             ansible_ssh_host: "{{ lookup('env', 'ansible_ssh_host') }}"
             ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
             ansible_ssh_private_key_file: "{{ lookup('env', 'ansible_ssh_private_key_file') }}"
+            ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
             ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
-            name: "{{ lookup('env', 'ansible_host_id') }}"
+            name: "{{ lookup('env', 'ansible_host') }}"
             groups:
               - all
               - flatcar
+              - kube_node
+              - target
     - hosts: flatcar
       gather_facts: false
       tasks:
@@ -99,10 +102,8 @@ data:
           set_fact:
             ansible_python_interpreter: /opt/bin/python
             bin_dir: /opt/bin
-    - hosts: all
-      tasks:
-        - name: Execute the main task
-          include_tasks: tasks/main.yaml
+    - name: Execute the main task
+      import_playbook: tasks/main.yaml
     - hosts: localhost
       tasks:
         - name: Update the box status
