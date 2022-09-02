@@ -1,0 +1,22 @@
+---
+- name: Collect brief device infomations
+  loop: "{{ ansible_devices.items() }}"
+  # filter the devices that has 1 or more physical IDs
+  when: item[1].links.ids | length
+  set_fact:
+    # TODO: sort names numerically
+    devices: >
+      {{ devices|default([]) + [{
+        'name': item[0],
+        'size': (item[1].sectors | int) * (item[1].sectorsize | int),
+      }] }}
+
+- name: Find the most suitable device (>=64Gi)
+  set_fact:
+    device: "{{ devices | selectattr('size', 'ge', 64 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
+
+- name: Create a volume group on top
+  lvg:
+    vg: kiss
+    pvs:
+      - "/dev/{{ device.name }}"

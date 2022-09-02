@@ -1,0 +1,57 @@
+---
+- name: Check whether kiss storage is already configured
+  set_fact:
+    kiss_storage_exists: >-
+      {{
+        (lookup('env', 'kiss_storage_reset_force') | default('false')) == 'false'
+      and
+        ( 'kiss' in ansible_lvm.vgs.keys() )
+      }}
+
+- name: Cleanup disks
+  when: not kiss_storage_exists
+  include: storage-cleanup.yaml
+
+- name: Provision disks
+  when: not kiss_storage_exists
+  include: storage-provision.yaml
+
+- name: Provision logical volumes
+  block:
+    - name: Define volume informations
+      set_fact:
+        lvs:
+          - kind: binary
+            name: cni
+            path: /opt/cni
+            size: 256M
+          # - kind: binary
+          #   name: common
+          #   path: /opt/bin
+          #   size: 1G
+          - kind: binary
+            name: etcd
+            path: /opt/etcd
+            size: 8G
+          # - kind: binary
+          #   name: pypy3
+          #   path: /opt/pypy3
+          #   size: 256M
+          - kind: var
+            name: cni
+            path: /var/lib/cni
+            size: 256M
+          - kind: var
+            name: containerd
+            path: /var/lib/containerd
+            size: 16G
+          - kind: var
+            name: k8s
+            path: /var/lib/kubelet
+            size: 256M
+
+    - name: Do Provision
+      loop: "{{ lvs }}"
+      loop_control:
+        loop_var: lv
+      include: storage-provision-volumes.yaml

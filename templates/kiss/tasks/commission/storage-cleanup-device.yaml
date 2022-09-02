@@ -1,0 +1,38 @@
+---
+- name: Remove all logical devices
+  block:
+    - name: Unmount all logical volumes
+      loop: "{{ ansible_lvm.lvs.items() }}"
+      loop_control:
+        loop_var: lv
+      command: umount --quiet /dev/mapper/{{ lv[1].vg }}-{{ lv[0] }}
+      ignore_errors: true
+
+    - name: Remove all logical volumes
+      loop: "{{ ansible_lvm.lvs.items() }}"
+      loop_control:
+        loop_var: lv
+      lvol:
+        vg: "{{ lv[1].vg }}"
+        lv: "{{ lv[0] }}"
+        state: absent
+        force: yes
+
+    - name: Unregister all logical devices
+      command: dmsetup remove_all
+
+    - name: Update facts
+      setup:
+
+- name: Cleanup all physical devices
+  block:
+    - name: Cleanup
+      loop: "{{ ansible_devices.items() }}"
+      loop_control:
+        loop_var: device
+      # filter the devices that has 1 or more physical IDs
+      when: device[1].links.ids | length
+      include: storage-cleanup-device-physical.yaml
+
+    - name: Update facts
+      setup:

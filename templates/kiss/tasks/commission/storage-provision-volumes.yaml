@@ -1,0 +1,20 @@
+---
+- name: Create a logical volume | {{ lv.kind }} | {{ lv.name }}
+  lvol:
+    vg: kiss
+    lv: "{{ lv.kind }}.{{ lv.name }}"
+    size: "{{ lv.size }}"
+    resizefs: true
+
+- name: Format the XFS filesystem | {{ lv.kind }} | {{ lv.name }}
+  filesystem:
+    fstype: xfs
+    dev: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
+
+- name: Mount a logical volume | {{ lv.kind }} | {{ lv.name }}
+  mount:
+    path: "{{ lv.path }}"
+    src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
+    fstype: xfs
+    opts: noatime
+    state: mounted

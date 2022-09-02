@@ -1,0 +1,5 @@
+---
+- import_playbook: remove-node.yaml
+- hosts: localhost
+  tasks:
+    - include: reboot-node.yaml

@@ -1,0 +1,16 @@
+---
+- name: Submit results to kiss cluster
+  uri:
+    url: http://gateway.kiss.svc.ops.netai-cloud/commission
+    method: POST
+    return_content: false
+    status_code: 200
+    body_format: json
+    body:
+      access:
+        address: "{{ ansible_ssh_host }}"
+      machine:
+        uuid: "{{ ansible_host_uuid }}"
+      power:
+        type: Ipmi
+        address: "{{ ipmi_address.stdout }}"

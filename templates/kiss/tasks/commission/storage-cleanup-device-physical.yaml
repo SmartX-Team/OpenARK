@@ -1,0 +1,15 @@
+---
+- name: Wipe Filesystem | {{ device[0] }}
+  shell: wipefs --all /dev/{{ device[0] }} && sync
+
+- name: Wipe GUID partiton table (GPT) | {{ device[0] }}
+  shell: sgdisk --zap-all /dev/{{ device[0] }} && sync
+
+- name: Fill with zero to Erase Ceph metadata (100MB) | {{ device[0] }}
+  shell: dd if=/dev/zero of=/dev/{{ device[0] }} bs=1M count=100 && sync
+
+- name: Discard sectors | {{ device[0] }}
+  shell: blkdiscard /dev/{{ device[0] }} && sync
+
+- name: Inform the OS of partition table changes | {{ device[0] }}
+  shell: partprobe /dev/{{ device[0] }} && sync

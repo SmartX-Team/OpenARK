@@ -1,0 +1,19 @@
+---
+- name: Change boot order to PXE-first
+  when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
+  ipmi_boot:
+    name: "{{ ansible_ipmi_host }}"
+    user: kiss
+    password: "{{ ansible_ipmi_password }}"
+    bootdev: pxe
+    persistent: true
+  ignore_errors: true
+
+- name: Reset node's power
+  when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
+  ipmi_power:
+    name: "{{ ansible_ipmi_host }}"
+    user: kiss
+    password: "{{ ansible_ipmi_password }}"
+    state: reset
+  ignore_errors: true

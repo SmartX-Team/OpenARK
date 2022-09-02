@@ -1,0 +1,8 @@
+---
+- name: Get Network Interfaces
+  shell: ls /sys/class/net | grep -e '^en*'
+  register: netdev
+
+- name: Get Network Interfaces
+  debug:
+    msg: "{{ netdev.stdout_lines }}"

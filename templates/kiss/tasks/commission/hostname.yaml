@@ -1,0 +1,4 @@
+---
+- name: Set machine hostname
+  shell: >
+    hostnamectl set-hostname '{{ ansible_host }}'

@@ -1,0 +1,6 @@
+---
+- name: Cleanup all devices
+  include: storage-cleanup-device.yaml
+
+- name: Cleanup all CSI plugins
+  include: storage-cleanup-csi.yaml
