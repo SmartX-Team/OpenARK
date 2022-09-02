@@ -131,6 +131,11 @@ spec:
           command:
             - kiss-controller
           env:
+            - name: ANSIBLE_IMAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: ansible-images
+                  key: kubespray
             - name: RUST_LOG
               value: INFO
           resources:
