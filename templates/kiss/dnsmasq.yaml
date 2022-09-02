@@ -28,6 +28,7 @@ spec:
     metadata:
       labels:
         name: dnsmasq
+        kissService: "false"
         serviceType: internal
     spec:
       hostNetwork: true

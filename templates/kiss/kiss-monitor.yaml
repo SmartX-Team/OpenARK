@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         name: monitor
+        kissService: "true"
         serviceType: internal
     spec:
       securityContext:

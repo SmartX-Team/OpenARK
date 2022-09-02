@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         name: manager
+        kissService: "true"
         serviceType: proxy
     spec:
       securityContext:

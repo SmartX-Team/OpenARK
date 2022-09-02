@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         name: http-proxy
+        kissService: "false"
         serviceType: proxy
     spec:
       securityContext:

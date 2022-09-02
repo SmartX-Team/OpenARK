@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         name: gateway
+        kissService: "true"
         serviceType: internal
     spec:
       securityContext:

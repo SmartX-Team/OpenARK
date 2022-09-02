@@ -118,6 +118,7 @@ spec:
     metadata:
       labels:
         name: controller
+        kissService: "true"
         serviceType: internal
     spec:
       securityContext:

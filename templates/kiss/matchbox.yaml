@@ -298,6 +298,7 @@ spec:
     metadata:
       labels:
         name: matchbox
+        kissService: "false"
         serviceType: internal
     spec:
       nodeSelector:
