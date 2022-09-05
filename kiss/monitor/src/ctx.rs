@@ -36,19 +36,27 @@ impl ::kiss_api::manager::Ctx for Ctx {
         let completed_state = data
             .labels()
             .get(AnsibleClient::LABEL_COMPLETED_STATE)
-            .and_then(|state| state.parse().ok())
-            .unwrap_or(BoxState::Failed);
+            .and_then(|state| state.parse().ok());
 
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
 
         // when the ansible job is succeeded
         if has_completed {
-            Self::update_box_state(manager, data, completed_state).await
+            // update the state
+            if let Some(completed_state) = completed_state {
+                Self::update_box_state(manager, data, completed_state).await
+            }
+            // keep the state, scheduled by the controller
+            else {
+                Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ))
+            }
         }
         // when the ansible job is failed
         else if has_failed {
-            let fallback_state = completed_state.fail();
+            let fallback_state = completed_state.unwrap_or(BoxState::Failed).fail();
             match fallback_state {
                 BoxState::Failed => Self::update_box_state(manager, data, fallback_state).await,
                 // do nothing when the job has no fallback state

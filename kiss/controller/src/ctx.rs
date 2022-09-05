@@ -51,7 +51,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 }
             }
         }
-        let completed_state = new_state.complete();
 
         // spawn an Ansible job
         if old_state != new_state {
@@ -64,7 +63,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                             cron: new_state.cron(),
                             task,
                             spec: &data.spec,
-                            completed_state,
+                            completed_state: new_state.complete(),
                         },
                     )
                     .await?;
