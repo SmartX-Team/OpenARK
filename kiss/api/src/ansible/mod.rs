@@ -199,7 +199,7 @@ impl AnsibleClient {
                         Volume {
                             name: "playbook".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some("ansible-playbook".into()),
+                                name: Some("ansible-playbook-common".into()),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
