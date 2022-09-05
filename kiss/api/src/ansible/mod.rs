@@ -190,7 +190,14 @@ impl AnsibleClient {
                         Volume {
                             name: "ansible".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some("ansible-control-planes".into()),
+                                name: Some(format!(
+                                    "ansible-control-planes-{}",
+                                    job.spec
+                                        .cluster
+                                        .as_ref()
+                                        .map(String::as_str)
+                                        .unwrap_or("default")
+                                )),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
@@ -199,7 +206,7 @@ impl AnsibleClient {
                         Volume {
                             name: "playbook".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some("ansible-playbook-common".into()),
+                                name: Some("ansible-task-common".into()),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),

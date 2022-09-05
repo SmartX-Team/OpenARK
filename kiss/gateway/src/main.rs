@@ -68,6 +68,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     },
                     spec: BoxSpec {
                         access: query.access,
+                        cluster: None,
                         machine: query.machine,
                         power: None,
                     },

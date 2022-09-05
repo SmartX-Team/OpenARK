@@ -34,11 +34,12 @@ use strum::{Display, EnumString};
         "type": "string",
         "description":"state of the box",
         "jsonPath":".status.state"
-    }"#
+    }"#,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
     pub access: BoxAccessSpec,
+    pub cluster: Option<String>,
     pub machine: BoxMachineSpec,
     pub power: Option<BoxPowerSpec>,
 }
