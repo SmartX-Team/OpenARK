@@ -30,11 +30,17 @@ use strum::{Display, EnumString};
         "jsonPath":".spec.power.address"
     }"#,
     printcolumn = r#"{
+        "name": "Cluster",
+        "type": "string",
+        "description":"cluster name where the box is located",
+        "jsonPath":".spec.cluster"
+    }"#,
+    printcolumn = r#"{
         "name": "State",
         "type": "string",
         "description":"state of the box",
         "jsonPath":".status.state"
-    }"#,
+    }"#
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
