@@ -6,15 +6,15 @@
     size: "{{ lv.size }}"
     resizefs: true
 
-- name: Format the XFS filesystem | {{ lv.kind }} | {{ lv.name }}
+- name: Format the filesystem | {{ lv.kind }} | {{ lv.name }}
   filesystem:
-    fstype: xfs
+    fstype: ext4
     dev: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
 
 - name: Mount a logical volume | {{ lv.kind }} | {{ lv.name }}
   mount:
     path: "{{ lv.path }}"
     src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
-    fstype: xfs
+    fstype: ext4
     opts: noatime
     state: mounted
