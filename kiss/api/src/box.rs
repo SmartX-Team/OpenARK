@@ -54,6 +54,7 @@ pub struct BoxSpec {
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
     pub state: BoxState,
+    pub bind_cluster: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 

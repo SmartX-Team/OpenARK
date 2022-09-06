@@ -12,7 +12,7 @@ use kube::{
     Api, Client, Error,
 };
 
-use crate::r#box::{BoxPowerSpec, BoxSpec, BoxState};
+use crate::r#box::{BoxPowerSpec, BoxSpec, BoxState, BoxStatus};
 
 pub struct AnsibleClient {
     ansible_image: String,
@@ -23,6 +23,7 @@ impl AnsibleClient {
     pub const LABEL_BOX_ACCESS_ADDRESS: &'static str = "kiss.netai-cloud/box_access_address";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
+    pub const LABEL_TARGET_CLUSTER: &'static str = "kiss.netai-cloud/target_cluster";
 
     pub const ANSIBLE_IMAGE: &'static str = "quay.io/kubespray/kubespray:v2.19.1";
 
@@ -36,6 +37,13 @@ impl AnsibleClient {
         let ns = "kiss";
         let box_name = job.spec.machine.uuid.to_string();
         let name = format!("box-{}-{}", &job.task, &box_name);
+        let cluster = job
+            .status
+            .as_ref()
+            .and_then(|status| status.bind_cluster.as_ref())
+            .or_else(|| job.spec.cluster.as_ref())
+            .map(String::as_str)
+            .unwrap_or("default");
 
         // delete all previous cronjobs
         {
@@ -78,6 +86,7 @@ impl AnsibleClient {
                         .as_ref()
                         .map(ToString::to_string)
                         .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
+                    Some((Self::LABEL_TARGET_CLUSTER.into(), cluster.to_string())),
                 ]
                 .into_iter()
                 .flatten()
@@ -190,14 +199,7 @@ impl AnsibleClient {
                         Volume {
                             name: "ansible".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some(format!(
-                                    "ansible-control-planes-{}",
-                                    job.spec
-                                        .cluster
-                                        .as_ref()
-                                        .map(String::as_str)
-                                        .unwrap_or("default")
-                                )),
+                                name: Some(format!("ansible-control-planes-{cluster}")),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
@@ -284,5 +286,6 @@ pub struct AnsibleJob<'a> {
     pub cron: Option<&'static str>,
     pub task: &'static str,
     pub spec: &'a BoxSpec,
+    pub status: Option<&'a BoxStatus>,
     pub completed_state: Option<BoxState>,
 }

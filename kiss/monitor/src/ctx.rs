@@ -37,6 +37,10 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .labels()
             .get(AnsibleClient::LABEL_COMPLETED_STATE)
             .and_then(|state| state.parse().ok());
+        let cluster = data
+            .labels()
+            .get(AnsibleClient::LABEL_TARGET_CLUSTER)
+            .cloned();
 
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
@@ -45,7 +49,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         if has_completed {
             // update the state
             if let Some(completed_state) = completed_state {
-                Self::update_box_state(manager, data, completed_state).await
+                Self::update_box_state(manager, data, completed_state, cluster).await
             }
             // keep the state, scheduled by the controller
             else {
@@ -58,7 +62,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
         else if has_failed {
             let fallback_state = completed_state.unwrap_or(BoxState::Failed).fail();
             match fallback_state {
-                BoxState::Failed => Self::update_box_state(manager, data, fallback_state).await,
+                BoxState::Failed => {
+                    Self::update_box_state(manager, data, fallback_state, cluster).await
+                }
                 // do nothing when the job has no fallback state
                 _ => Ok(Action::requeue(
                     <Self as ::kiss_api::manager::Ctx>::FALLBACK,
@@ -79,6 +85,7 @@ impl Ctx {
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
         state: BoxState,
+        cluster: Option<String>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -102,6 +109,7 @@ impl Ctx {
                 "kind": crd.kind,
                 "status": BoxStatus {
                     state,
+                    bind_cluster: cluster,
                     last_updated: Utc::now(),
                 },
             }));

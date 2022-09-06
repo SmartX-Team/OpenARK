@@ -54,10 +54,11 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     "kind": crd.kind,
                     "status": BoxStatus {
                         state: BoxState::New,
+                        bind_cluster: None,
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-controller").force();
+                let pp = PatchParams::apply("kiss-gateway").force();
                 api.patch_status(&name, &pp, &patch).await?;
             }
             Err(_) => {
@@ -74,6 +75,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     },
                     status: Some(BoxStatus {
                         state: BoxState::New,
+                        bind_cluster: None,
                         last_updated: Utc::now(),
                     }),
                 };
@@ -112,10 +114,11 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                     "spec": spec,
                     "status": BoxStatus {
                         state: BoxState::Ready,
+                        bind_cluster: None,
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-controller").force();
+                let pp = PatchParams::apply("kiss-gateway").force();
                 api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
@@ -128,6 +131,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                     spec,
                     status: Some(BoxStatus {
                         state: BoxState::Ready,
+                        bind_cluster: None,
                         last_updated: Utc::now(),
                     }),
                 };
