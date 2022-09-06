@@ -153,7 +153,7 @@ data:
               Type=oneshot
               Restart=on-failure
               ExecStart=/bin/bash -c " \
-                  ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.') ;\
+                  ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.' | head -1) ;\
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
                   curl \"http://gateway.kiss.svc.ops.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
               "
