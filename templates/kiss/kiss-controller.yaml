@@ -137,6 +137,11 @@ spec:
                 configMapKeyRef:
                   name: ansible-images
                   key: kubespray
+            - name: KISS_FORCE_RESET
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: force_reset
             - name: RUST_LOG
               value: INFO
           resources:

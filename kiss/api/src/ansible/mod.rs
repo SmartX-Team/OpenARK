@@ -16,6 +16,7 @@ use crate::r#box::{BoxPowerSpec, BoxSpec, BoxState, BoxStatus};
 
 pub struct AnsibleClient {
     ansible_image: String,
+    force_reset: bool,
 }
 
 impl AnsibleClient {
@@ -30,6 +31,7 @@ impl AnsibleClient {
     pub fn try_default() -> Result<Self> {
         Ok(Self {
             ansible_image: infer("ANSIBLE_IMAGE").unwrap_or_else(|_| Self::ANSIBLE_IMAGE.into()),
+            force_reset: infer("KISS_FORCE_RESET").unwrap_or(false),
         })
     }
 
@@ -44,7 +46,7 @@ impl AnsibleClient {
             .or(job.spec.cluster.as_ref())
             .map(String::as_str)
             .unwrap_or("default");
-        let reset = job
+        let reset = self.force_reset || job
             .status
             .as_ref()
             .and_then(|status| status.bind_cluster.as_ref())
