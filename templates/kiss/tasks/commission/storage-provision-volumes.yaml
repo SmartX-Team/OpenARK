@@ -8,13 +8,13 @@
 
 - name: Format the filesystem | {{ lv.kind }} | {{ lv.name }}
   filesystem:
-    fstype: ext4
+    fstype: xfs
     dev: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
 
 - name: Mount a logical volume | {{ lv.kind }} | {{ lv.name }}
   mount:
     path: "{{ lv.path }}"
     src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
-    fstype: ext4
-    opts: noatime
+    fstype: xfs
+    opts: rw,relatime
     state: mounted
