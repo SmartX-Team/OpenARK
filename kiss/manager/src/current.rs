@@ -168,6 +168,7 @@ impl Handler {
             namespace: Some(Self::NAMESPACE.into()),
             labels: Some(
                 vec![
+                    ("kissService".into(), "true".into()),
                     ("serviceType".into(), Self::UPGRADE_SERVICE_TYPE.into()),
                     ("sourceVersion".into(), current.to_string()),
                     ("targetVersion".into(), latest.to_string()),
