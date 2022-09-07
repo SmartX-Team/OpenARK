@@ -11,6 +11,30 @@
     fstype: xfs
     dev: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
 
+- name: Mount a logical volume to a temporary path | {{ lv.kind }} | {{ lv.name }}
+  when: not kiss_storage_exists
+  mount:
+    path: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
+    src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
+    fstype: xfs
+    opts: rw,relatime
+    state: mounted
+
+- name: Copy files | {{ lv.kind }} | {{ lv.name }}
+  when: not kiss_storage_exists
+  copy:
+    src: "{{ lv.path }}/"
+    dest: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
+    remote_src: true
+  ignore_errors: true
+
+- name: Unmount a logical volume located in the temporary path | {{ lv.kind }} | {{ lv.name }}
+  when: not kiss_storage_exists
+  mount:
+    path: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
+    src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
+    state: absent
+
 - name: Mount a logical volume | {{ lv.kind }} | {{ lv.name }}
   mount:
     path: "{{ lv.path }}"
