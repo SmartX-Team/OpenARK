@@ -13,3 +13,17 @@
     state: absent
     force: true
   with_items: "{{ results.files }}"
+
+- name: List all plugin registries
+  find:
+    paths:
+      - /var/lib/kubelet/plugins_registry/
+    pattern: rook-ceph.*
+  register: results
+
+- name: Remove plugin registries
+  file:
+    path: "{{ item.path }}"
+    state: absent
+    force: true
+  with_items: "{{ results.files }}"
