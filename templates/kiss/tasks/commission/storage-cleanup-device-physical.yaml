@@ -10,6 +10,7 @@
 
 - name: Discard sectors | {{ device[0] }}
   shell: blkdiscard /dev/{{ device[0] }} && sync
+  ignore_errors: true
 
 - name: Inform the OS of partition table changes | {{ device[0] }}
   shell: partprobe /dev/{{ device[0] }} && sync
