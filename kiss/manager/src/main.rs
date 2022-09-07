@@ -1,15 +1,7 @@
-#![deny(
-    clippy::all,
-    clippy::cargo,
-    clippy::nursery,
-    clippy::pedantic,
-    clippy::restriction
-)]
-
 mod current;
 mod latest;
 
-use std::time::Duration;
+use std::{cmp::Ordering, time::Duration};
 
 use ipis::{
     core::anyhow::Result,
@@ -29,15 +21,19 @@ async fn sync_cluster(
     };
 
     // if possible, update the cluster
-    if &latest > &current {
-        info!("Found the newer version: {current} -> {latest}");
-        current_handler.upgrade(&current, &latest).await
-    } else if latest < current {
-        warn!("Current version is ahead of official release: {latest} > {current}");
-        Ok(())
-    } else {
-        info!("The current version is the latest one: {current}");
-        Ok(())
+    match latest.cmp(&current) {
+        Ordering::Greater => {
+            info!("Found the newer version: {current} -> {latest}");
+            current_handler.upgrade(&current, &latest).await
+        }
+        Ordering::Less => {
+            warn!("Current version is ahead of official release: {latest} > {current}");
+            Ok(())
+        }
+        Ordering::Equal => {
+            info!("The current version is the latest one: {current}");
+            Ok(())
+        }
     }
 }
 

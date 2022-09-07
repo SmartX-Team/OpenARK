@@ -41,9 +41,14 @@ impl AnsibleClient {
             .status
             .as_ref()
             .and_then(|status| status.bind_cluster.as_ref())
-            .or_else(|| job.spec.cluster.as_ref())
+            .or(job.spec.cluster.as_ref())
             .map(String::as_str)
             .unwrap_or("default");
+        let reset = job
+            .status
+            .as_ref()
+            .and_then(|status| status.bind_cluster.as_ref())
+            != job.spec.cluster.as_ref();
 
         // delete all previous cronjobs
         {
@@ -159,8 +164,8 @@ impl AnsibleClient {
                                     .spec
                                     .power
                                     .as_ref()
-                                    .and_then(|power| match power {
-                                        BoxPowerSpec::Ipmi { address } => Some(address),
+                                    .map(|power| match power {
+                                        BoxPowerSpec::Ipmi { address } => address,
                                     })
                                     .map(|address| address.to_string()),
                                 ..Default::default()
@@ -168,6 +173,11 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "ansible_ipmi_password".into(),
                                 value: Some("kiss".into()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_storage_reset_force".into(),
+                                value: Some(reset.to_string()),
                                 ..Default::default()
                             },
                         ]),

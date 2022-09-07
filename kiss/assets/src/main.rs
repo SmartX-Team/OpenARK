@@ -1,11 +1,3 @@
-#![deny(
-    clippy::all,
-    clippy::cargo,
-    clippy::nursery,
-    clippy::pedantic,
-    clippy::restriction
-)]
-
 use std::{net::SocketAddr, sync::Arc};
 
 use actix_web::{

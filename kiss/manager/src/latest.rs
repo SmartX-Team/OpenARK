@@ -37,7 +37,7 @@ impl Handler {
             .await?;
 
         // compare with the current release tag
-        if !release.tag_name.starts_with("v") {
+        if !release.tag_name.starts_with('v') {
             bail!("Received unexpected version tag: {:?}", &release.tag_name);
         }
         Version::parse(&release.tag_name[1..]).map_err(Into::into)
