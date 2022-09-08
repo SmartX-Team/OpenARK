@@ -12,7 +12,8 @@ env:
   CARGO_TERM_COLOR: always
 
   REGISTRY: quay.io
-  ORGANIZATION: ulagbulag-village
+  REGISTRY_USER: ulagbulag-village
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   IMAGE_NAME: netai-cloud
 
 jobs:
@@ -45,9 +46,9 @@ jobs:
       - name: Log in to Quay.io
         uses: redhat-actions/podman-login@v1
         with:
-          username: ${{ env.ORGANIZATION }}
-          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
 
       - name: Build Image
         id: build-and-push-image
@@ -65,7 +66,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -86,9 +87,9 @@ jobs:
       - name: Log in to Quay.io
         uses: redhat-actions/podman-login@v1
         with:
-          username: ${{ env.ORGANIZATION }}
-          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
 
       - name: Build Image
         id: build-and-push-image
@@ -106,7 +107,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -127,9 +128,9 @@ jobs:
       - name: Log in to Quay.io
         uses: redhat-actions/podman-login@v1
         with:
-          username: ${{ env.ORGANIZATION }}
-          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
 
       - name: Build Image
         id: build-and-push-image
@@ -147,7 +148,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
