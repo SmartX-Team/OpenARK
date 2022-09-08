@@ -25,7 +25,7 @@ spec:
       serviceAccount: kiss-controller
       containers:
         - name: manager
-          image: quay.io/kerryeon/netai-cloud:latest
+          image: quay.io/ulagbulag-village/netai-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-manager
