@@ -127,7 +127,7 @@ spec:
       serviceAccount: kiss-controller
       containers:
         - name: controller
-          image: ghcr.io/ulagbulag-village/netai-cloud:master
+          image: quay.io/kerryeon/netai-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-controller

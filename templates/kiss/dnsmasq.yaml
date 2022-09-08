@@ -37,7 +37,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-tftpboot
-          image: ghcr.io/ulagbulag-village/netai-cloud-ipxe:master
+          image: quay.io/kerryeon/netai-cloud-ipxe:latest
           command:
             - bash
           args:

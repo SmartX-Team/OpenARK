@@ -24,6 +24,11 @@ async fn sync_cluster(
     match latest.cmp(&current) {
         Ordering::Greater => {
             info!("Found the newer version: {current} -> {latest}");
+
+            info!("Waiting for building images...");
+            // TODO: actively check for building images, or sync to workflows
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+
             current_handler.upgrade(&current, &latest).await
         }
         Ordering::Less => {

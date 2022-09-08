@@ -45,7 +45,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: assets
-          image: ghcr.io/ulagbulag-village/netai-cloud:master
+          image: quay.io/kerryeon/netai-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-assets

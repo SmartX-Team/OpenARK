@@ -180,6 +180,7 @@ impl Handler {
         };
         let job = Job {
             spec: Some(JobSpec {
+                backoff_limit: Some(30),
                 template: PodTemplateSpec {
                     metadata: Some(ObjectMeta {
                         labels: metadata.labels.clone(),
@@ -190,9 +191,7 @@ impl Handler {
                         service_account: Some("kiss-controller".into()),
                         containers: vec![Container {
                             name: "kubectl".into(),
-                            image: Some(
-                                "ghcr.io/ulagbulag-village/netai-cloud-upgrade-kiss:master".into(),
-                            ),
+                            image: Some("quay.io/kerryeon/netai-cloud-upgrade-kiss:latest".into()),
                             image_pull_policy: Some("Always".into()),
                             env: Some(vec![
                                 EnvVar {

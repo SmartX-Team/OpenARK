@@ -46,11 +46,12 @@ impl AnsibleClient {
             .or(job.spec.cluster.as_ref())
             .map(String::as_str)
             .unwrap_or("default");
-        let reset = self.force_reset || job
-            .status
-            .as_ref()
-            .and_then(|status| status.bind_cluster.as_ref())
-            != job.spec.cluster.as_ref();
+        let reset = self.force_reset
+            || job
+                .status
+                .as_ref()
+                .and_then(|status| status.bind_cluster.as_ref())
+                != job.spec.cluster.as_ref();
 
         // delete all previous cronjobs
         {
