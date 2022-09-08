@@ -12,7 +12,8 @@ env:
   CARGO_TERM_COLOR: always
 
   REGISTRY: quay.io
-  REGISTRY_USER: ulagbulag-village
+  REGISTRY_USER: kerryeon
+  REGISTRY_REPOSITORY: ulagbulag-village
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   IMAGE_NAME: netai-cloud
 
@@ -43,7 +44,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Log in to Quay.io
+      - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -66,7 +67,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -84,7 +85,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Log in to Quay.io
+      - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -107,7 +108,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -125,7 +126,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Log in to Quay.io
+      - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -148,7 +149,7 @@ jobs:
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
 
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
