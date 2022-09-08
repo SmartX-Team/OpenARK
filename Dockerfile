@@ -1,17 +1,5 @@
-# Configure environment variables
-ARG \
-    ALPINE_VERSION="3.16" \
-    PACKAGE="netai-cloud"
-
 # Be ready for serving
 FROM docker.io/alpine:${ALPINE_VERSION} as server
-
-# Metadata Configuration
-LABEL \
-    ALPINE_VERSION=${ALPINE_VERSION} \
-    AUTHOR="kerryeon" \
-    LICENSE="GPL v3.0 with a classpath linking exception" \
-    PACKAGE=${PACKAGE}
 
 # Server Configuration
 EXPOSE 80/tcp
