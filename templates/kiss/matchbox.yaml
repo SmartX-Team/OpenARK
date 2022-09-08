@@ -124,7 +124,7 @@ data:
           filesystem: root
           mode: 0644
           contents:
-            inline: unknown.box.netai-cloud
+            inline: unknown
         - path: /etc/modules-load.d/driver.conf
           filesystem: root
           mode: 0444
