@@ -14,10 +14,8 @@ Cargo.lock
 *.pdb
 
 # CI/CD
-/.dockerignore
 /.github/
 /templates/
-/Dockerfile
 **/*.sh
 **/*.yaml
 **/*.yml
