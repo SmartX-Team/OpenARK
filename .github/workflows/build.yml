@@ -11,8 +11,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: quay.io
+  ORGANIZATION: ulagbulag-village
+  IMAGE_NAME: netai-cloud
 
 jobs:
   build-rust:
@@ -28,7 +29,7 @@ jobs:
       - name: Run tests
         run: cargo test --all --workspace --verbose
 
-  build-image:
+  build-and-push-image:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - build-rust
@@ -41,42 +42,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      # Workaround: https://github.com/docker/build-push-action/issues/461
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Login to the Container registry ${{ env.REGISTRY }}
-        uses: docker/login-action@v2
+      - name: Log in to Quay.io
+        uses: redhat-actions/podman-login@v1
         with:
+          username: ${{ env.ORGANIZATION }}
+          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
+          tags: latest-${{ github.sha }}
+          containerfiles: |
+            ./Dockerfile
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@v3
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == "ulagbulag-village/netai-cloud"
+        uses: redhat-actions/push-to-registry@v2
         with:
-          context: .
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
 
-  build-image-ipxe:
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  build-and-push-image-ipxe:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - build-rust
@@ -89,42 +83,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      # Workaround: https://github.com/docker/build-push-action/issues/461
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Login to the Container registry ${{ env.REGISTRY }}
-        uses: docker/login-action@v2
+      - name: Log in to Quay.io
+        uses: redhat-actions/podman-login@v1
         with:
+          username: ${{ env.ORGANIZATION }}
+          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-ipxe
+          image: ${{ env.IMAGE_NAME }}-ipxe
+          tags: latest-${{ github.sha }}
+          containerfiles: |
+            ./templates/ipxe/Dockerfile
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@v3
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == "ulagbulag-village/netai-cloud"
+        uses: redhat-actions/push-to-registry@v2
         with:
-          context: ./templates/ipxe/
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
 
-  build-image-upgrade-kiss:
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  build-and-push-image-upgrade-kiss:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - build-rust
@@ -137,47 +124,40 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      # Workaround: https://github.com/docker/build-push-action/issues/461
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Login to the Container registry ${{ env.REGISTRY }}
-        uses: docker/login-action@v2
+      - name: Log in to Quay.io
+        uses: redhat-actions/podman-login@v1
         with:
+          username: ${{ env.ORGANIZATION }}
+          password: ${{ env.REGISTRY_PASSWORD }}
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-upgrade-kiss
+          image: ${{ env.IMAGE_NAME }}-upgrade-kiss
+          tags: latest-${{ github.sha }}
+          containerfiles: |
+            ./Dockerfile
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@v3
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == "ulagbulag-village/netai-cloud"
+        uses: redhat-actions/push-to-registry@v2
         with:
-          context: ./templates/kiss/
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
   release:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-image
-      - build-image-ipxe
-      - build-image-upgrade-kiss
+      - build-and-push-image
+      - build-and-push-image-ipxe
+      - build-and-push-image-upgrade-kiss
     runs-on: ubuntu-latest
     permissions:
       contents: write
