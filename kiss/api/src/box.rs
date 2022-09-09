@@ -176,7 +176,7 @@ pub struct BoxMachineSpec {
 
 impl BoxMachineSpec {
     pub fn hostname(&self) -> String {
-        self.uuid.to_string()
+        self.uuid.to_string().replace('-', "")
     }
 }
 
