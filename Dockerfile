@@ -1,3 +1,6 @@
+# Configure environment variables
+ARG ALPINE_VERSION="3.16"
+
 # Be ready for serving
 FROM docker.io/alpine:${ALPINE_VERSION} as server
 

@@ -140,7 +140,7 @@ jobs:
           image: ${{ env.IMAGE_NAME }}-upgrade-kiss
           tags: latest-${{ github.sha }}
           containerfiles: |
-            ./Dockerfile
+            ./templates/kiss/Dockerfile
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
