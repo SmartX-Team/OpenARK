@@ -60,7 +60,7 @@ jobs:
           containerfiles: |
             ./Dockerfile
           build-args: |
-            ALPINE_VERSION="3.16"
+            ALPINE_VERSION=3.16
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
@@ -144,7 +144,7 @@ jobs:
           containerfiles: |
             ./templates/kiss/Dockerfile
           build-args: |
-            K8S_VERSION="1.24"
+            K8S_VERSION=1.24
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
