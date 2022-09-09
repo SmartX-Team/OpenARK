@@ -38,11 +38,6 @@ spec:
       initContainers:
         - name: init-tftpboot
           image: quay.io/ulagbulag-village/netai-cloud-ipxe:latest
-          command:
-            - bash
-          args:
-            - -c
-            - cp /ipxe/* /var/lib/tftpboot
           resources:
             requests:
               cpu: 30m

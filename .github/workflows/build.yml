@@ -17,6 +17,10 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   IMAGE_NAME: netai-cloud
 
+  ALPINE_VERSION: "3.16"
+  K8S_VERSION: "1.24"
+  UBUNTU_VERSION: rolling
+
 jobs:
   build-rust:
     runs-on: ubuntu-latest
@@ -60,7 +64,7 @@ jobs:
           containerfiles: |
             ./Dockerfile
           build-args: |
-            ALPINE_VERSION=3.16
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
@@ -102,6 +106,9 @@ jobs:
           tags: latest
           containerfiles: |
             ./templates/ipxe/Dockerfile
+          build-args: |
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            UBUNTU_VERSION=${{ env.UBUNTU_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
@@ -144,7 +151,7 @@ jobs:
           containerfiles: |
             ./templates/kiss/Dockerfile
           build-args: |
-            K8S_VERSION=1.24
+            K8S_VERSION=${{ env.K8S_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay

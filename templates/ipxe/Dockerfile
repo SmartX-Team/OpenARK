@@ -1,4 +1,17 @@
-FROM docker.io/ubuntu:rolling
+# Configure environment variables
+ARG ALPINE_VERSION="latest"
+ARG UBUNTU_VERSION="rolling"
+
+# Be ready for serving
+FROM docker.io/alpine:${ALPINE_VERSION} as server
+
+# Server Configuration
+WORKDIR /ipxe
+ENTRYPOINT [ "/bin/cp" ]
+CMD [ "/ipxe/*", "/var/lib/tftpboot" ]
+
+# Be ready for building
+FROM docker.io/ubuntu:${UBUNTU_VERSION} as builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     xorriso \
     && rm -rf /var/lib/apt/lists/*
 
-# Build iPXE
+# Build it!
 RUN mkdir /src && cd /src \
     && git clone https://github.com/ipxe/ipxe.git \
     && cd ipxe/src \
@@ -30,3 +43,7 @@ RUN mkdir /src && cd /src \
     && mv bin/undionly.kpxe /ipxe/undionly.kpxe \
     ## Cleanup
     && cd / && rm -rf /src
+
+# Copy executable files
+FROM server
+COPY --from=builder /ipxe/* /ipxe/
