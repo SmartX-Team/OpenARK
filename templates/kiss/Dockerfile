@@ -1,5 +1,5 @@
 # Configure environment variables
-ARG K8S_VERSION
+ARG K8S_VERSION="latest"
 
 # Be ready for serving
 FROM docker.io/bitnami/kubectl:${K8S_VERSION} as server
