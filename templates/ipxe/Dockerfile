@@ -7,8 +7,8 @@ FROM docker.io/alpine:${ALPINE_VERSION} as server
 
 # Server Configuration
 WORKDIR /ipxe
-ENTRYPOINT [ "/bin/cp" ]
-CMD [ "/ipxe/*", "/var/lib/tftpboot" ]
+ENTRYPOINT [ "/bin/sh" ]
+CMD [ "-c", "cp /ipxe/* /var/lib/tftpboot/" ]
 
 # Be ready for building
 FROM docker.io/ubuntu:${UBUNTU_VERSION} as builder
