@@ -18,7 +18,7 @@ env:
   IMAGE_NAME: netai-cloud
 
   ALPINE_VERSION: "3.16"
-  K8S_VERSION: "1.24"
+  K8S_VERSION: "1.24.4"
   UBUNTU_VERSION: rolling
 
 jobs:

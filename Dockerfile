@@ -1,5 +1,6 @@
 # Configure environment variables
 ARG ALPINE_VERSION="latest"
+ARG PACKAGE="netai-cloud"
 
 # Be ready for serving
 FROM docker.io/alpine:${ALPINE_VERSION} as server
