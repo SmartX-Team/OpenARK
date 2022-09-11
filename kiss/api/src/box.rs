@@ -48,9 +48,15 @@ use strum::{Display, EnumString};
         "jsonPath":".status.state"
     }"#,
     printcolumn = r#"{
-        "name": "last-updated",
+        "name": "created-at",
         "type": "date",
-        "description":"last updated time of the box",
+        "description":"created time of the box",
+        "jsonPath":".metadata.creationTimestamp"
+    }"#,
+    printcolumn = r#"{
+        "name": "updated-at",
+        "type": "date",
+        "description":"updated time of the box",
         "jsonPath":".status.lastUpdated"
     }"#
 )]
