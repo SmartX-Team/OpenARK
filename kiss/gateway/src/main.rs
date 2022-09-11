@@ -39,14 +39,14 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
         let name = query.machine.uuid.to_string();
 
         match api.get(&name).await {
-            Ok(_) => {
+            Ok(r#box) => {
                 let crd = BoxCrd::api_resource();
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
                         state: BoxState::New,
-                        bind_cluster: None,
+                        bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
                         last_updated: Utc::now(),
                     },
                 }));
@@ -61,13 +61,13 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     },
                     spec: BoxSpec {
                         access: query.access,
-                        cluster: None,
+                        group: Default::default(),
                         machine: query.machine,
                         power: None,
                     },
                     status: Some(BoxStatus {
                         state: BoxState::New,
-                        bind_cluster: None,
+                        bind_group: None,
                         last_updated: Utc::now(),
                     }),
                 };
@@ -98,7 +98,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
         let name = spec.machine.uuid.to_string();
 
         match api.get(&name).await {
-            Ok(_) => {
+            Ok(r#box) => {
                 let crd = BoxCrd::api_resource();
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
@@ -106,7 +106,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                     "spec": spec,
                     "status": BoxStatus {
                         state: BoxState::Ready,
-                        bind_cluster: None,
+                        bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
                         last_updated: Utc::now(),
                     },
                 }));
@@ -123,7 +123,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                     spec,
                     status: Some(BoxStatus {
                         state: BoxState::Ready,
-                        bind_cluster: None,
+                        bind_group: None,
                         last_updated: Utc::now(),
                     }),
                 };

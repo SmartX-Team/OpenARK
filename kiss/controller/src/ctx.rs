@@ -77,7 +77,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             "kind": crd.kind,
             "status": BoxStatus {
                 state: new_state,
-                bind_cluster: status.as_ref().and_then(|status| status.bind_cluster.as_ref()).cloned(),
+                bind_group: status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
                 last_updated: if old_state == new_state {
                     status
                         .as_ref()

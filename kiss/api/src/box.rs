@@ -33,7 +33,13 @@ use strum::{Display, EnumString};
         "name": "Cluster",
         "type": "string",
         "description":"cluster name where the box is located",
-        "jsonPath":".spec.cluster"
+        "jsonPath":".spec.group.cluster"
+    }"#,
+    printcolumn = r#"{
+        "name": "Control Plane",
+        "type": "string",
+        "description":"whether the box is a kind of control-planes",
+        "jsonPath":".spec.group.is_control_plane"
     }"#,
     printcolumn = r#"{
         "name": "State",
@@ -45,7 +51,7 @@ use strum::{Display, EnumString};
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
     pub access: BoxAccessSpec,
-    pub cluster: Option<String>,
+    pub group: BoxGroupSpec,
     pub machine: BoxMachineSpec,
     pub power: Option<BoxPowerSpec>,
 }
@@ -54,7 +60,7 @@ pub struct BoxSpec {
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
     pub state: BoxState,
-    pub bind_cluster: Option<String>,
+    pub bind_group: Option<BoxGroupSpec>,
     pub last_updated: DateTime<Utc>,
 }
 
@@ -166,6 +172,22 @@ impl BoxState {
 #[serde(rename_all = "camelCase")]
 pub struct BoxAccessSpec {
     pub address: IpAddr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BoxGroupSpec {
+    pub cluster_name: String,
+    pub is_control_plane: bool,
+}
+
+impl Default for BoxGroupSpec {
+    fn default() -> Self {
+        Self {
+            cluster_name: "default".to_string(),
+            is_control_plane: false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

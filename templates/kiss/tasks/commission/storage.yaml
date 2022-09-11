@@ -3,9 +3,9 @@
   set_fact:
     kiss_storage_exists: >-
       {{
-        (lookup('env', 'kiss_storage_reset_force') | default('false')) == 'false'
+        (lookup('env', 'kiss_group_force_reset') | default('false')) == 'false'
       and
-        ( 'kiss' in ansible_lvm.vgs.keys() )
+        ('kiss' in ansible_lvm.vgs.keys())
       }}
 
 - name: Cleanup disks

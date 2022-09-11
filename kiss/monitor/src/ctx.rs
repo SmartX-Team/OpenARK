@@ -14,7 +14,7 @@ use kiss_api::{
         Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
-    r#box::{BoxCrd, BoxState, BoxStatus},
+    r#box::{BoxCrd, BoxGroupSpec, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -37,10 +37,18 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .labels()
             .get(AnsibleClient::LABEL_COMPLETED_STATE)
             .and_then(|state| state.parse().ok());
-        let cluster = data
-            .labels()
-            .get(AnsibleClient::LABEL_TARGET_CLUSTER)
-            .cloned();
+        let group = None.or_else(|| {
+            Some(BoxGroupSpec {
+                cluster_name: data
+                    .labels()
+                    .get(AnsibleClient::LABEL_GROUP_CLUSTER_NAME)
+                    .cloned()?,
+                is_control_plane: data
+                    .labels()
+                    .get(AnsibleClient::LABEL_GROUP_IS_CONTROL_PLANE)
+                    .and_then(|e| e.parse().ok())?,
+            })
+        });
 
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
@@ -49,7 +57,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         if has_completed {
             // update the state
             if let Some(completed_state) = completed_state {
-                Self::update_box_state(manager, data, completed_state, cluster).await
+                Self::update_box_state(manager, data, completed_state, group).await
             }
             // keep the state, scheduled by the controller
             else {
@@ -63,7 +71,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             let fallback_state = completed_state.unwrap_or(BoxState::Failed).fail();
             match fallback_state {
                 BoxState::Failed => {
-                    Self::update_box_state(manager, data, fallback_state, cluster).await
+                    Self::update_box_state(manager, data, fallback_state, group).await
                 }
                 // do nothing when the job has no fallback state
                 _ => Ok(Action::requeue(
@@ -85,7 +93,7 @@ impl Ctx {
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
         state: BoxState,
-        cluster: Option<String>,
+        group: Option<BoxGroupSpec>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -109,7 +117,7 @@ impl Ctx {
                 "kind": crd.kind,
                 "status": BoxStatus {
                     state,
-                    bind_cluster: cluster,
+                    bind_group: group,
                     last_updated: Utc::now(),
                 },
             }));

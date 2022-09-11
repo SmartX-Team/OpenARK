@@ -24,14 +24,16 @@ impl AnsibleClient {
     pub const LABEL_BOX_ACCESS_ADDRESS: &'static str = "kiss.netai-cloud/box_access_address";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
-    pub const LABEL_TARGET_CLUSTER: &'static str = "kiss.netai-cloud/target_cluster";
+    pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
+    pub const LABEL_GROUP_IS_CONTROL_PLANE: &'static str =
+        "kiss.netai-cloud/group_is_control_plane";
 
     pub const ANSIBLE_IMAGE: &'static str = "quay.io/kubespray/kubespray:v2.19.1";
 
     pub fn try_default() -> Result<Self> {
         Ok(Self {
             ansible_image: infer("ANSIBLE_IMAGE").unwrap_or_else(|_| Self::ANSIBLE_IMAGE.into()),
-            force_reset: infer("KISS_FORCE_RESET").unwrap_or(false),
+            force_reset: infer("kiss_group_force_reset").unwrap_or(false),
         })
     }
 
@@ -39,19 +41,13 @@ impl AnsibleClient {
         let ns = "kiss";
         let box_name = job.spec.machine.uuid.to_string();
         let name = format!("box-{}-{}", &job.task, &box_name);
-        let cluster = job
+
+        let bind_group = job
             .status
             .as_ref()
-            .and_then(|status| status.bind_cluster.as_ref())
-            .or(job.spec.cluster.as_ref())
-            .map(String::as_str)
-            .unwrap_or("default");
-        let reset = self.force_reset
-            || job
-                .status
-                .as_ref()
-                .and_then(|status| status.bind_cluster.as_ref())
-                != job.spec.cluster.as_ref();
+            .and_then(|status| status.bind_group.as_ref());
+        let group = bind_group.unwrap_or(&job.spec.group);
+        let reset = self.force_reset || bind_group != Some(&job.spec.group);
 
         // delete all previous cronjobs
         {
@@ -94,7 +90,14 @@ impl AnsibleClient {
                         .as_ref()
                         .map(ToString::to_string)
                         .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
-                    Some((Self::LABEL_TARGET_CLUSTER.into(), cluster.to_string())),
+                    Some((
+                        Self::LABEL_GROUP_CLUSTER_NAME.into(),
+                        group.cluster_name.clone(),
+                    )),
+                    Some((
+                        Self::LABEL_GROUP_IS_CONTROL_PLANE.into(),
+                        group.is_control_plane.to_string(),
+                    )),
                 ]
                 .into_iter()
                 .flatten()
@@ -179,8 +182,13 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
-                                name: "kiss_storage_reset_force".into(),
+                                name: "kiss_group_force_reset".into(),
                                 value: Some(reset.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_group_is_control_plane".into(),
+                                value: Some(group.is_control_plane.to_string()),
                                 ..Default::default()
                             },
                         ]),
@@ -212,7 +220,10 @@ impl AnsibleClient {
                         Volume {
                             name: "ansible".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some(format!("ansible-control-planes-{cluster}")),
+                                name: Some(format!(
+                                    "ansible-control-planes-{}",
+                                    &group.cluster_name,
+                                )),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
