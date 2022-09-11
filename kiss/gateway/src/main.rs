@@ -6,7 +6,10 @@ use actix_web::{
     App, HttpResponse, HttpServer, Responder,
 };
 use ipis::{
-    core::{anyhow::Result, chrono::Utc},
+    core::{
+        anyhow::{bail, Result},
+        chrono::Utc,
+    },
     env::infer,
     log::warn,
     logger,
@@ -114,25 +117,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                 api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
-            Err(_) => {
-                let data = BoxCrd {
-                    metadata: ObjectMeta {
-                        name: Some(name.clone()),
-                        ..Default::default()
-                    },
-                    spec,
-                    status: Some(BoxStatus {
-                        state: BoxState::Ready,
-                        bind_group: None,
-                        last_updated: Utc::now(),
-                    }),
-                };
-                let pp = PostParams {
-                    dry_run: false,
-                    field_manager: Some("kiss-gateway".into()),
-                };
-                api.create(&pp, &data).await?;
-            }
+            Err(_) => bail!("no such box: {name}"),
         }
         Ok(())
     }
