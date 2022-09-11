@@ -33,7 +33,7 @@ use strum::{Display, EnumString};
         "name": "Cluster",
         "type": "string",
         "description":"cluster name where the box is located",
-        "jsonPath":".spec.group.cluster"
+        "jsonPath":".spec.group.cluster_name"
     }"#,
     printcolumn = r#"{
         "name": "Control Plane",
