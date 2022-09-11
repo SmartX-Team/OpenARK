@@ -18,34 +18,40 @@ use strum::{Display, EnumString};
     status = "BoxStatus",
     shortname = "box",
     printcolumn = r#"{
-        "name": "Address",
+        "name": "address",
         "type": "string",
         "description":"access address of the box",
         "jsonPath":".spec.access.address"
     }"#,
     printcolumn = r#"{
-        "name": "Power",
+        "name": "power",
         "type": "string",
         "description":"power address of the box",
         "jsonPath":".spec.power.address"
     }"#,
     printcolumn = r#"{
-        "name": "Cluster",
+        "name": "cluster",
         "type": "string",
         "description":"cluster name where the box is located",
         "jsonPath":".spec.group.cluster_name"
     }"#,
     printcolumn = r#"{
-        "name": "Control Plane",
+        "name": "role",
         "type": "string",
-        "description":"whether the box is a kind of control-planes",
-        "jsonPath":".spec.group.is_control_plane"
+        "description":"role of the box",
+        "jsonPath":".spec.group.role"
     }"#,
     printcolumn = r#"{
-        "name": "State",
+        "name": "state",
         "type": "string",
         "description":"state of the box",
         "jsonPath":".status.state"
+    }"#,
+    printcolumn = r#"{
+        "name": "last-updated",
+        "type": "date",
+        "description":"last updated time of the box",
+        "jsonPath":".status.lastUpdated"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -174,19 +180,47 @@ pub struct BoxAccessSpec {
     pub address: IpAddr,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxGroupSpec {
     pub cluster_name: String,
-    pub is_control_plane: bool,
+    pub role: BoxGroupRole,
 }
 
 impl Default for BoxGroupSpec {
     fn default() -> Self {
         Self {
             cluster_name: "default".to_string(),
-            is_control_plane: false,
+            role: BoxGroupRole::default(),
         }
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum BoxGroupRole {
+    ControlPlane,
+    Worker,
+}
+
+impl Default for BoxGroupRole {
+    fn default() -> Self {
+        Self::Worker
     }
 }
 

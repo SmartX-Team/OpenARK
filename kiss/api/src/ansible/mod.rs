@@ -25,8 +25,7 @@ impl AnsibleClient {
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
     pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
-    pub const LABEL_GROUP_IS_CONTROL_PLANE: &'static str =
-        "kiss.netai-cloud/group_is_control_plane";
+    pub const LABEL_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
 
     pub const ANSIBLE_IMAGE: &'static str = "quay.io/kubespray/kubespray:v2.19.1";
 
@@ -94,10 +93,7 @@ impl AnsibleClient {
                         Self::LABEL_GROUP_CLUSTER_NAME.into(),
                         group.cluster_name.clone(),
                     )),
-                    Some((
-                        Self::LABEL_GROUP_IS_CONTROL_PLANE.into(),
-                        group.is_control_plane.to_string(),
-                    )),
+                    Some((Self::LABEL_GROUP_ROLE.into(), group.role.to_string())),
                 ]
                 .into_iter()
                 .flatten()
@@ -187,8 +183,8 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
-                                name: "kiss_group_is_control_plane".into(),
-                                value: Some(group.is_control_plane.to_string()),
+                                name: "kiss_group_role".into(),
+                                value: Some(group.role.to_string()),
                                 ..Default::default()
                             },
                         ]),

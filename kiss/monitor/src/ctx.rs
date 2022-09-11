@@ -43,9 +43,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     .labels()
                     .get(AnsibleClient::LABEL_GROUP_CLUSTER_NAME)
                     .cloned()?,
-                is_control_plane: data
+                role: data
                     .labels()
-                    .get(AnsibleClient::LABEL_GROUP_IS_CONTROL_PLANE)
+                    .get(AnsibleClient::LABEL_GROUP_ROLE)
                     .and_then(|e| e.parse().ok())?,
             })
         });
