@@ -61,6 +61,7 @@ jobs:
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: latest
+          context: "."
           containerfiles: |
             ./Dockerfile
           build-args: |
@@ -104,6 +105,7 @@ jobs:
         with:
           image: ${{ env.IMAGE_NAME }}-ipxe
           tags: latest
+          context: ./templates/ipxe
           containerfiles: |
             ./templates/ipxe/Dockerfile
           build-args: |
@@ -148,6 +150,7 @@ jobs:
         with:
           image: ${{ env.IMAGE_NAME }}-upgrade-kiss
           tags: latest
+          context: ./templates/kiss
           containerfiles: |
             ./templates/kiss/Dockerfile
           build-args: |
