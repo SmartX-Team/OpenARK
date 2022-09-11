@@ -20,7 +20,10 @@ use kiss_api::{
         core::ObjectMeta,
         Api, Client, CustomResourceExt,
     },
-    r#box::{request::BoxNewQuery, BoxCrd, BoxSpec, BoxState, BoxStatus},
+    r#box::{
+        request::{BoxCommissionQuery, BoxNewQuery},
+        BoxCrd, BoxSpec, BoxState, BoxStatus,
+    },
     serde_json::json,
 };
 
@@ -94,11 +97,14 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
 }
 
 #[post("/commission")]
-async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) -> impl Responder {
-    async fn try_handle(client: Data<Arc<Client>>, spec: BoxSpec) -> Result<()> {
+async fn get_commission(
+    client: Data<Arc<Client>>,
+    Json(query): Json<BoxCommissionQuery>,
+) -> impl Responder {
+    async fn try_handle(client: Data<Arc<Client>>, query: BoxCommissionQuery) -> Result<()> {
         let api = Api::<BoxCrd>::all((***client).clone());
 
-        let name = spec.machine.uuid.to_string();
+        let name = query.machine.uuid.to_string();
 
         match api.get(&name).await {
             Ok(r#box) => {
@@ -106,7 +112,12 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
-                    "spec": spec,
+                    "spec": BoxSpec {
+                        access: query.access,
+                        group: r#box.spec.group,
+                        machine: query.machine,
+                        power: query.power,
+                    },
                     "status": BoxStatus {
                         state: BoxState::Ready,
                         bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
@@ -122,7 +133,7 @@ async fn get_commission(client: Data<Arc<Client>>, Json(spec): Json<BoxSpec>) ->
         Ok(())
     }
 
-    match try_handle(client, spec).await {
+    match try_handle(client, query).await {
         Ok(()) => HttpResponse::Ok().json("Ok"),
         Err(e) => {
             warn!("failed to commission a client: {e}");

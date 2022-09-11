@@ -253,4 +253,11 @@ pub mod request {
         #[serde(flatten)]
         pub machine: BoxMachineSpec,
     }
+
+    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    pub struct BoxCommissionQuery {
+        pub access: BoxAccessSpec,
+        pub machine: BoxMachineSpec,
+        pub power: Option<BoxPowerSpec>,
+    }
 }
