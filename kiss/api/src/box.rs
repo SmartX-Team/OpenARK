@@ -238,7 +238,7 @@ pub struct BoxMachineSpec {
 
 impl BoxMachineSpec {
     pub fn hostname(&self) -> String {
-        self.uuid.to_string().replace('-', "")
+        format!("{}.box.netai-cloud", self.uuid)
     }
 }
 
