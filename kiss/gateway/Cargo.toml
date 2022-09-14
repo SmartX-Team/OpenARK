@@ -17,4 +17,7 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 kiss-api = { path = "../api" }
 
-actix-web = { version = "4.1", default-features = false, features = ["rustls"] }
+actix-web = { version = "4.2", default-features = false, features = [
+    "macros",
+    "rustls",
+] }

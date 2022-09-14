@@ -38,5 +38,10 @@ cp /etc/hosts /tmp/hosts &&
     umount /etc/hosts &&
     mv /tmp/hosts /etc/hosts
 
+# Replace /etc/resolv.conf to local
+cp /etc/resolv.conf /tmp/resolv.conf &&
+    umount /etc/resolv.conf &&
+    mv /tmp/resolv.conf /etc/resolv.conf
+
 # Execute systemd
 exec /usr/sbin/init

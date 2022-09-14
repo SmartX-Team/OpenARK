@@ -21,6 +21,19 @@ KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
 REUSE_NODES="${REUSE_NODES:-$REUSE_NODES_DEFAULT}"
 SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
 
+# Check linux dependencies
+UNAME="$(uname -r)"
+if [ ! -d "/usr/src/linux-headers-$UNAME" ]; then
+    echo "Error: Cannot find the linux modules (/lib/modules/$UNAME)"
+    echo "Note: You may reboot your machine to reload the kernel."
+    exit 1
+fi
+if [ ! -d "/usr/src/linux-headers-$UNAME" ]; then
+    echo "Error: Cannot find the linux header (/usr/src/linux-headers-$UNAME)"
+    echo "Note: You may install it via your preferred package manager."
+    exit 1
+fi
+
 # Generate a SSH keypair
 if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
     echo "Generating a SSH Keypair..."
@@ -34,7 +47,7 @@ function spawn_node() {
 
     # Check if node already exists
     local NEED_SPAWN=1
-    if [ $(docker ps -q -f "name=^$name\$") ]; then
+    if [ $(docker ps -a -q -f "name=^$name\$") ]; then
         if [ $(echo "$REUSE_NODES" | awk '{print tolower($0)}') == "true" ]; then
             echo -n "- Using already spawned node ($name) ... "
             local NEED_SPAWN=0
@@ -56,8 +69,9 @@ function spawn_node() {
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
-            --volume "/lib/modules:/lib/modules:ro" \
+            --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
+            --volume "/usr/src/linux-headers-$UNAME:/usr/src/linux-headers-$UNAME" \
             node >/dev/null
     fi
 
@@ -80,7 +94,7 @@ function spawn_node() {
     )
     if [ ! "$node_ip" ]; then
         echo "Err"
-        echo "Error: cannot find host IP (10.32.0.0/12)"
+        echo "Error: Cannot find host IP (10.32.0.0/12)"
         exit 1
     fi
 

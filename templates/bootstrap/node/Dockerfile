@@ -24,7 +24,7 @@ RUN pushd /lib/systemd/system/sysinit.target.wants/ && for i in *; do \
 
 # Install dependencies
 RUN yum install -y \
-    findutils iproute kmod \
+    ethtool findutils iproute iproute-tc kmod \
     openssh-clients openssh-server \
     procps-ng python3 \
     # Cleanup
