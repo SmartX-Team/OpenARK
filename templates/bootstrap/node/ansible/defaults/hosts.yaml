@@ -1,0 +1,153 @@
+all:
+  vars:
+    ansible_python_interpreter: /opt/bin/python
+    ansible_user: kiss
+    bin_dir: /opt/bin
+  children:
+    kube_control_plane:
+      vars:
+        ansible_host: 127.0.0.1
+        ansible_host_key_checking: false
+        ansible_python_interpreter: /usr/bin/python3
+        ansible_user: root
+    kube_node:
+      children:
+        kube_control_plane:
+    calico_rr:
+      hosts: {}
+    etcd:
+      children:
+        kube_control_plane:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+      vars:
+        #############################
+        # k8s-cluster
+        #############################
+
+        ### fail with swap on (default true)
+        kubelet_fail_swap_on: false
+
+        ## Container runtime
+        ## docker for docker, crio for cri-o and containerd for containerd.
+        ## Additionally you can set this to kubeadm if you want to install etcd using kubeadm
+        ## Kubeadm etcd deployment is experimental and only available for new deployments
+        ## If this is not set, container manager will be inherited from the Kubespray defaults
+        ## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
+        ## Also this makes possible to use different container manager for etcd nodes.
+        container_manager: containerd # docker (system/socket) should be disabled
+
+        ## Settings for etcd deployment type
+        # Set this to docker if you are using container_manager: docker
+        etcd_deployment_type: host # data is stored in /opt/etcd
+        # Directory where etcd data stored
+        etcd_data_dir: /opt/etcd
+
+        # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
+        # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
+        kube_network_plugin: calico
+
+        ## Settings for calico CNI
+        # Global as_num (/calico/bgp/v1/global/as_num)
+        global_as_num: "64512"
+        # Advertise Cluster IPs
+        calico_advertise_cluster_ips: true
+        # Configure peering with router(s) at global scope
+        peer_with_router: true
+        peer_with_router_nat_outgoing: true # enable NAT
+        peers:
+          - router_id: 10.47.255.254
+            as: "64512"
+            sourceaddress: "None"
+        # Set calico network backend: "bird", "vxlan" or "none"
+        # bird enable BGP routing, required for ipip and no encapsulation modes
+        calico_network_backend: bird # enable BGP routing
+        # Enable BGP encapsulation mode
+        calico_ipip_mode: Never
+        calico_vxlan_mode: Always
+        # Enable eBPF mode
+        calico_bpf_enabled: false
+
+        # Setting multi_networking to true will install Multus: https://github.com/intel/multus-cni
+        kube_network_plugin_multus: false
+
+        # internal network. When used, it will assign IP
+        # addresses from this range to individual pods.
+        # This network must be unused in your network infrastructure!
+        kube_pods_subnet: 10.96.0.0/12
+
+        # Kubernetes internal network for services, unused block of space.
+        kube_service_addresses: 10.112.0.0/12 # same as calico CIDR, NetAI S
+
+        # Configure Dual Stack networking (i.e. both IPv4 and IPv6)
+        enable_dual_stack_networks: false # disable IPv6
+
+        # configure arp_ignore and arp_announce to avoid answering ARP queries from kube-ipvs0 interface
+        # must be set to true for MetalLB to work
+        kube_proxy_strict_arp: true # set to true for MetalLB to work
+
+        # DNS configuration.
+        # Kubernetes cluster name, also will be used as DNS domain
+        cluster_name: ops.netai-cloud # append `ops.` to prevent `netai-cloud.` from begin TLD
+
+        ## Upstream dns servers
+        upstream_dns_servers:
+          - 1.1.1.1
+          - 8.8.8.8
+
+        # Enable nodelocal dns cache
+        enable_nodelocaldns: true
+
+        # Enable k8s_external plugin for CoreDNS
+        enable_coredns_k8s_external: true
+        coredns_k8s_external_zone: k8s.netai-cloud # Inter-cluster External DNS
+        # Enable endpoint_pod_names option for kubernetes plugin
+        enable_coredns_k8s_endpoint_pod_names: false
+
+        #############################
+        # addons
+        #############################
+
+        # Kubernetes dashboard
+        # RBAC required. see docs/getting-started.md for access details.
+        dashboard_enabled: true
+
+        # Helm deployment
+        helm_enabled: true
+
+        # Metrics Server deployment
+        metrics_server_enabled: true
+
+        # Local volume provisioner deployment
+        local_volume_provisioner_enabled: false
+        # local_volume_provisioner_storage_classes:
+        #   local-storage:
+        #     host_dir: /mnt/disks
+        #     mount_dir: /mnt/disks
+        #     volume_mode: Filesystem
+        #     fs_type: ext4
+        #   fast-disks:
+        #     host_dir: /mnt/fast-disks
+        #     mount_dir: /mnt/fast-disks
+        #     block_cleaner_command:
+        #       - "/scripts/shred.sh"
+        #       - "2"
+        #     volume_mode: Filesystem
+        #     fs_type: ext4
+
+        # Cert manager deployment
+        cert_manager_enabled: true
+        cert_manager_namespace: cert-manager
+
+        # MetalLB deployment
+        metallb_enabled: true
+        metallb_speaker_enabled: false
+        metallb_protocol: bgp
+        metallb_peers: [] # borrow calico BGP peers
+        metallb_ip_range:
+          - 192.168.0.0/24 # for Development
+        metallb_pool_name: dev
+        metallb_auto_assign: true
+        metallb_avoid_buggy_ips: true

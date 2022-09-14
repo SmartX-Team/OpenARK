@@ -1,0 +1,14 @@
+---
+- name: Unpack the node data
+  set_fact:
+    node: "{{ node_packed | split(':') }}"
+
+- name: Add a host - {{ node[0] }}
+  add_host:
+    ansible_ssh_port: "{{ node[2] }}"
+    ip: "{{ node[1] }}"
+    access_ip: "{{ node[1] }}"
+    name: "{{ node[0] }}.control.box.netai-cloud"
+    groups:
+      - all
+      - kube_control_plane
