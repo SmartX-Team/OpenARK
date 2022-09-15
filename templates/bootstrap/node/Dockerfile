@@ -4,10 +4,15 @@ ARG ROCKYLINUX_VERSION="latest"
 # Be ready for serving
 FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
 
-# Server Configuration
+# SystemD Configuration
+ENV container docker
+STOPSIGNAL SIGRTMIN+3
 VOLUME [ "/sys/fs/cgroup" ]
+VOLUME [ "/var/lib/containerd" ]
+
+# Server Configuration
 WORKDIR /root/
-CMD ["/usr/local/bin/init.sh"]
+CMD ["/usr/local/bin/entrypoint.sh"]
 
 # Remove a number of unit files which might cause issues
 # note: https://hub.docker.com/r/rockylinux/rockylinux
@@ -24,12 +29,18 @@ RUN pushd /lib/systemd/system/sysinit.target.wants/ && for i in *; do \
 
 # Install dependencies
 RUN yum install -y \
+    # Ansible & Core
     ethtool findutils iproute iproute-tc kmod \
     openssh-clients openssh-server \
     procps-ng python3 \
+    # Kubernetes
+    bash-completion conntrack container-selinux curl \
+    device-mapper-libs ebtables e2fsprogs \
+    libseccomp libselinux-python3 \
+    openssl rsync socat tar unzip xfsprogs \
     # Cleanup
     && yum clean all \
-    && rm -rf /var/cache/yum
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Systemd Configuration
 RUN true \
@@ -41,7 +52,7 @@ RUN true \
 
 # Load files
 ADD ./ansible/ /etc/kiss/bootstrap/
-ADD ./init.sh /usr/local/bin/init.sh
+ADD ./entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Change permissions of given files
-RUN chmod 500 /usr/local/bin/init.sh
+RUN chmod 500 /usr/local/bin/entrypoint.sh

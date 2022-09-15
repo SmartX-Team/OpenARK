@@ -1,15 +1,6 @@
 all:
-  vars:
-    ansible_python_interpreter: /opt/bin/python
-    ansible_user: kiss
-    bin_dir: /opt/bin
   children:
     kube_control_plane:
-      vars:
-        ansible_host: 127.0.0.1
-        ansible_host_key_checking: false
-        ansible_python_interpreter: /usr/bin/python3
-        ansible_user: root
     kube_node:
       children:
         kube_control_plane:
@@ -28,7 +19,7 @@ all:
         #############################
 
         ### fail with swap on (default true)
-        kubelet_fail_swap_on: false
+        kubelet_fail_swap_on: true
 
         ## Container runtime
         ## docker for docker, crio for cri-o and containerd for containerd.

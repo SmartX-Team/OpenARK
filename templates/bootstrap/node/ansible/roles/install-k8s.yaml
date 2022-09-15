@@ -11,3 +11,11 @@
 
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml
+
+- hosts: all
+  tasks:
+    - name: Disable SSH Daemon
+      systemd:
+        name: sshd
+        enabled: false
+        state: started

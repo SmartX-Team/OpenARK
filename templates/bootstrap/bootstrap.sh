@@ -1,10 +1,19 @@
 #!/bin/bash
+# Copyright (c) 2022 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
 
 # Prehibit errors
 set -e
 
+###########################################################
+#   Configuration                                         #
+###########################################################
+
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
+KISS_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
+KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
 KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/hosts.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
 KUBESPRAY_IMAGE_DEFAULT="quay.io/kubespray/kubespray:v2.19.1"
@@ -14,12 +23,18 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
+KISS_IMAGE="${KISS_IMAGE:-$KISS_IMAGE_DEFAULT}"
+KUBERNETES_CONFIG_DEFAULT="${KUBERNETES_CONFIG_DEFAULT:-$KUBERNETES_CONFIG_DEFAULT_DEFAULT}"
 KUBESPRAY_CONFIG="${KUBESPRAY_CONFIG:-$KUBESPRAY_CONFIG_DEFAULT}"
 KUBESPRAY_CONFIG_TEMPLATE="${KUBESPRAY_CONFIG_TEMPLATE:-$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT}"
 KUBESPRAY_IMAGE="${KUBESPRAY_IMAGE:-$KUBESPRAY_IMAGE_DEFAULT}"
 KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
 REUSE_NODES="${REUSE_NODES:-$REUSE_NODES_DEFAULT}"
 SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
+
+###########################################################
+#   Check Dependencies                                    #
+###########################################################
 
 # Check linux dependencies
 UNAME="$(uname -r)"
@@ -34,12 +49,23 @@ if [ ! -d "/usr/src/linux-headers-$UNAME" ]; then
     exit 1
 fi
 
+###########################################################
+#   Configure Linux Kernel                                #
+###########################################################
+
+# Disable swap
+sudo swapoff -a
+
 # Generate a SSH keypair
 if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
     echo "Generating a SSH Keypair..."
     mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT"
     ssh-keygen -q -t rsa -f "$SSH_KEYFILE" -N ''
 fi
+
+###########################################################
+#   Spawn nodes                                           #
+###########################################################
 
 # Define a node spawner function
 function spawn_node() {
@@ -57,8 +83,8 @@ function spawn_node() {
         fi
     fi
 
-    # Spawn a node
     if [ "$NEED_SPAWN" -eq 1 ]; then
+        # Spawn a node
         echo -n "- Spawning a node ($name) ... "
         "$CONTAINER_RUNTIME" run --detach \
             --name "$name" \
@@ -69,10 +95,29 @@ function spawn_node() {
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
+            --tmpfs "/var/lib/containerd" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             --volume "/usr/src/linux-headers-$UNAME:/usr/src/linux-headers-$UNAME" \
             node >/dev/null
+    else
+        # Port scanner
+        function get_available_port() {
+            comm -23 <(seq 49152 65535 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1
+        }
+
+        # Find an available SSH port
+        while [ ! "$ssh_port" ]; do
+            ssh_port=$(get_available_port)
+        done
+
+        # Apply the SSH port
+        docker exec "$name" \
+            sed -i "s/^\(Port\) [0-9]*/\1 ${ssh_port}/g" \
+            /etc/ssh/sshd_config
+
+        # Restart SSH
+        docker exec "$name" systemctl restart sshd
     fi
 
     # Get SSH configuration
@@ -112,38 +157,65 @@ for name in "$KUBESPRAY_NODES"; do
     spawn_node "$name"
 done
 
+###########################################################
+#   Install k8s cluster                                   #
+###########################################################
+
 # Define a k8s cluster installer function
 function install_k8s_cluster() {
     local names="$1"
     local node_first="$(echo $names | awk '{print $1}')"
 
-    # Cleanup
-    rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
+    # Check if k8s cluster already exists
+    local NEED_INSTALL=1
+    if
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get nodes --no-headers "$node_first.control.box.netai-cloud" \
+            >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed k8s cluster ... "
+        local NEED_INSTALL=0
+    fi
 
-    # Get a sample kubespray configuration file
-    mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
-    "$CONTAINER_RUNTIME" exec "$node_first" \
-        tar -cf - -C "/etc/kiss/bootstrap/" "." |
-        tar -xf - -C "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Cleanup
+        rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
 
-    # Spawn a node
-    echo "- Spawning a k8s cluster ... "
-    "$CONTAINER_RUNTIME" run --rm \
-        --name "k8s-installer" \
-        --net "host" \
-        --env "KUBESPRAY_NODES=$nodes" \
-        --volume "$KUBESPRAY_CONFIG:/root/kiss/bootstrap/hosts.yaml:ro" \
-        --volume "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/:/etc/kiss/bootstrap/:ro" \
-        --volume "$SSH_KEYFILE:/root/.ssh/id_rsa:ro" \
-        --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
-        $KUBESPRAY_IMAGE ansible-playbook \
-        --become --become-user="root" \
-        --inventory "/etc/kiss/bootstrap/defaults/hosts.yaml" \
-        --inventory "/root/kiss/bootstrap/hosts.yaml" \
-        "/etc/kiss/bootstrap/roles/install-k8s.yaml"
+        # Get a sample kubespray configuration file
+        mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            tar -cf - -C "/etc/kiss/bootstrap/" "." |
+            tar -xf - -C "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
 
-    # Cleanup
-    rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
+        # Install cluster
+        echo "- Installing k8s cluster ... "
+        "$CONTAINER_RUNTIME" run --rm \
+            --name "k8s-installer" \
+            --net "host" \
+            --env "KUBESPRAY_NODES=$nodes" \
+            --volume "$KUBESPRAY_CONFIG:/root/kiss/bootstrap/hosts.yaml:ro" \
+            --volume "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/:/etc/kiss/bootstrap/:ro" \
+            --volume "$SSH_KEYFILE:/root/.ssh/id_rsa:ro" \
+            --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
+            $KUBESPRAY_IMAGE ansible-playbook \
+            --become --become-user="root" \
+            --inventory "/etc/kiss/bootstrap/defaults/hosts.yaml" \
+            --inventory "/root/kiss/bootstrap/hosts.yaml" \
+            "/etc/kiss/bootstrap/roles/install-k8s.yaml"
+
+        # Download k8s config into host
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            tar -cf - -C "/root/.kube" "." |
+            tar -xf - -C "$KUBERNETES_CONFIG_DEFAULT"
+
+        # Cleanup
+        rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
+    else
+        # Stop SSH
+        for name in "$KUBESPRAY_NODES"; do
+            docker exec "$name" systemctl stop sshd
+        done
+    fi
 
     # Finished!
     echo "OK"
@@ -151,3 +223,53 @@ function install_k8s_cluster() {
 
 # Install a k8s cluster within nodes
 install_k8s_cluster "$KUBESPRAY_NODES"
+
+###########################################################
+#   Install kiss cluster                                  #
+###########################################################
+
+# Define a kiss cluster installer function
+function install_kiss_cluster() {
+    local names="$1"
+    local node_first="$(echo $names | awk '{print $1}')"
+
+    # Check if kiss cluster already exists
+    local NEED_INSTALL=1
+    if
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get namespaces kiss \
+            >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed kiss cluster ... "
+        local NEED_INSTALL=0
+    fi
+
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Upload the Configuration File to the Cluster
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create namespaces kiss
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss configmap "ansible-control-planes-default" \
+            "--from-file=/etc/kiss/bootstrap/defaults/hosts.yaml"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss configmap "ansible-images" \
+            "--from-literal=kubespray=$KUBESPRAY_IMAGE"
+
+        # Install cluster
+        echo "- Installing kiss cluster ... "
+        "$CONTAINER_RUNTIME" run --rm \
+            --name "kiss-installer" \
+            --net "host" \
+            --volume "$KUBERNETES_CONFIG_DEFAULT:/root/.kube:ro" \
+            $KISS_IMAGE
+    fi
+
+    # Finished!
+    echo "OK"
+}
+
+# Install a kiss cluster within k8s cluster
+install_kiss_cluster "$KUBESPRAY_NODES"
+
+# Finished!
+echo "Installed!"
