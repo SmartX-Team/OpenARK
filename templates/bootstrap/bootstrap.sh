@@ -12,7 +12,8 @@ set -e
 
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
-KISS_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
+KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
+KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
 KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/hosts.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
@@ -23,7 +24,8 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
-KISS_IMAGE="${KISS_IMAGE:-$KISS_IMAGE_DEFAULT}"
+KISS_BOOTSTRAP_NODE_IMAGE="${KISS_BOOTSTRAP_NODE_IMAGE:-$KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT}"
+KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
 KUBERNETES_CONFIG_DEFAULT="${KUBERNETES_CONFIG_DEFAULT:-$KUBERNETES_CONFIG_DEFAULT_DEFAULT}"
 KUBESPRAY_CONFIG="${KUBESPRAY_CONFIG:-$KUBESPRAY_CONFIG_DEFAULT}"
 KUBESPRAY_CONFIG_TEMPLATE="${KUBESPRAY_CONFIG_TEMPLATE:-$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT}"
@@ -99,7 +101,7 @@ function spawn_node() {
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             --volume "/usr/src/linux-headers-$UNAME:/usr/src/linux-headers-$UNAME" \
-            node >/dev/null
+            "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
         # Port scanner
         function get_available_port() {
@@ -197,7 +199,7 @@ function install_k8s_cluster() {
             --volume "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/:/etc/kiss/bootstrap/:ro" \
             --volume "$SSH_KEYFILE:/root/.ssh/id_rsa:ro" \
             --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
-            $KUBESPRAY_IMAGE ansible-playbook \
+            "$KUBESPRAY_IMAGE" ansible-playbook \
             --become --become-user="root" \
             --inventory "/etc/kiss/bootstrap/defaults/hosts.yaml" \
             --inventory "/root/kiss/bootstrap/hosts.yaml" \
@@ -261,7 +263,7 @@ function install_kiss_cluster() {
             --name "kiss-installer" \
             --net "host" \
             --volume "$KUBERNETES_CONFIG_DEFAULT:/root/.kube:ro" \
-            $KISS_IMAGE
+            "$KISS_INSTALLER_IMAGE"
     fi
 
     # Finished!
