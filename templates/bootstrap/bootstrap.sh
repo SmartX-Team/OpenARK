@@ -96,6 +96,7 @@ function spawn_node() {
             --net "host" \
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
+            --restart "unless-stopped" \
             --tmpfs "/run" \
             --tmpfs "/var/lib/containerd" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
@@ -205,7 +206,17 @@ function install_k8s_cluster() {
             --inventory "/root/kiss/bootstrap/config.yaml" \
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
+        # Upload kubespray config into nodes
+        for name in "$KUBESPRAY_NODES"; do
+            "$CONTAINER_RUNTIME" exec "$node_first" \
+                mkdir -p "/root/kiss/bootstrap/"
+            "$CONTAINER_RUNTIME" exec -i "$node_first" \
+                bash -c "cat > /root/kiss/bootstrap/config.yaml" \
+                <"$KUBESPRAY_CONFIG"
+        done
+
         # Download k8s config into host
+        mkdir -p "$KUBERNETES_CONFIG_DEFAULT"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             tar -cf - -C "/root/.kube" "." |
             tar -xf - -C "$KUBERNETES_CONFIG_DEFAULT"
@@ -249,7 +260,7 @@ function install_kiss_cluster() {
     if [ "$NEED_INSTALL" -eq 1 ]; then
         # Upload the Configuration File to the Cluster
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl create namespaces kiss
+            kubectl create namespace kiss
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
             "--from-file=/etc/kiss/bootstrap/defaults/hosts.yaml" \
