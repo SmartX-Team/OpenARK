@@ -45,11 +45,6 @@ if [ ! -d "/lib/modules/$UNAME" ]; then
     echo "Note: You may reboot your machine to reload the kernel."
     exit 1
 fi
-if [ ! -d "/usr/src/linux-headers-$UNAME" ]; then
-    echo "Error: Cannot find the linux header (/usr/src/linux-headers-$UNAME)"
-    echo "Note: You may install it via your preferred package manager."
-    exit 1
-fi
 
 ###########################################################
 #   Configure Linux Kernel                                #
@@ -101,7 +96,6 @@ function spawn_node() {
             --tmpfs "/var/lib/containerd" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
-            --volume "/usr/src/linux-headers-$UNAME:/usr/src/linux-headers-$UNAME" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
         # Port scanner
