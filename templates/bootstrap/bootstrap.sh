@@ -40,7 +40,7 @@ SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
 
 # Check linux dependencies
 UNAME="$(uname -r)"
-if [ ! -d "/usr/src/linux-headers-$UNAME" ]; then
+if [ ! -d "/lib/modules/$UNAME" ]; then
     echo "Error: Cannot find the linux modules (/lib/modules/$UNAME)"
     echo "Note: You may reboot your machine to reload the kernel."
     exit 1
@@ -195,14 +195,14 @@ function install_k8s_cluster() {
             --name "k8s-installer" \
             --net "host" \
             --env "KUBESPRAY_NODES=$nodes" \
-            --volume "$KUBESPRAY_CONFIG:/root/kiss/bootstrap/hosts.yaml:ro" \
+            --volume "$KUBESPRAY_CONFIG:/root/kiss/bootstrap/config.yaml:ro" \
             --volume "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/:/etc/kiss/bootstrap/:ro" \
             --volume "$SSH_KEYFILE:/root/.ssh/id_rsa:ro" \
             --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
             "$KUBESPRAY_IMAGE" ansible-playbook \
             --become --become-user="root" \
             --inventory "/etc/kiss/bootstrap/defaults/hosts.yaml" \
-            --inventory "/root/kiss/bootstrap/hosts.yaml" \
+            --inventory "/root/kiss/bootstrap/config.yaml" \
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
         # Download k8s config into host
@@ -252,7 +252,8 @@ function install_kiss_cluster() {
             kubectl create namespaces kiss
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
-            "--from-file=/etc/kiss/bootstrap/defaults/hosts.yaml"
+            "--from-file=/etc/kiss/bootstrap/defaults/hosts.yaml" \
+            "--from-file=/root/kiss/bootstrap/config.yaml"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-images" \
             "--from-literal=kubespray=$KUBESPRAY_IMAGE"

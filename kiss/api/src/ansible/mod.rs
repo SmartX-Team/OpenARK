@@ -119,6 +119,10 @@ impl AnsibleClient {
                             "--become".into(),
                             "--become-user=root".into(),
                             "--inventory".into(),
+                            "/root/ansible/defaults/hosts.yaml".into(),
+                            "--inventory".into(),
+                            "/root/ansible/defaults/config.yaml".into(),
+                            "--inventory".into(),
                             "/root/ansible/hosts.yaml".into(),
                             "/opt/playbook/playbook.yaml".into(),
                         ]),
@@ -195,6 +199,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             VolumeMount {
+                                name: "ansible-defaults".into(),
+                                mount_path: "/root/ansible/defaults".into(),
+                                ..Default::default()
+                            },
+                            VolumeMount {
                                 name: "playbook".into(),
                                 mount_path: "/opt/playbook".into(),
                                 ..Default::default()
@@ -220,6 +229,15 @@ impl AnsibleClient {
                                     "ansible-control-planes-{}",
                                     &group.cluster_name,
                                 )),
+                                default_mode: Some(0o400),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        Volume {
+                            name: "ansible-defaults".into(),
+                            config_map: Some(ConfigMapVolumeSource {
+                                name: Some("ansible-control-planes-default".into()),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
