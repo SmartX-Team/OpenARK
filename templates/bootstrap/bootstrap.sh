@@ -93,7 +93,6 @@ function spawn_node() {
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --restart "unless-stopped" \
             --tmpfs "/run" \
-            --tmpfs "/var/lib/containerd" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
