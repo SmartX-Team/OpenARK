@@ -262,7 +262,10 @@ function install_kiss_cluster() {
             "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
-            "--from-literal=id_rsa=$(cat ${SSH_KEYFILE})"
+            "--from-literal=id_rsa=$(
+                cat ${SSH_KEYFILE}
+                echo
+            )"
 
         # Install cluster
         echo "- Installing kiss cluster ... "
