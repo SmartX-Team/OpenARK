@@ -55,7 +55,7 @@ sudo swapoff -a
 
 # Generate a SSH keypair
 if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
-    echo "Generating a SSH Keypair..."
+    echo "- Generating a SSH Keypair..."
     mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT"
     ssh-keygen -q -t rsa -f "$SSH_KEYFILE" -N ''
 fi
