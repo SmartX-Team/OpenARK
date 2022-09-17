@@ -1,1 +1,11 @@
-{{ hostvars | to_nice_yaml(indent = 2) }}
+{% for group_name in groups %}
+{{ group_name }}:
+  hosts:
+{% if group_name == 'all' %}
+    {{ hostvars | to_nice_yaml(indent = 2) | trim | indent(4) }}
+{% else %}
+{% for host_name in groups[group_name] %}
+    {{ host_name }}:
+{% endfor %}
+{% endif %}
+{% endfor %}
