@@ -119,7 +119,7 @@ impl AnsibleClient {
                             "--become".into(),
                             "--become-user=root".into(),
                             "--inventory".into(),
-                            "/root/ansible/defaults/hosts.yaml".into(),
+                            "/root/ansible/defaults/all.yaml".into(),
                             "--inventory".into(),
                             "/root/ansible/defaults/config.yaml".into(),
                             "--inventory".into(),

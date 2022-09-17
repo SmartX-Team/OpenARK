@@ -38,6 +38,8 @@ RUN yum install -y \
     device-mapper-libs ebtables e2fsprogs \
     libseccomp libselinux-python3 \
     openssl rsync socat tar unzip xfsprogs \
+    # Remove pip
+    && rm -rf /usr/lib/python3.6/site-packages/pip \
     # Cleanup
     && yum clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -56,3 +58,6 @@ ADD ./entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Change permissions of given files
 RUN chmod 500 /usr/local/bin/entrypoint.sh
+
+# Add inventory volume
+VOLUME [ "/etc/kiss/bootstrap/inventory" ]

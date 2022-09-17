@@ -15,7 +15,7 @@ CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
-KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/hosts.yaml"
+KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/all.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
 KUBESPRAY_IMAGE_DEFAULT="quay.io/kubespray/kubespray:v2.19.1"
 KUBESPRAY_NODES_DEFAULT="master1"
@@ -97,23 +97,8 @@ function spawn_node() {
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
-        # Port scanner
-        function get_available_port() {
-            comm -23 <(seq 49152 65535 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1
-        }
-
-        # Find an available SSH port
-        while [ ! "$ssh_port" ]; do
-            ssh_port=$(get_available_port)
-        done
-
-        # Apply the SSH port
-        docker exec "$name" \
-            sed -i "s/^\(Port\) [0-9]*/\1 ${ssh_port}/g" \
-            /etc/ssh/sshd_config
-
-        # Restart SSH
-        docker exec "$name" systemctl restart sshd
+        # Start SSH
+        docker exec "$name" systemctl start sshd
     fi
 
     # Get SSH configuration
@@ -195,7 +180,7 @@ function install_k8s_cluster() {
             --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
             "$KUBESPRAY_IMAGE" ansible-playbook \
             --become --become-user="root" \
-            --inventory "/etc/kiss/bootstrap/defaults/hosts.yaml" \
+            --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
             --inventory "/root/kiss/bootstrap/config.yaml" \
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
@@ -216,11 +201,6 @@ function install_k8s_cluster() {
 
         # Cleanup
         rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
-    else
-        # Stop SSH
-        for name in "$KUBESPRAY_NODES"; do
-            docker exec "$name" systemctl stop sshd
-        done
     fi
 
     # Finished!
@@ -256,7 +236,8 @@ function install_kiss_cluster() {
             kubectl create namespace kiss
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
-            "--from-file=/etc/kiss/bootstrap/defaults/hosts.yaml" \
+            "--from-file=/etc/kiss/bootstrap/defaults/all.yaml" \
+            "--from-file=/etc/kiss/bootstrap/inventory/hosts.yaml" \
             "--from-file=/root/kiss/bootstrap/config.yaml"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-images" \

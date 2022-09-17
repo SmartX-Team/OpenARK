@@ -9,13 +9,13 @@
       when: node_packed | length
       include: ../tasks/load_node.yaml
 
+- name: Save hosts to nodes
+  hosts: all
+  gather_facts: false
+  tasks:
+    - template:
+        src: ../templates/hosts.yaml.j2
+        dest: /etc/kiss/bootstrap/inventory/hosts.yaml
+
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml
-
-- hosts: all
-  tasks:
-    - name: Disable SSH Daemon
-      systemd:
-        name: sshd
-        enabled: false
-        state: started
