@@ -127,6 +127,11 @@ function spawn_node() {
         "$CONTAINER_RUNTIME" exec "$name" sed -i \
             "s/^\(ListenAddress\) .*\$/\1 $node_ip/g" \
             /etc/ssh/sshd_config
+
+        # Restart SSH daemon
+        while [ ! $(docker exec -it $name ps -s 1 | awk '{print $4}' | tail -n 1 | grep '^systemd') ]; do
+            sleep 1
+        done
         "$CONTAINER_RUNTIME" exec "$name" \
             systemctl restart sshd 2>/dev/null || true
     done
@@ -238,17 +243,26 @@ function install_kiss_cluster() {
     fi
 
     if [ "$NEED_INSTALL" -eq 1 ]; then
-        # Upload the Configuration File to the Cluster
+        # Upload the K8S Configuration File to the Cluster
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create namespace kiss
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
-            "--from-file=/etc/kiss/bootstrap/defaults/all.yaml" \
-            "--from-file=/etc/kiss/bootstrap/inventory/hosts.yaml" \
-            "--from-file=/root/kiss/bootstrap/config.yaml"
+            "--from-file=all.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
+            "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
+            "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-images" \
             "--from-literal=kubespray=$KUBESPRAY_IMAGE"
+
+        # Upload the SSH Configuration File to the Cluster
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss configmap "matchbox-account" \
+            "--from-literal=username=kiss" \
+            "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub)"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss secret generic "matchbox-account" \
+            "--from-literal=id_rsa=$(cat ${SSH_KEYFILE})"
 
         # Install cluster
         echo "- Installing kiss cluster ... "

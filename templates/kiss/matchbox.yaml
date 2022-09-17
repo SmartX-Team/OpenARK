@@ -2,61 +2,6 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: matchbox-account
-  namespace: kiss
-data:
-  username: kiss
-  id_rsa.pub: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCoswuYyzWbcDjPEfENnbl69R+c2ELlMQ8AVjDIXlLqnlCp9MKYAuo2iNzB551JoHJz7ueAvLfssXpgQ4ocrtZ6EUJLVScg3Dzf6WuNs/keU1okpPsxtb7v/JdngYkj6VnvwfcnBSNlTC93uVj8iMlLlACPlFu0DDf1RdUoMHhWwovY2mmLU2A9x2FI2bL35XvLmolUB0Yk+fc0zaUD/+JOwKzog8KuHgfM77vjr3weH4mTJ3lAG4OmMcLHjAeq3obpWaCQqV2D18Py8+cW+8HnT/TG+iCWcboO24zfMal1YL1BqI3IQ2XKHZkUAGn7+7StvJCkXJsLeHDSMrnPcE0H26bXeFp7//q6owBbQVClusoqsycwvsMTP7rg4FeJdZzcH9amt1ZSKIdruI4+VG+EakzDG5avpad+ZjXMJVHHfnCvSC3nIcjwsQG5wqZH04yB1rQ6DoVy2EWLUzBWPaZUnjDWGvDrhHiuJ3yZ5IDr/8H2E/TUWjX7XESeOe4Tjc8=
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: matchbox-account
-  namespace: kiss
-stringData:
-  id_rsa: |
-    -----BEGIN OPENSSH PRIVATE KEY-----
-    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
-    -----END OPENSSH PRIVATE KEY-----
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
   name: matchbox-boot
   namespace: kiss
 data:
