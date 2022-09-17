@@ -259,7 +259,7 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "matchbox-account" \
             "--from-literal=username=kiss" \
-            "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub)"
+            "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
             "--from-literal=id_rsa=$(cat ${SSH_KEYFILE})"
