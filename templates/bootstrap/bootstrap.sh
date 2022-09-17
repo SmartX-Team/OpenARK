@@ -101,17 +101,6 @@ function spawn_node() {
         docker exec "$name" systemctl start sshd
     fi
 
-    # Get SSH configuration
-    while :; do
-        # Get SSH port
-        local SSH_PORT="$(docker exec "$name" cat /etc/ssh/sshd_config | grep '^Port ' | awk '{print $2}')"
-
-        # Try connect to the node
-        if ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -p $SSH_PORT -i $SSH_KEYFILE root@127.0.0.1 exit 2>/dev/null; then
-            break
-        fi
-    done
-
     # Get suitable access IP
     node_ip=$(
         "$CONTAINER_RUNTIME" exec "$name" ip a |
@@ -123,6 +112,24 @@ function spawn_node() {
         echo "Error: Cannot find host IP (10.32.0.0/12)"
         exit 1
     fi
+
+    # Get SSH configuration
+    while :; do
+        # Get SSH port
+        local SSH_PORT="$(docker exec "$name" cat /etc/ssh/sshd_config | grep '^Port ' | awk '{print $2}')"
+
+        # Try connect to the node
+        if ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -p $SSH_PORT -i $SSH_KEYFILE "root@$node_ip" exit 2>/dev/null; then
+            break
+        fi
+
+        # Update SSH ListenAddress
+        "$CONTAINER_RUNTIME" exec "$name" sed -i \
+            "s/^\(ListenAddress\) .*\$/\1 $node_ip/g" \
+            /etc/ssh/sshd_config
+        "$CONTAINER_RUNTIME" exec "$name" \
+            systemctl restart sshd 2>/dev/null || true
+    done
 
     # Save as environment variable
     local node="$name:$node_ip:$SSH_PORT"
