@@ -5,17 +5,7 @@ set -e
 
 # Download repository
 git clone "${GIT_REPOSITORY}" ./snapshot
-if [ ! -d ./snapshot ]; then
-    # Create a new repository
-    mkdir ./snapshot
-    pushd ./snapshot
-
-    # Init
-    git init
-    git remote add origin "${GIT_REPOSITORY}"
-else
-    pushd ./snapshot
-fi
+pushd ./snapshot
 
 # Dump k8s snapshot
 mkdir -p ./kiss
