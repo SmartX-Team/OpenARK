@@ -3,7 +3,7 @@ use k8s_openapi::api::{
     batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
     core::v1::{
         ConfigMapKeySelector, ConfigMapVolumeSource, Container, EnvVar, EnvVarSource, KeyToPath,
-        PodSpec, PodTemplateSpec, SecretVolumeSource, Volume, VolumeMount,
+        PodSpec, PodTemplateSpec, SecretKeySelector, SecretVolumeSource, Volume, VolumeMount,
     },
 };
 use kube::{
@@ -177,8 +177,27 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "ansible_ipmi_username".into(),
+                                value_from: Some(EnvVarSource {
+                                    config_map_key_ref: Some(ConfigMapKeySelector {
+                                        name: Some("kiss-box-power-ipmi".into()),
+                                        key: "username".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "ansible_ipmi_password".into(),
-                                value: Some("kiss".into()),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-box-power-ipmi".into()),
+                                        key: "password".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             },
                             EnvVar {

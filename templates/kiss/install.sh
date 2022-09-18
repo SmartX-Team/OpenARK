@@ -27,6 +27,9 @@ for dir in ./tasks/*; do
     fi
 done
 
+# power configuration
+kubectl apply -R -f "./power/*.yaml"
+
 # kiss service
 kubectl apply -R -f "./kiss-*.yaml"
 

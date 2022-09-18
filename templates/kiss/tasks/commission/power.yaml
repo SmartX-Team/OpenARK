@@ -55,8 +55,9 @@
     docker run --rm
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
-    user set name 9 'kiss'
+    user set name 9 '{{ ansible_ipmi_username }}'
   ignore_errors: true
+  no_log: true
 
 - name: Set IPMI user 9 password
   when: ipmi.stat.exists
@@ -64,8 +65,9 @@
     docker run --rm
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
-    user set password 9 'kiss.netaiCloud'
+    user set password 9 '{{ ansible_ipmi_password }}'
   ignore_errors: true
+  no_log: true
 
 - name: Enable IPMI user 9
   when: ipmi.stat.exists

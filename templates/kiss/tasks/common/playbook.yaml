@@ -18,6 +18,7 @@
         ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
         ansible_user: "{{ lookup('env', 'ansible_user') }}"
         ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
+        ansible_ipmi_username: "{{ lookup('env', 'ansible_ipmi_username') }}"
         ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
         groups:
