@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: snapshot
+  name: snapshot-git
   namespace: kiss
 spec:
   schedule: "0 0 * * *" # daily
@@ -21,7 +21,7 @@ spec:
               type: RuntimeDefault
           serviceAccount: kiss-controller
           containers:
-            - name: snapshot-git
+            - name: snapshot
               image: quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest
               imagePullPolicy: Always
               env:

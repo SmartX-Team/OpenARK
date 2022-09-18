@@ -11,8 +11,7 @@ kubectl apply \
     -f docker-registry.yaml \
     -f http-proxy.yaml \
     -f matchbox.yaml \
-    -f ntpd.yaml \
-    -f snapshot.yaml
+    -f ntpd.yaml
 
 # ansible tasks
 kubectl apply -f ./tasks/common.yaml
@@ -33,6 +32,9 @@ kubectl apply -R -f "./power/*.yaml"
 
 # kiss service
 kubectl apply -R -f "./kiss-*.yaml"
+
+# snapshot configuration
+kubectl apply -R -f "./snapshot-*.yaml"
 
 # force rolling-update kiss services
 # note: https://github.com/kubernetes/kubernetes/issues/27081#issuecomment-327321981
