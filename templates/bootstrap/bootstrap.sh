@@ -305,15 +305,13 @@ function install_k8s_snapshot_cluster() {
     then
         echo -n "- Using already installed k8s snapshot config ... "
         local NEED_INSTALL=0
-    fi
 
     # Check if k8s snapshot config is given
-    if [ "$SNAPSHOT_GIT_REPOSITORY" -eq "" ]; then
+    elif [ "$SNAPSHOT_GIT_REPOSITORY" == "" ]; then
         echo -n "- Skipping installing k8s snapshot config - "
         echo -n "No such environment variable: 'SNAPSHOT_GIT_REPOSITORY' ... "
         local NEED_INSTALL=0
-    fi
-    if [ "$SNAPSHOT_GIT_KEYFILE" -eq "" ]; then
+    elif [ "$SNAPSHOT_GIT_KEYFILE" == "" ]; then
         echo -n "- Skipping installing k8s snapshot config - "
         echo -n "No such environment variable: 'SNAPSHOT_GIT_KEYFILE' ... "
         local NEED_INSTALL=0
