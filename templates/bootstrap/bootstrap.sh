@@ -312,18 +312,30 @@ function install_k8s_snapshot_cluster() {
         echo -n "- Skipping installing k8s snapshot config - "
         echo -n "No such environment variable: 'SNAPSHOT_GIT_REPOSITORY' ... "
         local NEED_INSTALL=0
-    elif [ "$SNAPSHOT_GIT_KEYFILE" == "" ]; then
-        echo -n "- Skipping installing k8s snapshot config - "
-        echo -n "No such environment variable: 'SNAPSHOT_GIT_KEYFILE' ... "
-        local NEED_INSTALL=0
     fi
 
     if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Show how to deploy your SSH keys into the Web (i.e. Github) repository.
+        echo
+        echo "* NOTE: You can register the SSH public key to activate the snapshot manager."
+        echo "* Your SSH key: \"$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')\""
+        echo "* Your SSH key is saved on: \"${SSH_KEYFILE}.pub\""
+        echo "* Learn How to store keys (Github): \"https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys\""
+        echo
+
+        echo "- Installing k8s snapshot manager ... "
+
         # Upload the K8S Snapshot Configuration File to the Cluster
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "snapshot-git" \
             "--from-literal=repository=$SNAPSHOT_GIT_REPOSITORY"
-        "$CONTAINER_RUNTIME" cp "${SNAPSHOT_GIT_KEYFILE}" "$node_first:/tmp/kiss_snapshot_id_rsa"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get -n kiss secret "matchbox-account" -o jsonpath='{.data.id_rsa}' |
+            "$CONTAINER_RUNTIME" exec -i "$node_first" \
+                base64 --decode |
+            "$CONTAINER_RUNTIME" exec -i "$node_first" \
+                tee "/tmp/kiss_snapshot_id_rsa" |
+            echo -n ''
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "snapshot-git" \
             "--from-file=id_rsa=/tmp/kiss_snapshot_id_rsa" ||
