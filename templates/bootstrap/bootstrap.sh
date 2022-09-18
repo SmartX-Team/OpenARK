@@ -260,12 +260,13 @@ function install_kiss_cluster() {
             kubectl create -n kiss configmap "matchbox-account" \
             "--from-literal=username=kiss" \
             "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')"
+        "$CONTAINER_RUNTIME" cp "${SSH_KEYFILE}" "$node_first:/tmp/kiss_bootstrap_id_rsa"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
-            "--from-literal=id_rsa=$(
-                cat ${SSH_KEYFILE}
-                echo
-            )"
+            "--from-file=id_rsa=/tmp/kiss_bootstrap_id_rsa" ||
+            true # we should remove the private key anyway (next line)
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            rm -f /tmp/kiss_bootstrap_id_rsa
 
         # Install cluster
         echo "- Installing kiss cluster ... "
