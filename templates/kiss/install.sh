@@ -11,7 +11,8 @@ kubectl apply \
     -f docker-registry.yaml \
     -f http-proxy.yaml \
     -f matchbox.yaml \
-    -f ntpd.yaml
+    -f ntpd.yaml \
+    -f snapshot.yaml
 
 # ansible tasks
 kubectl apply -f ./tasks/common.yaml

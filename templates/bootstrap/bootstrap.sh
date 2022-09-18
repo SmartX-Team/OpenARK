@@ -265,7 +265,7 @@ function install_kiss_cluster() {
             kubectl create -n kiss secret generic "matchbox-account" \
             "--from-file=id_rsa=/tmp/kiss_bootstrap_id_rsa" ||
             "$CONTAINER_RUNTIME" exec "$node_first" \
-                rm -f /tmp/kiss_bootstrap_id_rsa
+                rm -f "/tmp/kiss_bootstrap_id_rsa"
 
         # Install cluster
         echo "- Installing kiss cluster ... "
@@ -282,6 +282,62 @@ function install_kiss_cluster() {
 
 # Install a kiss cluster within k8s cluster
 install_kiss_cluster "$KUBESPRAY_NODES"
+
+###########################################################
+#   Install k8s snapshot config                           #
+###########################################################
+
+# Define a k8s snapshot config installer function
+function install_k8s_snapshot_cluster() {
+    local names="$1"
+    local node_first="$(echo $names | awk '{print $1}')"
+
+    # Check if k8s snapshot config already exists
+    local NEED_INSTALL=1
+    if
+        true &&
+            "$CONTAINER_RUNTIME" exec "$node_first" \
+                kubectl get -n kiss configmap snapshot-account-git \
+                >/dev/null 2>/dev/null &&
+            "$CONTAINER_RUNTIME" exec "$node_first" \
+                kubectl get -n kiss secret snapshot-account-git \
+                >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed k8s snapshot config ... "
+        local NEED_INSTALL=0
+    fi
+
+    # Check if k8s snapshot config is given
+    if [ "$SNAPSHOT_GIT_REPOSITORY" -eq "" ]; then
+        echo -n "- Skipping installing k8s snapshot config - "
+        echo -n "No such environment variable: 'SNAPSHOT_GIT_REPOSITORY' ... "
+        local NEED_INSTALL=0
+    fi
+    if [ "$SNAPSHOT_GIT_KEYFILE" -eq "" ]; then
+        echo -n "- Skipping installing k8s snapshot config - "
+        echo -n "No such environment variable: 'SNAPSHOT_GIT_KEYFILE' ... "
+        local NEED_INSTALL=0
+    fi
+
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Upload the K8S Snapshot Configuration File to the Cluster
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss configmap "snapshot-git" \
+            "--from-literal=repository=$SNAPSHOT_GIT_REPOSITORY"
+        "$CONTAINER_RUNTIME" cp "${SNAPSHOT_GIT_KEYFILE}" "$node_first:/tmp/kiss_snapshot_id_rsa"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss secret generic "snapshot-git" \
+            "--from-file=id_rsa=/tmp/kiss_snapshot_id_rsa" ||
+            "$CONTAINER_RUNTIME" exec "$node_first" \
+                rm -f "/tmp/kiss_snapshot_id_rsa"
+    fi
+
+    # Finished!
+    echo "OK"
+}
+
+# Install a k8s snapshot config within k8s cluster
+install_k8s_snapshot_cluster "$KUBESPRAY_NODES"
 
 # Finished!
 echo "Installed!"

@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: snapshot
+  namespace: kiss
+spec:
+  schedule: "0 0 * * *" # daily
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: manager
+            kissService: "true"
+            serviceType: proxy
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          serviceAccount: kiss-controller
+          containers:
+            - name: snapshot-git
+              image: quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest
+              imagePullPolicy: Always
+              env:
+                - name: GIT_REPOSITORY
+                  valueFrom:
+                    configMapKeyRef:
+                      name: snapshot-git
+                      key: repository
+              resources:
+                requests:
+                  cpu: 30m
+                  memory: 20Mi
+                limits:
+                  cpu: 100m
+                  memory: 100Mi
+              volumeMounts:
+                - name: ssh
+                  mountPath: /root/.ssh
+          volumes:
+            - name: ssh
+              configMap:
+                name: snapshot-git
+                defaultMode: 0400
+                items:
+                  - key: id_rsa
+                    path: id_rsa
