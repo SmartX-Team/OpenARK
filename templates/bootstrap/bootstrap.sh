@@ -264,7 +264,6 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
             "--from-file=id_rsa=/tmp/kiss_bootstrap_id_rsa" ||
-            true # we should remove the private key anyway (next line)
         "$CONTAINER_RUNTIME" exec "$node_first" \
             rm -f /tmp/kiss_bootstrap_id_rsa
 
