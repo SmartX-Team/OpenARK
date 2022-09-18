@@ -264,8 +264,8 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
             "--from-file=id_rsa=/tmp/kiss_bootstrap_id_rsa" ||
-        "$CONTAINER_RUNTIME" exec "$node_first" \
-            rm -f /tmp/kiss_bootstrap_id_rsa
+            "$CONTAINER_RUNTIME" exec "$node_first" \
+                rm -f /tmp/kiss_bootstrap_id_rsa
 
         # Install cluster
         echo "- Installing kiss cluster ... "
