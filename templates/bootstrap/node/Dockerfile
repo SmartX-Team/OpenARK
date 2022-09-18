@@ -6,6 +6,7 @@ FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
 
 # SystemD Configuration
 ENV container docker
+ENV PATH=$PATH:/opt/bin
 STOPSIGNAL SIGRTMIN+3
 VOLUME [ "/sys/fs/cgroup" ]
 VOLUME [ "/var/lib/containerd" ]
