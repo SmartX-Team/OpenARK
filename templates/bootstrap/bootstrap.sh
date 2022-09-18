@@ -94,6 +94,7 @@ function spawn_node() {
             --restart "unless-stopped" \
             --tmpfs "/run" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
+            --volume "/opt/etcd:/opt/etcd" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
