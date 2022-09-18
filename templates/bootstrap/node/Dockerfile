@@ -6,7 +6,6 @@ FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
 
 # SystemD Configuration
 ENV container docker
-ENV PATH=$PATH:/opt/bin
 STOPSIGNAL SIGRTMIN+3
 VOLUME [ "/sys/fs/cgroup" ]
 VOLUME [ "/var/lib/containerd" ]
@@ -52,6 +51,9 @@ RUN true \
     && sed -i 's/^\(PasswordAuthentication\) yes/\1 no/g' /etc/ssh/sshd_config \
     # Enable systemd
     && systemctl enable sshd
+
+# Link /opt/bin to /usr/local/bin
+RUN ln -sf /usr/local/bin /opt/bin
 
 # Load files
 ADD ./ansible/ /etc/kiss/bootstrap/
