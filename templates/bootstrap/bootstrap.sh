@@ -202,8 +202,9 @@ function install_k8s_cluster() {
             "$CONTAINER_RUNTIME" exec "$node_first" \
                 mkdir -p "/root/kiss/bootstrap/"
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
-                bash -c "cat > /root/kiss/bootstrap/config.yaml" \
-                <"$KUBESPRAY_CONFIG"
+                tee "/root/kiss/bootstrap/config.yaml" \
+                <"$KUBESPRAY_CONFIG" |
+                echo -n ''
         done
 
         # Download k8s config into host
