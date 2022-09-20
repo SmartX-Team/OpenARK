@@ -21,7 +21,7 @@
         ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
         ansible_ipmi_username: "{{ lookup('env', 'ansible_ipmi_username') }}"
         ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
-        name: "{{ lookup('env', 'ansible_host') }}"
+        name: "ansible.{{ lookup('env', 'ansible_host') }}"
         kube_override_hostname: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all

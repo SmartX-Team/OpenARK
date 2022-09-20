@@ -15,7 +15,7 @@
     bin_dir: /opt/bin
     ip: "{{ node[1] }}"
     access_ip: "{{ node[1] }}"
-    name: "{{ node[0] }}.control.box.netai-cloud"
+    name: "ansible.{{ node[0] }}.control.box.netai-cloud"
     kube_override_hostname: "{{ node[0] }}.control.box.netai-cloud"
     groups:
       - all
