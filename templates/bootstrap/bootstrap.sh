@@ -86,7 +86,7 @@ function spawn_node() {
         "$CONTAINER_RUNTIME" run --detach \
             --name "$name" \
             --cgroupns "host" \
-            --hostname "$name.control.box.netai-cloud" \
+            --hostname "$name" \
             --ipc "host" \
             --net "host" \
             --privileged \
@@ -164,7 +164,7 @@ function install_k8s_cluster() {
     local NEED_INSTALL=1
     if
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl get nodes --no-headers "$node_first.control.box.netai-cloud" \
+            kubectl get nodes --no-headers "$node_first" \
             >/dev/null 2>/dev/null
     then
         echo -n "- Using already installed k8s cluster ... "

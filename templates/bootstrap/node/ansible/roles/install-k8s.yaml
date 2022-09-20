@@ -17,5 +17,14 @@
         src: ../templates/hosts.yaml.j2
         dest: /etc/kiss/bootstrap/inventory/hosts.yaml
 
+- name: Debug
+  hosts: all
+  tasks:
+    - debug:
+        var: inventory_hostname
+    - debug:
+        var: ansible_hostname
+    - shell: /bin/false
+
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml

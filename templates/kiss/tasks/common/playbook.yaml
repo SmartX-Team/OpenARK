@@ -13,7 +13,6 @@
         ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
         ansible_host_uuid: "{{ lookup('env', 'ansible_host_uuid') }}"
         ansible_host_key_checking: false
-        ansible_hostname: "{{ lookup('env', 'ansible_host') }}"
         ansible_ssh_host: "{{ lookup('env', 'ansible_ssh_host') }}"
         ansible_ssh_private_key_file: "{{ lookup('env', 'ansible_ssh_private_key_file') }}"
         ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
@@ -21,8 +20,7 @@
         ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
         ansible_ipmi_username: "{{ lookup('env', 'ansible_ipmi_username') }}"
         ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
-        name: "ansible.{{ lookup('env', 'ansible_host') }}"
-        kube_override_hostname: "{{ lookup('env', 'ansible_host') }}"
+        name: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all
           - flatcar

@@ -5,9 +5,8 @@
 
 - name: Add a host - {{ node[0] }}
   add_host:
-    ansible_host: "{{ node[0] }}.control.box.netai-cloud"
+    ansible_host: "{{ node[0] }}.ops.netai-cloud"
     ansible_host_key_checking: false
-    ansible_hostname: "{{ node[0] }}.control.box.netai-cloud"
     ansible_python_interpreter: /usr/bin/python3
     ansible_ssh_host: "{{ node[1] }}"
     ansible_ssh_port: "{{ node[2] }}"
@@ -15,8 +14,7 @@
     bin_dir: /opt/bin
     ip: "{{ node[1] }}"
     access_ip: "{{ node[1] }}"
-    name: "ansible.{{ node[0] }}.control.box.netai-cloud"
-    kube_override_hostname: "{{ node[0] }}.control.box.netai-cloud"
+    name: "{{ node[0] }}.ops.netai-cloud"
     groups:
       - all
       - kube_control_plane
