@@ -43,10 +43,5 @@ cp /etc/resolv.conf /tmp/resolv.conf &&
     umount /etc/resolv.conf &&
     mv /tmp/resolv.conf /etc/resolv.conf
 
-# Append hostname to /etc/hosts
-echo -e "\n# Kiss bootstrap hosts BEGIN" >>/etc/hosts
-echo -e "127.0.0.94\t$(hostname)" >>/etc/hosts
-echo -e "# Kiss bootstrap hosts END\n" >>/etc/hosts
-
 # Execute systemd
 exec /usr/sbin/init
