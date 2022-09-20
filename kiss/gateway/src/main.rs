@@ -120,7 +120,15 @@ async fn get_commission(
                     },
                     "status": BoxStatus {
                         state: BoxState::Ready,
-                        bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
+                        bind_group: if query.reset {
+                            None
+                        } else {
+                            r#box
+                                .status
+                                .as_ref()
+                                .and_then(|status| status.bind_group.as_ref())
+                                .cloned()
+                        },
                         last_updated: Utc::now(),
                     },
                 }));

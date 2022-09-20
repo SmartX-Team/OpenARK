@@ -265,5 +265,6 @@ pub mod request {
         pub access: BoxAccessSpec,
         pub machine: BoxMachineSpec,
         pub power: Option<BoxPowerSpec>,
+        pub reset: bool,
     }
 }
