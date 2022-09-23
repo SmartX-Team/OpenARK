@@ -130,8 +130,8 @@ function spawn_node() {
                 -p $SSH_PORT \
                 -i $SSH_KEYFILE \
                 "root@$node_ip" \
-                exit
-            2>/dev/null
+                exit \
+                2>/dev/null
         then
             break
         fi
