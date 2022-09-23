@@ -11,7 +11,7 @@ set -e
 ###########################################################
 
 # Configure default environment variables
-CONTAINER_RUNTIME_DEFAULT="docker"
+CONTAINER_RUNTIME_DEFAULT="nerdctl"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
@@ -70,7 +70,7 @@ function spawn_node() {
 
     # Check if node already exists
     local NEED_SPAWN=1
-    if [ $(docker ps -a -q -f "name=^$name\$") ]; then
+    if [ $("$CONTAINER_RUNTIME" ps -a -q -f "name=$name") ]; then
         if [ $(echo "$REUSE_NODES" | awk '{print tolower($0)}') == "true" ]; then
             echo -n "- Using already spawned node ($name) ... "
             local NEED_SPAWN=0
@@ -91,7 +91,6 @@ function spawn_node() {
             --net "host" \
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
-            --restart "unless-stopped" \
             --tmpfs "/run" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "/opt/etcd:/opt/etcd" \
@@ -99,7 +98,7 @@ function spawn_node() {
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
         # Start SSH
-        docker exec "$name" systemctl start sshd
+        "$CONTAINER_RUNTIME" exec "$name" systemctl start sshd
     fi
 
     # Get suitable access IP
@@ -117,10 +116,23 @@ function spawn_node() {
     # Get SSH configuration
     while :; do
         # Get SSH port
-        local SSH_PORT="$(docker exec "$name" cat /etc/ssh/sshd_config | grep '^Port ' | awk '{print $2}')"
+        local SSH_PORT="$(
+            "$CONTAINER_RUNTIME" exec "$name" cat /etc/ssh/sshd_config |
+                grep '^Port ' |
+                awk '{print $2}'
+        )"
 
         # Try connect to the node
-        if ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -p $SSH_PORT -i $SSH_KEYFILE "root@$node_ip" exit 2>/dev/null; then
+        if
+            ssh \
+                -o "StrictHostKeyChecking=no" \
+                -o "UserKnownHostsFile=/dev/null" \
+                -p $SSH_PORT \
+                -i $SSH_KEYFILE \
+                "root@$node_ip" \
+                exit
+            2>/dev/null
+        then
             break
         fi
 
@@ -130,7 +142,12 @@ function spawn_node() {
             /etc/ssh/sshd_config
 
         # Restart SSH daemon
-        while [ ! $(docker exec -it $name ps -s 1 | awk '{print $4}' | tail -n 1 | grep '^systemd') ]; do
+        while [ ! $(
+            "$CONTAINER_RUNTIME" exec -it $name ps -s 1 |
+                awk '{print $4}' |
+                tail -n 1 |
+                grep '^systemd'
+        ) ]; do
             sleep 1
         done
         "$CONTAINER_RUNTIME" exec "$name" \
@@ -261,7 +278,10 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "matchbox-account" \
             "--from-literal=username=kiss" \
-            "--from-literal=id_rsa.pub=$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')"
+            "--from-literal=id_rsa.pub=$(
+                cat ${SSH_KEYFILE}.pub |
+                    awk '{print $1 " " $2}'
+            )"
         "$CONTAINER_RUNTIME" cp "${SSH_KEYFILE}" "$node_first:/tmp/kiss_bootstrap_id_rsa"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
@@ -299,10 +319,10 @@ function install_k8s_snapshot_cluster() {
     if
         true &&
             "$CONTAINER_RUNTIME" exec "$node_first" \
-                kubectl get -n kiss configmap snapshot-account-git \
+                kubectl get -n kiss configmap "snapshot-account-git" \
                 >/dev/null 2>/dev/null &&
             "$CONTAINER_RUNTIME" exec "$node_first" \
-                kubectl get -n kiss secret snapshot-account-git \
+                kubectl get -n kiss secret "snapshot-account-git" \
                 >/dev/null 2>/dev/null
     then
         echo -n "- Using already installed k8s snapshot config ... "
@@ -319,7 +339,10 @@ function install_k8s_snapshot_cluster() {
         # Show how to deploy your SSH keys into the Web (i.e. Github) repository.
         echo
         echo "* NOTE: You can register the SSH public key to activate the snapshot manager."
-        echo "* Your SSH key: \"$(cat ${SSH_KEYFILE}.pub | awk '{print $1 " " $2}')\""
+        echo "* Your SSH key: \"$(
+            cat ${SSH_KEYFILE}.pub |
+                awk '{print $1 " " $2}'
+        )\""
         echo "* Your SSH key is saved on: \"${SSH_KEYFILE}.pub\""
         echo "* Learn How to store keys (Github): \"https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys\""
         echo
@@ -331,7 +354,8 @@ function install_k8s_snapshot_cluster() {
             kubectl create -n kiss configmap "snapshot-git" \
             "--from-literal=repository=$SNAPSHOT_GIT_REPOSITORY"
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl get -n kiss secret "matchbox-account" -o jsonpath='{.data.id_rsa}' |
+            kubectl get -n kiss secret "matchbox-account" \
+            -o jsonpath='{.data.id_rsa}' |
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
                 base64 --decode |
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
