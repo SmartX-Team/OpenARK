@@ -113,6 +113,23 @@ function spawn_node() {
         exit 1
     fi
 
+    # Update SSH ListenAddress
+    "$CONTAINER_RUNTIME" exec "$name" sed -i \
+        "s/^\(ListenAddress\) .*\$/\1 $node_ip/g" \
+        /etc/ssh/sshd_config
+
+    # Restart SSH daemon
+    while [ ! $(
+        "$CONTAINER_RUNTIME" exec -it $name ps -s 1 |
+            awk '{print $4}' |
+            tail -n 1 |
+            grep '^systemd'
+    ) ]; do
+        sleep 1
+    done
+    "$CONTAINER_RUNTIME" exec "$name" \
+        systemctl restart sshd 2>/dev/null || true
+
     # Get SSH configuration
     while :; do
         # Get SSH port
@@ -135,23 +152,6 @@ function spawn_node() {
         then
             break
         fi
-
-        # Update SSH ListenAddress
-        "$CONTAINER_RUNTIME" exec "$name" sed -i \
-            "s/^\(ListenAddress\) .*\$/\1 $node_ip/g" \
-            /etc/ssh/sshd_config
-
-        # Restart SSH daemon
-        while [ ! $(
-            "$CONTAINER_RUNTIME" exec -it $name ps -s 1 |
-                awk '{print $4}' |
-                tail -n 1 |
-                grep '^systemd'
-        ) ]; do
-            sleep 1
-        done
-        "$CONTAINER_RUNTIME" exec "$name" \
-            systemctl restart sshd 2>/dev/null || true
     done
 
     # Save as environment variable
