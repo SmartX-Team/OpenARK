@@ -13,7 +13,6 @@
     ansible_user: root
     bin_dir: /opt/bin
     ip: "{{ node[1] }}"
-    access_ip: "{{ node[1] }}"
     name: "{{ node[0] }}.ops.netai-cloud"
     groups:
       - all
