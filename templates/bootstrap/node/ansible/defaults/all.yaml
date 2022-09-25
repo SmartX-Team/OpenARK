@@ -21,6 +21,9 @@ all:
         ### fail with swap on (default true)
         kubelet_fail_swap_on: true
 
+        # An alternative flexvolume plugin directory
+        kubelet_flexvolumes_plugins_dir: /var/lib/kubelet/volumeplugins
+
         ## Container runtime
         ## docker for docker, crio for cri-o and containerd for containerd.
         ## Additionally you can set this to kubeadm if you want to install etcd using kubeadm
@@ -43,6 +46,14 @@ all:
         ## Settings for calico CNI
         # Global as_num (/calico/bgp/v1/global/as_num)
         global_as_num: "64512"
+        # Choose data store type for calico: "etcd" or "kdd" (kubernetes datastore)
+        # The default value for calico_datastore is set in role kubespray-default
+        calico_datastore: kdd
+        # Calico container settings
+        calico_allow_ip_forwarding: false
+        # Should calico ignore kernel's RPF check setting,
+        # see https://github.com/projectcalico/felix/blob/ab8799eaea66627e5db7717e62fca61fd9c08646/python/calico/felix/config.py#L198
+        calico_node_ignorelooserpf: false
         # Advertise Cluster IPs
         calico_advertise_cluster_ips: true
         # Configure peering with router(s) at global scope
