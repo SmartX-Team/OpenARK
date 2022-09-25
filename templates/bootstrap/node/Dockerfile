@@ -8,7 +8,22 @@ FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
 ENV container docker
 STOPSIGNAL SIGRTMIN+3
 VOLUME [ "/sys/fs/cgroup" ]
+
+# Volumes Configuration
+## binary.cni
+VOLUME [ "/opt/cni" ]
+## binary.common
+VOLUME [ "/opt/bin" ]
+## binary.etcd
+VOLUME [ "/opt/etcd" ]
+## binary.pypy3
+VOLUME [ "/opt/pypy3" ]
+## var.cni
+VOLUME [ "/var/lib/cni" ]
+## var.containerd
 VOLUME [ "/var/lib/containerd" ]
+## var.k8s
+VOLUME [ "/var/lib/kubelet" ]
 
 # Server Configuration
 WORKDIR /root/
