@@ -21,7 +21,7 @@ use strum::{Display, EnumString};
         "name": "address",
         "type": "string",
         "description":"access address of the box",
-        "jsonPath":".spec.access.address"
+        "jsonPath":".spec.access.addressPrimary"
     }"#,
     printcolumn = r#"{
         "name": "power",
