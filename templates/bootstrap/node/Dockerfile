@@ -22,12 +22,12 @@ VOLUME [ "/opt/pypy3" ]
 VOLUME [ "/var/lib/cni" ]
 ## var.containerd
 VOLUME [ "/var/lib/containerd" ]
-## var.k8s
-VOLUME [ "/var/lib/kubelet" ]
+## var.k8s => /usr/local/bin
+VOLUME [ "/usr/local/bin" ]
 
 # Server Configuration
 WORKDIR /root/
-CMD ["/usr/local/bin/entrypoint.sh"]
+CMD ["/opt/kiss/bin/entrypoint.sh"]
 
 # Remove a number of unit files which might cause issues
 # note: https://hub.docker.com/r/rockylinux/rockylinux
@@ -72,10 +72,10 @@ RUN ln -sf /usr/local/bin /opt/bin
 
 # Load files
 ADD ./ansible/ /etc/kiss/bootstrap/
-ADD ./entrypoint.sh /usr/local/bin/entrypoint.sh
+ADD ./entrypoint.sh /opt/kiss/bin/entrypoint.sh
 
 # Change permissions of given files
-RUN chmod 500 /usr/local/bin/entrypoint.sh
+RUN chmod 500 /opt/kiss/bin/entrypoint.sh
 
 # Add inventory volume
 VOLUME [ "/etc/kiss/bootstrap/inventory" ]
