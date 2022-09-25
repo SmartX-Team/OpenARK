@@ -11,7 +11,7 @@ set -e
 ###########################################################
 
 # Configure default environment variables
-CONTAINER_RUNTIME_DEFAULT="nerdctl"
+CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
