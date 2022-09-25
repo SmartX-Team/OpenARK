@@ -164,7 +164,7 @@ function spawn_node() {
 
 # Spawn a node
 export nodes # results
-for name in "$KUBESPRAY_NODES"; do
+for name in $KUBESPRAY_NODES; do
     spawn_node "$name"
 done
 
@@ -215,7 +215,7 @@ function install_k8s_cluster() {
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
         # Upload kubespray config into nodes
-        for name in "$KUBESPRAY_NODES"; do
+        for name in $KUBESPRAY_NODES; do
             "$CONTAINER_RUNTIME" exec "$node_first" \
                 mkdir -p "/root/kiss/bootstrap/"
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
@@ -239,7 +239,7 @@ function install_k8s_cluster() {
 }
 
 # Install a k8s cluster within nodes
-install_k8s_cluster "$KUBESPRAY_NODES"
+install_k8s_cluster $KUBESPRAY_NODES
 
 ###########################################################
 #   Install kiss cluster                                  #
@@ -303,7 +303,7 @@ function install_kiss_cluster() {
 }
 
 # Install a kiss cluster within k8s cluster
-install_kiss_cluster "$KUBESPRAY_NODES"
+install_kiss_cluster $KUBESPRAY_NODES
 
 ###########################################################
 #   Install k8s snapshot config                           #
@@ -373,7 +373,7 @@ function install_k8s_snapshot_cluster() {
 }
 
 # Install a k8s snapshot config within k8s cluster
-install_k8s_snapshot_cluster "$KUBESPRAY_NODES"
+install_k8s_snapshot_cluster $KUBESPRAY_NODES
 
 # Finished!
 echo "Installed!"
