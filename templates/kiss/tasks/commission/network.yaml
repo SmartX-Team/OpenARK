@@ -1,8 +1,68 @@
 ---
-- name: Get Network Interfaces
-  shell: ls /sys/class/net | grep -e '^en*'
-  register: netdev
+- name: Collect network inteface infomations
+  loop: "{{ ansible_interfaces }}"
+  # filter the physical devices that has connected to the specific network as ethernet
+  when: >
+    item in ansible_facts
+    and ansible_facts[item].type == 'ether'
+    and ansible_facts[item].active
+    and ansible_facts[item].ipv4.netmask == '255.240.0.0'
+    and ansible_facts[item].ipv4.network == '10.32.0.0'
+  set_fact:
+    interfaces: >
+      {{ interfaces|default([]) + [{
+        'name': item,
+        'address_ipv4': ansible_facts[item].ipv4.address,
+        'module': ansible_facts[item].module,
+        'pciid': ansible_facts[item].pciid,
+        'speed': ansible_facts[item].speed,
+        'speed_neg': -ansible_facts[item].speed,
+      }] }}
 
-- name: Get Network Interfaces
+- name: Sort by speed, module, and PCI ID
+  set_fact:
+    interfaces: "{{ interfaces | sort(attribute='speed_neg,module,pciid') }}"
+
+- name: Select the fastest interface as Primary
+  when: interfaces | length > 0
+  set_fact:
+    interface_primary: "{{ interfaces[0] }}"
+    interface_primary_address_ipv4: "{{ interfaces[0]['address_ipv4'] }}"
+
+- name: Select the secondary fastest interface as Secondary
+  when: interfaces | length > 1
+  set_fact:
+    interface_secondary: "{{ interfaces[1] }}"
+    interface_secondary_address_ipv4: "{{ interfaces[1]['address_ipv4'] }}"
+
+- name: Ping from primary interface to the gateway
+  when: interface_primary_address_ipv4 is defined
+  shell: >
+    ping -4 -c 4
+    -I {{ interface_primary_address_ipv4 }}
+    {{ ansible_default_ipv4.gateway }}
+  register: result
+  until: result.rc == 0
+  delay: 5
+  retries: 5
+
+- name: Ping from secondary interface to the gateway
+  when: interface_secondary_address_ipv4 is defined
+  shell: >
+    ping -4 -c 4
+    -I {{ interface_secondary_address_ipv4 }}
+    {{ ansible_default_ipv4.gateway }}
+  register: result
+  until: result.rc == 0
+  delay: 5
+  retries: 5
+
+- name: Show about the primary inteface
+  when: interface_primary is defined
   debug:
-    msg: "{{ netdev.stdout_lines }}"
+    var: interface_primary
+
+- name: Show about the secondary inteface
+  when: interface_secondary is defined
+  debug:
+    var: interface_secondary

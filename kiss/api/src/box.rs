@@ -183,7 +183,14 @@ impl BoxState {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxAccessSpec {
-    pub address: IpAddr,
+    pub address_primary: IpAddr,
+    pub address_secondary: Option<IpAddr>,
+}
+
+impl BoxAccessSpec {
+    pub fn management_address(&self) -> IpAddr {
+        self.address_secondary.unwrap_or(self.address_primary)
+    }
 }
 
 #[derive(

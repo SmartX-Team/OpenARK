@@ -8,7 +8,8 @@
     body_format: json
     body:
       access:
-        address: "{{ ansible_ssh_host }}"
+        address_primary: "{{ interface_primary_address_ipv4 | default(ansible_ssh_host) }}"
+        address_secondary: "{{ interface_secondary_address_ipv4 | default(None) }}"
       machine:
         uuid: "{{ ansible_host_uuid }}"
       power:

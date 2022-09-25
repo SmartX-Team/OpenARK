@@ -78,7 +78,7 @@ impl AnsibleClient {
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
                     Some((
                         Self::LABEL_BOX_ACCESS_ADDRESS.into(),
-                        job.spec.access.address.to_string(),
+                        job.spec.access.address_primary.to_string(),
                     )),
                     Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
@@ -144,7 +144,7 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
-                                value: Some(job.spec.access.address.to_string()),
+                                value: Some(job.spec.access.management_address().to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
