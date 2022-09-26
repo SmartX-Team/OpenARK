@@ -12,11 +12,11 @@ set -x
 #   Configuration                                         #
 ###########################################################
 
-# Configure default environment variables
-BAREMETAL_CSI_DEFAULT="rook-ceph"
-
-# Set environment variables
-BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
+# Get environment variables
+BAREMETAL_CSI=$(
+    kubectl get -n kiss configmap baremetal \
+        -o jsonpath --template '{.data.csi}'
+)
 
 ###########################################################
 #   Install Kiss Cluster                                  #

@@ -11,6 +11,7 @@ set -e
 ###########################################################
 
 # Configure default environment variables
+BAREMETAL_CSI_DEFAULT="rook-ceph"
 CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
@@ -25,6 +26,7 @@ REUSE_NODES_DEFAULT="true"
 SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
 # Configure environment variables
+BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 KISS_BOOTSTRAP_NODE_IMAGE="${KISS_BOOTSTRAP_NODE_IMAGE:-$KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT}"
 KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
@@ -290,6 +292,9 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-images" \
             "--from-literal=kubespray=$KUBESPRAY_IMAGE"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl create -n kiss configmap "baremetal" \
+            "--from-literal=csi=$BAREMETAL_CSI"
 
         # Upload the SSH Configuration File to the Cluster
         "$CONTAINER_RUNTIME" exec "$node_first" \
