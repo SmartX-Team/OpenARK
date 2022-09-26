@@ -12,8 +12,8 @@ VOLUME [ "/sys/fs/cgroup" ]
 # Volumes Configuration
 ## binary.cni
 VOLUME [ "/opt/cni" ]
-## binary.common
-VOLUME [ "/opt/bin" ]
+## binary.common => /usr/local/bin
+VOLUME [ "/usr/local/bin" ]
 ## binary.etcd
 VOLUME [ "/opt/etcd" ]
 ## binary.pypy3
@@ -22,8 +22,8 @@ VOLUME [ "/opt/pypy3" ]
 VOLUME [ "/var/lib/cni" ]
 ## var.containerd
 VOLUME [ "/var/lib/containerd" ]
-## var.k8s => /usr/local/bin
-VOLUME [ "/usr/local/bin" ]
+## var.k8s
+VOLUME [ "/var/lib/kubelet" ]
 
 # Server Configuration
 WORKDIR /root/
