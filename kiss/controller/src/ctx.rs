@@ -53,22 +53,20 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // spawn an Ansible job
-        if old_state != new_state {
-            if let Some(task) = new_state.as_task() {
-                manager
-                    .ansible
-                    .spawn(
-                        &manager.kube,
-                        AnsibleJob {
-                            cron: new_state.cron(),
-                            task,
-                            spec: &data.spec,
-                            status: data.status.as_ref(),
-                            completed_state: new_state.complete(),
-                        },
-                    )
-                    .await?;
-            }
+        if let Some(task) = new_state.as_task() {
+            manager
+                .ansible
+                .spawn(
+                    &manager.kube,
+                    AnsibleJob {
+                        cron: new_state.cron(),
+                        task,
+                        spec: &data.spec,
+                        status: data.status.as_ref(),
+                        completed_state: new_state.complete(),
+                    },
+                )
+                .await?;
         }
 
         let crd = BoxCrd::api_resource();
