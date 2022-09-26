@@ -27,11 +27,9 @@ impl AnsibleClient {
     pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
     pub const LABEL_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
 
-    pub const ANSIBLE_IMAGE: &'static str = "quay.io/kubespray/kubespray:v2.19.1";
-
     pub fn try_default() -> Result<Self> {
         Ok(Self {
-            ansible_image: infer("ANSIBLE_IMAGE").unwrap_or_else(|_| Self::ANSIBLE_IMAGE.into()),
+            ansible_image: infer("ANSIBLE_IMAGE")?,
             force_reset: infer("kiss_group_force_reset").unwrap_or(false),
         })
     }

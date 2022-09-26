@@ -58,7 +58,6 @@ all:
         calico_advertise_cluster_ips: true
         # Configure peering with router(s) at global scope
         peer_with_router: true
-        peer_with_router_nat_outgoing: true # enable NAT
         peers:
           - router_id: 10.47.255.254
             as: "64512"
