@@ -53,8 +53,34 @@ sleep 30
 
 echo "- Configuring rook-ceph ..."
 
-for file in $ROOK_CEPH_FILES; do
-    kubectl apply --filename "$ROOK_CEPH_EXAMPLE/$file"
+for file in ${ROOK_CEPH_FILES[@]}; do
+    # download file
+    file_local="/tmp/$(echo $file | sha256sum | awk '{print $1}').yaml"
+    wget -O "$file_local" "$ROOK_CEPH_EXAMPLE/$file"
+
+    # apply some tweaks
+    ## CephCluster
+    if [ "$file" == "cluster-test.yaml" ]; then
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.mon.disabled = true' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.disabled = false' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.interval = "60s"' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.disabled = false' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.interval = "60s"' "$file_local"
+        # Change pod liveness probe timing or threshold values. Works for all mon,mgr,osd daemons.
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mon.disabled = true' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mgr.disabled = true' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.osd.disabled = false' "$file_local"
+        # Change pod startup probe timing or threshold values. Works for all mon,mgr,osd daemons.
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.mon.disabled = true' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.mgr.disabled = true' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.osd.disabled = false' "$file_local"
+    fi
+
+    # apply to the cluster
+    kubectl apply --filename "$file_local"
+
+    # remove the downloaded file
+    rm -f "$file_local" || true
 done
 
 # Finished!
