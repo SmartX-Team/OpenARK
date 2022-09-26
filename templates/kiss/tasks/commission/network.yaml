@@ -4,9 +4,12 @@
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
     item in ansible_facts
-    and ansible_facts[item].type == 'ether'
     and ansible_facts[item].active
+    and ansible_facts[item].type == 'ether'
+    and 'ipv4' in ansible_facts[item]
+    and 'netmask' in ansible_facts[item].ipv4
     and ansible_facts[item].ipv4.netmask == '255.240.0.0'
+    and 'network' in ansible_facts[item].ipv4
     and ansible_facts[item].ipv4.network == '10.32.0.0'
   set_fact:
     interfaces: >
