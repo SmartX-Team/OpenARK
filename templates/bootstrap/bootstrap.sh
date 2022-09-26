@@ -88,7 +88,7 @@ function spawn_node() {
         # Reset data
         if [ $(echo "$REUSE_DATA" | awk '{print tolower($0)}') == "false" ]; then
             echo "- Removing previous data ... "
-            sudo rm -rf "$KUBERNETES_DATA"
+            sudo rm -rf "$KUBERNETES_DATA" || true
             sudo mkdir -p "$KUBERNETES_DATA"
         fi
 
