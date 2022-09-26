@@ -1,5 +1,28 @@
 #!/bin/bash
-set -ex
+# Copyright (c) 2022 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e
+# Verbose
+set -x
+
+###########################################################
+#   Configuration                                         #
+###########################################################
+
+# Configure default environment variables
+BAREMETAL_CSI_DEFAULT="rook-ceph"
+
+# Set environment variables
+BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
+
+###########################################################
+#   Install Kiss Cluster                                  #
+###########################################################
+
+echo "- Installing kiss cluster ..."
 
 # namespace & common
 kubectl apply \
@@ -40,3 +63,17 @@ kubectl apply -R -f "./snapshot-*.yaml"
 # note: https://github.com/kubernetes/kubernetes/issues/27081#issuecomment-327321981
 kubectl patch -R -f "./kiss-*.yaml" -p \
     "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"updatedDate\":\"$(date +'%s')\"}}}}}"
+
+###########################################################
+#   Install Bare-metal CSI                                #
+###########################################################
+
+echo "- Installing Bare-metal CSI ..."
+
+# External Call
+pushd "./csi/$BAREMETAL_CSI/"
+/bin/bash "./install.sh"
+popd
+
+# Finished!
+echo "Installed!"
