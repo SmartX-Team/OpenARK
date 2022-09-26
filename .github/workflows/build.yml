@@ -199,7 +199,7 @@ jobs:
           containerfiles: |
             ./templates/snapshot/git/Dockerfile
           build-args: |
-            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            K8S_VERSION=${{ env.K8S_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
