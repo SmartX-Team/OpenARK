@@ -246,9 +246,6 @@ spec:
         kissService: "false"
         serviceType: internal
     spec:
-      nodeSelector:
-        # control plane nodes should get ready for DHCP
-        node-role.kubernetes.io/control-plane: ""
       securityContext:
         seccompProfile:
           type: RuntimeDefault

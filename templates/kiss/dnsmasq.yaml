@@ -32,6 +32,9 @@ spec:
         serviceType: internal
     spec:
       hostNetwork: true
+      nodeSelector:
+        # control plane nodes should get ready for DHCP
+        node-role.kubernetes.io/control-plane: ""
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -66,7 +69,7 @@ spec:
             - --dhcp-match=set:efi-arm64,option:client-arch,11
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/boot.ipxe
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/boot.ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
             - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
