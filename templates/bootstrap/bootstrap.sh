@@ -15,6 +15,7 @@ CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
+KUBERNETES_DATA_DEFAULT="/opt/kiss"
 KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/all.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
 KUBESPRAY_IMAGE_DEFAULT="quay.io/kubespray/kubespray:v2.19.1"
@@ -27,7 +28,8 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 KISS_BOOTSTRAP_NODE_IMAGE="${KISS_BOOTSTRAP_NODE_IMAGE:-$KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT}"
 KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
-KUBERNETES_CONFIG_DEFAULT="${KUBERNETES_CONFIG_DEFAULT:-$KUBERNETES_CONFIG_DEFAULT_DEFAULT}"
+KUBERNETES_CONFIG="${KUBERNETES_CONFIG:-$KUBERNETES_CONFIG_DEFAULT}"
+KUBERNETES_DATA="${KUBERNETES_DATA:-$KUBERNETES_DATA_DEFAULT}"
 KUBESPRAY_CONFIG="${KUBESPRAY_CONFIG:-$KUBESPRAY_CONFIG_DEFAULT}"
 KUBESPRAY_CONFIG_TEMPLATE="${KUBESPRAY_CONFIG_TEMPLATE:-$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT}"
 KUBESPRAY_IMAGE="${KUBESPRAY_IMAGE:-$KUBESPRAY_IMAGE_DEFAULT}"
@@ -86,8 +88,8 @@ function spawn_node() {
         # Reset data
         if [ $(echo "$REUSE_DATA" | awk '{print tolower($0)}') == "false" ]; then
             echo "- Removing previous data ... "
-            sudo rm -rf /opt/kiss/
-            sudo mkdir -p /opt/kiss/
+            sudo rm -rf "$KUBERNETES_DATA"
+            sudo mkdir -p "$KUBERNETES_DATA"
         fi
 
         # Spawn a node
@@ -102,13 +104,13 @@ function spawn_node() {
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
-            --volume "/opt/cni:/opt/kiss/binary.cni" \
-            --volume "/usr/local/bin:/opt/kiss/binary.common" \
-            --volume "/opt/etcd:/opt/kiss/binary.etcd" \
-            --volume "/opt/pypy3:/opt/kiss/binary.pypy3" \
-            --volume "/var/lib/cni:/opt/kiss/var.cni" \
-            --volume "/var/lib/containerd:/opt/kiss/var.containerd" \
-            --volume "/var/lib/kubelet:/opt/kiss/var.k8s" \
+            --volume "$KUBERNETES_DATA/binary.cni:/opt/cni:shared" \
+            --volume "$KUBERNETES_DATA/binary.common:/usr/local/bin:shared" \
+            --volume "$KUBERNETES_DATA/binary.etcd:/opt/etcd:shared" \
+            --volume "$KUBERNETES_DATA/binary.pypy3:/opt/pypy3:shared" \
+            --volume "$KUBERNETES_DATA/var.cni:/var/lib/cni:shared" \
+            --volume "$KUBERNETES_DATA/var.containerd:/var/lib/containerd:shared" \
+            --volume "$KUBERNETES_DATA/var.k8s:/var/lib/kubelet:shared" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
@@ -240,10 +242,10 @@ function install_k8s_cluster() {
         done
 
         # Download k8s config into host
-        mkdir -p "$KUBERNETES_CONFIG_DEFAULT"
+        mkdir -p "$KUBERNETES_CONFIG"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             tar -cf - -C "/root/.kube" "." |
-            tar -xf - -C "$KUBERNETES_CONFIG_DEFAULT"
+            tar -xf - -C "$KUBERNETES_CONFIG"
 
         # Cleanup
         rm -rf "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
@@ -309,7 +311,7 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" run --rm \
             --name "kiss-installer" \
             --net "host" \
-            --volume "$KUBERNETES_CONFIG_DEFAULT:/root/.kube:ro" \
+            --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
             "$KISS_INSTALLER_IMAGE"
     fi
 
