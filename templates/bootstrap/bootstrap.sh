@@ -198,7 +198,7 @@ function install_k8s_cluster() {
     local NEED_INSTALL=1
     if
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl get nodes --no-headers "$node_first" \
+            kubectl get nodes --no-headers "$node_first.ops.netai-cloud" \
             >/dev/null 2>/dev/null
     then
         echo -n "- Using already installed k8s cluster ... "
