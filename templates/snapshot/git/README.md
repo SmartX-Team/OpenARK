@@ -7,5 +7,5 @@
 ## Build
 
 ```bash
-docker build --tag quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest
+docker build --tag quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest .
 ```
