@@ -64,8 +64,7 @@ for file in ${ROOK_CEPH_FILES[@]}; do
         yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.mon.disabled = true' "$file_local"
         yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.disabled = false' "$file_local"
         yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.interval = "60s"' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.disabled = false' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.interval = "60s"' "$file_local"
+        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.disabled = true' "$file_local"
         # Change pod liveness probe timing or threshold values. Works for all mon,mgr,osd daemons.
         yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mon.disabled = true' "$file_local"
         yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mgr.disabled = true' "$file_local"
