@@ -6,7 +6,7 @@ FROM docker.io/alpine/k8s:${K8S_VERSION} as server
 
 # Server Configuration
 WORKDIR /src
-ENTRYPOINT [ "/bin/sh" ]
+ENTRYPOINT [ "/bin/bash" ]
 CMD [ "./install.sh" ]
 
 # Copy executable files
