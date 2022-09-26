@@ -76,9 +76,14 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: 10.32.0.0/12
-        - ipBlock:
-            cidr: 10.112.0.0/12
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/11
+              - 10.48.0.0/12
+              - 10.64.0.0/12
+              - 10.80.0.0/12
+              - 172.16.0.0/12
+              - 192.168.0.0/16
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
