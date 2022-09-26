@@ -16,6 +16,7 @@ Path: `/boxes.yaml`
 all:
   # Default variables
   vars:
+    # either one of Worker, ControlPlane
     clusterRole: Worker
   children:
     ##########################################
@@ -44,5 +45,6 @@ my-cluster:
     manager: Ho Kim
   children:
     rack-1-box-1.ops.netai-cloud:
+      clusterRole: ControlPlane
     ...
 ```
