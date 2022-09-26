@@ -19,6 +19,7 @@ KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/all.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
 KUBESPRAY_IMAGE_DEFAULT="quay.io/kubespray/kubespray:v2.19.1"
 KUBESPRAY_NODES_DEFAULT="master1"
+REUSE_DATA_DEFAULT="false"
 REUSE_NODES_DEFAULT="true"
 SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
@@ -31,6 +32,7 @@ KUBESPRAY_CONFIG="${KUBESPRAY_CONFIG:-$KUBESPRAY_CONFIG_DEFAULT}"
 KUBESPRAY_CONFIG_TEMPLATE="${KUBESPRAY_CONFIG_TEMPLATE:-$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT}"
 KUBESPRAY_IMAGE="${KUBESPRAY_IMAGE:-$KUBESPRAY_IMAGE_DEFAULT}"
 KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
+REUSE_DATA="${REUSE_DATA:-$REUSE_DATA_DEFAULT}"
 REUSE_NODES="${REUSE_NODES:-$REUSE_NODES_DEFAULT}"
 SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
 
@@ -55,7 +57,7 @@ sudo swapoff -a
 
 # Generate a SSH keypair
 if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
-    echo "- Generating a SSH Keypair..."
+    echo "- Generating a SSH Keypair ... "
     mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT"
     ssh-keygen -q -t rsa -f "$SSH_KEYFILE" -N ''
 fi
@@ -81,6 +83,13 @@ function spawn_node() {
     fi
 
     if [ "$NEED_SPAWN" -eq 1 ]; then
+        # Reset data
+        if [ $(echo "$REUSE_DATA" | awk '{print tolower($0)}') == "false" ]; then
+            echo "- Removing previous data ... "
+            sudo rm -rf /opt/kiss/
+            sudo mkdir -p /opt/kiss/
+        fi
+
         # Spawn a node
         echo -n "- Spawning a node ($name) ... "
         "$CONTAINER_RUNTIME" run --detach \
@@ -93,7 +102,13 @@ function spawn_node() {
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
-            --volume "/opt/etcd:/opt/etcd" \
+            --volume "/opt/cni:/opt/kiss/binary.cni" \
+            --volume "/usr/local/bin:/opt/kiss/binary.common" \
+            --volume "/opt/etcd:/opt/kiss/binary.etcd" \
+            --volume "/opt/pypy3:/opt/kiss/binary.pypy3" \
+            --volume "/var/lib/cni:/opt/kiss/var.cni" \
+            --volume "/var/lib/containerd:/opt/kiss/var.containerd" \
+            --volume "/var/lib/kubelet:/opt/kiss/var.k8s" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
