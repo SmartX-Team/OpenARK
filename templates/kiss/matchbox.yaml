@@ -288,7 +288,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: matchbox
-          image: quay.io/poseidon/matchbox:latest
+          image: quay.io/poseidon/matchbox:v0.9.1-12-gcff233c9
           env:
             - name: MATCHBOX_ADDRESS
               value: 0.0.0.0:8080
