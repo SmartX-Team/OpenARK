@@ -45,26 +45,32 @@ SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
 ###########################################################
 
 # Check linux dependencies
-UNAME="$(uname -r)"
-if [ ! -d "/lib/modules/$UNAME" ]; then
-    echo "Error: Cannot find the linux modules (/lib/modules/$UNAME)"
-    echo "Note: You may reboot your machine to reload the kernel."
-    exit 1
-fi
+function check_linux_dependencies() {
+    UNAME="$(uname -r)"
+    if [ ! -d "/lib/modules/$UNAME" ]; then
+        echo "Error: Cannot find the linux modules (/lib/modules/$UNAME)"
+        echo "Note: You may reboot your machine to reload the kernel."
+        exit 1
+    fi
+}
 
 ###########################################################
-#   Configure Linux Kernel                                #
+#   Configure Host                                        #
 ###########################################################
 
-# Disable swap
-sudo swapoff -a
+function configure_linux_kernel() {
+    # Disable swap
+    sudo swapoff -a
+}
 
 # Generate a SSH keypair
-if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
-    echo "- Generating a SSH Keypair ... "
-    mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT"
-    ssh-keygen -q -t rsa -f "$SSH_KEYFILE" -N ''
-fi
+function generate_ssh_keypair() {
+    if [ ! -f "${SSH_KEYFILE_DEFAULT}" ]; then
+        echo "- Generating a SSH Keypair ... "
+        mkdir -p "$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT"
+        ssh-keygen -q -t rsa -f "$SSH_KEYFILE" -N ''
+    fi
+}
 
 ###########################################################
 #   Spawn nodes                                           #
@@ -139,7 +145,7 @@ function spawn_node() {
 
     # Restart SSH daemon
     while [ ! $(
-        "$CONTAINER_RUNTIME" exec -it $name ps -s 1 |
+        "$CONTAINER_RUNTIME" exec "$name" ps -s 1 |
             awk '{print $4}' |
             tail -n 1 |
             grep '^systemd'
@@ -180,12 +186,6 @@ function spawn_node() {
     # Finished!
     echo "OK ($node)"
 }
-
-# Spawn a node
-export nodes # results
-for name in $KUBESPRAY_NODES; do
-    spawn_node "$name"
-done
 
 ###########################################################
 #   Install k8s cluster                                   #
@@ -257,9 +257,6 @@ function install_k8s_cluster() {
     echo "OK"
 }
 
-# Install a k8s cluster within nodes
-install_k8s_cluster $KUBESPRAY_NODES
-
 ###########################################################
 #   Install kiss cluster                                  #
 ###########################################################
@@ -323,9 +320,6 @@ function install_kiss_cluster() {
     # Finished!
     echo "OK"
 }
-
-# Install a kiss cluster within k8s cluster
-install_kiss_cluster $KUBESPRAY_NODES
 
 ###########################################################
 #   Install k8s snapshot config                           #
@@ -394,8 +388,33 @@ function install_k8s_snapshot_cluster() {
     echo "OK"
 }
 
-# Install a k8s snapshot config within k8s cluster
-install_k8s_snapshot_cluster $KUBESPRAY_NODES
+# Define a main function
+function main() {
+    # Check Dependencies
+    check_linux_dependencies
 
-# Finished!
-echo "Installed!"
+    # Configure Host
+    configure_linux_kernel
+    generate_ssh_keypair
+
+    # Spawn k8s cluster nodes
+    export nodes # results
+    for name in $KUBESPRAY_NODES; do
+        spawn_node "$name"
+    done
+
+    # Install a k8s cluster within nodes
+    install_k8s_cluster $KUBESPRAY_NODES
+
+    # Install a kiss cluster within k8s cluster
+    install_kiss_cluster $KUBESPRAY_NODES
+
+    # Install a k8s snapshot config within k8s cluster
+    install_k8s_snapshot_cluster $KUBESPRAY_NODES
+
+    # Finished!
+    echo "Installed!"
+}
+
+# Execute main function
+main "$@" || exit 1
