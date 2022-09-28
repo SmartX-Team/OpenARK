@@ -56,6 +56,9 @@ all:
         calico_node_ignorelooserpf: false
         # Advertise Cluster IPs
         calico_advertise_cluster_ips: true
+        # Advertise Service LoadBalancer IPs
+        calico_advertise_service_loadbalancer_ips:
+          - 192.168.0.0/24 # Dev
         # Configure peering with router(s) at global scope
         peer_with_router: false
         peers:
