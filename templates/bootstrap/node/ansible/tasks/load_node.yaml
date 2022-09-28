@@ -17,3 +17,4 @@
     groups:
       - all
       - kube_control_plane
+      - kube_node

@@ -2,8 +2,6 @@ all:
   children:
     kube_control_plane:
     kube_node:
-      children:
-        kube_control_plane:
     calico_rr:
       hosts: {}
     etcd:

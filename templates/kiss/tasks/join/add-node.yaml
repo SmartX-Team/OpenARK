@@ -1,4 +1,2 @@
 ---
-- import_playbook: >
-    /kubespray/scale.yml
-    hosts="target"
+- import_playbook: /kubespray/scale.yml

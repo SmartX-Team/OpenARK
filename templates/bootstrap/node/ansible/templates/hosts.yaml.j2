@@ -5,7 +5,11 @@
     {{ hostvars | to_nice_yaml(indent = 2) | trim | indent(4) }}
 {% else %}
 {% for host_name in groups[group_name] %}
+{# Exclude control plane nodes from workers in the template #}
+{# Note: This does NOT affect to bootstrapping #}
+{% if not (group_name == 'kube_node' and host_name in groups['kube_control_plane']) %}
     {{ host_name }}:
+{% endif %}
 {% endfor %}
 {% endif %}
 {% endfor %}
