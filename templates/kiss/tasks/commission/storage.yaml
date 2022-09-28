@@ -37,6 +37,18 @@
           #   name: pypy3
           #   path: /opt/pypy3
           #   size: 256M
+          - kind: etc
+            name: cni
+            path: /etc/cni
+            size: 16M
+          - kind: etc
+            name: containerd
+            path: /etc/containerd
+            size: 16M
+          - kind: var
+            name: calico
+            path: /var/lib/calico
+            size: 16M
           - kind: var
             name: cni
             path: /var/lib/cni
@@ -49,6 +61,10 @@
             name: k8s
             path: /var/lib/kubelet
             size: 256M
+          - kind: var
+            name: rook
+            path: /var/lib/rook
+            size: 16G
 
     - name: Do Provision
       loop: "{{ lvs }}"

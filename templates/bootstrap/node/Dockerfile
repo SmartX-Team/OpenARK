@@ -18,12 +18,20 @@ VOLUME [ "/usr/local/bin" ]
 VOLUME [ "/opt/etcd" ]
 ## binary.pypy3
 VOLUME [ "/opt/pypy3" ]
+## etc.cni
+VOLUME [ "/etc/cni" ]
+## etc.containerd
+VOLUME [ "/etc/containerd" ]
+## var.calico
+VOLUME [ "/var/lib/calico" ]
 ## var.cni
 VOLUME [ "/var/lib/cni" ]
 ## var.containerd
 VOLUME [ "/var/lib/containerd" ]
 ## var.k8s
 VOLUME [ "/var/lib/kubelet" ]
+## var.rook
+VOLUME [ "/var/lib/rook" ]
 
 # Server Configuration
 WORKDIR /root/
