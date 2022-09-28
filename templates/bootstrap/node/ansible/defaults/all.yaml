@@ -57,7 +57,7 @@ all:
         # Advertise Cluster IPs
         calico_advertise_cluster_ips: true
         # Configure peering with router(s) at global scope
-        peer_with_router: true
+        peer_with_router: false
         peers:
           - router_id: 10.47.255.254
             as: "64512"
@@ -67,7 +67,7 @@ all:
         calico_network_backend: bird # enable BGP routing
         # Enable BGP encapsulation mode
         calico_ipip_mode: Never
-        calico_vxlan_mode: Always
+        calico_vxlan_mode: Never
         # Enable eBPF mode
         calico_bpf_enabled: false
 

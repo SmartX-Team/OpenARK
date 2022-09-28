@@ -19,3 +19,7 @@
 
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml
+
+- name: Calico | Add peers
+  tasks:
+    - include: ../tasks/calico_bgppeer.yaml
