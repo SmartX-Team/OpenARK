@@ -113,7 +113,7 @@ data:
           contents:
             inline: |
               [Time]
-              NTP=ntp.kiss.svc.ops.netai-cloud
+              #NTP=ntp.kiss.svc.ops.netai-cloud
         - path: /etc/wgetrc
           filesystem: root
           mode: 0444
@@ -198,6 +198,10 @@ data:
               contents: |
                 [Service]
                 LimitMEMLOCK=infinity
+        - name: ntpd.service
+          enable: false
+        - name: systemd-timesyncd.service
+          enable: true
 ---
 apiVersion: v1
 kind: ConfigMap
