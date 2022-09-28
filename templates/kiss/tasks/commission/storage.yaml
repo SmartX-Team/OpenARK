@@ -64,7 +64,7 @@
           - kind: var
             name: rook
             path: /var/lib/rook
-            size: 16G
+            size: 60G
 
     - name: Do Provision
       loop: "{{ lvs }}"
