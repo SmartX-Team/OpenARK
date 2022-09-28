@@ -5,7 +5,7 @@
 
 - name: Add a host - {{ node[0] }}
   add_host:
-    ansible_host: "{{ node[0] }}.ops.netai-cloud"
+    ansible_host: "{{ node[0] }}"
     ansible_host_key_checking: false
     ansible_python_interpreter: /usr/bin/python3
     ansible_ssh_host: "{{ node[1] }}"
@@ -13,7 +13,7 @@
     ansible_user: root
     bin_dir: /opt/bin
     ip: "{{ node[1] }}"
-    name: "{{ node[0] }}.ops.netai-cloud"
+    name: "{{ node[0] }}"
     groups:
       - all
       - kube_control_plane

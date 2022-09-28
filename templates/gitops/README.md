@@ -26,7 +26,7 @@ all:
       vars:
         rack_id: 1
       hosts:
-        rack-1-box-1.ops.netai-cloud:
+        rack-1-box-1:
           uuid: 00000000-0000-0000-0000-000000000000
           ipmi_address: 10.32.123.123
     ...
@@ -44,7 +44,7 @@ my-cluster:
     clusterName: my-cluster
     manager: Ho Kim
   children:
-    rack-1-box-1.ops.netai-cloud:
+    rack-1-box-1:
       clusterRole: ControlPlane
     ...
 ```
