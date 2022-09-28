@@ -21,6 +21,6 @@
   import_playbook: /kubespray/cluster.yml
 
 - name: Calico | Add peers
-  hosts: kube_control_plane | first
+  hosts: kube_control_plane
   tasks:
     - include: ../tasks/calico_bgppeer.yaml
