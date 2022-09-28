@@ -35,6 +35,7 @@ where
 {
     type Data;
 
+    const NAMESPACE: Option<&'static str> = None;
     const FALLBACK: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
     async fn spawn() {
@@ -83,7 +84,10 @@ where
             ctx: ctx.clone(),
         });
 
-        let api = Api::<<Self as Ctx>::Data>::all(client.clone());
+        let api = match Self::NAMESPACE {
+            Some(ns) => Api::<<Self as Ctx>::Data>::namespaced(client.clone(), ns),
+            None => Api::<<Self as Ctx>::Data>::all(client.clone()),
+        };
         f_init(api.clone(), client).await?;
 
         // All good. Start controller and return its future.

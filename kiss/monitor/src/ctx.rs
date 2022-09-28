@@ -25,6 +25,8 @@ pub struct Ctx {}
 impl ::kiss_api::manager::Ctx for Ctx {
     type Data = Job;
 
+    const NAMESPACE: Option<&'static str> = Some("kiss");
+
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
