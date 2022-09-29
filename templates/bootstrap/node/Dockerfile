@@ -53,7 +53,7 @@ RUN pushd /lib/systemd/system/sysinit.target.wants/ && for i in *; do \
 # Install dependencies
 RUN yum install -y \
     # Ansible & Core
-    ethtool findutils iproute iproute-tc kmod \
+    ethtool findutils iproute iproute-tc kmod ncurses \
     openssh-clients openssh-server \
     procps-ng python3 \
     # Kubernetes
