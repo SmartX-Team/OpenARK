@@ -26,7 +26,6 @@ ROOK_CEPH_EXAMPLE="${ROOK_CEPH_REPO}/deploy/examples"
 
 # Note: Ordered List
 ROOK_CEPH_FILES=(
-    "toolbox.yaml"
     "cluster-test.yaml"
     "csi/rbd/storageclass-test.yaml"
 )

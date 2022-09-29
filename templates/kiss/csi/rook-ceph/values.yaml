@@ -9,3 +9,7 @@ csi:
 disableAdmissionController: true
 
 enableDiscoveryDaemon: true
+
+# Installs a debugging toolbox deployment
+toolbox:
+  enabled: true
