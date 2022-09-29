@@ -4,4 +4,4 @@
 
 - name: Check whether kubelet is running
   assert:
-    that: ansible_facts.services["kubelet"].state == "running"
+    that: ansible_facts.services["kubelet.service"].state == "running"
