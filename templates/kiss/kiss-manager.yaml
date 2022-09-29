@@ -22,7 +22,7 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: kiss-controller
+      serviceAccount: kiss-system
       containers:
         - name: manager
           image: quay.io/ulagbulag-village/netai-cloud:latest

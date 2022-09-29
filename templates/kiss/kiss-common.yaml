@@ -1,0 +1,99 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kiss-system
+  namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kiss-system
+  namespace: kiss
+rules:
+  - apiGroups:
+      - ""
+      - apiextensions.k8s.io
+      - apps
+      - batch
+      - networking.k8s.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kiss-system-ansible-playbook
+  namespace: kiss
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ansible-playbook
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kiss-system
+    namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kiss-system
+  namespace: kiss
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kiss-system
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kiss-system
+    namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiss-system
+rules:
+  - apiGroups:
+      - ""
+      - apiextensions.k8s.io
+      - apps
+      - batch
+      - networking.k8s.io
+      - rbac.authorization.k8s.io
+    resources:
+      - "*"
+      - clusterrolebindings
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiss-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kiss-system
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kiss-system
+    namespace: kiss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiss-system-ansible-playbook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ansible-playbook
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kiss-system
+    namespace: kiss

@@ -188,7 +188,7 @@ impl Handler {
                     }),
                     spec: Some(PodSpec {
                         restart_policy: Some("OnFailure".into()),
-                        service_account: Some("kiss-controller".into()),
+                        service_account: Some("kiss-system".into()),
                         containers: vec![Container {
                             name: "kubectl".into(),
                             image: Some(
