@@ -24,7 +24,7 @@
           - kind: binary
             name: cni
             path: /opt/cni
-            size: 256M
+            size: 8G
           # - kind: binary
           #   name: common
           #   path: /opt/bin
@@ -56,7 +56,7 @@
           - kind: var
             name: containerd
             path: /var/lib/containerd
-            size: 16G
+            size: 64G
           - kind: var
             name: k8s
             path: /var/lib/kubelet
@@ -64,7 +64,7 @@
           - kind: var
             name: rook
             path: /var/lib/rook
-            size: 60G
+            size: 64G
 
     - name: Do Provision
       loop: "{{ lvs }}"

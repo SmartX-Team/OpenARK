@@ -11,9 +11,9 @@
         'size': (item[1].sectors | int) * (item[1].sectorsize | int),
       }] }}
 
-- name: Find the most suitable device (>=128Gi)
+- name: Find the most suitable device (>=200Gi)
   set_fact:
-    device: "{{ devices | selectattr('size', 'ge', 128 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
+    device: "{{ devices | selectattr('size', 'ge', 200 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
 
 - name: Create a volume group on top
   lvg:
