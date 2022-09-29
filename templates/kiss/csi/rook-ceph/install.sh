@@ -14,21 +14,9 @@ set -x
 
 # Configure default environment variables
 ROOK_CEPH_CHART_DEFAULT="https://charts.rook.io/release"
-ROOK_CEPH_VERSION_DEFAULT="master"
 
 # Set environment variables
 ROOK_CEPH_CHART="${ROOK_CEPH_CHART:-$ROOK_CEPH_CHART_DEFAULT}"
-ROOK_CEPH_VERSION="${ROOK_CEPH_VERSION:-$ROOK_CEPH_VERSION_DEFAULT}"
-
-# Set derived environment variables
-ROOK_CEPH_REPO="https://raw.githubusercontent.com/rook/rook/${ROOK_CEPH_VERSION}"
-ROOK_CEPH_EXAMPLE="${ROOK_CEPH_REPO}/deploy/examples"
-
-# Note: Ordered List
-ROOK_CEPH_FILES=(
-    "cluster-test.yaml"
-    "csi/rbd/storageclass-test.yaml"
-)
 
 ###########################################################
 #   Install Cluster Role                                  #
@@ -39,55 +27,42 @@ echo "- Installing ClusterRoles ..."
 kubectl apply -f "./cluster-roles.yaml"
 
 ###########################################################
-#   Install Rook-Ceph                                     #
+#   Configure Helm Channel                                #
 ###########################################################
 
-echo "- Installing rook-ceph ..."
+echo "- Configuring rook-ceph helm channel ..."
 
-helm repo add rook-release "$ROOK_CEPH_CHART"
+helm repo add "rook-release" "$ROOK_CEPH_CHART"
+
+###########################################################
+#   Install Rook-Ceph Operator                            #
+###########################################################
+
+echo "- Installing rook-ceph operator ..."
+
 helm upgrade --install "rook-ceph" \
     "rook-release/rook-ceph" \
     --create-namespace \
     --namespace "rook-ceph" \
-    --values "./values.yaml"
+    --values "./values-operator.yaml"
 
-echo "- Waiting for deploying rook-ceph ..."
+echo "- Waiting for deploying rook-ceph operator ..."
 sleep 30
 
 ###########################################################
-#   Configure Rook-Ceph                                   #
+#   Install Rook-Ceph Cluster                             #
 ###########################################################
 
-echo "- Configuring rook-ceph ..."
+echo "- Installing rook-ceph cluster ..."
 
-for file in ${ROOK_CEPH_FILES[@]}; do
-    # download file
-    file_local="/tmp/$(echo $file | sha256sum | awk '{print $1}').yaml"
-    wget -O "$file_local" "$ROOK_CEPH_EXAMPLE/$file"
+helm upgrade --install "rook-ceph-cluster" \
+    "rook-release/rook-ceph-cluster" \
+    --create-namespace \
+    --namespace "rook-ceph" \
+    --values "./values-cluster.yaml"
 
-    # apply some tweaks
-    ## CephCluster
-    if [ "$file" == "cluster-test.yaml" ]; then
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.mon.disabled = true' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.disabled = false' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.osd.interval = "60s"' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.daemonHealth.status.disabled = true' "$file_local"
-        # Change pod liveness probe timing or threshold values. Works for all mon,mgr,osd daemons.
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mon.disabled = true' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.mgr.disabled = true' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.livenessProbe.osd.disabled = false' "$file_local"
-        # Change pod startup probe timing or threshold values. Works for all mon,mgr,osd daemons.
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.mon.disabled = true' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.mgr.disabled = true' "$file_local"
-        yq --inplace 'select(.kind=="CephCluster").spec.healthCheck.startupProbe.osd.disabled = false' "$file_local"
-    fi
-
-    # apply to the cluster
-    kubectl apply --filename "$file_local"
-
-    # remove the downloaded file
-    rm -f "$file_local" || true
-done
+echo "- Waiting for deploying rook-ceph cluster ..."
+sleep 30
 
 # Finished!
 echo "Installed CSI!"

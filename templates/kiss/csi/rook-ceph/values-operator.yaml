@@ -6,10 +6,4 @@ csi:
   # there is significant drop in read/write performance.
   enableCSIHostNetwork: false
 
-disableAdmissionController: true
-
 enableDiscoveryDaemon: true
-
-# Installs a debugging toolbox deployment
-toolbox:
-  enabled: true

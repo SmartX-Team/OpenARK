@@ -1,0 +1,8 @@
+# Installs a debugging toolbox deployment
+toolbox:
+  # Enable Ceph debugging pod deployment
+  enabled: true
+
+resources:
+  # The option to automatically remove OSDs that are out and are safe to destroy.
+  removeOSDsIfOutAndSafeToRemove: true
