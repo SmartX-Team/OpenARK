@@ -1,4 +1,11 @@
 ---
+- name: Populate service facts
+  service_facts:
+
+- name: Check whether systemd-networkd is running
+  assert:
+    that: ansible_facts.services["systemd-networkd.service"].state == "running"
+
 - name: Collect network inteface infomations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
@@ -16,6 +23,12 @@
       {{ interfaces|default([]) + [{
         'name': item,
         'address_ipv4': ansible_facts[item].ipv4.address,
+        'address_ipv4_netmask': 12,
+        'address_ipv4_gateway': ansible_default_ipv4.gateway,
+        'dns': [
+          '1.1.1.1',
+        ],
+        'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item].module,
         'pciid': ansible_facts[item].pciid,
         'speed': ansible_facts[item].speed,
@@ -30,17 +43,11 @@
   when: interfaces | length > 0
   set_fact:
     interface_primary: "{{ interfaces[0] }}"
-    interface_primary_address_ipv4: "{{ interfaces[0]['address_ipv4'] }}"
-
-- name: Select the secondary fastest interface as Secondary
-  when: interfaces | length > 1
-  set_fact:
-    interface_secondary: "{{ interfaces[1] }}"
-    interface_secondary_address_ipv4: "{{ interfaces[1]['address_ipv4'] }}"
+    interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
 
 - name: Ping from primary interface to the gateway
   when: interface_primary_address_ipv4 is defined
-  shell: >
+  command: >
     ping -4 -c 4
     -I {{ interface_primary_address_ipv4 }}
     {{ ansible_default_ipv4.gateway }}
@@ -49,23 +56,73 @@
   delay: 5
   retries: 5
 
-- name: Ping from secondary interface to the gateway
-  when: interface_secondary_address_ipv4 is defined
-  shell: >
-    ping -4 -c 4
-    -I {{ interface_secondary_address_ipv4 }}
-    {{ ansible_default_ipv4.gateway }}
-  register: result
-  until: result.rc == 0
-  delay: 5
-  retries: 5
+- name: List all network configurations
+  find:
+    paths:
+      - /etc/systemd/network/
+    file_type: directory
+    pattern: "*-kiss-*"
+  register: results
+
+- name: Remove all network configurations
+  file:
+    path: "{{ item.path }}"
+    state: absent
+    force: true
+  with_items: "{{ results.files }}"
+
+- name: Enable primary interfaces
+  loop: "{{ interfaces[:1] }}"
+  template:
+    src: ./templates/systemd-networkd/10-enable.link.j2
+    dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.link
+
+- name: Link up primary interfaces
+  loop: "{{ interfaces[:1] }}"
+  command: ip link set {{ item.name }} up
+
+- name: Fix primary interface network
+  loop: "{{ interfaces[:1] }}"
+  template:
+    src: ./templates/systemd-networkd/11-enable.network.j2
+    dest: /etc/systemd/network/11-kiss-enable-{{ item.name }}.network
+
+- name: Fix primary interface network for now
+  loop: "{{ interfaces[:1] }}"
+  command: ip link set {{ item.name }} up
+
+- name: Disable primary interface network by DHCP
+  loop: "{{ interfaces[:1] }}"
+  command: >
+    ip link del default
+    via {{ item.address_ipv4_gateway }}
+    dev {{ item.name }}
+    proto dhcp
+  ignore_errors: true
+
+- name: Update SSH access IP
+  when: interface_primary is defined
+  set_fact:
+    ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
+
+- name: Disable all other interfaces
+  loop: "{{ interfaces[1:] }}"
+  template:
+    src: ./templates/systemd-networkd/20-disable.link.j2
+    dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.link
+
+- name: Link down all other interfaces
+  loop: "{{ interfaces[1:] }}"
+  command: ip link set {{ item.name }} down
+
+- name: Restart systemd-networkd
+  when: interface_primary is defined
+  systemd:
+    name: systemd-networkd.service
+    state: restarted
+    daemon_reload: yes
 
 - name: Show about the primary inteface
   when: interface_primary is defined
   debug:
     var: interface_primary
-
-- name: Show about the secondary inteface
-  when: interface_secondary is defined
-  debug:
-    var: interface_secondary
