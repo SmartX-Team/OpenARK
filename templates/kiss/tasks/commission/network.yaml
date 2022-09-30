@@ -74,7 +74,7 @@
 - name: Enable primary interfaces
   loop: "{{ interfaces[:1] }}"
   template:
-    src: ./templates/systemd-networkd/10-enable.link.j2
+    src: .template_systemd-networkd_10-enable.link.j2
     dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.link
 
 - name: Link up primary interfaces
@@ -84,7 +84,7 @@
 - name: Fix primary interface network
   loop: "{{ interfaces[:1] }}"
   template:
-    src: ./templates/systemd-networkd/11-enable.network.j2
+    src: ./template_systemd-networkd_11-enable.network.j2
     dest: /etc/systemd/network/11-kiss-enable-{{ item.name }}.network
 
 - name: Fix primary interface network for now
@@ -108,7 +108,7 @@
 - name: Disable all other interfaces
   loop: "{{ interfaces[1:] }}"
   template:
-    src: ./templates/systemd-networkd/20-disable.link.j2
+    src: ./template_systemd-networkd_20-disable.link.j2
     dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.link
 
 - name: Link down all other interfaces
