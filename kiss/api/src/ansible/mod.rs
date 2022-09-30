@@ -247,6 +247,7 @@ impl AnsibleClient {
                                     &group.cluster_name,
                                 )),
                                 default_mode: Some(0o400),
+                                optional: Some(true),
                                 ..Default::default()
                             }),
                             ..Default::default()
