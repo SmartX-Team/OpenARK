@@ -6,4 +6,6 @@ csi:
   # there is significant drop in read/write performance.
   enableCSIHostNetwork: false
 
+# EnableDiscoveryDaemon Whether to enable the daemon for device discovery.
+# If true, the rook-ceph-discover daemonset will be started.
 enableDiscoveryDaemon: true
