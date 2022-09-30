@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ipis::{
     async_trait::async_trait,
@@ -7,6 +7,7 @@ use ipis::{
 };
 use kiss_api::{
     ansible::AnsibleJob,
+    cluster::ClusterState,
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
@@ -52,9 +53,15 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
+        // release the lock if owned
+        ClusterState::load(&manager.kube, &data.spec)
+            .await?
+            .release(&manager.kube, &data.spec)
+            .await?;
+
         // spawn an Ansible job
         if let Some(task) = new_state.as_task() {
-            manager
+            let is_spawned = manager
                 .ansible
                 .spawn(
                     &manager.kube,
@@ -63,10 +70,16 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         task,
                         spec: &data.spec,
                         status: data.status.as_ref(),
+                        new_state,
                         completed_state: new_state.complete(),
                     },
                 )
                 .await?;
+
+            // If there is a problem spawning a job, check back after a few minutes
+            if !is_spawned {
+                return Ok(Action::requeue(Duration::from_secs(1 * 60)));
+            }
         }
 
         let crd = BoxCrd::api_resource();

@@ -27,15 +27,13 @@ pub struct Handler {
 }
 
 impl Handler {
-    const NAMESPACE: &'static str = "kiss";
-
     pub async fn try_default() -> Result<Self> {
         // create a kubernetes client
         let client = Client::try_default().await?;
 
         Ok(Self {
-            api_config: Api::namespaced(client.clone(), Self::NAMESPACE),
-            api_job: Api::namespaced(client, Self::NAMESPACE),
+            api_config: Api::namespaced(client.clone(), ::kiss_api::consts::NAMESPACE),
+            api_job: Api::namespaced(client, ::kiss_api::consts::NAMESPACE),
         })
     }
 }
@@ -165,7 +163,7 @@ impl Handler {
         // spawn a upgrade job
         let metadata = ObjectMeta {
             name: Some(format!("kiss-upgrade-v{}", latest)),
-            namespace: Some(Self::NAMESPACE.into()),
+            namespace: Some(::kiss_api::consts::NAMESPACE.into()),
             labels: Some(
                 vec![
                     ("kissService".into(), "true".into()),

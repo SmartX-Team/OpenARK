@@ -12,7 +12,10 @@ use kube::{
     Api, Client, Error,
 };
 
-use crate::r#box::{BoxPowerSpec, BoxSpec, BoxState, BoxStatus};
+use crate::{
+    cluster::ClusterState,
+    r#box::{BoxGroupRole, BoxPowerSpec, BoxSpec, BoxState, BoxStatus},
+};
 
 pub struct AnsibleClient {
     ansible_image: String,
@@ -34,8 +37,8 @@ impl AnsibleClient {
         })
     }
 
-    pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<(), Error> {
-        let ns = "kiss";
+    pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<bool, Error> {
+        let ns = crate::consts::NAMESPACE;
         let box_name = job.spec.machine.uuid.to_string();
         let name = format!("box-{}-{}", &job.task, &box_name);
 
@@ -65,6 +68,32 @@ impl AnsibleClient {
                 ..Default::default()
             };
             api.delete_collection(&dp, &lp).await?;
+        }
+
+        // realize mutual exclusivity
+        {
+            let cluster_state = ClusterState::load(kube, &job.spec).await?;
+            match job.spec.group.role {
+                // control-plane: lock clusters if to join
+                BoxGroupRole::ControlPlane => match job.new_state {
+                    BoxState::Joining => {
+                        if !cluster_state.lock(kube, &job.spec).await? {
+                            return Ok(false);
+                        }
+                    }
+                    _ => {
+                        if cluster_state.is_locked() {
+                            return Ok(false);
+                        }
+                    }
+                },
+                // worker: chech whether cluster is locked
+                BoxGroupRole::Worker => {
+                    if cluster_state.is_locked() {
+                        return Ok(false);
+                    }
+                }
+            }
         }
 
         // define the object
@@ -334,7 +363,7 @@ impl AnsibleClient {
         }
 
         info!("spawned a job: {name}");
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -343,5 +372,6 @@ pub struct AnsibleJob<'a> {
     pub task: &'static str,
     pub spec: &'a BoxSpec,
     pub status: Option<&'a BoxStatus>,
+    pub new_state: BoxState,
     pub completed_state: Option<BoxState>,
 }
