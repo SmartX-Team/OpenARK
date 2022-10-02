@@ -1,0 +1,6 @@
+---
+- name: Execute the common task
+  import_playbook: ./playbook.yaml
+
+- name: Execute the main task
+  import_playbook: ./tasks/main-control_plane.yaml

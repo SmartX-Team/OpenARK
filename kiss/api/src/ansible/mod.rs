@@ -1,3 +1,4 @@
+use inflector::Inflector;
 use ipis::{core::anyhow::Result, env::infer, log::info};
 use k8s_openapi::api::{
     batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
@@ -71,12 +72,12 @@ impl AnsibleClient {
         }
 
         // realize mutual exclusivity
+        let cluster_state = ClusterState::load(kube, &job.spec).await?;
         {
-            let cluster_state = ClusterState::load(kube, &job.spec).await?;
             match job.spec.group.role {
                 // control-plane: lock clusters if to join
                 BoxGroupRole::ControlPlane => match job.new_state {
-                    BoxState::Joining => {
+                    BoxState::Joining | BoxState::Disconnected => {
                         if !cluster_state.lock(kube, &job.spec).await? {
                             return Ok(false);
                         }
@@ -151,7 +152,10 @@ impl AnsibleClient {
                             "/root/ansible/defaults/config.yaml".into(),
                             "--inventory".into(),
                             "/root/ansible/hosts.yaml".into(),
-                            "/opt/playbook/playbook.yaml".into(),
+                            format!(
+                                "/opt/playbook/playbook-{}.yaml",
+                                group.role.to_string().to_snake_case(),
+                            ),
                         ]),
                         env: Some(vec![
                             EnvVar {
@@ -225,6 +229,16 @@ impl AnsibleClient {
                                     }),
                                     ..Default::default()
                                 }),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_cluster_control_planes".into(),
+                                value: Some(cluster_state.get_control_planes_as_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_cluster_etcd_nodes".into(),
+                                value: Some(cluster_state.get_etcd_nodes_as_string()),
                                 ..Default::default()
                             },
                             EnvVar {

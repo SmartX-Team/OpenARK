@@ -53,11 +53,16 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
-        // release the lock if owned
-        ClusterState::load(&manager.kube, &data.spec)
-            .await?
-            .release(&manager.kube, &data.spec)
-            .await?;
+        // update the cluster state
+        {
+            let mut cluster_state = ClusterState::load(&manager.kube, &data.spec).await?;
+            cluster_state
+                .update_control_planes(&manager.kube, &data)
+                .await?;
+
+            // release the lock if owned
+            cluster_state.release(&manager.kube, &data.spec).await?;
+        }
 
         // spawn an Ansible job
         if let Some(task) = new_state.as_task() {

@@ -1,0 +1,18 @@
+---
+- name: Unpack the node data
+  set_fact:
+    node: "{{ node_packed | split(':') }}"
+
+- name: Add a control plane host - {{ node[0] }}
+  add_host:
+    ansible_host: "{{ node[0] }}"
+    ansible_host_key_checking: false
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_host: "{{ node[1] }}"
+    ansible_user: root
+    ip: "{{ node[1] }}"
+    name: "{{ node[0] }}"
+    groups:
+      - all
+      - flatcar
+      - kube_control_plane

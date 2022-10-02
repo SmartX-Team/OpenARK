@@ -7,7 +7,21 @@
         ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
         box_state_completed: "{{ lookup('env', 'box_state_completed') }}"
 
-    - name: Add hosts
+    - name: Add control planes
+      loop: "{{ lookup('env', 'kiss_cluster_control_planes') | split(' ') }}"
+      loop_control:
+        loop_var: node_packed
+      when: node_packed | length
+      include: ./add-control_planes.yaml
+
+    - name: Add etcd nodes
+      loop: "{{ lookup('env', 'kiss_cluster_etcd_nodes') | split(' ') }}"
+      loop_control:
+        loop_var: node_packed
+      when: node_packed | length
+      include: ./add-control_planes.yaml
+
+    - name: Add workers
       add_host:
         ansible_host: "{{ lookup('env', 'ansible_host') }}"
         ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
@@ -34,17 +48,3 @@
       set_fact:
         ansible_python_interpreter: /opt/bin/python
         bin_dir: /opt/bin
-
-- name: Execute the main task
-  import_playbook: tasks/main.yaml
-
-- hosts: localhost
-  tasks:
-    - name: Update the box status
-      when: box_spec is defined
-      k8s:
-        api_version: kiss.netai-cloud/v1alpha1
-        kind: Box
-        name: "{{ ansible_host_id }}"
-        definition:
-          spec: "{{ box_spec }}"
