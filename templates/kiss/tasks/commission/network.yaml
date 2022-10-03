@@ -26,7 +26,7 @@
         'address_ipv4_netmask': 12,
         'address_ipv4_gateway': ansible_default_ipv4.gateway,
         'dns': [
-          '1.1.1.1',
+          '10.112.0.3',
         ],
         'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item].module,
