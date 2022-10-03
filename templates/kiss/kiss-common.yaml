@@ -63,10 +63,12 @@ rules:
       - apps
       - batch
       - networking.k8s.io
+      - policy
       - rbac.authorization.k8s.io
     resources:
       - "*"
       - clusterrolebindings
+      - podsecuritypolicies
     verbs:
       - "*"
 ---
