@@ -7,7 +7,6 @@ use ipis::{
 };
 use kiss_api::{
     ansible::AnsibleJob,
-    cluster::ClusterState,
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
@@ -53,28 +52,17 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
-        // update the cluster state
-        {
-            let mut cluster_state = ClusterState::load(&manager.kube, &data.spec).await?;
-            cluster_state
-                .update_control_planes(&manager.kube, &data)
-                .await?;
-
-            // release the lock if owned
-            cluster_state.release(&manager.kube, &data.spec).await?;
-        }
-
         // spawn an Ansible job
         if let Some(task) = new_state.as_task() {
             let is_spawned = manager
                 .ansible
                 .spawn(
+                    &manager.cluster,
                     &manager.kube,
                     AnsibleJob {
                         cron: new_state.cron(),
                         task,
-                        spec: &data.spec,
-                        status: data.status.as_ref(),
+                        r#box: &*data,
                         new_state,
                         completed_state: new_state.complete(),
                     },

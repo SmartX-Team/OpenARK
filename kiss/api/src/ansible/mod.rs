@@ -14,8 +14,8 @@ use kube::{
 };
 
 use crate::{
-    cluster::ClusterState,
-    r#box::{BoxGroupRole, BoxPowerSpec, BoxSpec, BoxState, BoxStatus},
+    cluster::ClusterManager,
+    r#box::{BoxCrd, BoxGroupRole, BoxPowerSpec, BoxState},
 };
 
 pub struct AnsibleClient {
@@ -38,17 +38,23 @@ impl AnsibleClient {
         })
     }
 
-    pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<bool, Error> {
+    pub async fn spawn(
+        &self,
+        cluster_manager: &ClusterManager,
+        kube: &Client,
+        job: AnsibleJob<'_>,
+    ) -> Result<bool, Error> {
         let ns = crate::consts::NAMESPACE;
-        let box_name = job.spec.machine.uuid.to_string();
+        let box_name = job.r#box.spec.machine.uuid.to_string();
         let name = format!("box-{}-{}", &job.task, &box_name);
 
         let bind_group = job
+            .r#box
             .status
             .as_ref()
             .and_then(|status| status.bind_group.as_ref());
-        let group = bind_group.unwrap_or(&job.spec.group);
-        let reset = self.force_reset || bind_group != Some(&job.spec.group);
+        let group = bind_group.unwrap_or(&job.r#box.spec.group);
+        let reset = self.force_reset || bind_group != Some(&job.r#box.spec.group);
 
         // delete all previous cronjobs
         {
@@ -72,30 +78,33 @@ impl AnsibleClient {
         }
 
         // realize mutual exclusivity
-        let cluster_state = ClusterState::load(kube, &job.spec).await?;
+        let mut cluster_state = cluster_manager.load_state(kube, &job.r#box).await?;
         {
-            match job.spec.group.role {
+            match job.r#box.spec.group.role {
                 // control-plane: lock clusters if to join
                 BoxGroupRole::ControlPlane => match job.new_state {
                     BoxState::Joining | BoxState::Disconnected => {
-                        if !cluster_state.lock(kube, &job.spec).await? {
+                        if !cluster_state.lock().await? {
                             return Ok(false);
                         }
                     }
                     _ => {
-                        if cluster_state.is_locked() {
+                        if !cluster_state.release().await? {
                             return Ok(false);
                         }
                     }
                 },
                 // worker: chech whether cluster is locked
                 BoxGroupRole::Worker => {
-                    if cluster_state.is_locked() {
+                    if !cluster_state.release().await? {
                         return Ok(false);
                     }
                 }
             }
         }
+
+        // update cluster state
+        cluster_state.update_control_planes().await?;
 
         // define the object
         let metadata = ObjectMeta {
@@ -106,11 +115,11 @@ impl AnsibleClient {
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
                     Some((
                         Self::LABEL_BOX_ACCESS_ADDRESS.into(),
-                        job.spec.access.address_primary.to_string(),
+                        job.r#box.spec.access.address_primary.to_string(),
                     )),
                     Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
-                        job.spec.machine.uuid.to_string(),
+                        job.r#box.spec.machine.uuid.to_string(),
                     )),
                     Some(("serviceType".into(), "ansible-task".to_string())),
                     job.completed_state
@@ -160,7 +169,7 @@ impl AnsibleClient {
                         env: Some(vec![
                             EnvVar {
                                 name: "ansible_host".into(),
-                                value: Some(job.spec.machine.hostname()),
+                                value: Some(job.r#box.spec.machine.hostname()),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -170,12 +179,12 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "ansible_host_uuid".into(),
-                                value: Some(job.spec.machine.uuid.to_string()),
+                                value: Some(job.r#box.spec.machine.uuid.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
-                                value: Some(job.spec.access.management_address().to_string()),
+                                value: Some(job.r#box.spec.access.management_address().to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -198,6 +207,7 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "ansible_ipmi_host".into(),
                                 value: job
+                                    .r#box
                                     .spec
                                     .power
                                     .as_ref()
@@ -384,8 +394,7 @@ impl AnsibleClient {
 pub struct AnsibleJob<'a> {
     pub cron: Option<&'static str>,
     pub task: &'static str,
-    pub spec: &'a BoxSpec,
-    pub status: Option<&'a BoxStatus>,
+    pub r#box: &'a BoxCrd,
     pub new_state: BoxState,
     pub completed_state: Option<BoxState>,
 }
