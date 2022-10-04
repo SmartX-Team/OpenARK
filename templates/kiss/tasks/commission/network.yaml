@@ -127,6 +127,17 @@
   command: ip link set {{ item.name }} mtu 9000
   ignore_errors: true
 
+- name: Wait for primary interface to be linked up
+  when: interface_primary_address_ipv4 is defined
+  command: >
+    ping -4 -c 4
+    -I {{ interface_primary_address_ipv4 }}
+    {{ ansible_default_ipv4.gateway }}
+  register: result
+  until: result.rc == 0
+  delay: 30
+  retries: 10
+
 - name: Restart systemd-networkd
   when: interface_primary is defined
   systemd:
