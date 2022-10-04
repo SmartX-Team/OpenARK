@@ -30,6 +30,7 @@
         ],
         'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item].module,
+        'mtu': 1500,
         'pciid': ansible_facts[item].pciid,
         'speed': ansible_facts[item].speed,
         'speed_neg': -ansible_facts[item].speed,
@@ -122,9 +123,9 @@
     proto dhcp
   ignore_errors: true
 
-- name: Enable Jumbo Frame - 9,000 Bytes
+- name: Modify MTU - {{ item.mtu }} Bytes
   with_items: "{{ interfaces }}"
-  command: ip link set {{ item.name }} mtu 9000
+  command: ip link set {{ item.name }} mtu {{ item.mtu }}
   ignore_errors: true
 
 - name: Wait for primary interface to be linked up

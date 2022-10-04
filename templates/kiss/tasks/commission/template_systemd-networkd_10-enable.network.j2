@@ -2,7 +2,7 @@
 MACAddress={{ item.macaddress }}
 
 [Link]
-MTUBytes=9000 # enable jumbo frame
+MTUBytes={{ item.mtu }}
 
 [Network]
 Address={{ item.address_ipv4 }}/{{ item.address_ipv4_netmask }}
