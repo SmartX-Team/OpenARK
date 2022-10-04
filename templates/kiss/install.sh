@@ -68,12 +68,16 @@ kubectl patch -R -f "./kiss-*.yaml" -p \
 #   Install Bare-metal CSI                                #
 ###########################################################
 
-echo "- Installing Bare-metal CSI ..."
+if [ "$BAREMETAL_CSI" == "none" ]; then
+    echo "- Skipping Installing Bare-metal CSI ..."
+else
+    echo "- Installing Bare-metal CSI ..."
 
-# External Call
-pushd "./csi/$BAREMETAL_CSI/"
-/bin/bash "./install.sh"
-popd
+    # External Call
+    pushd "./csi/$BAREMETAL_CSI/"
+    /bin/bash "./install.sh"
+    popd
+fi
 
 # Finished!
 echo "Installed!"
