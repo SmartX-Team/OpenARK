@@ -50,10 +50,10 @@ echo "- Waiting for deploying CSI Operator ..."
 sleep 30
 
 ###########################################################
-#   Install Storage Cluster                               #
+#   Install Storage Class                                 #
 ###########################################################
 
-echo "- Installing Storage Cluster ..."
+echo "- Installing Storage Class ..."
 
 helm upgrade --install "rook-ceph-cluster" \
     "csi/rook-ceph-cluster" \
@@ -61,7 +61,7 @@ helm upgrade --install "rook-ceph-cluster" \
     --namespace "rook-ceph" \
     --values "./values-cluster.yaml"
 
-echo "- Waiting for deploying Storage Cluster ..."
+echo "- Waiting for deploying Storage Class ..."
 sleep 30
 
 # Finished!
