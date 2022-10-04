@@ -27,6 +27,7 @@
 
 - name: Label Nodes | KISS Ephemeral Control Planes
   hosts: kube_control_plane
-  command: >
-    {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
-    node-role.kubernetes.io/kiss-ephemeral-control-plane=
+  tasks:
+    - command: >
+        {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
+        node-role.kubernetes.io/kiss-ephemeral-control-plane=
