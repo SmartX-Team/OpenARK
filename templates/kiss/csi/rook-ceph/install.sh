@@ -13,10 +13,10 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-ROOK_CEPH_CHART_DEFAULT="https://charts.rook.io/release"
+HELM_CHART_DEFAULT="https://charts.rook.io/release"
 
 # Set environment variables
-ROOK_CEPH_CHART="${ROOK_CEPH_CHART:-$ROOK_CEPH_CHART_DEFAULT}"
+HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 
 ###########################################################
 #   Install Cluster Role                                  #
@@ -30,38 +30,38 @@ kubectl apply -f "./cluster-roles.yaml"
 #   Configure Helm Channel                                #
 ###########################################################
 
-echo "- Configuring rook-ceph helm channel ..."
+echo "- Configuring Helm channel ..."
 
-helm repo add "rook-release" "$ROOK_CEPH_CHART"
+helm repo add "csi" "$HELM_CHART"
 
 ###########################################################
-#   Install Rook-Ceph Operator                            #
+#   Install Operator                                      #
 ###########################################################
 
-echo "- Installing rook-ceph operator ..."
+echo "- Installing CSI Operator ..."
 
 helm upgrade --install "rook-ceph" \
-    "rook-release/rook-ceph" \
+    "csi/rook-ceph" \
     --create-namespace \
     --namespace "rook-ceph" \
     --values "./values-operator.yaml"
 
-echo "- Waiting for deploying rook-ceph operator ..."
+echo "- Waiting for deploying CSI Operator ..."
 sleep 30
 
 ###########################################################
-#   Install Rook-Ceph Cluster                             #
+#   Install Storage Cluster                               #
 ###########################################################
 
-echo "- Installing rook-ceph cluster ..."
+echo "- Installing Storage Cluster ..."
 
 helm upgrade --install "rook-ceph-cluster" \
-    "rook-release/rook-ceph-cluster" \
+    "csi/rook-ceph-cluster" \
     --create-namespace \
     --namespace "rook-ceph" \
     --values "./values-cluster.yaml"
 
-echo "- Waiting for deploying rook-ceph cluster ..."
+echo "- Waiting for deploying Storage Cluster ..."
 sleep 30
 
 # Finished!
