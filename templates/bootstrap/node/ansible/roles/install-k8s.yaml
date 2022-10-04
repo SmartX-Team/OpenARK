@@ -24,3 +24,9 @@
   hosts: kube_control_plane
   tasks:
     - include: ../tasks/calico_bgppeer.yaml
+
+- name: Label Nodes | KISS Ephemeral Control Planes
+  hosts: kube_control_plane
+  command: >
+    {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
+    node-role.kubernetes.io/kiss-ephemeral-control-plane=
