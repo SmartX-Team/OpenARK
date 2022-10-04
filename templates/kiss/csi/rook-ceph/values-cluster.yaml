@@ -8,8 +8,8 @@ toolbox:
 cephClusterSpec:
   # Network configuration, see: https://github.com/rook/rook/blob/master/Documentation/CRDs/ceph-cluster-crd.md#network-configuration-settings
   network:
-    # enable host networking
-    provider: host
+    # # enable host networking
+    # provider: host
 
 resources:
   # The option to automatically remove OSDs that are out and are safe to destroy.
