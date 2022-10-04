@@ -56,6 +56,16 @@
   delay: 5
   retries: 5
 
+- name: Update SSH access IP
+  when: interface_primary is defined
+  set_fact:
+    ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
+
+- name: Show about the primary inteface
+  when: interface_primary is defined
+  debug:
+    var: interface_primary
+
 - name: List all network configurations
   find:
     paths:
@@ -72,48 +82,45 @@
   with_items: "{{ results.files }}"
 
 - name: Enable primary interfaces
-  loop: "{{ interfaces[:1] }}"
+  with_items: "{{ interfaces[:1] }}"
   template:
-    src: ./template_systemd-networkd_10-enable.link.j2
-    dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.link
+    src: ./template_systemd-networkd_10-enable.network.j2
+    dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.network
 
-- name: Link up primary interfaces
-  loop: "{{ interfaces[:1] }}"
-  command: ip link set {{ item.name }} up
-
-- name: Fix primary interface network
-  loop: "{{ interfaces[:1] }}"
+- name: Disable all other interfaces
+  with_items: "{{ interfaces[1:] }}"
   template:
-    src: ./template_systemd-networkd_11-enable.network.j2
-    dest: /etc/systemd/network/11-kiss-enable-{{ item.name }}.network
+    src: ./template_systemd-networkd_20-disable.network.j2
+    dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network
 
-- name: Fix primary interface network for now
-  loop: "{{ interfaces[:1] }}"
-  command: ip link set {{ item.name }} up
+- name: Link down all other interfaces
+  with_items: "{{ interfaces[1:] }}"
+  command: ip link set {{ item.name }} down
 
-- name: Disable primary interface network by DHCP
-  loop: "{{ interfaces[:1] }}"
+- name: Unmanage interface networks from DHCP - Local DNS Server
+  with_items: "{{ interfaces }}"
   command: >
-    ip link del default
-    via {{ item.address_ipv4_gateway }}
+    ip route del 10.112.0.3
     dev {{ item.name }}
     proto dhcp
   ignore_errors: true
 
-- name: Update SSH access IP
-  when: interface_primary is defined
-  set_fact:
-    ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
+- name: Unmanage interface networks from DHCP - Subnet Gateway
+  with_items: "{{ interfaces }}"
+  command: >
+    ip route del {{ item.address_ipv4_gateway }}
+    dev {{ item.name }}
+    proto dhcp
+  ignore_errors: true
 
-- name: Disable all other interfaces
-  loop: "{{ interfaces[1:] }}"
-  template:
-    src: ./template_systemd-networkd_20-disable.link.j2
-    dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.link
-
-- name: Link down all other interfaces
-  loop: "{{ interfaces[1:] }}"
-  command: ip link set {{ item.name }} down
+- name: Unmanage interface networks from DHCP - Default Gateway
+  with_items: "{{ interfaces }}"
+  command: >
+    ip route del default
+    via {{ item.address_ipv4_gateway }}
+    dev {{ item.name }}
+    proto dhcp
+  ignore_errors: true
 
 - name: Restart systemd-networkd
   when: interface_primary is defined
@@ -121,8 +128,3 @@
     name: systemd-networkd.service
     state: restarted
     daemon_reload: yes
-
-- name: Show about the primary inteface
-  when: interface_primary is defined
-  debug:
-    var: interface_primary
