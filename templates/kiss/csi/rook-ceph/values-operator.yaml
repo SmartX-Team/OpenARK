@@ -4,8 +4,8 @@ csi:
   # Set to true to enable host networking for CSI CephFS and RBD nodeplugins. This may be necessary
   # in some network configurations where the SDN does not provide access to an external cluster or
   # there is significant drop in read/write performance.
-  enableCSIHostNetwork: true
+  enableCSIHostNetwork: true # default: true
 
 # EnableDiscoveryDaemon Whether to enable the daemon for device discovery.
 # If true, the rook-ceph-discover daemonset will be started.
-enableDiscoveryDaemon: true
+enableDiscoveryDaemon: true # default: false
