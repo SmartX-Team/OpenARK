@@ -30,8 +30,8 @@ spec:
               cpu: 30m
               memory: 20Mi
             limits:
-              cpu: 50m
-              memory: 50Mi
+              cpu: 1000m
+              memory: 1Gi
           ports:
             - name: proxy
               protocol: TCP
