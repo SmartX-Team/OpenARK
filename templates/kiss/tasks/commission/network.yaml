@@ -122,6 +122,11 @@
     proto dhcp
   ignore_errors: true
 
+- name: Enable Jumbo Frame - 9,000 Bytes
+  with_items: "{{ interfaces }}"
+  command: ip link set {{ item.name }} mtu 9000
+  ignore_errors: true
+
 - name: Restart systemd-networkd
   when: interface_primary is defined
   systemd:
