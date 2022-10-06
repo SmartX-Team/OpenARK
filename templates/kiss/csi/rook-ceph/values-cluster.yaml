@@ -1,7 +1,7 @@
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment
-  enabled: true # default: false
+  enabled: true
 
 # All values below are taken from the CephCluster CRD
 # More information can be found at [Ceph Cluster CRD](/Documentation/CRDs/ceph-cluster-crd.md)
@@ -11,17 +11,45 @@ cephClusterSpec:
   #   # enable host networking
   #   provider: host
 
-  # Modify resource limits
   resources:
-    mgr:
-      limits:
-        memory: "2Gi" # default: "1Gi"
-    mon:
-      limits:
-        memory: "4Gi" # default: "2Gi"
     prepareosd:
       limits:
-        memory: "4Gi" # default: "400Mi"
+        memory: 4Gi # default: 400Mi
 
   # The option to automatically remove OSDs that are out and are safe to destroy.
-  removeOSDsIfOutAndSafeToRemove: true # default: false
+  removeOSDsIfOutAndSafeToRemove: false
+
+  # Configure the healthcheck and liveness probes for ceph pods.
+  # Valid values for daemons are 'mon', 'osd', 'status'
+  healthCheck:
+    daemonHealth:
+      mon:
+        disabled: true
+        timeout: 2h
+      osd:
+        disabled: true
+        timeout: 2h
+      status:
+        disabled: true
+        timeout: 2h
+    # Change pod liveness probe, it works for all mon, mgr, and osd pods.
+    livenessProbe:
+      mon:
+        disabled: true
+        timeout: 2h
+      mgr:
+        disabled: true
+        timeout: 2h
+      osd:
+        disabled: true
+        timeout: 2h
+    startupProbe:
+      mon:
+        disabled: true
+        timeout: 2h
+      mgr:
+        disabled: true
+        timeout: 2h
+      osd:
+        disabled: true
+        timeout: 2h
