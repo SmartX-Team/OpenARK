@@ -96,9 +96,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     return Ok(Action::requeue(Duration::from_secs(1 * 60)));
                 }
             }
-        }
 
-        if old_state != new_state {
             let crd = BoxCrd::api_resource();
             let patch = Patch::Apply(json!({
                 "apiVersion": crd.api_version,
