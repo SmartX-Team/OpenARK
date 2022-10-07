@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::IpAddr, sync::Arc};
 
 use ipis::{
     async_trait::async_trait,
@@ -14,7 +14,7 @@ use kiss_api::{
         Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
-    r#box::{BoxCrd, BoxGroupSpec, BoxState, BoxStatus},
+    r#box::{BoxAccessSpec, BoxCrd, BoxGroupSpec, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -111,6 +111,8 @@ impl Ctx {
                     ))
                 }
             };
+            let address_primary: Option<IpAddr> =
+                Self::get_label(&data, AnsibleClient::LABEL_BOX_ACCESS_ADDRESS_PRIMATY).await;
 
             let api = Api::<BoxCrd>::all(manager.kube.clone());
             let crd = BoxCrd::api_resource();
@@ -118,6 +120,9 @@ impl Ctx {
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
                 "status": BoxStatus {
+                    access: address_primary.map(|address_primary| BoxAccessSpec {
+                        address_primary,
+                    }),
                     state,
                     bind_group: group,
                     last_updated: Utc::now(),

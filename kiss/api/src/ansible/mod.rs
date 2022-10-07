@@ -25,7 +25,8 @@ pub struct AnsibleClient {
 
 impl AnsibleClient {
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
-    pub const LABEL_BOX_ACCESS_ADDRESS: &'static str = "kiss.netai-cloud/box_access_address";
+    pub const LABEL_BOX_ACCESS_ADDRESS_PRIMATY: &'static str =
+        "kiss.netai-cloud/box_access_address_primary";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
     pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
@@ -118,12 +119,16 @@ impl AnsibleClient {
             labels: Some(
                 vec![
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
-                    job.r#box.spec.access.as_ref().map(|access| {
-                        (
-                            Self::LABEL_BOX_ACCESS_ADDRESS.into(),
-                            access.address_primary.to_string(),
-                        )
-                    }),
+                    job.r#box
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.access.as_ref())
+                        .map(|access| {
+                            (
+                                Self::LABEL_BOX_ACCESS_ADDRESS_PRIMATY.into(),
+                                access.address_primary.to_string(),
+                            )
+                        }),
                     Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.r#box.spec.machine.uuid.to_string(),
@@ -193,9 +198,9 @@ impl AnsibleClient {
                                 name: "ansible_ssh_host".into(),
                                 value: job
                                     .r#box
-                                    .spec
-                                    .access
+                                    .status
                                     .as_ref()
+                                    .and_then(|status| status.access.as_ref())
                                     .map(|access| access.management_address().to_string()),
                                 ..Default::default()
                             },

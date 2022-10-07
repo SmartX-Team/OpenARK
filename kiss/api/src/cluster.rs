@@ -217,12 +217,18 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                 .await?
                 .items
                 .into_iter()
-                .filter_map(|r#box| Some(ClusterBoxState {
-                    created_at: r#box.metadata.creation_timestamp.clone(),
-                    name: r#box.spec.machine.uuid.to_string(),
-                    hostname: r#box.spec.machine.hostname(),
-                    ip: r#box.spec.access?.address_primary,
-                }))
+                .filter_map(|r#box| {
+                    Some(ClusterBoxState {
+                        created_at: r#box.metadata.creation_timestamp.clone(),
+                        name: r#box.spec.machine.uuid.to_string(),
+                        hostname: r#box.spec.machine.hostname(),
+                        ip: r#box
+                            .status
+                            .as_ref()
+                            .and_then(|status| status.access.as_ref())
+                            .map(|access| access.address_primary)?,
+                    })
+                })
                 .collect();
             self.etcd_nodes = self
                 .control_planes

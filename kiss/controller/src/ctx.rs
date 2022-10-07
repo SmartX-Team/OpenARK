@@ -53,7 +53,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // capture the group info is changed
-        if matches!(new_state, BoxState::Joining | BoxState::Running)
+        if matches!(old_state, BoxState::Running)
             && !data
                 .status
                 .as_ref()
@@ -63,9 +63,13 @@ impl ::kiss_api::manager::Ctx for Ctx {
         {
             new_state = BoxState::Disconnected;
         }
-
         // capture the presence of access info
-        if data.spec.access.is_none() {
+        else if !data
+            .status
+            .as_ref()
+            .map(|status| status.access.is_some())
+            .unwrap_or_default()
+        {
             new_state = BoxState::Missing;
         }
 
@@ -98,7 +102,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
             "kind": crd.kind,
             "status": BoxStatus {
                 state: new_state,
-                bind_group: status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
+                access: status.as_ref().and_then(|status| status.access.clone()),
+                bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
                 last_updated: if old_state == new_state {
                     status
                         .as_ref()

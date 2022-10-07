@@ -21,7 +21,7 @@ use strum::{Display, EnumString};
         "name": "address",
         "type": "string",
         "description":"access address of the box",
-        "jsonPath":".spec.access.addressPrimary"
+        "jsonPath":".status.access.addressPrimary"
     }"#,
     printcolumn = r#"{
         "name": "power",
@@ -62,7 +62,6 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
-    pub access: Option<BoxAccessSpec>,
     pub group: BoxGroupSpec,
     pub machine: BoxMachineSpec,
     pub power: Option<BoxPowerSpec>,
@@ -72,6 +71,7 @@ pub struct BoxSpec {
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
     pub state: BoxState,
+    pub access: Option<BoxAccessSpec>,
     pub bind_group: Option<BoxGroupSpec>,
     pub last_updated: DateTime<Utc>,
 }
