@@ -50,6 +50,9 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
+                    "spec": {
+                        "access": query.access,
+                    },
                     "status": BoxStatus {
                         state: BoxState::New,
                         bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
@@ -57,6 +60,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     },
                 }));
                 let pp = PatchParams::apply("kiss-gateway").force();
+                api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
             Err(_) => {
@@ -66,7 +70,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                         ..Default::default()
                     },
                     spec: BoxSpec {
-                        access: query.access,
+                        access: Some(query.access),
                         group: Default::default(),
                         machine: query.machine,
                         power: None,
@@ -113,7 +117,7 @@ async fn get_commission(
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "spec": BoxSpec {
-                        access: query.access,
+                        access: Some(query.access),
                         group: r#box.spec.group,
                         machine: query.machine,
                         power: query.power,

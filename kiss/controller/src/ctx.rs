@@ -52,6 +52,11 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
+        // capture the presence of access info
+        if data.spec.access.is_none() {
+            new_state = BoxState::Missing;
+        }
+
         // spawn an Ansible job
         if let Some(task) = new_state.as_task() {
             let is_spawned = manager

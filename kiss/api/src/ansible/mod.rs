@@ -113,10 +113,12 @@ impl AnsibleClient {
             labels: Some(
                 vec![
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
-                    Some((
-                        Self::LABEL_BOX_ACCESS_ADDRESS.into(),
-                        job.r#box.spec.access.address_primary.to_string(),
-                    )),
+                    job.r#box.spec.access.as_ref().map(|access| {
+                        (
+                            Self::LABEL_BOX_ACCESS_ADDRESS.into(),
+                            access.address_primary.to_string(),
+                        )
+                    }),
                     Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.r#box.spec.machine.uuid.to_string(),
@@ -184,7 +186,12 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
-                                value: Some(job.r#box.spec.access.management_address().to_string()),
+                                value: job
+                                    .r#box
+                                    .spec
+                                    .access
+                                    .as_ref()
+                                    .map(|access| access.management_address().to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

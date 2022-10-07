@@ -62,7 +62,7 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
-    pub access: BoxAccessSpec,
+    pub access: Option<BoxAccessSpec>,
     pub group: BoxGroupSpec,
     pub machine: BoxMachineSpec,
     pub power: Option<BoxPowerSpec>,
@@ -111,8 +111,7 @@ impl BoxState {
             Self::Joining => Some("join"),
             Self::Running => Some("ping"),
             Self::Failed => None,
-            Self::Disconnected => Some("reset"),
-            Self::Missing => None,
+            Self::Disconnected | Self::Missing => Some("reset"),
         }
     }
 
@@ -120,6 +119,7 @@ impl BoxState {
         match self {
             // Self::Running => Some("0 * * * *"),
             Self::Running => Some("@hourly"),
+            // Self::Disconnected | Self::Missing => Some("@hourly"),
             _ => None,
         }
     }

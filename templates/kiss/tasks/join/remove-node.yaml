@@ -5,3 +5,4 @@
     node="target"
     reset_nodes="false"
     skip_confirmation="true"
+  ignore_errors: true
