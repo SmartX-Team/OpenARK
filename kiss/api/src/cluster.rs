@@ -179,6 +179,40 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
             .join(" ")
     }
 
+    pub async fn is_control_plane_ready(&self) -> Result<bool, Error> {
+        // load the current control planes
+        let api = Api::<BoxCrd>::all(self.kube.clone());
+        let fields = &[
+            format!(
+                "spec.group.cluster_name={}",
+                &self.owner.spec.group.cluster_name,
+            ),
+            format!("spec.group.role=ControlPlane"),
+        ];
+        let lp = ListParams::default().fields(&fields.join(","));
+        let control_planes: BTreeSet<_> = api
+            .list(&lp)
+            .await?
+            .items
+            .into_iter()
+            .filter_map(|r#box| {
+                Some(ClusterBoxState {
+                    created_at: r#box.metadata.creation_timestamp.clone(),
+                    name: r#box.spec.machine.uuid.to_string(),
+                    hostname: r#box.spec.machine.hostname(),
+                    ip: r#box
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.access.as_ref())
+                        .map(|access| access.address_primary)?,
+                })
+            })
+            .collect();
+
+        // assert all control plane nodes are ready
+        Ok(&self.control_planes == &control_planes)
+    }
+
     pub async fn update_control_planes(&mut self) -> Result<(), Error> {
         // check box and cluster state
         if !(self
@@ -197,7 +231,6 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         // load control planes
         {
             let api = Api::<BoxCrd>::all(self.kube.clone());
-
             let fields = &[
                 format!(
                     "spec.group.cluster_name={}",
