@@ -98,7 +98,7 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
 }
 
 #[post("/commission")]
-async fn get_commission(
+async fn post_commission(
     client: Data<Arc<Client>>,
     Json(query): Json<BoxCommissionQuery>,
 ) -> impl Responder {
@@ -166,7 +166,7 @@ async fn main() {
                 .service(index)
                 .service(health)
                 .service(get_new)
-                .service(get_commission)
+                .service(post_commission)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
