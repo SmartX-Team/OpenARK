@@ -269,6 +269,16 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_cluster_name".into(),
+                                value: Some(group.cluster_name.clone()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_cluster_domain".into(),
+                                value: Some(group.cluster_domain()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_group_force_reset".into(),
                                 value: Some(reset.to_string()),
                                 ..Default::default()

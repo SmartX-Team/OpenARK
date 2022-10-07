@@ -34,12 +34,29 @@
         ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
         ansible_ipmi_username: "{{ lookup('env', 'ansible_ipmi_username') }}"
         ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
+        kiss_group_force_reset: "{{ lookup('env', 'kiss_group_force_reset') == 'true' }}"
+        kiss_group_role: "{{ lookup('env', 'kiss_group_role') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all
           - flatcar
           - kube_node
           - target
+
+    - name: Bind to group - Control Plane
+      when: lookup('env', 'kiss_group_role') == 'ControlPlane'
+      add_host:
+        name: "{{ lookup('env', 'ansible_host') }}"
+        groups: kube_control_plane
+
+- hosts: all
+  gather_facts: false
+  tasks:
+    - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
+      set_fact:
+        cluster_name: "{{ lookup('env', 'kiss_cluster_name') }}"
+        coredns_k8s_external_zone: "k8s.{{ lookup('env', 'kiss_cluster_domain') }}"
+        kiss_cluster_name: "ops.{{ lookup('env', 'kiss_cluster_domain') }}"
 
 - hosts: flatcar
   gather_facts: false

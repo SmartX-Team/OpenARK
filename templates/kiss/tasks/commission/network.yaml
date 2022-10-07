@@ -94,12 +94,8 @@
     src: ./template_systemd-networkd_20-disable.network.j2
     dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network
 
-- name: Link down all other interfaces
-  with_items: "{{ interfaces[1:] }}"
-  command: ip link set {{ item.name }} down
-
 - name: Unmanage interface networks from DHCP - Local DNS Server
-  with_items: "{{ interfaces }}"
+  with_items: "{{ interfaces[:1] }}"
   command: >
     ip route del 10.112.0.3
     dev {{ item.name }}
@@ -107,7 +103,7 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Subnet Gateway
-  with_items: "{{ interfaces }}"
+  with_items: "{{ interfaces[:1] }}"
   command: >
     ip route del {{ item.address_ipv4_gateway }}
     dev {{ item.name }}
@@ -115,7 +111,7 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Default Gateway
-  with_items: "{{ interfaces }}"
+  with_items: "{{ interfaces[:1] }}"
   command: >
     ip route del default
     via {{ item.address_ipv4_gateway }}
@@ -124,7 +120,7 @@
   ignore_errors: true
 
 - name: Modify MTU - {{ item.mtu }} Bytes
-  with_items: "{{ interfaces }}"
+  with_items: "{{ interfaces[:1] }}"
   command: ip link set {{ item.name }} mtu {{ item.mtu }}
   ignore_errors: true
 

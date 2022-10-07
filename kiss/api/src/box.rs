@@ -209,6 +209,12 @@ impl Default for BoxGroupSpec {
     }
 }
 
+impl BoxGroupSpec {
+    pub fn cluster_domain(&self) -> String {
+        format!("{}.netai-cloud", &self.cluster_name)
+    }
+}
+
 #[derive(
     Copy,
     Clone,
