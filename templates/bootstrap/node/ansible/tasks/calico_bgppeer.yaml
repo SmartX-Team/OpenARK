@@ -20,6 +20,6 @@
   until: output.rc == 0
   delay: "{{ 5 }}"
   with_items:
-    - "{{ peers | default([]) }}"
+    - "{{ calico_bgp_peers | default([]) }}"
   when:
     - inventory_hostname == groups['kube_control_plane'][0]
