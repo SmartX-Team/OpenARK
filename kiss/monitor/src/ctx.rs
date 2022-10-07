@@ -34,6 +34,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
+        // skip reconciling if not managed
+        let box_name: String = match Self::get_box_name(&data) {
+            Some(e) => e,
+            None => return Ok(Action::await_change()),
+        };
+
         let status = data.status.as_ref();
         let completed_state = data
             .labels()
@@ -54,6 +60,15 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
+
+        // release the lock if finished
+        if has_completed || has_failed {
+            let api = Api::<BoxCrd>::all(manager.kube.clone());
+            let r#box = api.get(&box_name).await?;
+
+            let mut cluster_state = manager.cluster.load_state(&manager.kube, &r#box).await?;
+            cluster_state.release().await?;
+        }
 
         // when the ansible job is succeeded
         if has_completed {
@@ -102,17 +117,9 @@ impl Ctx {
     {
         // update the box
         {
-            let box_name: String = match Self::get_label(&data, AnsibleClient::LABEL_BOX_NAME).await
-            {
-                Some(e) => e,
-                None => {
-                    return Ok(Action::requeue(
-                        <Self as ::kiss_api::manager::Ctx>::FALLBACK,
-                    ))
-                }
-            };
-            let address_primary: Option<IpAddr> =
-                Self::get_label(&data, AnsibleClient::LABEL_BOX_ACCESS_ADDRESS_PRIMATY).await;
+            // box name is already tested by reconciling
+            let box_name = Self::get_box_name(&data).unwrap();
+            let address_primary = Self::get_box_access_primary(&data);
 
             let api = Api::<BoxCrd>::all(manager.kube.clone());
             let crd = BoxCrd::api_resource();
@@ -137,10 +144,15 @@ impl Ctx {
         ))
     }
 
-    async fn get_label<T>(
-        data: &Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
-        label: &str,
-    ) -> Option<T>
+    fn get_box_name(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<String> {
+        Self::get_label(data, AnsibleClient::LABEL_BOX_NAME)
+    }
+
+    fn get_box_access_primary(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<IpAddr> {
+        Self::get_label(data, AnsibleClient::LABEL_BOX_ACCESS_ADDRESS_PRIMATY)
+    }
+
+    fn get_label<T>(data: &<Self as ::kiss_api::manager::Ctx>::Data, label: &str) -> Option<T>
     where
         T: ::core::str::FromStr + Send,
         <T as ::core::str::FromStr>::Err: ::core::fmt::Display + Send,
