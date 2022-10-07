@@ -22,7 +22,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::r#box::{BoxCrd, BoxGroupRole, BoxSpec};
+use crate::r#box::{BoxCrd, BoxGroupRole, BoxSpec, BoxState};
 
 #[derive(Debug, Default)]
 pub struct ClusterManager {
@@ -168,44 +168,39 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
     pub fn get_control_planes_as_string(&self) -> String {
         self.control_planes
             .iter()
-            .map(|r#box| r#box.to_string())
+            .filter_map(|r#box| r#box.get_host())
             .join(" ")
     }
 
     pub fn get_etcd_nodes_as_string(&self) -> String {
         self.etcd_nodes
             .iter()
-            .map(|r#box| r#box.to_string())
+            .filter_map(|r#box| r#box.get_host())
             .join(" ")
     }
 
     pub async fn is_control_plane_ready(&self) -> Result<bool, Error> {
         // load the current control planes
         let api = Api::<BoxCrd>::all(self.kube.clone());
-        let fields = &[
-            format!(
-                "spec.group.cluster_name={}",
-                &self.owner.spec.group.cluster_name,
-            ),
-            format!("spec.group.role=ControlPlane"),
-        ];
-        let lp = ListParams::default().fields(&fields.join(","));
+        let lp = ListParams::default();
         let control_planes: BTreeSet<_> = api
             .list(&lp)
             .await?
             .items
             .into_iter()
-            .filter_map(|r#box| {
-                Some(ClusterBoxState {
-                    created_at: r#box.metadata.creation_timestamp.clone(),
-                    name: r#box.spec.machine.uuid.to_string(),
-                    hostname: r#box.spec.machine.hostname(),
-                    ip: r#box
-                        .status
-                        .as_ref()
-                        .and_then(|status| status.access.as_ref())
-                        .map(|access| access.address_primary)?,
-                })
+            .filter(|r#box| {
+                &r#box.spec.group.cluster_name == &self.owner.spec.group.cluster_name
+                    && r#box.spec.group.role == BoxGroupRole::ControlPlane
+            })
+            .map(|r#box| ClusterBoxState {
+                created_at: r#box.metadata.creation_timestamp.clone(),
+                name: r#box.spec.machine.uuid.to_string(),
+                hostname: r#box.spec.machine.hostname(),
+                ip: r#box
+                    .status
+                    .as_ref()
+                    .and_then(|status| status.access.as_ref())
+                    .map(|access| access.address_primary),
             })
             .collect();
 
@@ -231,36 +226,42 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         // load control planes
         {
             let api = Api::<BoxCrd>::all(self.kube.clone());
-            let fields = &[
-                format!(
-                    "spec.group.cluster_name={}",
-                    &self.owner.spec.group.cluster_name,
-                ),
-                format!("spec.group.role=ControlPlane"),
-                format!(
-                    "status.bind_group.cluster_name={}",
-                    &self.owner.spec.group.cluster_name,
-                ),
-                format!("status.bind_group.role=ControlPlane"),
-                format!("status.state=Running"),
-            ];
-            let lp = ListParams::default().fields(&fields.join(","));
+            let lp = ListParams::default();
             self.control_planes = api
                 .list(&lp)
                 .await?
                 .items
                 .into_iter()
-                .filter_map(|r#box| {
-                    Some(ClusterBoxState {
-                        created_at: r#box.metadata.creation_timestamp.clone(),
-                        name: r#box.spec.machine.uuid.to_string(),
-                        hostname: r#box.spec.machine.hostname(),
-                        ip: r#box
+                .filter(|r#box| {
+                    &r#box.spec.group.cluster_name == &self.owner.spec.group.cluster_name
+                        && r#box.spec.group.role == BoxGroupRole::ControlPlane
+                        && r#box
                             .status
                             .as_ref()
-                            .and_then(|status| status.access.as_ref())
-                            .map(|access| access.address_primary)?,
-                    })
+                            .map(|status| {
+                                status.access.is_some()
+                                    && status.state == BoxState::Running
+                                    && status
+                                        .bind_group
+                                        .as_ref()
+                                        .map(|bind_group| {
+                                            &bind_group.cluster_name
+                                                == &self.owner.spec.group.cluster_name
+                                                && bind_group.role == BoxGroupRole::ControlPlane
+                                        })
+                                        .unwrap_or_default()
+                            })
+                            .unwrap_or_default()
+                })
+                .map(|r#box| ClusterBoxState {
+                    created_at: r#box.metadata.creation_timestamp.clone(),
+                    name: r#box.spec.machine.uuid.to_string(),
+                    hostname: r#box.spec.machine.hostname(),
+                    ip: r#box
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.access.as_ref())
+                        .map(|access| access.address_primary),
                 })
                 .collect();
             self.etcd_nodes = self
@@ -307,12 +308,12 @@ pub struct ClusterBoxState {
     pub created_at: Option<Time>,
     pub name: String,
     pub hostname: String,
-    pub ip: IpAddr,
+    pub ip: Option<IpAddr>,
 }
 
 impl ClusterBoxState {
-    fn to_string(&self) -> String {
-        format!("{}:{}", &self.hostname, &self.ip)
+    fn get_host(&self) -> Option<String> {
+        Some(format!("{}:{}", &self.hostname, self.ip?))
     }
 }
 
