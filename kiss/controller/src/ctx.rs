@@ -98,28 +98,24 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
-        let crd = BoxCrd::api_resource();
-        let patch = Patch::Apply(json!({
-            "apiVersion": crd.api_version,
-            "kind": crd.kind,
-            "status": BoxStatus {
-                state: new_state,
-                access: status.as_ref().and_then(|status| status.access.clone()),
-                bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
-                last_updated: if old_state == new_state {
-                    status
+        if old_state != new_state {
+            let crd = BoxCrd::api_resource();
+            let patch = Patch::Apply(json!({
+                "apiVersion": crd.api_version,
+                "kind": crd.kind,
+                "status": BoxStatus {
+                    state: new_state,
+                    access: status.as_ref().and_then(|status| status.access.clone()),
+                    bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
+                    last_updated: status
                         .as_ref()
                         .map(|status| status.last_updated)
-                        .unwrap_or_else(Utc::now)
-                } else {
-                    now
+                        .unwrap_or_else(Utc::now),
                 },
-            },
-        }));
-        let pp = PatchParams::apply("kiss-controller").force();
-        api.patch_status(&name, &pp, &patch).await?;
+            }));
+            let pp = PatchParams::apply("kiss-controller").force();
+            api.patch_status(&name, &pp, &patch).await?;
 
-        if old_state != new_state {
             info!("Reconciled Document {name:?}");
         }
 
