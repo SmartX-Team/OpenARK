@@ -41,17 +41,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .unwrap_or(BoxState::New);
         let mut new_state = old_state.next();
 
-        // capture the timeout
-        let now = Utc::now();
-        if let Some(last_updated) = status.map(|status| status.last_updated) {
-            if let Some(time_threshold) = old_state.timeout() {
-                if now > last_updated + time_threshold {
-                    // update the status
-                    new_state = old_state.fail();
-                }
-            }
-        }
-
         // capture the group info is changed
         if matches!(old_state, BoxState::Running)
             && !data
@@ -74,7 +63,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // spawn an Ansible job
-        if old_state != new_state {
+        if old_state != new_state || new_state.cron().is_some() {
             if let Some(task) = new_state.as_task() {
                 let is_spawned = manager
                     .ansible
@@ -96,6 +85,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     info!("Cannot spawn an Ansible job; waiting: {}", &name);
                     return Ok(Action::requeue(Duration::from_secs(1 * 60)));
                 }
+            }
+
+            // wait for being changed
+            if old_state == new_state {
+                info!("Waiting for being changed: {name:?}");
+                return Ok(Action::await_change());
             }
 
             let crd = BoxCrd::api_resource();
