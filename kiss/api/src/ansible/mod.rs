@@ -96,6 +96,11 @@ impl AnsibleClient {
                 },
                 // worker: chech whether cluster is locked
                 BoxGroupRole::Worker => {
+                    // skip if to be joined but there is no control planes
+                    if job.new_state == BoxState::Joining && cluster_state.control_planes.is_empty()
+                    {
+                        return Ok(false);
+                    }
                     if !cluster_state.release().await? {
                         return Ok(false);
                     }
