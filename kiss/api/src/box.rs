@@ -110,8 +110,7 @@ impl BoxState {
             Self::Ready => None,
             Self::Joining => Some("join"),
             Self::Running => Some("ping"),
-            Self::Failed => None,
-            Self::Disconnected | Self::Missing => Some("reset"),
+            Self::Failed | Self::Disconnected | Self::Missing => Some("reset"),
         }
     }
 
@@ -131,7 +130,7 @@ impl BoxState {
             Self::Ready => Self::Joining,
             Self::Joining => Self::Joining,
             Self::Running => Self::Running,
-            Self::Failed => Self::Disconnected,
+            Self::Failed => Self::Failed,
             Self::Disconnected => Self::Disconnected,
             Self::Missing => Self::Missing,
         }
@@ -173,7 +172,7 @@ impl BoxState {
             Self::Ready => Self::Failed,
             Self::Joining => Self::Failed,
             Self::Running => Self::Disconnected,
-            Self::Failed => Self::Disconnected,
+            Self::Failed => Self::Missing,
             Self::Disconnected => Self::Missing,
             Self::Missing => Self::Missing,
         }

@@ -74,25 +74,27 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // spawn an Ansible job
-        if let Some(task) = new_state.as_task() {
-            let is_spawned = manager
-                .ansible
-                .spawn(
-                    &manager.cluster,
-                    &manager.kube,
-                    AnsibleJob {
-                        cron: new_state.cron(),
-                        task,
-                        r#box: &*data,
-                        new_state,
-                        completed_state: new_state.complete(),
-                    },
-                )
-                .await?;
+        if old_state != new_state {
+            if let Some(task) = new_state.as_task() {
+                let is_spawned = manager
+                    .ansible
+                    .spawn(
+                        &manager.cluster,
+                        &manager.kube,
+                        AnsibleJob {
+                            cron: new_state.cron(),
+                            task,
+                            r#box: &*data,
+                            new_state,
+                            completed_state: new_state.complete(),
+                        },
+                    )
+                    .await?;
 
-            // If there is a problem spawning a job, check back after a few minutes
-            if !is_spawned {
-                return Ok(Action::requeue(Duration::from_secs(1 * 60)));
+                // If there is a problem spawning a job, check back after a few minutes
+                if !is_spawned {
+                    return Ok(Action::requeue(Duration::from_secs(1 * 60)));
+                }
             }
         }
 
