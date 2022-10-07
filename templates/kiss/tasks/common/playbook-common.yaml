@@ -54,9 +54,9 @@
   tasks:
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
       set_fact:
-        cluster_name: "{{ lookup('env', 'kiss_cluster_name') }}"
+        cluster_name: "{{ lookup('env', 'kiss_cluster_domain') }}"
         coredns_k8s_external_zone: "k8s.{{ lookup('env', 'kiss_cluster_domain') }}"
-        kiss_cluster_name: "ops.{{ lookup('env', 'kiss_cluster_domain') }}"
+        kiss_cluster_name: "ops.{{ lookup('env', 'kiss_cluster_name') }}"
 
 - hosts: flatcar
   gather_facts: false
