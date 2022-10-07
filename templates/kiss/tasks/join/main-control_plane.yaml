@@ -1,2 +1,36 @@
 ---
 - import_playbook: ./add-node-as-control_plane.yaml
+
+# TODO: manage by root cluster
+- hosts: kube_control_plane
+  tasks:
+    - when:
+        - groups['kube_control_plane'] | length == 1
+        - kiss_cluster_name is defined and kiss_cluster_name != 'default'
+      block:
+        - name: Create Kiss Namespace
+          shell: >
+            {{ bin_dir }}/kubectl create namespace kiss
+
+        - name: Inherit ConfigMap - baremetal
+          block:
+            - name: Download ConfigMap
+              delegate_to: localhost
+              shell:
+                cmd: >
+                  kubectl get -n kiss -o yaml configmap "baremetal"
+              register: result
+
+            - name: Save ConfigMap
+              shell:
+                cmd: "{{ bin_dir }}/kubectl create -f -"
+                stdin: "{{ result.stdout }}"
+
+        - name: Install Kiss Core
+          shell: >
+            docker run --rm
+              --name "kiss-installer"
+              --net "host"
+              --env "INSTALL_KISS=false"
+              --volume "/root/.kube:/root/.kube:ro"
+              "quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
