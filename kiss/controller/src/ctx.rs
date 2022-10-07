@@ -52,6 +52,18 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
+        // capture the group info is changed
+        if matches!(new_state, BoxState::Joining | BoxState::Running)
+            && !data
+                .status
+                .as_ref()
+                .and_then(|status| status.bind_group.as_ref())
+                .map(|bind_group| &data.spec.group == bind_group)
+                .unwrap_or_default()
+        {
+            new_state = BoxState::Disconnected;
+        }
+
         // capture the presence of access info
         if data.spec.access.is_none() {
             new_state = BoxState::Missing;
