@@ -3,7 +3,7 @@ use std::{net::IpAddr, sync::Arc};
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
-    log::warn,
+    log::{info, warn},
 };
 use kiss_api::{
     ansible::AnsibleClient,
@@ -37,7 +37,10 @@ impl ::kiss_api::manager::Ctx for Ctx {
         // skip reconciling if not managed
         let box_name: String = match Self::get_box_name(&data) {
             Some(e) => e,
-            None => return Ok(Action::await_change()),
+            None => {
+                info!("{} is not a target; skipping", data.name_any());
+                return Ok(Action::await_change());
+            }
         };
 
         let status = data.status.as_ref();

@@ -93,6 +93,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
                 // If there is a problem spawning a job, check back after a few minutes
                 if !is_spawned {
+                    info!("Cannot spawn an Ansible job; waiting: {}", &name);
                     return Ok(Action::requeue(Duration::from_secs(1 * 60)));
                 }
             }

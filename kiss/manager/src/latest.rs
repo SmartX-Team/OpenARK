@@ -3,6 +3,7 @@ use std::sync::Arc;
 use ipis::{
     core::anyhow::{bail, Result},
     env::infer,
+    log::warn,
 };
 use octocrab::Octocrab;
 use semver::Version;
@@ -43,6 +44,7 @@ impl Handler {
                     Ok(release) => break 'load_release release,
                     Err(e) => {
                         if retry + 1 == Self::MAX_RETRY {
+                            warn!("Maximum retry failed");
                             return Err(e.into());
                         } else {
                             continue;

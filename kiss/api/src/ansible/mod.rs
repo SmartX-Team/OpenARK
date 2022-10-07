@@ -86,11 +86,19 @@ impl AnsibleClient {
                 BoxGroupRole::ControlPlane => match job.new_state {
                     BoxState::Joining | BoxState::Disconnected => {
                         if !cluster_state.lock().await? {
+                            info!(
+                                "Cluster is locked: {} {} -> {}",
+                                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+                            );
                             return Ok(false);
                         }
                     }
                     _ => {
                         if !cluster_state.release().await? {
+                            info!(
+                                "Cluster is locked: {} {} -> {}",
+                                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+                            );
                             return Ok(false);
                         }
                     }
@@ -101,9 +109,17 @@ impl AnsibleClient {
                     if job.new_state == BoxState::Joining
                         && !cluster_state.is_control_plane_ready().await?
                     {
+                        info!(
+                            "Control plane is not ready: {} {} -> {}",
+                            &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+                        );
                         return Ok(false);
                     }
                     if !cluster_state.release().await? {
+                        info!(
+                            "Cluster is locked: {} {} -> {}",
+                            &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+                        );
                         return Ok(false);
                     }
                 }

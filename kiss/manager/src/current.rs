@@ -63,12 +63,14 @@ impl Handler {
 
     pub async fn get_version(&self, latest: &Version) -> Result<Option<Version>> {
         if !self.update_job_status().await? {
+            info!("Cannot find the current cluster version from Job; skipping");
             return Ok(None);
         }
 
         let config = match self.api_config.get_opt("manager").await? {
             Some(config) => config,
             None => {
+                info!("Cannot find the current cluster version from ConfigMap; generating");
                 self.create_config(latest).await?;
                 return Ok(Some(latest.clone()));
             }
