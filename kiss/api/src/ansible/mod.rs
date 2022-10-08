@@ -115,7 +115,10 @@ impl AnsibleClient {
                         );
                         return Ok(false);
                     }
-                    if !cluster_state.release().await? {
+                    // cluster-sensitive tasks are binded to lock
+                    if matches!(job.new_state, BoxState::Joining | BoxState::Disconnected)
+                        && !cluster_state.release().await?
+                    {
                         info!(
                             "Cluster is locked: {} {} -> {}",
                             &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
