@@ -115,10 +115,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     state: new_state,
                     access: status.as_ref().and_then(|status| status.access.clone()),
                     bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
-                    last_updated: status
-                        .as_ref()
-                        .map(|status| status.last_updated)
-                        .unwrap_or_else(Utc::now),
+                    last_updated: Utc::now(),
                 },
             }));
             let pp = PatchParams::apply("kiss-controller").force();
