@@ -11,11 +11,6 @@ cephClusterSpec:
   #   # enable host networking
   #   provider: host
 
-  resources:
-    prepareosd:
-      limits:
-        memory: 4Gi # default: 400Mi
-
   # The option to automatically remove OSDs that are out and are safe to destroy.
   removeOSDsIfOutAndSafeToRemove: false
 
