@@ -130,7 +130,7 @@ impl BoxState {
             Self::Ready => Self::Joining,
             Self::Joining => Self::Joining,
             Self::Running => Self::Running,
-            Self::Failed => Self::Failed,
+            Self::Failed => Self::Disconnected,
             Self::Disconnected => Self::Disconnected,
             Self::Missing => Self::Missing,
         }

@@ -34,11 +34,13 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
+        let name = data.name_any();
+
         // skip reconciling if not managed
         let box_name: String = match Self::get_box_name(&data) {
             Some(e) => e,
             None => {
-                info!("{} is not a target; skipping", data.name_any());
+                info!("{} is not a target; skipping", &name);
                 return Ok(Action::await_change());
             }
         };
@@ -75,12 +77,15 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         // when the ansible job is succeeded
         if has_completed {
+            info!("Job has completed: {}", &name);
+
             // update the state
             if let Some(completed_state) = completed_state {
                 Self::update_box_state(manager, data, completed_state, group).await
             }
             // keep the state, scheduled by the controller
             else {
+                info!("Skipping updating box state: {}", &box_name);
                 Ok(Action::requeue(
                     <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                 ))
@@ -88,15 +93,20 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
         // when the ansible job is failed
         else if has_failed {
+            warn!("Job has failed: {}", &name);
+
             let fallback_state = completed_state.unwrap_or(BoxState::Failed).fail();
             match fallback_state {
                 BoxState::Failed => {
                     Self::update_box_state(manager, data, fallback_state, group).await
                 }
                 // do nothing when the job has no fallback state
-                _ => Ok(Action::requeue(
-                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
-                )),
+                _ => {
+                    info!("Skipping updating box state: {} -> {}", &box_name, &fallback_state);
+                    Ok(Action::requeue(
+                        <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                    ))
+                },
             }
         }
         // when the ansible job is not finished yet
@@ -140,6 +150,8 @@ impl Ctx {
             }));
             let pp = PatchParams::apply("kiss-monitor").force();
             api.patch_status(&box_name, &pp, &patch).await?;
+
+            info!("Updated box state: {} -> {}", &box_name, &state);
         }
 
         Ok(Action::requeue(
@@ -172,7 +184,7 @@ impl Ctx {
                 }
             },
             None => {
-                warn!("failed to get the {label} label: {}", data.name_any());
+                info!("failed to get the {label} label: {}", data.name_any());
                 None
             }
         }
