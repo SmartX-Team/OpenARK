@@ -7,9 +7,9 @@
   add_host:
     ansible_host: "{{ node[0] }}"
     ansible_host_key_checking: false
-    ansible_python_interpreter: /usr/bin/python3
+    ansible_python_interpreter: /opt/bin/python
     ansible_ssh_host: "{{ node[1] }}"
-    ansible_user: root
+    ansible_user: kiss
     ip: "{{ node[1] }}"
     name: "{{ node[0] }}"
     groups:
