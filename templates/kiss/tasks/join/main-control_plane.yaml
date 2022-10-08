@@ -32,8 +32,8 @@
         - name: Install Kiss Core
           shell: >
             {{ bin_dir }}/nerdctl run --rm
-              --name "kiss-installer"
-              --net "host"
-              --env "INSTALL_KISS=false"
-              --volume "/root/.kube:/root/.kube:ro"
-              "quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
+            --name "kiss-installer"
+            --net "host"
+            --env "INSTALL_KISS=false"
+            --volume "/root/.kube:/root/.kube:ro"
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
