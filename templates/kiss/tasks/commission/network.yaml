@@ -45,6 +45,7 @@
   set_fact:
     interface_primary: "{{ interfaces[0] }}"
     interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
+    interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
 - name: Ping from primary interface to the gateway
   when: interface_primary_address_ipv4 is defined

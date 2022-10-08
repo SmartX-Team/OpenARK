@@ -133,7 +133,8 @@ impl Ctx {
 
         // update the box
         {
-            let address_primary = Self::get_box_access_primary(&data);
+            let primary_address = Self::get_box_access_primary_address(&data);
+            let primary_speed_mbps = Self::get_box_access_primary_speed_mbps(&data);
 
             let api = Api::<BoxCrd>::all(manager.kube.clone());
             let crd = BoxCrd::api_resource();
@@ -141,9 +142,12 @@ impl Ctx {
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
                 "status": BoxStatus {
-                    access: address_primary.map(|address_primary| BoxAccessSpec {
-                        address_primary,
-                    }),
+                    access: primary_address
+                        .zip(primary_speed_mbps)
+                        .map(|(primary_address, primary_speed_mbps)| BoxAccessSpec {
+                            primary_address,
+                            primary_speed_mbps,
+                        }),
                     state,
                     bind_group: group,
                     last_updated: Utc::now(),
@@ -182,8 +186,16 @@ impl Ctx {
         Self::get_label(data, AnsibleClient::LABEL_BOX_NAME)
     }
 
-    fn get_box_access_primary(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<IpAddr> {
-        Self::get_label(data, AnsibleClient::LABEL_BOX_ACCESS_ADDRESS_PRIMATY)
+    fn get_box_access_primary_address(
+        data: &<Self as ::kiss_api::manager::Ctx>::Data,
+    ) -> Option<IpAddr> {
+        Self::get_label(data, AnsibleClient::LABEL_BOX_ACCESS_PRIMARY_ADDRESS)
+    }
+
+    fn get_box_access_primary_speed_mbps(
+        data: &<Self as ::kiss_api::manager::Ctx>::Data,
+    ) -> Option<u64> {
+        Self::get_label(data, AnsibleClient::LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS)
     }
 
     fn get_label<T>(data: &<Self as ::kiss_api::manager::Ctx>::Data, label: &str) -> Option<T>

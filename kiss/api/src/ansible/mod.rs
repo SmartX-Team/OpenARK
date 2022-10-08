@@ -25,8 +25,10 @@ pub struct AnsibleClient {
 
 impl AnsibleClient {
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
-    pub const LABEL_BOX_ACCESS_ADDRESS_PRIMATY: &'static str =
-        "kiss.netai-cloud/box_access_address_primary";
+    pub const LABEL_BOX_ACCESS_PRIMARY_ADDRESS: &'static str =
+        "kiss.netai-cloud/box_access_primary_address";
+    pub const LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS: &'static str =
+        "kiss.netai-cloud/box_access_primary_speed_mbps";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
     pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
@@ -47,6 +49,7 @@ impl AnsibleClient {
     ) -> Result<bool, Error> {
         let ns = crate::consts::NAMESPACE;
         let box_name = job.r#box.spec.machine.uuid.to_string();
+        let box_status = job.r#box.status.as_ref();
         let name = format!("box-{}-{}", &job.task, &box_name);
 
         let bind_group = job
@@ -136,14 +139,20 @@ impl AnsibleClient {
             labels: Some(
                 vec![
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
-                    job.r#box
-                        .status
-                        .as_ref()
+                    box_status
                         .and_then(|status| status.access.as_ref())
                         .map(|access| {
                             (
-                                Self::LABEL_BOX_ACCESS_ADDRESS_PRIMATY.into(),
-                                access.address_primary.to_string(),
+                                Self::LABEL_BOX_ACCESS_PRIMARY_ADDRESS.into(),
+                                access.primary_address.to_string(),
+                            )
+                        }),
+                    box_status
+                        .and_then(|status| status.access.as_ref())
+                        .map(|access| {
+                            (
+                                Self::LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS.into(),
+                                access.primary_speed_mbps.to_string(),
                             )
                         }),
                     Some((
@@ -213,10 +222,7 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
-                                value: job
-                                    .r#box
-                                    .status
-                                    .as_ref()
+                                value: box_status
                                     .and_then(|status| status.access.as_ref())
                                     .map(|access| access.management_address().to_string()),
                                 ..Default::default()

@@ -217,7 +217,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                     .status
                     .as_ref()
                     .and_then(|status| status.access.as_ref())
-                    .map(|access| access.address_primary),
+                    .map(|access| access.primary_address),
             })
             .collect();
 
@@ -283,7 +283,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                         .status
                         .as_ref()
                         .and_then(|status| status.access.as_ref())
-                        .map(|access| access.address_primary),
+                        .map(|access| access.primary_address),
                 })
                 .collect();
             self.etcd_nodes = {

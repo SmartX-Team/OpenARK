@@ -21,7 +21,7 @@ use strum::{Display, EnumString};
         "name": "address",
         "type": "string",
         "description":"access address of the box",
-        "jsonPath":".status.access.addressPrimary"
+        "jsonPath":".status.access.primaryAddress"
     }"#,
     printcolumn = r#"{
         "name": "power",
@@ -58,6 +58,12 @@ use strum::{Display, EnumString};
         "type": "date",
         "description":"updated time of the box",
         "jsonPath":".status.lastUpdated"
+    }"#,
+    printcolumn = r#"{
+        "name": "network-speed",
+        "type": "string",
+        "description":"network interface link speed (Unit: Mb/s)",
+        "jsonPath":".status.access.primarySpeedMbps"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -182,12 +188,14 @@ impl BoxState {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxAccessSpec {
-    pub address_primary: IpAddr,
+    pub primary_address: IpAddr,
+    // Speed (Mb/s)
+    pub primary_speed_mbps: u64,
 }
 
 impl BoxAccessSpec {
     pub fn management_address(&self) -> IpAddr {
-        self.address_primary
+        self.primary_address
     }
 }
 
