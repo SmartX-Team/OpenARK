@@ -147,7 +147,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         sleep(Duration::from_secs(1)).await;
 
         // is it failed to lock?
-        let updated = Self::load(&self.kube, &self.owner.spec).await?;
+        let updated = Self::load(self.kube, &self.owner.spec).await?;
         Ok(updated.is_locked_by(&self.owner.spec))
     }
 
@@ -167,16 +167,20 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
     }
 
     pub fn get_control_planes_as_string(&self) -> String {
-        self.control_planes
-            .iter()
-            .filter_map(|r#box| r#box.get_host())
-            .join(" ")
+        const NODE_ROLE: &str = "kube_control_plane";
+        Self::get_nodes_as_string(&self.control_planes, NODE_ROLE)
     }
 
     pub fn get_etcd_nodes_as_string(&self) -> String {
-        self.etcd_nodes
+        const NODE_ROLE: &str = "etcd";
+        Self::get_nodes_as_string(&self.control_planes, NODE_ROLE)
+    }
+
+    fn get_nodes_as_string(nodes: &BTreeSet<ClusterBoxState>, node_role: &str) -> String {
+        nodes
             .iter()
             .filter_map(|r#box| r#box.get_host())
+            .map(|host| format!("{node_role}:{host}"))
             .join(" ")
     }
 
@@ -190,7 +194,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
             .items
             .into_iter()
             .filter(|r#box| {
-                &r#box.spec.group.cluster_name == &self.owner.spec.group.cluster_name
+                r#box.spec.group.cluster_name == self.owner.spec.group.cluster_name
                     && r#box.spec.group.role == BoxGroupRole::ControlPlane
             })
             .map(|r#box| ClusterBoxState {
@@ -222,7 +226,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         }
 
         // assert all control plane nodes are ready
-        Ok(&self.control_planes == &control_planes)
+        Ok(self.control_planes == control_planes)
     }
 
     pub async fn update_control_planes(&mut self) -> Result<(), Error> {
@@ -241,7 +245,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                 .items
                 .into_iter()
                 .filter(|r#box| {
-                    &r#box.spec.group.cluster_name == &self.owner.spec.group.cluster_name
+                    r#box.spec.group.cluster_name == self.owner.spec.group.cluster_name
                         && r#box.spec.group.role == BoxGroupRole::ControlPlane
                         && r#box
                             .status
@@ -260,13 +264,17 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                         .map(|access| access.address_primary),
                 })
                 .collect();
-            self.etcd_nodes = self
-                .control_planes
-                .iter()
-                // etcd nodes should be odd
-                .skip(self.control_planes.len() % 2 + 1)
-                .cloned()
-                .collect();
+            self.etcd_nodes = {
+                let mut nodes = self.control_planes.clone();
+                // nodes should be odd
+                // TODO: replace into pop_last() function if merged: https://github.com/rust-lang/rust/pull/101727
+                if nodes.len() % 2 == 0 {
+                    if let Some(last_node) = self.control_planes.iter().rev().next() {
+                        nodes.remove(last_node);
+                    }
+                }
+                nodes
+            };
         }
 
         // save to object
@@ -293,7 +301,7 @@ impl ClusterState {
         let box_name = owner.machine.uuid.to_string();
         self.locked_by
             .as_ref()
-            .map(|lock| &lock.box_name == &box_name && lock.role == owner.group.role)
+            .map(|lock| lock.box_name == box_name && lock.role == owner.group.role)
             .unwrap_or_default()
     }
 }

@@ -44,10 +44,19 @@
           - target
 
     - name: Bind to group - Control Plane
-      when: lookup('env', 'kiss_group_role') == 'ControlPlane'
+      when:
+        - lookup('env', 'kiss_group_role') == 'ControlPlane'
       add_host:
         name: "{{ lookup('env', 'ansible_host') }}"
         groups: kube_control_plane
+
+    - name: Bind to group - ETCD
+      when:
+        - lookup('env', 'kiss_group_role') == 'ControlPlane'
+        - groups['etcd'] | length % 2 == 0 # etcd nodes should be odd
+      add_host:
+        name: "{{ lookup('env', 'ansible_host') }}"
+        groups: etcd
 
 - hosts: all
   gather_facts: false

@@ -213,7 +213,7 @@ impl BoxGroupSpec {
     const DEFAULT_CLUSTER_NAME: &'static str = "default";
 
     pub fn is_default(&self) -> bool {
-        &self.cluster_name == Self::DEFAULT_CLUSTER_NAME
+        self.cluster_name == Self::DEFAULT_CLUSTER_NAME
     }
 
     pub fn cluster_domain(&self) -> String {

@@ -16,5 +16,6 @@
     name: "{{ node[0] }}"
     groups:
       - all
+      - etcd
       - kube_control_plane
       - kube_node

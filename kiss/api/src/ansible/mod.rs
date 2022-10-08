@@ -79,7 +79,7 @@ impl AnsibleClient {
         }
 
         // realize mutual exclusivity
-        let mut cluster_state = cluster_manager.load_state(kube, &job.r#box).await?;
+        let mut cluster_state = cluster_manager.load_state(kube, job.r#box).await?;
         {
             match job.r#box.spec.group.role {
                 // control-plane: lock clusters if to join
