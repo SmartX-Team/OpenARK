@@ -57,6 +57,7 @@
         cluster_name: "ops.{{ lookup('env', 'kiss_cluster_domain') }}"
         coredns_k8s_external_zone: "k8s.{{ lookup('env', 'kiss_cluster_domain') }}"
         kiss_cluster_name: "{{ lookup('env', 'kiss_cluster_name') }}"
+        kiss_cluster_is_default: "{{ lookup('env', 'kiss_cluster_is_default') == 'true' }}"
 
 - hosts: flatcar
   gather_facts: false

@@ -203,13 +203,19 @@ pub struct BoxGroupSpec {
 impl Default for BoxGroupSpec {
     fn default() -> Self {
         Self {
-            cluster_name: "default".to_string(),
+            cluster_name: Self::DEFAULT_CLUSTER_NAME.into(),
             role: BoxGroupRole::default(),
         }
     }
 }
 
 impl BoxGroupSpec {
+    const DEFAULT_CLUSTER_NAME: &'static str = "default";
+
+    pub fn is_default(&self) -> bool {
+        &self.cluster_name == Self::DEFAULT_CLUSTER_NAME
+    }
+
     pub fn cluster_domain(&self) -> String {
         format!("{}.netai-cloud", &self.cluster_name)
     }
