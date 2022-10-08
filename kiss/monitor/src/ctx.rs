@@ -66,15 +66,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
 
-        // release the lock if finished
-        if has_completed || has_failed {
-            let api = Api::<BoxCrd>::all(manager.kube.clone());
-            let r#box = api.get(&box_name).await?;
-
-            let mut cluster_state = manager.cluster.load_state(&manager.kube, &r#box).await?;
-            cluster_state.release().await?;
-        }
-
         // when the ansible job is succeeded
         if has_completed {
             info!("Job has completed: {}", &name);
@@ -85,7 +76,10 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
             // keep the state, scheduled by the controller
             else {
-                info!("Skipping updating box state: {}", &box_name);
+                // release the lock
+                Self::release_cluster_lock(&manager, &box_name).await?;
+
+                info!("Skipping updating box state: {}", &box_name,);
                 Ok(Action::requeue(
                     <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                 ))
@@ -102,11 +96,17 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 }
                 // do nothing when the job has no fallback state
                 _ => {
-                    info!("Skipping updating box state: {} -> {}", &box_name, &fallback_state);
+                    // release the lock
+                    Self::release_cluster_lock(&manager, &box_name).await?;
+
+                    info!(
+                        "Skipping updating box state: {} -> {}",
+                        &box_name, &fallback_state,
+                    );
                     Ok(Action::requeue(
                         <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                     ))
-                },
+                }
             }
         }
         // when the ansible job is not finished yet
@@ -128,10 +128,11 @@ impl Ctx {
     where
         Self: Sized,
     {
+        // box name is already tested by reconciling
+        let box_name = Self::get_box_name(&data).unwrap();
+
         // update the box
         {
-            // box name is already tested by reconciling
-            let box_name = Self::get_box_name(&data).unwrap();
             let address_primary = Self::get_box_access_primary(&data);
 
             let api = Api::<BoxCrd>::all(manager.kube.clone());
@@ -150,13 +151,25 @@ impl Ctx {
             }));
             let pp = PatchParams::apply("kiss-monitor").force();
             api.patch_status(&box_name, &pp, &patch).await?;
-
-            info!("Updated box state: {} -> {}", &box_name, &state);
         }
 
+        // release the lock
+        Self::release_cluster_lock(&manager, &box_name).await?;
+
+        info!("Updated box state: {} -> {}", &box_name, &state);
         Ok(Action::requeue(
             <Self as ::kiss_api::manager::Ctx>::FALLBACK,
         ))
+    }
+
+    /// Release the cluster lock if finished
+    async fn release_cluster_lock(manager: &Manager<Self>, box_name: &str) -> Result<(), Error> {
+        let api = Api::<BoxCrd>::all(manager.kube.clone());
+        let r#box = api.get(box_name).await?;
+
+        let mut cluster_state = manager.cluster.load_state(&manager.kube, &r#box).await?;
+        cluster_state.release().await?;
+        Ok(())
     }
 
     fn get_box_name(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<String> {

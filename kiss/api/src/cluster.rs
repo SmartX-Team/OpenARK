@@ -239,17 +239,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                             .status
                             .as_ref()
                             .map(|status| {
-                                status.access.is_some()
-                                    && status.state == BoxState::Running
-                                    && status
-                                        .bind_group
-                                        .as_ref()
-                                        .map(|bind_group| {
-                                            &bind_group.cluster_name
-                                                == &self.owner.spec.group.cluster_name
-                                                && bind_group.role == BoxGroupRole::ControlPlane
-                                        })
-                                        .unwrap_or_default()
+                                status.access.is_some() && status.state == BoxState::Running
                             })
                             .unwrap_or_default()
                 })
