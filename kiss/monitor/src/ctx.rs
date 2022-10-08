@@ -166,8 +166,10 @@ impl Ctx {
     async fn release_cluster_lock(manager: &Manager<Self>, box_name: &str) -> Result<(), Error> {
         let api = Api::<BoxCrd>::all(manager.kube.clone());
         let r#box = api.get(box_name).await?;
-
         let mut cluster_state = manager.cluster.load_state(&manager.kube, &r#box).await?;
+
+        // update cluster state and release the lock
+        cluster_state.update_control_planes().await?;
         cluster_state.release().await?;
         Ok(())
     }

@@ -126,9 +126,6 @@ impl AnsibleClient {
             }
         }
 
-        // update cluster state
-        cluster_state.update_control_planes().await?;
-
         // define the object
         let metadata = ObjectMeta {
             name: Some(name.clone()),

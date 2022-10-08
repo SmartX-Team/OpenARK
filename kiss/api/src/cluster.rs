@@ -209,17 +209,8 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
     }
 
     pub async fn update_control_planes(&mut self) -> Result<(), Error> {
-        // check box and cluster state
-        if !(self
-            .owner
-            .status
-            .as_ref()
-            .and_then(|status| status.bind_group.as_ref())
-            .map(|bind_group| bind_group.role == BoxGroupRole::ControlPlane)
-            .unwrap_or_default()
-            && self.is_locked()
-            && self.is_locked_by(&self.owner.spec))
-        {
+        // check lock state
+        if !(self.is_locked() && self.is_locked_by(&self.owner.spec)) {
             return Ok(());
         }
 
@@ -238,9 +229,7 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                         && r#box
                             .status
                             .as_ref()
-                            .map(|status| {
-                                status.access.is_some() && status.state == BoxState::Running
-                            })
+                            .map(|status| status.state == BoxState::Running)
                             .unwrap_or_default()
                 })
                 .map(|r#box| ClusterBoxState {
