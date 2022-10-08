@@ -26,7 +26,7 @@ INSTALL_KISS="${INSTALL_KISS:-$INSTALL_KISS_DEFAULT}"
 #   Install Kiss Cluster                                  #
 ###########################################################
 
-if [ "$INSTALL_KISS_DEFAULT" == "true" ]; then
+if [ "$INSTALL_KISS" == "true" ]; then
     echo "- Installing kiss cluster ..."
 
     # namespace & common

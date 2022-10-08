@@ -10,7 +10,8 @@
       block:
         - name: Create Kiss Namespace
           shell: >
-            {{ bin_dir }}/kubectl create namespace kiss
+            {{ bin_dir }}/kubectl get namespace kiss
+            || {{ bin_dir }}/kubectl create namespace kiss
 
         - name: Inherit ConfigMap - baremetal
           block:
@@ -18,17 +19,19 @@
               delegate_to: localhost
               shell:
                 cmd: >
-                  kubectl get -n kiss -o yaml configmap "baremetal"
+                  kubectl get -n kiss configmap "baremetal" -o yaml
               register: result
 
             - name: Save ConfigMap
               shell:
-                cmd: "{{ bin_dir }}/kubectl create -f -"
+                cmd: >
+                  {{ bin_dir }}/kubectl get -n kiss configmap "baremetal"
+                  || {{ bin_dir }}/kubectl create -f -
                 stdin: "{{ result.stdout }}"
 
         - name: Install Kiss Core
           shell: >
-            docker run --rm
+            {{ bin_dir }}/nerdctl run --rm
               --name "kiss-installer"
               --net "host"
               --env "INSTALL_KISS=false"
