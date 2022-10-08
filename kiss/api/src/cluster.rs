@@ -9,6 +9,7 @@ use ipis::{
     itertools::Itertools,
     log::info,
     tokio::{
+        self,
         sync::{Mutex, MutexGuard},
         time::sleep,
     },
@@ -166,6 +167,12 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         Ok(true)
     }
 
+    fn is_node_control_plane(&self) -> bool {
+        self.control_planes
+            .iter()
+            .any(|control_plane| control_plane.name == self.owner.spec.machine.uuid.to_string())
+    }
+
     pub fn get_control_planes_as_string(&self) -> String {
         const NODE_ROLE: &str = "kube_control_plane";
         Self::get_nodes_as_string(&self.control_planes, NODE_ROLE)
@@ -184,7 +191,12 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
             .join(" ")
     }
 
-    pub async fn is_control_plane_ready(&self) -> Result<bool, Error> {
+    pub async fn is_control_plane_ready(&mut self) -> Result<bool, Error> {
+        // update the control planes if possible
+        if !self.is_locked() {
+            self.update_control_planes(None).await?;
+        }
+
         // load the current control planes
         let api = Api::<BoxCrd>::all(self.kube.clone());
         let lp = ListParams::default();
@@ -229,14 +241,15 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
         Ok(self.control_planes == control_planes)
     }
 
-    pub async fn update_control_planes(&mut self) -> Result<(), Error> {
+    pub async fn update_control_planes(&mut self, state: Option<BoxState>) -> Result<(), Error> {
         // check lock state
         if !(self.is_locked() && self.is_locked_by(&self.owner.spec)) {
+            info!("Failed to update control planes: Cluster is locked");
             return Ok(());
         }
 
         // load control planes
-        {
+        for _retry in 0..5 {
             let api = Api::<BoxCrd>::all(self.kube.clone());
             let lp = ListParams::default();
             self.control_planes = api
@@ -245,13 +258,22 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                 .items
                 .into_iter()
                 .filter(|r#box| {
-                    r#box.spec.group.cluster_name == self.owner.spec.group.cluster_name
-                        && r#box.spec.group.role == BoxGroupRole::ControlPlane
-                        && r#box
-                            .status
-                            .as_ref()
-                            .map(|status| status.state == BoxState::Running)
-                            .unwrap_or_default()
+                    r#box
+                        .status
+                        .as_ref()
+                        .map(|status| {
+                            status.state == BoxState::Running
+                                && status
+                                    .bind_group
+                                    .as_ref()
+                                    .map(|bind_group| {
+                                        bind_group.cluster_name
+                                            == self.owner.spec.group.cluster_name
+                                            && bind_group.role == BoxGroupRole::ControlPlane
+                                    })
+                                    .unwrap_or_default()
+                        })
+                        .unwrap_or_default()
                 })
                 .map(|r#box| ClusterBoxState {
                     created_at: r#box.metadata.creation_timestamp.clone(),
@@ -275,10 +297,32 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                 }
                 nodes
             };
+
+            // check nodes
+            match state {
+                // running => Exists
+                Some(BoxState::Running) if self.is_node_control_plane() => break,
+                Some(BoxState::Running) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                // not running => Not Exists
+                Some(_) if !self.is_node_control_plane() => break,
+                Some(_) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                // dont' care
+                None => break,
+            }
         }
 
-        // save to object
-        self.patch().await
+        info!(
+            "Updated Cluster - Control Planes: {} nodes",
+            self.control_planes.len(),
+        );
+        info!("Updated Cluster - ETCD: {} nodes", self.etcd_nodes.len(),);
+        Ok(())
     }
 }
 
