@@ -7,6 +7,7 @@ use std::{
 
 use ipis::{
     itertools::Itertools,
+    log::info,
     tokio::{
         sync::{Mutex, MutexGuard},
         time::sleep,
@@ -203,6 +204,22 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                     .map(|access| access.address_primary),
             })
             .collect();
+
+        info!(
+            "Cluster \"{}\" status: {}/{} control-plane nodes are ready",
+            &self.owner.spec.group.cluster_name,
+            self.control_planes.len(),
+            control_planes.len(),
+        );
+
+        // test the count of nodes
+        if control_planes.is_empty() && !self.owner.spec.group.is_default() {
+            info!(
+                "Cluster \"{}\" status: no control-plane nodes are defined",
+                &self.owner.spec.group.cluster_name,
+            );
+            return Ok(false);
+        }
 
         // assert all control plane nodes are ready
         Ok(&self.control_planes == &control_planes)
