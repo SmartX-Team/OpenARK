@@ -143,8 +143,7 @@ impl Ctx {
                 "kind": crd.kind,
                 "status": BoxStatus {
                     access: primary_address
-                        .zip(primary_speed_mbps)
-                        .map(|(primary_address, primary_speed_mbps)| BoxAccessSpec {
+                        .map(|primary_address| BoxAccessSpec {
                             primary_address,
                             primary_speed_mbps,
                         }),

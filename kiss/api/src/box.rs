@@ -190,7 +190,7 @@ impl BoxState {
 pub struct BoxAccessSpec {
     pub primary_address: IpAddr,
     // Speed (Mb/s)
-    pub primary_speed_mbps: u64,
+    pub primary_speed_mbps: Option<u64>,
 }
 
 impl BoxAccessSpec {

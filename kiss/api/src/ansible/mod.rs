@@ -149,10 +149,11 @@ impl AnsibleClient {
                         }),
                     box_status
                         .and_then(|status| status.access.as_ref())
-                        .map(|access| {
+                        .and_then(|access| access.primary_speed_mbps)
+                        .map(|primary_speed_mbps| {
                             (
                                 Self::LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS.into(),
-                                access.primary_speed_mbps.to_string(),
+                                primary_speed_mbps.to_string(),
                             )
                         }),
                     Some((
