@@ -1,6 +1,6 @@
 ---
 - name: Define supported architechures
-  vars:
+  set_fact:
     mellanox_mlxup_architectures:
       x86_64: x64
       aarch64: Arm
