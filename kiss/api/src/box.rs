@@ -21,7 +21,7 @@ use strum::{Display, EnumString};
         "name": "address",
         "type": "string",
         "description":"access address of the box",
-        "jsonPath":".status.access.primaryAddress"
+        "jsonPath":".status.access.primary.address"
     }"#,
     printcolumn = r#"{
         "name": "power",
@@ -63,7 +63,7 @@ use strum::{Display, EnumString};
         "name": "network-speed",
         "type": "string",
         "description":"network interface link speed (Unit: Mb/s)",
-        "jsonPath":".status.access.primarySpeedMbps"
+        "jsonPath":".status.access.primary.speedMbps"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +77,7 @@ pub struct BoxSpec {
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
     pub state: BoxState,
-    pub access: Option<BoxAccessSpec>,
+    pub access: BoxAccessSpec,
     pub bind_group: Option<BoxGroupSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -187,16 +187,30 @@ impl BoxState {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct BoxAccessSpec {
-    pub primary_address: IpAddr,
-    // Speed (Mb/s)
-    pub primary_speed_mbps: Option<u64>,
+pub struct BoxAccessSpec<Interface = BoxAccessInterfaceSpec> {
+    pub primary: Option<Interface>,
+}
+
+impl<T> Default for BoxAccessSpec<T> {
+    fn default() -> Self {
+        Self {
+            primary: Default::default(),
+        }
+    }
 }
 
 impl BoxAccessSpec {
-    pub fn management_address(&self) -> IpAddr {
-        self.primary_address
+    pub fn management(&self) -> Option<&BoxAccessInterfaceSpec> {
+        self.primary.as_ref()
     }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BoxAccessInterfaceSpec {
+    pub address: IpAddr,
+    // Speed (Mb/s)
+    pub speed_mbps: Option<u64>,
 }
 
 #[derive(
@@ -278,16 +292,45 @@ pub mod request {
     use super::*;
 
     #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    #[serde(rename_all = "camelCase")]
+    pub struct BoxAccessInterfaceQuery {
+        pub address: IpAddr,
+        // Speed (Mb/s)
+        pub speed_mbps: Option<String>,
+    }
+
+    impl TryFrom<BoxAccessInterfaceQuery> for BoxAccessInterfaceSpec {
+        type Error = <u64 as ::core::str::FromStr>::Err;
+
+        fn try_from(value: BoxAccessInterfaceQuery) -> Result<Self, Self::Error> {
+            Ok(Self {
+                address: value.address,
+                speed_mbps: value.speed_mbps.map(|speed| speed.parse()).transpose()?,
+            })
+        }
+    }
+
+    impl TryFrom<BoxAccessSpec<BoxAccessInterfaceQuery>> for BoxAccessSpec<BoxAccessInterfaceSpec> {
+        type Error = <u64 as ::core::str::FromStr>::Err;
+
+        fn try_from(value: BoxAccessSpec<BoxAccessInterfaceQuery>) -> Result<Self, Self::Error> {
+            Ok(Self {
+                primary: value.primary.map(TryInto::try_into).transpose()?,
+            })
+        }
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
     pub struct BoxNewQuery {
         #[serde(flatten)]
-        pub access: BoxAccessSpec,
+        pub access_primary: BoxAccessInterfaceQuery,
         #[serde(flatten)]
         pub machine: BoxMachineSpec,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
     pub struct BoxCommissionQuery {
-        pub access: BoxAccessSpec,
+        pub access: BoxAccessSpec<BoxAccessInterfaceQuery>,
         pub machine: BoxMachineSpec,
         pub power: Option<BoxPowerSpec>,
         pub reset: bool,

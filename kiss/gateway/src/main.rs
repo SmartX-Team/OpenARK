@@ -22,7 +22,7 @@ use kiss_api::{
     },
     r#box::{
         request::{BoxCommissionQuery, BoxNewQuery},
-        BoxCrd, BoxSpec, BoxState, BoxStatus,
+        BoxAccessSpec, BoxCrd, BoxSpec, BoxState, BoxStatus,
     },
     serde_json::json,
 };
@@ -51,7 +51,9 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
-                        access: Some(query.access),
+                        access: BoxAccessSpec {
+                            primary: Some(query.access_primary.try_into()?),
+                        },
                         state: BoxState::New,
                         bind_group: r#box.status.as_ref().and_then(|status| status.bind_group.as_ref()).cloned(),
                         last_updated: Utc::now(),
@@ -72,7 +74,9 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
                         power: None,
                     },
                     status: Some(BoxStatus {
-                        access: Some(query.access),
+                        access: BoxAccessSpec {
+                            primary: Some(query.access_primary.try_into()?),
+                        },
                         state: BoxState::New,
                         bind_group: None,
                         last_updated: Utc::now(),
@@ -119,7 +123,7 @@ async fn post_commission(
                         power: query.power,
                     },
                     "status": BoxStatus {
-                        access: Some(query.access),
+                        access: query.access.try_into()?,
                         state: BoxState::Ready,
                         bind_group: if query.reset {
                             None

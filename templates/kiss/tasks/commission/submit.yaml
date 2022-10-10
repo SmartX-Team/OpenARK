@@ -8,8 +8,9 @@
     body_format: json
     body:
       access:
-        primaryAddress: "{{ interface_primary_address_ipv4 | default(ansible_ssh_host) }}"
-        primarySpeedMbps: "{{ interface_primary_speed_mbps | default(0) }}"
+        primary:
+          address: "{{ interface_primary_address_ipv4 | default(ansible_ssh_host) }}"
+          speedMbps: "{{ interface_primary_speed_mbps | default('0') }}"
       machine:
         uuid: "{{ ansible_host_uuid }}"
       power:

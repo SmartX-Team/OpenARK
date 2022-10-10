@@ -140,16 +140,16 @@ impl AnsibleClient {
                 vec![
                     Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
                     box_status
-                        .and_then(|status| status.access.as_ref())
-                        .map(|access| {
+                        .and_then(|status| status.access.primary.as_ref())
+                        .map(|interface| {
                             (
                                 Self::LABEL_BOX_ACCESS_PRIMARY_ADDRESS.into(),
-                                access.primary_address.to_string(),
+                                interface.address.to_string(),
                             )
                         }),
                     box_status
-                        .and_then(|status| status.access.as_ref())
-                        .and_then(|access| access.primary_speed_mbps)
+                        .and_then(|status| status.access.primary.as_ref())
+                        .and_then(|interface| interface.speed_mbps)
                         .map(|primary_speed_mbps| {
                             (
                                 Self::LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS.into(),
@@ -224,8 +224,8 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "ansible_ssh_host".into(),
                                 value: box_status
-                                    .and_then(|status| status.access.as_ref())
-                                    .map(|access| access.management_address().to_string()),
+                                    .and_then(|status| status.access.management())
+                                    .map(|interface| interface.address.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

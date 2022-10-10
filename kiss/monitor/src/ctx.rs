@@ -14,7 +14,7 @@ use kiss_api::{
         Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
-    r#box::{BoxAccessSpec, BoxCrd, BoxGroupSpec, BoxState, BoxStatus},
+    r#box::{BoxAccessInterfaceSpec, BoxAccessSpec, BoxCrd, BoxGroupSpec, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -142,11 +142,13 @@ impl Ctx {
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
                 "status": BoxStatus {
-                    access: primary_address
-                        .map(|primary_address| BoxAccessSpec {
-                            primary_address,
-                            primary_speed_mbps,
+                    access: BoxAccessSpec {
+                    primary: primary_address
+                        .map(|primary_address| BoxAccessInterfaceSpec {
+                            address: primary_address,
+                            speed_mbps: primary_speed_mbps,
                         }),
+                    },
                     state,
                     bind_group: group,
                     last_updated: Utc::now(),

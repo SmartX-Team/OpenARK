@@ -216,8 +216,8 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                 ip: r#box
                     .status
                     .as_ref()
-                    .and_then(|status| status.access.as_ref())
-                    .map(|access| access.primary_address),
+                    .and_then(|status| status.access.primary.as_ref())
+                    .map(|interface| interface.address),
             })
             .collect();
 
@@ -282,8 +282,8 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
                     ip: r#box
                         .status
                         .as_ref()
-                        .and_then(|status| status.access.as_ref())
-                        .map(|access| access.primary_address),
+                        .and_then(|status| status.access.primary.as_ref())
+                        .map(|interface| interface.address),
                 })
                 .collect();
             self.etcd_nodes = {

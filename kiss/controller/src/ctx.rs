@@ -67,7 +67,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         else if !data
             .status
             .as_ref()
-            .map(|status| status.access.is_some())
+            .map(|status| status.access.primary.is_some())
             .unwrap_or_default()
         {
             new_state = BoxState::Missing;
@@ -113,7 +113,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 "kind": crd.kind,
                 "status": BoxStatus {
                     state: new_state,
-                    access: status.as_ref().and_then(|status| status.access.clone()),
+                    access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
                     bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
                     last_updated: Utc::now(),
                 },
