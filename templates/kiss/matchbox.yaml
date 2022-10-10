@@ -157,7 +157,7 @@ data:
               # provision a python binary
               if [[ ! -e /opt/pypy3/bin/pypy3 ]]; then
                 TAR_FILE="${BINDIR}/pyp.tar.bz2"
-                sudo wget -O "${TAR_FILE}" "${PYPI_URL}"
+                sudo wget --tries=5 -O "${TAR_FILE}" "${PYPI_URL}"
                 echo "${PYPI_HASH} ${TAR_FILE}" | sha256sum -c -
                 sudo tar -xjf "${TAR_FILE}" && sudo rm "${TAR_FILE}"
                 sudo mv -n "${PYPY_FILENAME}" "${BINDIR}/../pypy3"
