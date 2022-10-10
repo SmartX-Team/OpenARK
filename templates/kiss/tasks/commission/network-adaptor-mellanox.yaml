@@ -16,6 +16,7 @@
     body_format: form-urlencoded
     body:
       action: get_versions
+  retries: 5
   register: result_versions
 
 - name: Get latest utility download URL
@@ -32,6 +33,7 @@
       version: "{{ result_versions.json.latest }}"
       os: Linux
       arch: "{{ mellanox_mlxup_architectures[ansible_architecture] }}"
+  retries: 5
   register: result_urls
 
 - name: Download Mellanox online update utility
@@ -41,6 +43,7 @@
     url: "{{ result_urls.json.files[0].url }}"
     dest: /tmp/mlxup
     mode: "0550"
+  retries: 10
 
 - name: Flash all Mellanox NIC if old
   when:
