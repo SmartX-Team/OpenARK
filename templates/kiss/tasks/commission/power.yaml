@@ -16,6 +16,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     lan print
@@ -26,6 +27,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     lan set 1 ipaddr "{{ ipmi_address.stdout }}"
@@ -35,6 +37,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     lan set 1 netmask 255.240.0.0
@@ -44,6 +47,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     lan set 1 defgw ipaddr 10.47.255.254
@@ -53,6 +57,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     user set name 9 '{{ ansible_ipmi_username }}'
@@ -63,6 +68,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     user set password 9 '{{ ansible_ipmi_password }}'
@@ -73,6 +79,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     user enable 9
@@ -82,6 +89,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
@@ -91,6 +99,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     chassis bootparam set bootflag force_pxe
@@ -100,6 +109,7 @@
   when: ipmi.stat.exists
   shell: >
     docker run --rm
+    --net none
     --device /dev/ipmi0:/dev/ipmi0:rw
     docker.io/mikeynap/ipmitool:latest
     chassis bootdev pxe
