@@ -6,6 +6,9 @@
   assert:
     that: ansible_facts.services["systemd-networkd.service"].state == "running"
 
+- name: Provision NICs
+  include: network-adaptor.yaml
+
 - name: Collect network inteface infomations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet

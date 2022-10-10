@@ -1,0 +1,63 @@
+---
+- name: Define supported architechures
+  vars:
+    mellanox_mlxup_architectures:
+      x86_64: x64
+      aarch64: Arm
+
+- name: Get latest utility versions
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+  uri:
+    url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
+    method: POST
+    return_content: true
+    status_code: 200
+    body_format: form-urlencoded
+    body:
+      action: get_versions
+  register: result_versions
+
+- name: Get latest utility download URL
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+  uri:
+    url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
+    method: POST
+    return_content: true
+    status_code: 200
+    body_format: form-urlencoded
+    body:
+      action: get_download_info
+      version: "{{ result_versions.json.latest }}"
+      os: Linux
+      arch: "{{ mellanox_mlxup_architectures[ansible_architecture] }}"
+  register: result_urls
+
+- name: Download Mellanox online update utility
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+  get_url:
+    url: "{{ result_urls.json.files[0].url }}"
+    dest: /tmp/mlxup
+    mode: "0550"
+
+- name: Flash all Mellanox NIC if old
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+  command: /tmp/mlxup -y
+  register: result
+
+- name: Reboot the boxes if flashed
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+    - "'Restart needed' in result.stdout"
+  reboot:
+    reboot_timeout: 3600 # 1h (PXE booting can take a long time)
+
+- name: Cleanup
+  when:
+    - ansible_architecture in mellanox_mlxup_architectures
+  file:
+    path: /tmp/mlxup
+    state: absent
