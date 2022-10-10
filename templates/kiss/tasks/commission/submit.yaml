@@ -17,3 +17,4 @@
         type: Ipmi
         address: "{{ ipmi_address.stdout }}"
       reset: "{{ not kiss_storage_exists }}"
+  retries: 5
