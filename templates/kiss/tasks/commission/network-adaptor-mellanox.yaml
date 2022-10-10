@@ -48,7 +48,7 @@
   command: /tmp/mlxup -y
   register: result
 
-- name: Reboot the boxes if flashed
+- name: Reboot the boxes if flashed (The task will be restarted)
   when:
     - ansible_architecture in mellanox_mlxup_architectures
     - "'Restart needed' in result.stdout"
