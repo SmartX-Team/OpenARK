@@ -35,6 +35,11 @@ spec:
                 configMapKeyRef:
                   name: ansible-images
                   key: kubespray
+            - name: kiss_allow_critical_commands
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: allow_critical_commands
             - name: kiss_group_force_reset
               valueFrom:
                 configMapKeyRef:

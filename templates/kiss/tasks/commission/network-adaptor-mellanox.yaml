@@ -1,5 +1,7 @@
 ---
 - name: Define supported architechures
+  when:
+    - kiss_allow_critical_commands | default(False)
   set_fact:
     mellanox_mlxup_architectures:
       x86_64: x64
@@ -7,6 +9,7 @@
 
 - name: Get latest utility versions
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
   uri:
     url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
@@ -21,6 +24,7 @@
 
 - name: Get latest utility download URL
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
   uri:
     url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
@@ -38,6 +42,7 @@
 
 - name: Download Mellanox online update utility
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
   get_url:
     url: "{{ result_urls.json.files[0].url }}"
@@ -47,12 +52,14 @@
 
 - name: Flash all Mellanox NIC if old
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
   command: /tmp/mlxup -y
   register: result
 
 - name: Reboot the boxes if flashed (The task will be restarted)
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
     - "'Restart needed' in result.stdout"
   reboot:
@@ -60,6 +67,7 @@
 
 - name: Cleanup
   when:
+    - kiss_allow_critical_commands | default(False)
     - ansible_architecture in mellanox_mlxup_architectures
   file:
     path: /tmp/mlxup

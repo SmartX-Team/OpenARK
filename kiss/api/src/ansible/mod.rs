@@ -20,6 +20,7 @@ use crate::{
 
 pub struct AnsibleClient {
     ansible_image: String,
+    allow_critical_commands: bool,
     force_reset: bool,
 }
 
@@ -37,6 +38,7 @@ impl AnsibleClient {
     pub fn try_default() -> Result<Self> {
         Ok(Self {
             ansible_image: infer("ANSIBLE_IMAGE")?,
+            allow_critical_commands: infer("kiss_allow_critical_commands").unwrap_or(false),
             force_reset: infer("kiss_group_force_reset").unwrap_or(false),
         })
     }
@@ -206,6 +208,11 @@ impl AnsibleClient {
                             ),
                         ]),
                         env: Some(vec![
+                            EnvVar {
+                                name: "kiss_allow_critical_commands".into(),
+                                value: Some(self.allow_critical_commands.to_string()),
+                                ..Default::default()
+                            },
                             EnvVar {
                                 name: "ansible_host".into(),
                                 value: Some(job.r#box.spec.machine.hostname()),

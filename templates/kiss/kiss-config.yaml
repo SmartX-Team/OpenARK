@@ -5,4 +5,5 @@ metadata:
   name: kiss-config
   namespace: kiss
 data:
+  allow_critical_commands: "true"
   force_reset: "true"

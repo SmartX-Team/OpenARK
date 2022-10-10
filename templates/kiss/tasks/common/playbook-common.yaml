@@ -34,6 +34,7 @@
         ansible_ipmi_host: "{{ lookup('env', 'ansible_ipmi_host') }}"
         ansible_ipmi_username: "{{ lookup('env', 'ansible_ipmi_username') }}"
         ansible_ipmi_password: "{{ lookup('env', 'ansible_ipmi_password') }}"
+        kiss_allow_critical_commands: "{{ lookup('env', 'kiss_allow_critical_commands') == 'true' }}"
         kiss_group_force_reset: "{{ lookup('env', 'kiss_group_force_reset') == 'true' }}"
         kiss_group_role: "{{ lookup('env', 'kiss_group_role') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
