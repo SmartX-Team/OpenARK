@@ -2,6 +2,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use actix_web::{
     get,
+    http::StatusCode,
     web::{Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -26,7 +27,9 @@ async fn resolve(
     let (site, path) = path.into_inner();
 
     match config.search(&site, &path, req.query_string()) {
-        Ok(path) => Ok(::actix_web_lab::web::Redirect::to(path).respond_to(&req)),
+        Ok(path) => Ok(::actix_web_lab::web::Redirect::to(path)
+            .using_status_code(StatusCode::MOVED_PERMANENTLY) // iPXE supported
+            .respond_to(&req)),
         Err(e) => {
             warn!("Failed to parse path: {e}");
             HttpResponse::Forbidden().message_body(())

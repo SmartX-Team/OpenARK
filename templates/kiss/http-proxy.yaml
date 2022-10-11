@@ -83,11 +83,12 @@ spec:
               protocol: TCP
               containerPort: 3128
           volumeMounts:
-            - name: config
-              mountPath: /etc/squid/squid.conf
-              subPath: squid.conf
-            # - name: data
-            #   mountPath: /var/spool/squid
+            # TODO: improve config to dismiss the OOMKilled problem
+            # - name: config
+            #   mountPath: /etc/squid/squid.conf
+            #   subPath: squid.conf
+            - name: data
+              mountPath: /var/spool/squid
       volumes:
         - name: config
           configMap:
@@ -95,6 +96,10 @@ spec:
             items:
               - key: squid.conf
                 path: squid.conf
+        - name: data
+          hostPath:
+            path: /var/lib/proxy-cache
+            type: Directory
 ---
 apiVersion: v1
 kind: Service
