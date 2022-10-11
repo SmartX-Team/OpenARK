@@ -58,6 +58,8 @@ spec:
               value: /var/lib/kiss/assets/cache
             - name: KISS_ASSETS_CONFIG_PATH
               value: /etc/netai-cloud/kiss/assets/config.yaml
+            - name: KISS_ASSETS_USE_CACHE
+              value: "false"
           ports:
             - name: http
               protocol: TCP

@@ -110,15 +110,20 @@ async fn main() {
         let config = Arc::new(ProxyConfig::load().await?);
 
         // Initialize client
-        let client = ClientBuilder::new(Client::new())
-            .with(Cache(HttpCache {
-                mode: CacheMode::Default,
-                manager: CACacheManager {
-                    path: infer("KISS_ASSETS_CACHE_DIR").unwrap_or_else(|_| "./http-cacache".into()),
-                },
-                options: None,
-            }))
-            .build();
+        let client = {
+            let mut builder = ClientBuilder::new(Client::new());
+            if infer::<_, bool>("KISS_ASSETS_USE_CACHE").unwrap_or_default() {
+                builder = builder.with(Cache(HttpCache {
+                    mode: CacheMode::Default,
+                    manager: CACacheManager {
+                        path: infer("KISS_ASSETS_CACHE_DIR")
+                            .unwrap_or_else(|_| "./http-cacache".into()),
+                    },
+                    options: None,
+                }));
+            }
+            builder.build()
+        };
 
         // Start web server
         HttpServer::new(move || {
