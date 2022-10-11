@@ -34,8 +34,8 @@ data:
     ---
     ignition:
       proxy:
-        httpProxy: http://http-proxy.kiss.svc.ops.netai-cloud:1080
-        httpsProxy: http://http-proxy.kiss.svc.ops.netai-cloud:1080
+        httpProxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
+        httpsProxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
         noProxy:
           - 10.0.0.0/8
           - 127.0.0.0/8
@@ -83,7 +83,7 @@ data:
           mode: 0555
           contents:
             inline: |
-              export HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080
+              export HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128
               export HTTPS_PROXY=$HTTP_PROXY
               export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /etc/systemd/system/notify-new-box.service
@@ -120,8 +120,8 @@ data:
           contents:
             inline: |
               use_proxy=yes
-              http_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:1080
-              https_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:1080
+              http_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:3128
+              https_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:3128
               no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
@@ -177,7 +177,7 @@ data:
           contents:
             inline: |
                 [http]
-                proxy = http://http-proxy.kiss.svc.ops.netai-cloud:1080
+                proxy = http://http-proxy.kiss.svc.ops.netai-cloud:3128
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
@@ -191,8 +191,8 @@ data:
             - name: 20-http-proxy.conf
               contents: |
                 [Service]
-                Environment="HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080"
-                Environment="HTTPS_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:1080"
+                Environment="HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128"
+                Environment="HTTPS_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128"
                 Environment="NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain"
             - name: 30-increase-ulimit.conf
               contents: |

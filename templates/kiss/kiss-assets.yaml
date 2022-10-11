@@ -54,7 +54,7 @@ spec:
               value: 0.0.0.0:80
             - name: RUST_LOG
               value: INFO
-            - name: KISS_PROXY_CONFIG_PATH
+            - name: KISS_ASSETS_CONFIG_PATH
               value: /etc/netai-cloud/kiss/assets/config.yaml
           ports:
             - name: http
@@ -65,8 +65,8 @@ spec:
               cpu: 30m
               memory: 20Mi
             limits:
-              cpu: 1000m
-              memory: 1Gi
+              cpu: 100m
+              memory: 100Mi
           volumeMounts:
             - name: config
               mountPath: /etc/netai-cloud/kiss/assets

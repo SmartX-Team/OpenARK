@@ -15,7 +15,7 @@ pub struct ProxyConfig {
 
 impl ProxyConfig {
     pub async fn load() -> Result<Self> {
-        let path: PathBuf = env::infer("KISS_PROXY_CONFIG_PATH")?;
+        let path: PathBuf = env::infer("KISS_ASSETS_CONFIG_PATH")?;
 
         match path.extension().and_then(|e| e.to_str()) {
             Some("json") => {
