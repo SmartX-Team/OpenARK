@@ -9,6 +9,8 @@
   shell: >
     docker pull
     docker.io/mikeynap/ipmitool:latest
+  register: result
+  until: result.rc == 0
   retries: 5
   delay: 5
 

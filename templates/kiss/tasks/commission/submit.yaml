@@ -4,7 +4,6 @@
     url: http://gateway.kiss.svc.ops.netai-cloud/commission
     method: POST
     return_content: false
-    status_code: 200
     body_format: json
     body:
       access:
@@ -17,4 +16,7 @@
         type: Ipmi
         address: "{{ ipmi_address.stdout }}"
       reset: "{{ not kiss_storage_exists }}"
+  register: result
+  until: result.status == 200
   retries: 5
+  delay: 5

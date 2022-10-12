@@ -15,12 +15,13 @@
     url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
     method: POST
     return_content: true
-    status_code: 200
     body_format: form-urlencoded
     body:
       action: get_versions
-  retries: 5
   register: result_versions
+  until: result_versions.status == 200
+  retries: 5
+  delay: 5
 
 - name: Get latest utility download URL
   when:
@@ -30,15 +31,16 @@
     url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
     method: POST
     return_content: true
-    status_code: 200
     body_format: form-urlencoded
     body:
       action: get_download_info
       version: "{{ result_versions.json.latest }}"
       os: Linux
       arch: "{{ mellanox_mlxup_architectures[ansible_architecture] }}"
-  retries: 5
   register: result_urls
+  until: result_urls.status == 200
+  retries: 5
+  delay: 5
 
 - name: Download Mellanox online update utility
   when:
@@ -48,7 +50,11 @@
     url: "{{ result_urls.json.files[0].url }}"
     dest: /tmp/mlxup
     mode: "0550"
+    timeout: 30
+  register: result_download
+  until: result_download.status_code == 200
   retries: 10
+  delay: 5
 
 - name: Flash all Mellanox NIC if old
   when:
