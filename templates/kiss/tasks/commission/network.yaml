@@ -94,7 +94,7 @@
 
 - name: Disable all other interfaces
   when:
-    - kiss_allow_pruning_network_interfaces
+    - kiss_allow_pruning_network_interfaces | default(False)
   with_items: "{{ interfaces[1:] }}"
   template:
     src: ./template_systemd-networkd_20-disable.network.j2

@@ -3,7 +3,7 @@
   set_fact:
     kiss_storage_exists: >-
       {{
-        (not kiss_group_force_reset)
+        (not (kiss_group_force_reset | default(False)))
       and
         ('kiss' in ansible_lvm.vgs.keys())
       }}

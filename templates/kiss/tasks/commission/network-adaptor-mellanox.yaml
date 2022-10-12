@@ -50,9 +50,10 @@
     url: "{{ result_urls.json.files[0].url }}"
     dest: /tmp/mlxup
     mode: "0550"
+    force: true
     timeout: 30
   register: result_download
-  until: result_download.status_code == 200
+  until: result_download is succeeded
   retries: 10
   delay: 5
 
