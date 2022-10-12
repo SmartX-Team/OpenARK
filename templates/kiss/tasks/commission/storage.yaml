@@ -62,8 +62,8 @@
             path: /var/lib/kubelet
             size: 256M
           - kind: var
-            name: proxy-cache
-            path: /var/lib/proxy-cache
+            name: proxy_cache
+            path: /var/lib/proxy_cache
             size: 16G
           - kind: var
             name: rook

@@ -30,8 +30,8 @@ VOLUME [ "/var/lib/cni" ]
 VOLUME [ "/var/lib/containerd" ]
 ## var.k8s
 VOLUME [ "/var/lib/kubelet" ]
-## var.proxy-cache
-VOLUME [ "/var/lib/proxy-cache" ]
+## var.proxy_cache
+VOLUME [ "/var/lib/proxy_cache" ]
 ## var.rook
 VOLUME [ "/var/lib/rook" ]
 

@@ -122,7 +122,7 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/var.cni:/var/lib/cni:shared" \
             --volume "$KUBERNETES_DATA/var.containerd:/var/lib/containerd:shared" \
             --volume "$KUBERNETES_DATA/var.k8s:/var/lib/kubelet:shared" \
-            --volume "$KUBERNETES_DATA/var.proxy-cache:/var/lib/proxy-cache:shared" \
+            --volume "$KUBERNETES_DATA/var.proxy_cache:/var/lib/proxy_cache:shared" \
             --volume "$KUBERNETES_DATA/var.rook:/var/lib/rook:shared" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null

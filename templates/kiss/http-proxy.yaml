@@ -98,7 +98,7 @@ spec:
                 path: squid.conf
         - name: data
           hostPath:
-            path: /var/lib/proxy-cache
+            path: /var/lib/proxy_cache
             type: Directory
 ---
 apiVersion: v1
