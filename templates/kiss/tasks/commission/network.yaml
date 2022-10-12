@@ -93,6 +93,8 @@
     dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.network
 
 - name: Disable all other interfaces
+  when:
+    - kiss_allow_pruning_network_interfaces
   with_items: "{{ interfaces[1:] }}"
   template:
     src: ./template_systemd-networkd_20-disable.network.j2
@@ -129,7 +131,8 @@
   ignore_errors: true
 
 - name: Wait for primary interface to be linked up
-  when: interface_primary_address_ipv4 is defined
+  when:
+    - interface_primary_address_ipv4 is defined
   command: >
     ping -4 -c 4
     -I {{ interface_primary_address_ipv4 }}

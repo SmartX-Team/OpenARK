@@ -21,6 +21,7 @@ use crate::{
 pub struct AnsibleClient {
     ansible_image: String,
     allow_critical_commands: bool,
+    allow_pruning_network_interfaces: bool,
     force_reset: bool,
 }
 
@@ -39,6 +40,8 @@ impl AnsibleClient {
         Ok(Self {
             ansible_image: infer("ANSIBLE_IMAGE")?,
             allow_critical_commands: infer("kiss_allow_critical_commands").unwrap_or(false),
+            allow_pruning_network_interfaces: infer("kiss_allow_pruning_network_interfaces")
+                .unwrap_or(false),
             force_reset: infer("kiss_group_force_reset").unwrap_or(false),
         })
     }
@@ -211,6 +214,11 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_allow_critical_commands".into(),
                                 value: Some(self.allow_critical_commands.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_allow_pruning_network_interfaces".into(),
+                                value: Some(self.allow_pruning_network_interfaces.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

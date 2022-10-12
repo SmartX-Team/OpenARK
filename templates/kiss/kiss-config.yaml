@@ -6,4 +6,5 @@ metadata:
   namespace: kiss
 data:
   allow_critical_commands: "true"
+  allow_pruning_network_interfaces: "false"
   force_reset: "true"

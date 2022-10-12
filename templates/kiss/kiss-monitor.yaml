@@ -40,6 +40,11 @@ spec:
                 configMapKeyRef:
                   name: kiss-config
                   key: allow_critical_commands
+            - name: kiss_allow_pruning_network_interfaces
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: allow_pruning_network_interfaces
             - name: kiss_group_force_reset
               valueFrom:
                 configMapKeyRef:
