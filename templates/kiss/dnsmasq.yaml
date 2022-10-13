@@ -68,6 +68,11 @@ spec:
             - --log-queries
             - --log-dhcp
           env:
+            - name: DHCP_RANGE_IPV4_DURATION
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: network_ipv4_dhcp_duration
             - name: DHCP_RANGE_IPV4_BEGIN
               valueFrom:
                 configMapKeyRef:
@@ -83,21 +88,16 @@ spec:
                 configMapKeyRef:
                   name: kiss-config
                   key: network_ipv4_gateway
-            - name: DHCP_RANGE_IPV4_NAMESERVER_1
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: network_nameserver_1
-            - name: DHCP_RANGE_IPV4_DURATION
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: network_ipv4_dhcp_duration
             - name: NETWORK_INTERFACE_MTU_SIZE
               valueFrom:
                 configMapKeyRef:
                   name: kiss-config
                   key: network_interface_mtu_size
+            - name: DHCP_RANGE_IPV4_NAMESERVER_1
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: network_nameserver_incluster_ipv4
           ports:
             - name: dhcp
               protocol: UDP

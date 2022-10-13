@@ -26,22 +26,16 @@ impl KissConfig {
         let config = api.get("kiss-config").await?;
 
         Ok(Self {
-            allow_critical_commands: infer(&config, "kiss_allow_critical_commands")?,
-            allow_pruning_network_interfaces: infer(
-                &config,
-                "kiss_allow_pruning_network_interfaces",
-            )?,
-            group_force_reset: infer(&config, "kiss_group_force_reset")?,
-            network_interface_mtu_size: infer(&config, "kiss_network_interface_mtu_size")?,
-            network_ipv4_dhcp_duration: infer(&config, "kiss_network_ipv4_dhcp_duration")?,
-            network_ipv4_dhcp_range_begin: infer(&config, "kiss_network_ipv4_dhcp_range_begin")?,
-            network_ipv4_dhcp_range_end: infer(&config, "kiss_network_ipv4_dhcp_range_end")?,
-            network_ipv4_gateway: infer(&config, "kiss_network_ipv4_gateway")?,
-            network_ipv4_subnet: infer(&config, "kiss_network_ipv4_subnet")?,
-            network_nameserver_incluster_ipv4: infer(
-                &config,
-                "kiss_network_nameserver_incluster_ipv4",
-            )?,
+            allow_critical_commands: infer(&config, "allow_critical_commands")?,
+            allow_pruning_network_interfaces: infer(&config, "allow_pruning_network_interfaces")?,
+            group_force_reset: infer(&config, "group_force_reset")?,
+            network_interface_mtu_size: infer(&config, "network_interface_mtu_size")?,
+            network_ipv4_dhcp_duration: infer(&config, "network_ipv4_dhcp_duration")?,
+            network_ipv4_dhcp_range_begin: infer(&config, "network_ipv4_dhcp_range_begin")?,
+            network_ipv4_dhcp_range_end: infer(&config, "network_ipv4_dhcp_range_end")?,
+            network_ipv4_gateway: infer(&config, "network_ipv4_gateway")?,
+            network_ipv4_subnet: infer(&config, "network_ipv4_subnet")?,
+            network_nameserver_incluster_ipv4: infer(&config, "network_nameserver_incluster_ipv4")?,
         })
     }
 }
