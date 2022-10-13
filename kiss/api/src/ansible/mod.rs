@@ -1,5 +1,7 @@
+mod config;
+
 use inflector::Inflector;
-use ipis::{core::anyhow::Result, env::infer, log::info};
+use ipis::{core::anyhow::Result, log::info};
 use k8s_openapi::api::{
     batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
     core::v1::{
@@ -15,14 +17,13 @@ use kube::{
 
 use crate::{
     cluster::ClusterManager,
+    config::KissConfig,
     r#box::{BoxCrd, BoxGroupRole, BoxPowerSpec, BoxState},
 };
 
 pub struct AnsibleClient {
-    ansible_image: String,
-    allow_critical_commands: bool,
-    allow_pruning_network_interfaces: bool,
-    force_reset: bool,
+    config: self::config::AnsibleConfig,
+    kiss: KissConfig,
 }
 
 impl AnsibleClient {
@@ -36,13 +37,10 @@ impl AnsibleClient {
     pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
     pub const LABEL_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
 
-    pub fn try_default() -> Result<Self> {
+    pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
-            ansible_image: infer("ANSIBLE_IMAGE")?,
-            allow_critical_commands: infer("kiss_allow_critical_commands").unwrap_or(false),
-            allow_pruning_network_interfaces: infer("kiss_allow_pruning_network_interfaces")
-                .unwrap_or(false),
-            force_reset: infer("kiss_group_force_reset").unwrap_or(false),
+            config: self::config::AnsibleConfig::try_default(kube).await?,
+            kiss: KissConfig::try_default(kube).await?,
         })
     }
 
@@ -63,7 +61,7 @@ impl AnsibleClient {
             .as_ref()
             .and_then(|status| status.bind_group.as_ref());
         let group = bind_group.unwrap_or(&job.r#box.spec.group);
-        let reset = self.force_reset || bind_group != Some(&job.r#box.spec.group);
+        let reset = self.kiss.group_force_reset || bind_group != Some(&job.r#box.spec.group);
 
         // delete all previous cronjobs
         {
@@ -193,7 +191,7 @@ impl AnsibleClient {
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
-                        image: Some(self.ansible_image.clone()),
+                        image: Some(self.config.image.clone()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec![
                             "-vvv".into(),
@@ -211,16 +209,6 @@ impl AnsibleClient {
                             ),
                         ]),
                         env: Some(vec![
-                            EnvVar {
-                                name: "kiss_allow_critical_commands".into(),
-                                value: Some(self.allow_critical_commands.to_string()),
-                                ..Default::default()
-                            },
-                            EnvVar {
-                                name: "kiss_allow_pruning_network_interfaces".into(),
-                                value: Some(self.allow_pruning_network_interfaces.to_string()),
-                                ..Default::default()
-                            },
                             EnvVar {
                                 name: "ansible_host".into(),
                                 value: Some(job.r#box.spec.machine.hostname()),
@@ -298,6 +286,16 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_allow_critical_commands".into(),
+                                value: Some(self.kiss.allow_critical_commands.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_allow_pruning_network_interfaces".into(),
+                                value: Some(self.kiss.allow_pruning_network_interfaces.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_cluster_control_planes".into(),
                                 value: Some(cluster_state.get_control_planes_as_string()),
                                 ..Default::default()
@@ -330,6 +328,58 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_group_role".into(),
                                 value: Some(group.role.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_interface_mtu_size".into(),
+                                value: Some(self.kiss.network_interface_mtu_size.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_dhcp_duration".into(),
+                                value: Some(self.kiss.network_ipv4_dhcp_duration.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_dhcp_range_begin".into(),
+                                value: Some(self.kiss.network_ipv4_dhcp_range_begin.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_dhcp_range_end".into(),
+                                value: Some(self.kiss.network_ipv4_dhcp_range_end.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_gateway".into(),
+                                value: Some(self.kiss.network_ipv4_gateway.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_subnet".into(),
+                                value: Some(self.kiss.network_ipv4_subnet.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_subnet_address".into(),
+                                value: Some(self.kiss.network_ipv4_subnet.network().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_subnet_mask".into(),
+                                value: Some(self.kiss.network_ipv4_subnet.netmask().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_ipv4_subnet_mask_prefix".into(),
+                                value: Some(self.kiss.network_ipv4_subnet.prefix_len().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_nameserver_incluster_ipv4".into(),
+                                value: Some(
+                                    self.kiss.network_nameserver_incluster_ipv4.to_string(),
+                                ),
                                 ..Default::default()
                             },
                         ]),

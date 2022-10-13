@@ -30,26 +30,6 @@ spec:
           command:
             - kiss-controller
           env:
-            - name: ANSIBLE_IMAGE
-              valueFrom:
-                configMapKeyRef:
-                  name: ansible-images
-                  key: kubespray
-            - name: kiss_allow_critical_commands
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: allow_critical_commands
-            - name: kiss_allow_pruning_network_interfaces
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: allow_pruning_network_interfaces
-            - name: kiss_group_force_reset
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: force_reset
             - name: RUST_LOG
               value: INFO
           resources:

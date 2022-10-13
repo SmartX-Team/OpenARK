@@ -1,16 +1,4 @@
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: dnsmasq-dhcp-range
-  namespace: kiss
-data:
-  ipv4Begin: "10.32.0.0"
-  ipv4End: "10.32.255.254"
-  ipv4Gateway: "10.47.255.254"
-  ipv4NameServer1: "10.112.0.3"
-  ipv4Duration: "7d"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,6 +60,8 @@ spec:
             - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/boot.ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
             - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
+            - --dhcp-option=26,$(NETWORK_INTERFACE_MTU_SIZE)
+            - --dhcp-option=27,1
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
             - --port=0
             - --bind-dynamic
@@ -81,28 +71,33 @@ spec:
             - name: DHCP_RANGE_IPV4_BEGIN
               valueFrom:
                 configMapKeyRef:
-                  name: dnsmasq-dhcp-range
-                  key: ipv4Begin
+                  name: kiss-config
+                  key: network_ipv4_dhcp_range_begin
             - name: DHCP_RANGE_IPV4_END
               valueFrom:
                 configMapKeyRef:
-                  name: dnsmasq-dhcp-range
-                  key: ipv4End
+                  name: kiss-config
+                  key: network_ipv4_dhcp_range_end
             - name: DHCP_RANGE_IPV4_GATEWAY
               valueFrom:
                 configMapKeyRef:
-                  name: dnsmasq-dhcp-range
-                  key: ipv4Gateway
+                  name: kiss-config
+                  key: network_ipv4_gateway
             - name: DHCP_RANGE_IPV4_NAMESERVER_1
               valueFrom:
                 configMapKeyRef:
-                  name: dnsmasq-dhcp-range
-                  key: ipv4NameServer1
+                  name: kiss-config
+                  key: network_nameserver_1
             - name: DHCP_RANGE_IPV4_DURATION
               valueFrom:
                 configMapKeyRef:
-                  name: dnsmasq-dhcp-range
-                  key: ipv4Duration
+                  name: kiss-config
+                  key: network_ipv4_dhcp_duration
+            - name: NETWORK_INTERFACE_MTU_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: network_interface_mtu_size
           ports:
             - name: dhcp
               protocol: UDP

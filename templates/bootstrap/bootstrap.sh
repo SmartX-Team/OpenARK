@@ -292,10 +292,10 @@ function install_kiss_cluster() {
             "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
             "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl create -n kiss configmap "ansible-images" \
-            "--from-literal=kubespray=$KUBESPRAY_IMAGE"
+            kubectl create -n kiss configmap "ansible-config" \
+            "--from-literal=kubespray_image=$KUBESPRAY_IMAGE"
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl create -n kiss configmap "baremetal" \
+            kubectl create -n kiss configmap "baremetal-config" \
             "--from-literal=csi=$BAREMETAL_CSI"
 
         # Upload the SSH Configuration File to the Cluster

@@ -38,6 +38,16 @@
         kiss_allow_pruning_network_interfaces: "{{ lookup('env', 'kiss_allow_pruning_network_interfaces') == 'true' }}"
         kiss_group_force_reset: "{{ lookup('env', 'kiss_group_force_reset') == 'true' }}"
         kiss_group_role: "{{ lookup('env', 'kiss_group_role') }}"
+        kiss_network_interface_mtu_size: "{{ lookup('env', 'kiss_network_interface_mtu_size') }}"
+        kiss_network_ipv4_dhcp_duration: "{{ lookup('env', 'kiss_network_ipv4_dhcp_duration') }}"
+        kiss_network_ipv4_dhcp_range_begin: "{{ lookup('env', 'kiss_network_ipv4_dhcp_range_begin') }}"
+        kiss_network_ipv4_dhcp_range_end: "{{ lookup('env', 'kiss_network_ipv4_dhcp_range_end') }}"
+        kiss_network_ipv4_gateway: "{{ lookup('env', 'kiss_network_ipv4_gateway') }}"
+        kiss_network_ipv4_subnet: "{{ lookup('env', 'kiss_network_ipv4_subnet') }}"
+        kiss_network_ipv4_subnet_address: "{{ lookup('env', 'kiss_network_ipv4_subnet_address') }}"
+        kiss_network_ipv4_subnet_mask: "{{ lookup('env', 'kiss_network_ipv4_subnet_mask') }}"
+        kiss_network_ipv4_subnet_mask_prefix: "{{ lookup('env', 'kiss_network_ipv4_subnet_mask_prefix') }}"
+        kiss_network_nameserver_incluster_ipv4: "{{ lookup('env', 'kiss_network_nameserver_incluster_ipv4') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all

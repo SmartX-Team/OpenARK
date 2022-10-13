@@ -18,22 +18,22 @@
     and ansible_facts[item].type == 'ether'
     and 'ipv4' in ansible_facts[item]
     and 'netmask' in ansible_facts[item].ipv4
-    and ansible_facts[item].ipv4.netmask == '255.240.0.0'
+    and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
     and 'network' in ansible_facts[item].ipv4
-    and ansible_facts[item].ipv4.network == '10.32.0.0'
+    and ansible_facts[item].ipv4.network == kiss_network_ipv4_subnet_address
   set_fact:
     interfaces: >
       {{ interfaces|default([]) + [{
         'name': item,
         'address_ipv4': ansible_facts[item].ipv4.address,
-        'address_ipv4_netmask': 12,
+        'address_ipv4_netmask': kiss_network_ipv4_subnet_mask_prefix,
         'address_ipv4_gateway': ansible_default_ipv4.gateway,
         'dns': [
-          '10.112.0.3',
+          kiss_network_nameserver_incluster_ipv4,
         ],
         'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item].module,
-        'mtu': 1500,
+        'mtu': kiss_network_interface_mtu_size,
         'pciid': ansible_facts[item].pciid,
         'speed': ansible_facts[item].speed,
         'speed_neg': -ansible_facts[item].speed,

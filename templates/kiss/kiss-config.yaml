@@ -7,4 +7,11 @@ metadata:
 data:
   allow_critical_commands: "true"
   allow_pruning_network_interfaces: "false"
-  force_reset: "true"
+  group_force_reset: "true"
+  network_interface_mtu_size: "1500"
+  network_ipv4_dhcp_duration: "7d"
+  network_ipv4_dhcp_range_begin: "10.32.0.0"
+  network_ipv4_dhcp_range_end: "10.32.255.254"
+  network_ipv4_gateway: "10.47.255.254"
+  network_ipv4_subnet: "10.32.0.0/12"
+  network_nameserver_incluster_ipv4: "10.112.0.3"

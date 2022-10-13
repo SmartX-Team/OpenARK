@@ -17,7 +17,7 @@ INSTALL_KISS_DEFAULT="true"
 
 # Get environment variables
 BAREMETAL_CSI=$(
-    kubectl get -n kiss configmap baremetal \
+    kubectl get -n kiss configmap "baremetal-config" \
         -o jsonpath --template '{.data.csi}'
 )
 INSTALL_KISS="${INSTALL_KISS:-$INSTALL_KISS_DEFAULT}"

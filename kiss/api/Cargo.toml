@@ -17,6 +17,7 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 
 inflector = { package = "Inflector", version = "0.11" }
+ipnet = { version = "2.5", features = ["schemars", "serde"] }
 kube = { version = "0.74", default-features = false, features = [
     "client",
     "derive",

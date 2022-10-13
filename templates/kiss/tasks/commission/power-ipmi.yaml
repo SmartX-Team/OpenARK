@@ -1,0 +1,118 @@
+---
+- name: Check whether IPMI exists
+  stat:
+    path: /dev/ipmi0
+  register: ipmi
+
+- name: Pull IPMI docker image
+  when: ipmi.stat.exists
+  shell: >
+    docker pull
+    docker.io/mikeynap/ipmitool:latest
+  register: result
+  until: result.rc == 0
+  retries: 5
+  delay: 5
+
+- name: Get IPMI IP Address
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    lan print
+    | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
+  register: ipmi_address
+
+- name: Set IPMI IP Address
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    lan set 1 ipaddr "{{ ipmi_address.stdout }}"
+  ignore_errors: true
+
+- name: Set IPMI IP Address Netmask
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    lan set 1 netmask 255.240.0.0
+  ignore_errors: true
+
+- name: Set IPMI IP Address Default Gateway
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    lan set 1 defgw ipaddr 10.47.255.254
+  ignore_errors: true
+
+- name: Set IPMI user 9 name
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    user set name 9 '{{ ansible_ipmi_username }}'
+  ignore_errors: true
+  no_log: true
+
+- name: Set IPMI user 9 password
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    user set password 9 '{{ ansible_ipmi_password }}'
+  ignore_errors: true
+  no_log: true
+
+- name: Enable IPMI user 9
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    user enable 9
+  ignore_errors: true
+
+- name: Link on IPMI user 9 as ADMIN
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
+  ignore_errors: true
+
+- name: Change boot order to PXE-first
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    chassis bootparam set bootflag force_pxe
+  ignore_errors: true
+
+- name: Change boot order to PXE-first
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    docker.io/mikeynap/ipmitool:latest
+    chassis bootdev pxe
+  ignore_errors: true

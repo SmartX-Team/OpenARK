@@ -13,19 +13,19 @@
             {{ bin_dir }}/kubectl get namespace kiss
             || {{ bin_dir }}/kubectl create namespace kiss
 
-        - name: Inherit ConfigMap - baremetal
+        - name: Inherit ConfigMap - baremetal-config
           block:
             - name: Download ConfigMap
               delegate_to: localhost
               shell:
                 cmd: >
-                  kubectl get -n kiss configmap "baremetal" -o yaml
+                  kubectl get -n kiss configmap "baremetal-config" -o yaml
               register: result
 
             - name: Save ConfigMap
               shell:
                 cmd: >
-                  {{ bin_dir }}/kubectl get -n kiss configmap "baremetal"
+                  {{ bin_dir }}/kubectl get -n kiss configmap "baremetal-config"
                   || {{ bin_dir }}/kubectl create -f -
                 stdin: "{{ result.stdout }}"
 
