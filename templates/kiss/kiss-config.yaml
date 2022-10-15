@@ -8,7 +8,7 @@ data:
   allow_critical_commands: "true"
   allow_pruning_network_interfaces: "false"
   group_force_reset: "true"
-  network_interface_mtu_size: "9000"
+  network_interface_mtu_size: "9000" # enagle Jumbo Frames
   network_ipv4_dhcp_duration: "7d"
   network_ipv4_dhcp_range_begin: "10.32.0.0"
   network_ipv4_dhcp_range_end: "10.32.255.254"

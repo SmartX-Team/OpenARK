@@ -45,7 +45,7 @@ all:
         # You can set MTU value here. If left undefined or empty, it will
         # not be specified in calico CNI config, so Calico will use built-in
         # defaults. The value should be a number, not a string.
-        # calico_mtu: 9000
+        calico_mtu: 9000
         # Choose data store type for calico: "etcd" or "kdd" (kubernetes datastore)
         # The default value for calico_datastore is set in role kubespray-default
         calico_datastore: kdd
