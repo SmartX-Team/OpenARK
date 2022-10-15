@@ -242,12 +242,6 @@ impl<'a, 'b> ClusterStateGuard<'a, 'b> {
     }
 
     pub async fn update_control_planes(&mut self, state: Option<BoxState>) -> Result<(), Error> {
-        // check lock state
-        if !(self.is_locked() && self.is_locked_by(&self.owner.spec)) {
-            info!("Failed to update control planes: Cluster is locked");
-            return Ok(());
-        }
-
         // load control planes
         for _retry in 0..5 {
             let api = Api::<BoxCrd>::all(self.kube.clone());
