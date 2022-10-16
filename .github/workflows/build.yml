@@ -71,7 +71,7 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: ${{ github.repository }} == ulagbulag-village/${{ env.IMAGE_NAME }}
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
@@ -115,7 +115,7 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: ${{ github.repository }} == ulagbulag-village/${{ env.IMAGE_NAME }}
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
@@ -160,7 +160,7 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: ${{ github.repository }} == ulagbulag-village/${{ env.IMAGE_NAME }}
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
@@ -204,7 +204,7 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: ${{ github.repository }} == ulagbulag-village/${{ env.IMAGE_NAME }}
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
@@ -248,7 +248,7 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: ${{ github.repository }} == ulagbulag-village/${{ env.IMAGE_NAME }}
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
