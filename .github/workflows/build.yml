@@ -15,6 +15,7 @@ env:
   REGISTRY_USER: kerryeon
   REGISTRY_REPOSITORY: ulagbulag-village
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+  RELEASE_NAME: NetAI Cloud
   IMAGE_NAME: netai-cloud
 
   ALPINE_VERSION: "3.16"
@@ -278,7 +279,7 @@ jobs:
       - name: Release
         uses: rymndhng/release-on-push-action@master
         with:
-          release_name: Automatic Release of Cutting-Edge NetAI Cloud
+          release_name: Automatic Release of Cutting-Edge ${{ env.RELEASE_NAME }}
           release_body: Committed as ${{ github.sha }}
           bump_version_scheme: patch
           use_github_release_notes: false
