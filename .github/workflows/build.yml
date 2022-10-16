@@ -125,6 +125,50 @@ jobs:
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
+  build-and-push-image-ipmitool:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - build-rust
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to ${{ env.REGISTRY }}
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}-ipmitool
+          tags: latest
+          context: ./templates/ipmitool
+          containerfiles: |
+            ./templates/ipmitool/Dockerfile
+          build-args: |
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
   build-and-push-image-ipxe:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
@@ -263,6 +307,7 @@ jobs:
     needs:
       - build-and-push-image
       - build-and-push-image-bootstrap-node
+      - build-and-push-image-ipmitool
       - build-and-push-image-ipxe
       - build-and-push-image-snapshot-git
       - build-and-push-image-upgrade-kiss

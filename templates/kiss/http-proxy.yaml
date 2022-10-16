@@ -70,8 +70,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: http-proxy
-          image: docker.io/hinata/nginx-forward-proxy:latest
-          # image: docker.io/ubuntu/squid:latest
+          image: docker.io/ubuntu/squid:latest
           resources:
             requests:
               cpu: 30m
