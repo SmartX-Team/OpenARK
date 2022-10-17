@@ -18,6 +18,7 @@ KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
 KUBERNETES_DATA_DEFAULT="/opt/kiss"
 KUBESPRAY_CONFIG_DEFAULT="$(pwd)/config/bootstrap/defaults/all.yaml"
+KUBESPRAY_CONFIG_ALL_DEFAULT="$(pwd)/config/bootstrap/defaults/all.yaml"
 KUBESPRAY_CONFIG_TEMPLATE_DEFAULT="$(pwd)/config/"
 KUBESPRAY_IMAGE_DEFAULT="quay.io/kubespray/kubespray:v2.20.0"
 KUBESPRAY_NODES_DEFAULT="node1.master"
@@ -33,6 +34,7 @@ KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
 KUBERNETES_CONFIG="${KUBERNETES_CONFIG:-$KUBERNETES_CONFIG_DEFAULT}"
 KUBERNETES_DATA="${KUBERNETES_DATA:-$KUBERNETES_DATA_DEFAULT}"
 KUBESPRAY_CONFIG="${KUBESPRAY_CONFIG:-$KUBESPRAY_CONFIG_DEFAULT}"
+KUBESPRAY_CONFIG_ALL="${KUBESPRAY_CONFIG_ALL:-$KUBESPRAY_CONFIG_ALL_DEFAULT}"
 KUBESPRAY_CONFIG_TEMPLATE="${KUBESPRAY_CONFIG_TEMPLATE:-$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT}"
 KUBESPRAY_IMAGE="${KUBESPRAY_IMAGE:-$KUBESPRAY_IMAGE_DEFAULT}"
 KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
@@ -229,12 +231,14 @@ function install_k8s_cluster() {
             --net "host" \
             --env "KUBESPRAY_NODES=$nodes" \
             --volume "$KUBESPRAY_CONFIG:/root/kiss/bootstrap/config.yaml:ro" \
+            --volume "$KUBESPRAY_CONFIG_ALL:/root/kiss/bootstrap/all.yaml:ro" \
             --volume "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/:/etc/kiss/bootstrap/:ro" \
             --volume "$SSH_KEYFILE:/root/.ssh/id_rsa:ro" \
             --volume "$SSH_KEYFILE.pub:/root/.ssh/id_rsa.pub:ro" \
             "$KUBESPRAY_IMAGE" ansible-playbook \
             --become --become-user="root" \
             --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
+            --inventory "/root/kiss/bootstrap/all.yaml" \
             --inventory "/root/kiss/bootstrap/config.yaml" \
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
@@ -242,6 +246,10 @@ function install_k8s_cluster() {
         for name in $KUBESPRAY_NODES; do
             "$CONTAINER_RUNTIME" exec "$node_first" \
                 mkdir -p "/root/kiss/bootstrap/"
+            "$CONTAINER_RUNTIME" exec -i "$node_first" \
+                tee "/root/kiss/bootstrap/all.yaml" \
+                <"$KUBESPRAY_CONFIG_ALL" |
+                echo -n ''
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
                 tee "/root/kiss/bootstrap/config.yaml" \
                 <"$KUBESPRAY_CONFIG" |
@@ -288,8 +296,9 @@ function install_kiss_cluster() {
             kubectl create namespace kiss
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
-            "--from-file=all.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
+            "--from-file=defaults.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
             "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
+            "--from-file=all.yaml=/root/kiss/bootstrap/all.yaml" \
             "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "ansible-config" \
