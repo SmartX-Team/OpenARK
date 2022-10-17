@@ -93,6 +93,7 @@ data:
             inline: |
               # needed for calico
               net.ipv4.conf.all.rp_filter=1
+              net.ipv4.conf.default.rp_filter=1
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444
