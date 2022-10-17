@@ -224,6 +224,16 @@ function install_k8s_cluster() {
             tar -cf - -C "/etc/kiss/bootstrap/" "." |
             tar -xf - -C "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/"
 
+        # Loading kiss configurations
+        echo -n "- Loading kiss configurations ... "
+        "$CONTAINER_RUNTIME" run --rm \
+            --name "kiss-configuration-loader" \
+            --entrypoint "/usr/bin/env" \
+            "$KISS_INSTALLER_IMAGE" \
+            tar -cf - -C "./tasks/join/" "." |
+            tar -xf - -C "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/tasks/"
+        echo "OK"
+
         # Install cluster
         echo "- Installing k8s cluster ... "
         "$CONTAINER_RUNTIME" run --rm \
