@@ -17,5 +17,6 @@
     groups:
       - all
       - etcd
+      - k8s_cluster_default
       - kube_control_plane
       - kube_node

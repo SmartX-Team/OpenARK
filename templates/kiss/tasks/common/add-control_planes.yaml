@@ -16,3 +16,4 @@
       - all
       - flatcar
       - "{{ node[0] }}"
+      - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"

@@ -53,6 +53,7 @@
           - all
           - flatcar
           - kube_node
+          - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
           - target
 
     - name: Bind to group - Control Plane

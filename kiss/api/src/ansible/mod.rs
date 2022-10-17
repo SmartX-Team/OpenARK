@@ -311,6 +311,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_cluster_name_snake_case".into(),
+                                value: Some(group.cluster_name.to_snake_case()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_cluster_domain".into(),
                                 value: Some(group.cluster_domain()),
                                 ..Default::default()
