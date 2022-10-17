@@ -1,2 +1,7 @@
 ---
 - import_playbook: ./add-node-as-worker.yaml
+
+- name: Calico | Add BGP peers
+  hosts: kube_control_plane
+  tasks:
+    - include: ./calico-bgppeer.yaml

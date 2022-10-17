@@ -80,6 +80,11 @@
         kiss_cluster_name: "{{ lookup('env', 'kiss_cluster_name') }}"
         kiss_cluster_is_default: "{{ lookup('env', 'kiss_cluster_is_default') == 'true' }}"
 
+    - name: Change calico configuration
+      when: not kiss_cluster_is_default
+      set_fact:
+        calico_advertise_cluster_ips: false
+
 - hosts: flatcar
   gather_facts: false
   tasks:
