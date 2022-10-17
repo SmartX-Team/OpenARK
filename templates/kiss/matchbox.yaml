@@ -86,6 +86,13 @@ data:
               export HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128
               export HTTPS_PROXY=$HTTP_PROXY
               export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
+        - path: /etc/sysctl.d/10-reverse-path-filter.conf
+          filesystem: root
+          mode: 0444
+          contents:
+            inline: |
+              # needed for calico
+              net.ipv4.conf.all.rp_filter=1
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
           mode: 0444
