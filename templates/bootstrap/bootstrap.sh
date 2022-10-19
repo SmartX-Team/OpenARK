@@ -102,6 +102,9 @@ function spawn_node() {
             sudo mkdir -p "$KUBERNETES_DATA"
         fi
 
+        # Create a sysctl conf directory if not exists
+        sudo mkdir -p "/etc/sysctl.d/"
+
         # Spawn a node
         echo -n "- Spawning a node ($name) ... "
         "$CONTAINER_RUNTIME" run --detach \
@@ -126,6 +129,7 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/var.k8s:/var/lib/kubelet:shared" \
             --volume "$KUBERNETES_DATA/var.proxy_cache:/var/lib/proxy_cache:shared" \
             --volume "$KUBERNETES_DATA/var.rook:/var/lib/rook:shared" \
+            --volume "/etc/sysctl.d:/etc/sysctl.d" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
