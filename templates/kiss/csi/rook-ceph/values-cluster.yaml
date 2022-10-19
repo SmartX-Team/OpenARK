@@ -1,3 +1,10 @@
+# Ability to override ceph.conf
+configOverride: |
+  [global]
+  bluefs_buffered_io = false
+  mon_allow_pool_delete = true
+  mon_allow_pool_size_one = true
+
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment
