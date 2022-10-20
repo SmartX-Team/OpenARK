@@ -33,7 +33,7 @@ all:
         # Versions
         # FIXME: Rook-Ceph on Flatcar OS is not working on containerd version >= 1.6.0
         # See also: https://github.com/rook/rook/issues/10110
-        containerd_version: 1.5.13
+        containerd_version: 1.5.9
 
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
