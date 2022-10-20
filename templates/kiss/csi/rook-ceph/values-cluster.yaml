@@ -1,10 +1,3 @@
-# Ability to override ceph.conf
-configOverride: |
-  [global]
-  bluefs_buffered_io = false
-  mon_allow_pool_delete = true
-  mon_allow_pool_size_one = true
-
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment
@@ -31,7 +24,7 @@ cephClusterSpec:
       # Several modules should not need to be included in this list. The "dashboard" and "monitoring" modules
       # are already enabled by other settings in the cluster CR.
       - name: pg_autoscaler
-        enabled: false
+        enabled: true
 
   # Network configuration, see: https://github.com/rook/rook/blob/master/Documentation/CRDs/ceph-cluster-crd.md#network-configuration-settings
   network:
