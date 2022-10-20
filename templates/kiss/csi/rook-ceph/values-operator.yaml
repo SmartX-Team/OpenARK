@@ -1,7 +1,3 @@
 # EnableDiscoveryDaemon Whether to enable the daemon for device discovery.
 # If true, the rook-ceph-discover daemonset will be started.
 enableDiscoveryDaemon: true
-
-# Writing to the hostPath is required for the Ceph mon and osd pods. Given the restricted permissions in OpenShift with SELinux,
-# the pod must be running privileged in order to write to the hostPath volume, this must be set to true then.
-hostpathRequiresPrivileged: true
