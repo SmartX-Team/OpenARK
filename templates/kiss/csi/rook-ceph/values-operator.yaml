@@ -1,3 +1,6 @@
+## The logging level for the operator: ERROR | WARNING | INFO | DEBUG
+logLevel: DEBUG
+
 # EnableDiscoveryDaemon Whether to enable the daemon for device discovery.
 # If true, the rook-ceph-discover daemonset will be started.
 enableDiscoveryDaemon: true

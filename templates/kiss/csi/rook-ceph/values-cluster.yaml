@@ -61,6 +61,9 @@ cephBlockPools:
       failureDomain: host
       replicated:
         size: 1
+        # Disallow setting pool with replica 1, this could lead to data loss without recovery.
+        # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
+        requireSafeReplicaSize: false
     storageClass:
       enabled: true
       name: ceph-block
@@ -107,10 +110,16 @@ cephFileSystems:
       metadataPool:
         replicated:
           size: 1
+          # Disallow setting pool with replica 1, this could lead to data loss without recovery.
+          # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
+          requireSafeReplicaSize: false
       dataPools:
         - failureDomain: host
           replicated:
             size: 1
+            # Disallow setting pool with replica 1, this could lead to data loss without recovery.
+            # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
+            requireSafeReplicaSize: false
           # Optional and highly recommended, 'data0' by default, see https://github.com/rook/rook/blob/master/Documentation/CRDs/Shared-Filesystem/ceph-filesystem-crd.md#pools
           name: data0
       metadataServer:
@@ -155,6 +164,9 @@ cephObjectStores:
         failureDomain: host
         replicated:
           size: 1
+          # Disallow setting pool with replica 1, this could lead to data loss without recovery.
+          # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
+          requireSafeReplicaSize: false
       dataPool:
         failureDomain: host
         erasureCoded:
