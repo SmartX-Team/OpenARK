@@ -36,7 +36,7 @@
 
         - name: Install Kiss Core
           shell: >
-            {{ bin_dir }}/nerdctl run --rm
+            {{ bin_dir }}/nerdctl run --detach --rm
             --name "kiss-installer"
             --net "host"
             --env "INSTALL_KISS=false"

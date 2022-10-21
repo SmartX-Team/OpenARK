@@ -341,6 +341,7 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" run --rm \
             --name "kiss-installer" \
             --net "host" \
+            --env "ROOK_CEPH_WAIT_UNTIL_DEPLOYED=$nodes" \
             --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
             "$KISS_INSTALLER_IMAGE"
     fi
