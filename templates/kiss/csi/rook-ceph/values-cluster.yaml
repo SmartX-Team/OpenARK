@@ -23,31 +23,62 @@ cephClusterSpec:
     daemonHealth:
       mon:
         disabled: false
+        interval: 45s
         timeout: 2h
       osd:
         disabled: false
+        interval: 60s
         timeout: 2h
       status:
         disabled: false
+        interval: 60s
         timeout: 2h
     # Change pod liveness probe, it works for all mon, mgr, and osd pods.
     livenessProbe:
+      rgw:
+        disabled: false
+        probe:
+          failureThreshold: 120
+          initialDelaySeconds: 7200
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 60
+      mds:
+        disabled: false
+        probe:
+          failureThreshold: 120
+          initialDelaySeconds: 7200
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 60
       mon:
         disabled: false
-        timeout: 2h
+        probe:
+          failureThreshold: 120
+          initialDelaySeconds: 7200
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 60
       mgr:
         disabled: false
-        timeout: 2h
+        probe:
+          failureThreshold: 120
+          initialDelaySeconds: 7200
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 60
       osd:
         disabled: false
-        timeout: 2h
+        probe:
+          failureThreshold: 120
+          initialDelaySeconds: 7200
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 60
     startupProbe:
       mon:
         disabled: false
-        timeout: 24h
       mgr:
         disabled: false
-        timeout: 24h
       osd:
         disabled: false
-        timeout: 24h
