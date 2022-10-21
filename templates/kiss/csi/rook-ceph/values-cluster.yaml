@@ -9,9 +9,7 @@ cephClusterSpec:
   mon:
     # Set the number of mons to be started. Generally recommended to be 3.
     # For highest availability, an odd number of mons should be specified.
-    # FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
-    # See also: https://github.com/rook/rook/issues/10110
-    count: 1
+    count: 3
     # The mons should be on unique nodes. For production, at least 3 nodes are recommended for this reason.
     # Mons should only be allowed on the same node for test environments where data loss is acceptable.
     allowMultiplePerNode: false
@@ -24,176 +22,32 @@ cephClusterSpec:
   healthCheck:
     daemonHealth:
       mon:
-        disabled: true
+        disabled: false
         timeout: 2h
       osd:
-        disabled: true
+        disabled: false
         timeout: 2h
       status:
-        disabled: true
+        disabled: false
         timeout: 2h
     # Change pod liveness probe, it works for all mon, mgr, and osd pods.
     livenessProbe:
       mon:
-        disabled: true
+        disabled: false
         timeout: 2h
       mgr:
-        disabled: true
+        disabled: false
         timeout: 2h
       osd:
-        disabled: true
+        disabled: false
         timeout: 2h
     startupProbe:
       mon:
-        disabled: true
-        timeout: 2h
+        disabled: false
+        timeout: 24h
       mgr:
-        disabled: true
-        timeout: 2h
+        disabled: false
+        timeout: 24h
       osd:
-        disabled: true
-        timeout: 2h
-
-cephBlockPools:
-  - name: ceph-blockpool
-    # see https://github.com/rook/rook/blob/master/Documentation/CRDs/Block-Storage/ceph-block-pool-crd.md#spec for available configuration
-    spec:
-      failureDomain: host
-      replicated:
-        size: 1
-        # Disallow setting pool with replica 1, this could lead to data loss without recovery.
-        # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
-        requireSafeReplicaSize: false
-    storageClass:
-      enabled: true
-      name: ceph-block
-      isDefault: true
-      reclaimPolicy: Delete
-      allowVolumeExpansion: true
-      mountOptions: []
-      # see https://github.com/rook/rook/blob/master/Documentation/ceph-block.md#provision-storage for available configuration
-      parameters:
-        # (optional) mapOptions is a comma-separated list of map options.
-        # For krbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
-        # For nbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
-        # mapOptions: lock_on_read,queue_depth=1024
-
-        # (optional) unmapOptions is a comma-separated list of unmap options.
-        # For krbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
-        # For nbd options refer
-        # https://docs.ceph.com/docs/master/man/8/rbd-nbd/#options
-        # unmapOptions: force
-
-        # RBD image format. Defaults to "2".
-        imageFormat: "2"
-        # RBD image features. Available for imageFormat: "2". CSI RBD currently supports only `layering` feature.
-        imageFeatures: layering
-        # The secrets contain Ceph admin credentials.
-        csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
-        csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
-        csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
-        csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
-        csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
-        csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
-        # Specify the filesystem type of the volume. If not specified, csi-provisioner
-        # will set default as `ext4`. Note that `xfs` is not recommended due to potential deadlock
-        # in hyperconverged settings where the volume is mounted on the same node as the osds.
-        csi.storage.k8s.io/fstype: ext4
-
-cephFileSystems:
-  - name: ceph-filesystem
-    # see https://github.com/rook/rook/blob/master/Documentation/CRDs/Shared-Filesystem/ceph-filesystem-crd.md#filesystem-settings for available configuration
-    spec:
-      metadataPool:
-        replicated:
-          size: 1
-          # Disallow setting pool with replica 1, this could lead to data loss without recovery.
-          # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
-          requireSafeReplicaSize: false
-      dataPools:
-        - failureDomain: host
-          replicated:
-            size: 1
-            # Disallow setting pool with replica 1, this could lead to data loss without recovery.
-            # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
-            requireSafeReplicaSize: false
-          # Optional and highly recommended, 'data0' by default, see https://github.com/rook/rook/blob/master/Documentation/CRDs/Shared-Filesystem/ceph-filesystem-crd.md#pools
-          name: data0
-      metadataServer:
-        activeCount: 1
-        activeStandby: true
-        resources:
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
-          requests:
-            cpu: "1000m"
-            memory: "4Gi"
-        priorityClassName: system-cluster-critical
-    storageClass:
-      enabled: true
-      isDefault: false
-      name: ceph-filesystem
-      # (Optional) specify a data pool to use, must be the name of one of the data pools above, 'data0' by default
-      pool: data0
-      reclaimPolicy: Delete
-      allowVolumeExpansion: true
-      mountOptions: []
-      # see https://github.com/rook/rook/blob/master/Documentation/ceph-filesystem.md#provision-storage for available configuration
-      parameters:
-        # The secrets contain Ceph admin credentials.
-        csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
-        csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
-        csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
-        csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
-        csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
-        csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
-        # Specify the filesystem type of the volume. If not specified, csi-provisioner
-        # will set default as `ext4`. Note that `xfs` is not recommended due to potential deadlock
-        # in hyperconverged settings where the volume is mounted on the same node as the osds.
-        csi.storage.k8s.io/fstype: ext4
-
-cephObjectStores:
-  - name: ceph-objectstore
-    # see https://github.com/rook/rook/blob/master/Documentation/CRDs/Object-Storage/ceph-object-store-crd.md#object-store-settings for available configuration
-    spec:
-      metadataPool:
-        failureDomain: host
-        replicated:
-          size: 1
-          # Disallow setting pool with replica 1, this could lead to data loss without recovery.
-          # Make sure you're *ABSOLUTELY CERTAIN* that is what you want
-          requireSafeReplicaSize: false
-      dataPool:
-        failureDomain: host
-        erasureCoded:
-          dataChunks: 2
-          codingChunks: 1
-      preservePoolsOnDelete: true
-      gateway:
-        port: 80
-        resources:
-          limits:
-            cpu: "2000m"
-            memory: "2Gi"
-          requests:
-            cpu: "1000m"
-            memory: "1Gi"
-        # securePort: 443
-        # sslCertificateRef:
-        instances: 1
-        priorityClassName: system-cluster-critical
-      healthCheck:
-        bucket:
-          interval: 60s
-    storageClass:
-      enabled: true
-      name: ceph-bucket
-      reclaimPolicy: Delete
-      # see https://github.com/rook/rook/blob/master/Documentation/ceph-object-bucket-claim.md#storageclass for available configuration
-      parameters:
-        # note: objectStoreNamespace and objectStoreName are configured by the chart
-        region: us-east-1
+        disabled: false
+        timeout: 24h
