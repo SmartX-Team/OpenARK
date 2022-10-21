@@ -37,6 +37,8 @@ spec:
         - ipBlock:
             cidr: 10.32.0.0/12
         - ipBlock:
+            cidr: 10.64.0.0/12
+        - ipBlock:
             cidr: 10.112.0.0/12
 ---
 apiVersion: networking.k8s.io/v1

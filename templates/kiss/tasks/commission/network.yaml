@@ -103,7 +103,7 @@
 - name: Unmanage interface networks from DHCP - Local DNS Server
   with_items: "{{ interfaces[:1] }}"
   command: >
-    ip route del 10.112.0.3
+    ip route del {{ kiss_network_nameserver_incluster_ipv4 }}
     dev {{ item.name }}
     proto dhcp
   ignore_errors: true

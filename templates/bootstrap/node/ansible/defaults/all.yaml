@@ -86,10 +86,12 @@ all:
         # internal network. When used, it will assign IP
         # addresses from this range to individual pods.
         # This network must be unused in your network infrastructure!
-        kube_pods_subnet: 10.96.0.0/12
+        kube_pods_subnet: 10.48.0.0/12
+        kube_child_pods_subnet: 10.96.0.0/12
 
         # Kubernetes internal network for services, unused block of space.
-        kube_service_addresses: 10.112.0.0/12 # same as calico CIDR, NetAI S
+        kube_service_addresses: 10.64.0.0/12 # same as calico CIDR
+        kube_child_service_addresses: 10.112.0.0/12 # same as calico CIDR
 
         # Configure Dual Stack networking (i.e. both IPv4 and IPv6)
         enable_dual_stack_networks: false # disable IPv6

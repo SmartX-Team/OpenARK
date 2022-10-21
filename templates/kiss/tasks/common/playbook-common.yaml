@@ -86,6 +86,12 @@
       set_fact:
         calico_advertise_cluster_ips: false
 
+    - name: Change kubernetes configuration
+      when: not kiss_cluster_is_default
+      set_fact:
+        kube_pods_subnet: "{{ kube_child_pods_subnet }}"
+        kube_service_addresses: "{{ kube_child_service_addresses }}"
+
 - hosts: flatcar
   gather_facts: false
   tasks:
