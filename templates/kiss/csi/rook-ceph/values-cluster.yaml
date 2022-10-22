@@ -77,8 +77,8 @@ cephClusterSpec:
           timeoutSeconds: 60
     startupProbe:
       mon:
-        disabled: true
+        disabled: false
       mgr:
-        disabled: true
+        disabled: false
       osd:
-        disabled: true
+        disabled: false
