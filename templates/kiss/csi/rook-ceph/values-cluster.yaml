@@ -90,9 +90,13 @@ cephClusterSpec:
           successThreshold: 1
           timeoutSeconds: 60
     startupProbe:
+      rgw:
+        disabled: true
+      mds:
+        disabled: true
       mon:
-        disabled: false
+        disabled: true
       mgr:
-        disabled: false
+        disabled: true
       osd:
-        disabled: false
+        disabled: true
