@@ -34,11 +34,17 @@
                   || {{ bin_dir }}/kubectl create -f -
                 stdin: "{{ result.stdout }}"
 
-        - name: Install Kiss Core
+        - name: Get CSI Information
+          shell: >
+            {{ bin_dir }}/kubectl get -n kiss configmap "baremetal-config"
+              -o jsonpath --template '{.data.csi}'
+          register: result_csi
+
+        - name: Install CSI
+          when: result_csi.stdout != "none"
           shell: >
             docker run --detach --rm
-            --name "kiss-installer"
-            --net "host"
-            --env "INSTALL_KISS=false"
-            --volume "/root/.kube:/root/.kube:ro"
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
+              --name "csi-installer-{{ result_csi.stdout }}"
+              --net "host"
+              --volume "/root/.kube:/root/.kube:ro"
+              "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"

@@ -12,6 +12,7 @@ set -e
 
 # Configure default environment variables
 BAREMETAL_CSI_DEFAULT="rook-ceph"
+BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-csi-__BAREMETAL_CSI__:latest"
 CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
@@ -28,6 +29,7 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
 # Configure environment variables
 BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
+BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 KISS_BOOTSTRAP_NODE_IMAGE="${KISS_BOOTSTRAP_NODE_IMAGE:-$KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT}"
 KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
@@ -41,6 +43,12 @@ KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
 REUSE_DATA="${REUSE_DATA:-$REUSE_DATA_DEFAULT}"
 REUSE_NODES="${REUSE_NODES:-$REUSE_NODES_DEFAULT}"
 SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
+
+# Apply templates
+BAREMETAL_CSI_INSTALLER_IMAGE="$(
+    echo $BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE |
+        sed "s/__BAREMETAL_CSI__/$BAREMETAL_CSI/g"
+)"
 
 ###########################################################
 #   Check Dependencies                                    #
@@ -341,7 +349,6 @@ function install_kiss_cluster() {
         "$CONTAINER_RUNTIME" run --rm \
             --name "kiss-installer" \
             --net "host" \
-            --env "ROOK_CEPH_WAIT_UNTIL_DEPLOYED=$nodes" \
             --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
             "$KISS_INSTALLER_IMAGE"
     fi
@@ -417,6 +424,44 @@ function install_k8s_snapshot_cluster() {
     echo "OK"
 }
 
+###########################################################
+#   Install CSI                                           #
+###########################################################
+
+# Define a CSI installer function
+function install_csi() {
+    local names="$1"
+    local node_first="$(echo $names | awk '{print $1}')"
+
+    # Check if CSI already exists
+    local NEED_INSTALL=1
+    if [ "$BAREMETAL_CSI" == "none" ]; then
+        echo -n "- Skipping installing CSI ... "
+        local NEED_INSTALL=0
+    elif
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get namespaces "$BAREMETAL_CSI" \
+            >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed $BAREMETAL_CSI CSI ... "
+        local NEED_INSTALL=0
+    fi
+
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Install CSI
+        echo -n "- Installing $BAREMETAL_CSI CSI in background ... "
+        "$CONTAINER_RUNTIME" run --detach --rm \
+            --name "csi-installer-$BAREMETAL_CSI" \
+            --net "host" \
+            --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
+            "$BAREMETAL_CSI_INSTALLER_IMAGE" \
+            >/dev/null
+    fi
+
+    # Finished!
+    echo "OK"
+}
+
 # Define a main function
 function main() {
     # Check Dependencies
@@ -440,6 +485,9 @@ function main() {
 
     # Install a k8s snapshot config within k8s cluster
     install_k8s_snapshot_cluster $KUBESPRAY_NODES
+
+    # Install a CSI
+    install_csi $KUBESPRAY_NODES
 
     # Finished!
     echo "Installed!"

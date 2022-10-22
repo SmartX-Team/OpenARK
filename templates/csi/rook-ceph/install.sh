@@ -26,7 +26,7 @@ ROOK_CEPH_WAIT_UNTIL_DEPLOYED="${ROOK_CEPH_WAIT_UNTIL_DEPLOYED:-$ROOK_CEPH_WAIT_
 #   Install Cluster Role                                  #
 ###########################################################
 
-echo "- Installing ClusterRoles ..."
+echo "- Installing ClusterRoles ... "
 
 kubectl apply -f "./cluster-roles.yaml"
 
@@ -34,7 +34,7 @@ kubectl apply -f "./cluster-roles.yaml"
 #   Configure Helm Channel                                #
 ###########################################################
 
-echo "- Configuring Helm channel ..."
+echo "- Configuring Helm channel ... "
 
 helm repo add "csi" "$HELM_CHART"
 
@@ -42,7 +42,7 @@ helm repo add "csi" "$HELM_CHART"
 #   Install Operator                                      #
 ###########################################################
 
-echo "- Checking Ceph Cluster is already installed ..."
+echo "- Checking Ceph Cluster is already installed ... "
 if
     kubectl get namespace --no-headers "rook-ceph" \
         >/dev/null 2>/dev/null
@@ -52,7 +52,7 @@ else
     IS_FIRST=1
 fi
 
-echo "- Installing CSI Operator ..."
+echo "- Installing CSI Operator ... "
 
 helm upgrade --install "rook-ceph" \
     "csi/rook-ceph" \
@@ -60,14 +60,14 @@ helm upgrade --install "rook-ceph" \
     --namespace "rook-ceph" \
     --values "./values-operator.yaml"
 
-echo "- Waiting for deploying CSI Operator ..."
+echo "- Waiting for deploying CSI Operator ... "
 sleep 30
 
 ###########################################################
 #   Install Storage Class                                 #
 ###########################################################
 
-echo "- Installing Storage Class ..."
+echo "- Installing Storage Class ... "
 
 # do not update the number of monitors when re-deploying
 if [ "$IS_FIRST" -eq 0 ]; then
