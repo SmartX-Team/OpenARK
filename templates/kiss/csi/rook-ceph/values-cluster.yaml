@@ -14,12 +14,21 @@ cephClusterSpec:
     # Mons should only be allowed on the same node for test environments where data loss is acceptable.
     allowMultiplePerNode: false
 
+  resources:
+    osd:
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+      requests:
+        cpu: "1000m"
+        memory: "4Gi"
+
   # The option to automatically remove OSDs that are out and are safe to destroy.
   removeOSDsIfOutAndSafeToRemove: false
 
   storage: # cluster level storage configuration and selection
     config:
-      osdsPerDevice: "6" # this value can be overridden at the node or device level
+      osdsPerDevice: "1" # this value can be overridden at the node or device level
       encryptedDevice: "false" # the default value for this option is "false"
 
   # Configure the healthcheck and liveness probes for ceph pods.
