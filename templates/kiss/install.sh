@@ -16,15 +16,15 @@ echo "- Installing kiss cluster ... "
 
 # namespace & common
 kubectl apply \
-    -f namespace.yaml
+    -f "namespace.yaml"
 
 # services
 kubectl apply \
-    -f dnsmasq.yaml \
-    -f docker-registry.yaml \
-    -f http-proxy.yaml \
-    -f matchbox.yaml \
-    -f ntpd.yaml
+    -f "dnsmasq.yaml" \
+    -f "docker-registry.yaml" \
+    -f "http-proxy.yaml" \
+    -f "matchbox.yaml" \
+    -f "ntpd.yaml"
 
 # ansible tasks
 kubectl apply -f ./tasks/common.yaml
