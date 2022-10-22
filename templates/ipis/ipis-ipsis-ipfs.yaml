@@ -1,0 +1,148 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ipfs
+  namespace: ipis
+spec:
+  selector:
+    matchLabels:
+      name: ipfs
+  serviceName: ipfs
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ipfs
+        serviceType: ipis-runtime
+    spec:
+      affinity: # TODO: use service instead
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/ipis
+                    operator: Exists
+      dnsPolicy: ClusterFirstWithHostNet # TODO: use service instead
+      hostNetwork: true # TODO: use service instead
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ipiis
+          image: docker.io/ipfs/kubo:latest
+          ports:
+            - name: ipfs-tcp-4001
+              protocol: TCP
+              containerPort: 4001
+            - name: ipfs-udp-4001
+              protocol: UDP
+              containerPort: 4001
+            - name: ipfs-tcp-5001
+              protocol: TCP
+              containerPort: 5001
+            - name: ipfs-tcp-8080
+              protocol: TCP
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            # limits:
+            #   cpu: "4"
+            #   memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data/ipfs
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: ceph-block
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Ti
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipsis-ipfs
+  namespace: ipis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: ipsis-ipfs
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        name: ipsis-ipfs
+        serviceType: ipis-runtime
+    spec:
+      affinity: # TODO: use service instead
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/ipis
+                    operator: Exists
+      dnsPolicy: ClusterFirstWithHostNet # TODO: use service instead
+      hostNetwork: true # TODO: use service instead
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ipiis
+          image: quay.io/ulagbulag-village/ipsis:latest-ipfs
+          imagePullPolicy: Always
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: ipis_account_me
+              valueFrom:
+                secretKeyRef:
+                  name: account-root-ca
+                  key: private_key
+            - name: ipiis_client_account_primary
+              valueFrom:
+                configMapKeyRef:
+                  name: account-root-ca
+                  key: public_key
+            - name: ipiis_client_account_primary_address
+              value: 0.0.0.0:9801
+            - name: ipiis_server_port
+              value: "9802"
+            - name: ipsis_client_ipfs_host
+              value: "127.0.0.1"
+            - name: ipsis_client_ipfs_port
+              value: "5001"
+          ports:
+            - name: ipiis
+              protocol: TCP
+              containerPort: 9802
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            # limits:
+            #   cpu: "4"
+            #   memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipsis-ipfs
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: ipsis-ipfs
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9802
+      targetPort: 9802

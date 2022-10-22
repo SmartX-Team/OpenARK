@@ -1,0 +1,91 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ipsis-local
+  namespace: ipis
+spec:
+  selector:
+    matchLabels:
+      name: ipsis-local
+  serviceName: ipsis-local
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ipsis-local
+        serviceType: ipis-runtime
+    spec:
+      affinity: # TODO: use service instead
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/ipis
+                    operator: Exists
+      dnsPolicy: ClusterFirstWithHostNet # TODO: use service instead
+      hostNetwork: true # TODO: use service instead
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ipiis
+          image: quay.io/ulagbulag-village/ipsis:latest-local
+          imagePullPolicy: Always
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: ipis_account_me
+              valueFrom:
+                secretKeyRef:
+                  name: account-root-ca
+                  key: private_key
+            - name: ipiis_client_account_primary
+              valueFrom:
+                configMapKeyRef:
+                  name: account-root-ca
+                  key: public_key
+            - name: ipiis_client_account_primary_address
+              value: 0.0.0.0:9801
+            - name: ipiis_server_port
+              value: "9803"
+            - name: ipsis_client_local_dir
+              value: /data
+          ports:
+            - name: ipiis
+              protocol: TCP
+              containerPort: 9803
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            # limits:
+            #   cpu: "4"
+            #   memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: ceph-block
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Ti
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipsis-local
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: ipsis-local
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9803
+      targetPort: 9803

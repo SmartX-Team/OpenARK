@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipiis-tcp
+  namespace: ipis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: ipiis-tcp
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        name: ipiis-tcp
+        serviceType: ipis-runtime
+    spec:
+      affinity: # TODO: use service instead
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/ipis
+                    operator: Exists
+      dnsPolicy: ClusterFirstWithHostNet # TODO: use service instead
+      hostNetwork: true # TODO: use service instead
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ipiis
+          image: quay.io/ulagbulag-village/ipiis:latest-tcp
+          imagePullPolicy: Always
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: ipis_account_me
+              valueFrom:
+                secretKeyRef:
+                  name: account-root-ca
+                  key: private_key
+            - name: ipiis_client_account_primary
+              valueFrom:
+                configMapKeyRef:
+                  name: account-root-ca
+                  key: public_key
+            - name: ipiis_server_port
+              value: "9801"
+          ports:
+            - name: ipiis
+              protocol: TCP
+              containerPort: 9801
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            # limits:
+            #   cpu: "4"
+            #   memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipiis-tcp
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: ipiis-tcp
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9801
+      targetPort: 9801
