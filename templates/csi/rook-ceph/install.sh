@@ -139,15 +139,14 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
             )
             case "$PHASE" in
             "Ready")
-                continue
-                ;;
-            *)
                 break
                 ;;
+            *)
+                # pass some times
+                sleep 5
+                continue
+                ;;
             esac
-
-            # pass some times
-            sleep 5
         done
     }
     wait_ceph_cluster
