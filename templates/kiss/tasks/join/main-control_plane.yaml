@@ -48,3 +48,11 @@
               --net "host"
               --volume "/root/.kube:/root/.kube:ro"
               "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
+
+        - name: Install IPIS
+          shell: >
+            docker run --detach --rm
+              --name "ipis-installer"
+              --net "host"
+              --volume "/root/.kube:/root/.kube:ro"
+              "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
