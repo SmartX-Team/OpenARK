@@ -58,7 +58,7 @@ spec:
                   name: account-root-ca
                   key: public_key
             - name: ipiis_client_account_primary_address
-              value: 0.0.0.0:9801
+              value: "__ADDRESS__:__PORT__"
             - name: ipsis_client_ipfs_host
               value: "127.0.0.1"
             - name: ipsis_client_ipfs_port
