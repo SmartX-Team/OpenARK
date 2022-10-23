@@ -14,6 +14,8 @@ set -e
 BAREMETAL_CSI_DEFAULT="rook-ceph"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-csi-__BAREMETAL_CSI__:latest"
 CONTAINER_RUNTIME_DEFAULT="docker"
+IPIS_ENABLE_DEFAULT="true"
+IPIS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
 KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest"
 KISS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest"
 KUBERNETES_CONFIG_DEFAULT="$HOME/.kube/"
@@ -31,6 +33,8 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
+IPIS_ENABLE="${IPIS_ENABLE:-$IPIS_ENABLE_DEFAULT}"
+IPIS_INSTALLER_IMAGE="${IPIS_INSTALLER_IMAGE:-$IPIS_INSTALLER_IMAGE_DEFAULT}"
 KISS_BOOTSTRAP_NODE_IMAGE="${KISS_BOOTSTRAP_NODE_IMAGE:-$KISS_BOOTSTRAP_NODE_IMAGE_DEFAULT}"
 KISS_INSTALLER_IMAGE="${KISS_INSTALLER_IMAGE:-$KISS_INSTALLER_IMAGE_DEFAULT}"
 KUBERNETES_CONFIG="${KUBERNETES_CONFIG:-$KUBERNETES_CONFIG_DEFAULT}"
@@ -462,6 +466,44 @@ function install_csi() {
     echo "OK"
 }
 
+###########################################################
+#   Install IPIS                                          #
+###########################################################
+
+# Define an IPIS cluster installer function
+function install_ipis_cluster() {
+    local names="$1"
+    local node_first="$(echo $names | awk '{print $1}')"
+
+    # Check if IPIS cluster already exists
+    local NEED_INSTALL=1
+    if [ "$IPIS_ENABLE" != "true" ]; then
+        echo -n "- Skipping installing IPIS cluster ... "
+        local NEED_INSTALL=0
+    elif
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get namespaces "ipis" \
+            >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed IPIS cluster ... "
+        local NEED_INSTALL=0
+    fi
+
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Install IPIS cluster
+        echo -n "- Installing IPIS cluster in background ... "
+        "$CONTAINER_RUNTIME" run --detach --rm \
+            --name "ipis-installer" \
+            --net "host" \
+            --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
+            "$IPIS_INSTALLER_IMAGE" \
+            >/dev/null
+    fi
+
+    # Finished!
+    echo "OK"
+}
+
 # Define a main function
 function main() {
     # Check Dependencies
@@ -488,6 +530,9 @@ function main() {
 
     # Install a CSI
     install_csi $KUBESPRAY_NODES
+
+    # Install an IPIS cluster
+    install_ipis_cluster $KUBESPRAY_NODES
 
     # Finished!
     echo "Installed!"
