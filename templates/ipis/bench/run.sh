@@ -11,16 +11,20 @@ set -e
 ###########################################################
 
 # Configure default environment variables
-DATA_SIZE_DEFAULT="1K 4K 8K 16K 32K 64K 128K 256K 512K 1M 2M 4M 8M 16M 32M 64M"
-NUM_ITERATIONS_DEFAULT="1M"
-NUM_THREADS_DEFAULT="1 2 4 8 16"
-PROTOCOL_DEFAULT="ipfs local s3"
-SIMULATION_DELAY_MS_DEFAULT="0"
+ADDRESS_DEFAULT="127.0.0.1"
+DATA_SIZE_DEFAULT="1K 4K 16K 64K 256K 1M 4M 16M 64M 256M"
+NUM_ITERATIONS_DEFAULT="1K"
+NUM_THREADS_DEFAULT="8"
+PORT_DEFAULT="none 9802 9803 9804" # available options: [none, 9802, 9803, 9804]
+PROTOCOL_DEFAULT="ipiis"           # available options: [ipiis, ipfs, local, s3]
+SIMULATION_DELAY_MS_DEFAULT="0 50 100"
 
 # Configure environment variables
+ADDRESS="${ADDRESS:-$ADDRESS_DEFAULT}"
 DATA_SIZE="${DATA_SIZE:-$DATA_SIZE_DEFAULT}"
 NUM_ITERATIONS="${NUM_ITERATIONS:-$NUM_ITERATIONS_DEFAULT}"
 NUM_THREADS="${NUM_THREADS:-$NUM_THREADS_DEFAULT}"
+PORT="${PORT:-$PORT_DEFAULT}"
 PROTOCOL="${PROTOCOL:-$PROTOCOL_DEFAULT}"
 SIMULATION_DELAY_MS="${SIMULATION_DELAY_MS:-$SIMULATION_DELAY_MS_DEFAULT}"
 
@@ -53,36 +57,53 @@ echo "OK"
 
 echo "- Starting benchmark ... "
 
-for data_size in $DATA_SIZE; do
-    for num_iterations in $NUM_ITERATIONS; do
-        for num_threads in $NUM_THREADS; do
-            for protocol in $PROTOCOL; do
-                for simulation_delay_ms in $SIMULATION_DELAY_MS; do
-                    # print options
-                    echo -n "DATA_SIZE=$data_size | "
-                    echo -n "NUM_ITERATIONS=$num_iterations | "
-                    echo -n "NUM_THREADS=$num_threads | "
-                    echo -n "PROTOCOL=$protocol | "
-                    echo -n "SIMULATION_DELAY_MS=$simulation_delay_ms | "
+for address in $ADDRESS; do
+    for data_size in $DATA_SIZE; do
+        for num_iterations in $NUM_ITERATIONS; do
+            for num_threads in $NUM_THREADS; do
+                for port in $PORT; do
+                    for protocol in $PROTOCOL; do
+                        # skip if port and protocol is XOR
+                        if [ "$port" == "none" ]; then
+                            if [ "$protocol" == "ipiis" ]; then
+                                continue
+                            fi
+                        elif [ "$protocol" != "ipiis" ]; then
+                            continue
+                        fi
 
-                    # do benchmark
-                    cat "./bench.yaml" |
-                        sed "s/__DATA_SIZE__/$data_size/g" |
-                        sed "s/__NUM_ITERATIONS__/$num_iterations/g" |
-                        sed "s/__NUM_THREADS__/$num_threads/g" |
-                        sed "s/__PROTOCOL__/$protocol/g" |
-                        sed "s/__SIMULATION_DELAY_MS__/$simulation_delay_ms/g" |
-                        kubectl apply -f - >/dev/null
+                        for simulation_delay_ms in $SIMULATION_DELAY_MS; do
+                            # print options
+                            echo -n "ADDRESS=$address | "
+                            echo -n "DATA_SIZE=$data_size | "
+                            echo -n "NUM_ITERATIONS=$num_iterations | "
+                            echo -n "NUM_THREADS=$num_threads | "
+                            echo -n "PORT=$port | "
+                            echo -n "PROTOCOL=$protocol | "
+                            echo -n "SIMULATION_DELAY_MS=$simulation_delay_ms | "
 
-                    # wait for completing
-                    kubectl --namespace "ipis" wait "job/ipsis-bench" \
-                        --for=condition=complete \
-                        --timeout=-1s \
-                        >/dev/null
+                            # do benchmark
+                            cat "./bench.yaml" |
+                                sed "s/__ADDRESS__/$address/g" |
+                                sed "s/__DATA_SIZE__/$data_size/g" |
+                                sed "s/__NUM_ITERATIONS__/$num_iterations/g" |
+                                sed "s/__NUM_THREADS__/$num_threads/g" |
+                                sed "s/__PORT__/$port/g" |
+                                sed "s/__PROTOCOL__/$protocol/g" |
+                                sed "s/__SIMULATION_DELAY_MS__/$simulation_delay_ms/g" |
+                                kubectl apply -f - >/dev/null
 
-                    # remove the job
-                    kubectl delete -f "./bench.yaml" >/dev/null
-                    echo "OK"
+                            # wait for completing
+                            kubectl --namespace "ipis" wait "job/ipsis-bench" \
+                                --for=condition=complete \
+                                --timeout=-1s \
+                                >/dev/null
+
+                            # remove the job
+                            kubectl delete -f "./bench.yaml" >/dev/null
+                            echo "OK"
+                        done
+                    done
                 done
             done
         done
