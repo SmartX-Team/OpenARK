@@ -27,7 +27,7 @@ kubectl apply -R -f "./ipis-*.yaml"
 
 # force rolling-update ipis services
 # note: https://github.com/kubernetes/kubernetes/issues/27081#issuecomment-327321981
-kubectl patch -R -f "./ipis-*.yaml" -p \
+kubectl patch -R -f "./ipis-*.yaml" -p --type "merge" \
     "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"updatedDate\":\"$(date +'%s')\"}}}}}"
 
 # Finished!

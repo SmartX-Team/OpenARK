@@ -51,7 +51,7 @@ kubectl apply -R -f "./snapshot-*.yaml"
 
 # force rolling-update kiss services
 # note: https://github.com/kubernetes/kubernetes/issues/27081#issuecomment-327321981
-kubectl patch -R -f "./kiss-*.yaml" -p \
+kubectl patch -R -f "./kiss-*.yaml" -p --type "merge" \
     "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"updatedDate\":\"$(date +'%s')\"}}}}}"
 
 # Finished!
