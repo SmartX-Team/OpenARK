@@ -1,9 +1,14 @@
 ---
 - hosts: target
   tasks:
+    # Step 1 - Test connection
     - include: ping.yaml
+    # Step 2 - Configure kernel and system
     - include: hostname.yaml
+    - include: system.yaml
+    # Step 3 - Configure devices
     - include: power.yaml
     - include: network.yaml
     - include: storage.yaml
+    # Step 4 - Submit
     - include: submit.yaml
