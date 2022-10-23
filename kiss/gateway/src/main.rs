@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use actix_web::{
     get, post,
@@ -38,9 +38,9 @@ async fn health() -> impl Responder {
 }
 
 #[get("/new")]
-async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) -> impl Responder {
-    async fn try_handle(client: Data<Arc<Client>>, query: BoxNewQuery) -> Result<()> {
-        let api = Api::<BoxCrd>::all((***client).clone());
+async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl Responder {
+    async fn try_handle(client: Data<Client>, query: BoxNewQuery) -> Result<()> {
+        let api = Api::<BoxCrd>::all((**client).clone());
 
         let name = query.machine.uuid.to_string();
 
@@ -103,11 +103,11 @@ async fn get_new(client: Data<Arc<Client>>, Query(query): Query<BoxNewQuery>) ->
 
 #[post("/commission")]
 async fn post_commission(
-    client: Data<Arc<Client>>,
+    client: Data<Client>,
     Json(query): Json<BoxCommissionQuery>,
 ) -> impl Responder {
-    async fn try_handle(client: Data<Arc<Client>>, query: BoxCommissionQuery) -> Result<()> {
-        let api = Api::<BoxCrd>::all((***client).clone());
+    async fn try_handle(client: Data<Client>, query: BoxCommissionQuery) -> Result<()> {
+        let api = Api::<BoxCrd>::all((**client).clone());
 
         let name = query.machine.uuid.to_string();
 
@@ -161,12 +161,12 @@ async fn main() {
         // Initialize kubernetes client
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
-        let client = Arc::new(Client::try_default().await?);
+        let client = Data::new(Client::try_default().await?);
 
         // Start web server
         HttpServer::new(move || {
             App::new()
-                .app_data(Data::new(client.clone()))
+                .app_data(Data::clone(&client))
                 .service(index)
                 .service(health)
                 .service(get_new)

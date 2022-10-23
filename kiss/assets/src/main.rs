@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use actix_web::{
     get,
@@ -34,7 +34,7 @@ async fn resolve(
     method: Method,
     mut payload: Payload,
     client: Data<ClientWithMiddleware>,
-    config: Data<Arc<ProxyConfig>>,
+    config: Data<ProxyConfig>,
     path: Path<(String, String)>,
 ) -> impl Responder {
     let (site, path) = path.into_inner();
@@ -107,10 +107,10 @@ async fn main() {
         // Initialize config
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
-        let config = Arc::new(ProxyConfig::load().await?);
+        let config = Data::new(ProxyConfig::load().await?);
 
         // Initialize client
-        let client = {
+        let client = Data::new({
             let mut builder = ClientBuilder::new(Client::new());
             if infer::<_, bool>("KISS_ASSETS_USE_CACHE").unwrap_or_default() {
                 builder = builder.with(Cache(HttpCache {
@@ -123,13 +123,13 @@ async fn main() {
                 }));
             }
             builder.build()
-        };
+        });
 
         // Start web server
         HttpServer::new(move || {
             App::new()
-                .app_data(Data::new(client.clone()))
-                .app_data(Data::new(config.clone()))
+                .app_data(Data::clone(&client))
+                .app_data(Data::clone(&config))
                 .service(index)
                 .service(health)
                 .route("/{site}/{path:.*}", ::actix_web::web::route().to(resolve))
