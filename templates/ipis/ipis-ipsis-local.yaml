@@ -50,7 +50,7 @@ spec:
             - name: ipiis_server_port
               value: "9803"
             - name: ipsis_client_local_dir
-              value: /data
+              value: /data/ipsis
           ports:
             - name: ipiis
               protocol: TCP
@@ -64,7 +64,7 @@ spec:
             #   memory: 1Gi
           volumeMounts:
             - name: data
-              mountPath: /data
+              mountPath: /data/ipsis
   volumeClaimTemplates:
     - metadata:
         name: data
