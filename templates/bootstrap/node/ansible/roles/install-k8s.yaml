@@ -30,4 +30,14 @@
   tasks:
     - command: >
         {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
-        node-role.kubernetes.io/kiss-ephemeral-control-plane=
+          --overwrite
+          node-role.kubernetes.io/kiss-ephemeral-control-plane=
+
+- name: Label Nodes | First Node
+  hosts: kube_control_plane
+  tasks:
+    - when: groups['kube_control_plane'] | length == 1
+      command: >
+        {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
+          --overwrite
+          node-role.kubernetes.io/first-node=

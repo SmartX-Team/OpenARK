@@ -32,7 +32,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: node-role.kubernetes.io/ipis
+                  - key: node-role.kubernetes.io/first-node
                     operator: Exists
       dnsPolicy: ClusterFirstWithHostNet # TODO: use service instead
       hostNetwork: true # TODO: use service instead
