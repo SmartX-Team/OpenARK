@@ -44,7 +44,7 @@ SAVE_DIR="${SAVE_DIR:-$SAVE_DIR_DEFAULT}"
 
 echo "- Installing ipis bench tools ... "
 kubectl apply \
-    -f "./bench-tools.yaml" |
+    -f "./bench-tools.yaml" \
     >/dev/null
 
 echo -n "- Waiting for deploying Ceph Tools ... "
