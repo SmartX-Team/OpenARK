@@ -73,6 +73,11 @@ for address in $ADDRESS; do
                         fi
 
                         for simulation_delay_ms in $SIMULATION_DELAY_MS; do
+                            # edit null-valued  variables
+                            if [ "$port" == "none" ]; then
+                                port="9801"
+                            fi
+
                             # print options
                             echo -n "ADDRESS=$address | "
                             echo -n "DATA_SIZE=$data_size | "
