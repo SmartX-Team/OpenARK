@@ -58,9 +58,13 @@ spec:
                   name: account-root-ca
                   key: public_key
             - name: ipiis_client_account_primary_address
-              value: "__ADDRESS__:__PORT__"
+              value: "__ADDRESS_READ__:__PORT__"
             - name: ipsis_client_ipfs_host
-              value: "__ADDRESS__"
+              value: "__ADDRESS_WRITE__"
+            - name: ipsis_client_ipfs_host_read
+              value: "__ADDRESS_READ__"
+            - name: ipsis_client_ipfs_host_write
+              value: "__ADDRESS_WRITE__"
             - name: ipsis_client_ipfs_port
               value: "5001"
             - name: ipsis_client_local_dir
