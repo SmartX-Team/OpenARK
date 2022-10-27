@@ -30,6 +30,10 @@ spec:
           imagePullPolicy: Always
           command:
             - ipsis-modules-bench
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
           env:
             # Benchmark parameters
             - name: DATA_SIZE
@@ -42,8 +46,10 @@ spec:
               value: "__PROTOCOL__"
             - name: SAVE_DIR
               value: /data/results
-            - name: SIMULATION_DELAY_MS
+            - name: SIMULATION_NETWORK_DELAY_MS
               value: "__SIMULATION_DELAY_MS__"
+            - name: SIMULATION_NETWORK_DELAY_SUBNET
+              value: "__ADDRESS_WRITE__/32"
             # Defaults
             - name: RUST_LOG
               value: INFO
