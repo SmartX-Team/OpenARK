@@ -1,0 +1,101 @@
+name: Build => Test => Deploy GPU Project
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # run at 0 AM UTC
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+  REGISTRY: quay.io
+  REGISTRY_USER: kerryeon
+  REGISTRY_REPOSITORY: ulagbulag-village
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+  REPOSITORY_NAME: netai-cloud
+  IMAGE_NAME: netai-cloud-gpu
+
+  PACKAGE_YQ_URL: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+
+  GIT_GPU_DRIVER_REPO: https://gitlab.com/nvidia/container-images/driver.git
+  HELM_GPU_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
+  OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
+  OS_NAME: flatcar
+
+jobs:
+  build-and-push-image-nvidia-driver:
+    if: ${{ github.repository }} == 'ulagbulag-village/netai-cloud'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Install core packages
+        run: |
+          sudo apt-get install -y curl git jq wget
+
+      - name: Install package - yq
+        run: |
+          wget -qO /usr/local/bin/yq '${{ env.PACKAGE_YQ_URL }}' \
+            && chmod a+x /usr/local/bin/yq
+
+      - name: Checkout repository
+        run: |
+          git clone '${{ env.GIT_GPU_DRIVER_REPO }}' \
+            --branch master \
+            --single-branch \
+            driver
+
+      - name: Get the target driver version
+        run: |
+          echo NVIDIA_DRIVER_VERSION=$(
+            curl -s '${{ env.HELM_GPU_OPERATOR_VALUE_URL }}' |
+              yq -r '.driver.version'
+          ) >> $GITHUB_ENV
+
+      - name: Get the latest OS version
+        run: |
+          echo OS_FLATCAR_RELEASE_VERSION=$(
+            curl -s '${{ env.OS_FLATCAR_RELEASE_URL }}' |
+              jq -r '[ to_entries[] | select(.value.channel == "stable") | select(.key > "0") | select(.key <= "9") | .key ] | max'
+          ) >> $GITHUB_ENV
+
+      - name: Get the latest OS kernel version
+        run: |
+          echo OS_FLATCAR_RELEASE_KERNEL_VERSION=$(
+            curl -s '${{ env.OS_FLATCAR_RELEASE_URL }}' |
+              jq -r '."${{ env.OS_FLATCAR_RELEASE_VERSION }}".major_software.kernel[0]'
+          ) >> $GITHUB_ENV
+
+      - name: Log in to ${{ env.REGISTRY }}
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}-nvidia-driver
+          tags: ${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.OS_NAME }}${{ env.OS_FLATCAR_RELEASE_VERSION }}
+          context: "./driver/flatcar"
+          containerfiles: |
+            ./driver/flatcar/Dockerfile
+          build-args: |
+            DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
+
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"

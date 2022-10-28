@@ -70,7 +70,7 @@ data:
           mode: 0644
           contents:
             inline: unknown
-        - path: /etc/modules-load.d/driver.conf
+        - path: /etc/modules-load.d/10-gpu-nvidia-driver.conf
           filesystem: root
           mode: 0444
           contents:
@@ -78,7 +78,7 @@ data:
               loop
               i2c_core
               ipmi_msghandler
-        - path: /etc/profile.d/proxy.sh
+        - path: /etc/profile.d/90-proxy.sh
           filesystem: root
           mode: 0555
           contents:
