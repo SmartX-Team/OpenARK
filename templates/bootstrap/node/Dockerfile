@@ -34,6 +34,8 @@ VOLUME [ "/var/lib/kubelet" ]
 VOLUME [ "/var/lib/proxy_cache" ]
 ## var.rook
 VOLUME [ "/var/lib/rook" ]
+## var.system.log
+VOLUME [ "/var/log" ]
 
 # Server Configuration
 WORKDIR /root/

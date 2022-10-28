@@ -69,6 +69,10 @@
             name: rook
             path: /var/lib/rook
             size: 64G
+          - kind: var
+            name: system.log
+            path: /var/log
+            size: 16G
 
     - name: Do Provision
       loop: "{{ lvs }}"

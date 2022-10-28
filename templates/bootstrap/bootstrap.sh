@@ -149,6 +149,7 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/var.k8s:/var/lib/kubelet:shared" \
             --volume "$KUBERNETES_DATA/var.proxy_cache:/var/lib/proxy_cache:shared" \
             --volume "$KUBERNETES_DATA/var.rook:/var/lib/rook:shared" \
+            --volume "$KUBERNETES_DATA/var.system.log:/var/log:shared" \
             --volume "/etc/sysctl.d:/etc/sysctl.d" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
