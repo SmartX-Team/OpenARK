@@ -71,7 +71,7 @@
         name: "{{ lookup('env', 'ansible_host') }}"
         groups: etcd
 
-- hosts: all
+- hosts: kube_node
   gather_facts: false
   tasks:
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}

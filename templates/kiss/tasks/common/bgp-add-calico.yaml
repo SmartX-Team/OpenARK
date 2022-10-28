@@ -6,20 +6,21 @@
     stdin: "{{ stdin is string | ternary(stdin, stdin|to_json) }}"
   vars:
     stdin: >
-      {"apiVersion": "projectcalico.org/v3",
-      "kind": "BGPPeer",
-      "metadata": {
-        "name": "global-{{ item.name | default(item.router_id|replace(':','-')) }}"
-      },
-      "spec": {
-        "asNumber": "{{ item.as }}",
-        "peerIP": "{{ item.router_id }}"
-      }}
+      {
+        "apiVersion": "projectcalico.org/v3",
+        "kind": "BGPPeer",
+        "metadata": {
+          "name": "global-{{ hostvars[item].ansible_ssh_host }}"
+        },
+        "spec": {
+          "asNumber": "{{ hostvars[item].router_as | default(global_as_num) }}",
+          "peerIP": "{{ hostvars[item].ansible_ssh_host }}"
+        }
+      }
   register: output
   retries: 4
   until: output.rc == 0
   delay: "{{ 5 }}"
-  with_items:
-    - "{{ calico_bgp_peers | default([]) }}"
+  with_inventory_hostnames: global_rr
   when:
     - inventory_hostname == groups['kube_control_plane'][0]

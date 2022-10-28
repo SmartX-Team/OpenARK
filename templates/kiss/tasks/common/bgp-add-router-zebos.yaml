@@ -1,0 +1,24 @@
+---
+- name: Router | ZebOS | Add BGP peers
+  when:
+    - ansible_network_os is defined
+    - ansible_network_os == 'zebos'
+  delegate_to: localhost
+  with_inventory_hostnames: target
+  script:
+    cmd: >
+      ./ssh_raw.py
+      --ssh-hostname {{ ansible_ssh_host }}
+      --ssh-username {{ ansible_ssh_user }}
+      --ssh-password {{ ansible_ssh_pass }}
+      --command '
+          configure
+          routing
+          bgp
+          configure terminal
+          router bgp {{ router_as | default(hostvars[item].global_as_num) }}
+          neighbor {{ hostvars[item].ansible_ssh_host }} remote-as {{ hostvars[item].global_as_num }}
+          exit; exit
+          write file
+          exit; exit; exit
+        '
