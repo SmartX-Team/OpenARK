@@ -417,8 +417,7 @@ function install_k8s_snapshot_cluster() {
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
                 base64 --decode |
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
-                tee "/tmp/kiss_snapshot_id_rsa" |
-            echo -n ''
+                tee "/tmp/kiss_snapshot_id_rsa" >/dev/null
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "snapshot-git" \
             "--from-file=id_rsa=/tmp/kiss_snapshot_id_rsa" ||
