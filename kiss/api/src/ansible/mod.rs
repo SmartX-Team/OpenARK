@@ -194,7 +194,6 @@ impl AnsibleClient {
                         image: Some(self.config.image.clone()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec![
-                            "-vvv".into(),
                             "--become".into(),
                             "--become-user=root".into(),
                             "--inventory".into(),
