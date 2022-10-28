@@ -27,7 +27,10 @@ KUBESPRAY_IMAGE_DEFAULT="quay.io/ulagbulag-village/kubespray:latest"
 KUBESPRAY_NODES_DEFAULT="node1.master"
 REUSE_DATA_DEFAULT="false"
 REUSE_NODES_DEFAULT="true"
+SNAPSHOT_GIT_BRANCH_DEFAULT="master"
 SNAPSHOT_GIT_REPOSITORY_DEFAULT=""
+SNAPSHOT_GIT_USER_EMAIL_DEFAULT="kiss.bot@smartx.kr"
+SNAPSHOT_GIT_USER_NAME_DEFAULT="NetAI Cloud KISS BOT"
 SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 
 # Configure environment variables
@@ -47,7 +50,10 @@ KUBESPRAY_IMAGE="${KUBESPRAY_IMAGE:-$KUBESPRAY_IMAGE_DEFAULT}"
 KUBESPRAY_NODES="${KUBESPRAY_NODES:-$KUBESPRAY_NODES_DEFAULT}"
 REUSE_DATA="${REUSE_DATA:-$REUSE_DATA_DEFAULT}"
 REUSE_NODES="${REUSE_NODES:-$REUSE_NODES_DEFAULT}"
+SNAPSHOT_GIT_BRANCH="${SNAPSHOT_GIT_BRANCH:-$SNAPSHOT_GIT_BRANCH_DEFAULT}"
 SNAPSHOT_GIT_REPOSITORY="${SNAPSHOT_GIT_REPOSITORY:-$SNAPSHOT_GIT_REPOSITORY_DEFAULT}"
+SNAPSHOT_GIT_USER_EMAIL="${SNAPSHOT_GIT_USER_EMAIL:-$SNAPSHOT_GIT_USER_EMAIL_DEFAULT}"
+SNAPSHOT_GIT_USER_NAME="${SNAPSHOT_GIT_USER_NAME:-$SNAPSHOT_GIT_USER_NAME_DEFAULT}"
 SSH_KEYFILE="${SSH_KEYFILE:-$SSH_KEYFILE_DEFAULT}"
 
 # Apply templates
@@ -410,7 +416,10 @@ function install_k8s_snapshot_cluster() {
         # Upload the K8S Snapshot Configuration File to the Cluster
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss configmap "snapshot-git" \
-            "--from-literal=repository=$SNAPSHOT_GIT_REPOSITORY"
+            "--from-literal=branch=$SNAPSHOT_GIT_BRANCH" \
+            "--from-literal=repository=$SNAPSHOT_GIT_REPOSITORY" \
+            "--from-literal=user.email=$SNAPSHOT_GIT_USER_EMAIL" \
+            "--from-literal=user.name=$SNAPSHOT_GIT_USER_NAME"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl get -n kiss secret "matchbox-account" \
             -o jsonpath='{.data.id_rsa}' |

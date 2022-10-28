@@ -25,11 +25,26 @@ spec:
               image: quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest
               imagePullPolicy: Always
               env:
+                - name: GIT_BRANCH
+                  valueFrom:
+                    configMapKeyRef:
+                      name: snapshot-git
+                      key: branch
                 - name: GIT_REPOSITORY
                   valueFrom:
                     configMapKeyRef:
                       name: snapshot-git
                       key: repository
+                - name: GIT_USER_EMAIL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: snapshot-git
+                      key: user.email
+                - name: GIT_USER_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: snapshot-git
+                      key: user.name
               resources:
                 requests:
                   cpu: 30m
@@ -39,7 +54,8 @@ spec:
                   memory: 100Mi
               volumeMounts:
                 - name: ssh
-                  mountPath: /root/.ssh
+                  mountPath: /root/.ssh/id_rsa
+                  subPath: id_rsa
           volumes:
             - name: ssh
               secret:

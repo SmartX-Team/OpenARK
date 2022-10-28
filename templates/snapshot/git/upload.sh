@@ -6,9 +6,13 @@
 # Prehibit errors
 set -e
 
+# Configure git
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
+
 # Download repository
 git clone "${GIT_REPOSITORY}" "./snapshot"
-pushd "./snapshot"
+cd "./snapshot"
 
 # Dump k8s snapshot
 mkdir -p "./kiss"
@@ -20,12 +24,12 @@ kubectl get -n kiss secret -o yaml >"./kiss/secret.yaml"
 git add --force "./kiss"
 
 # Commit
-git commit --message "Automatic Upload of Snapshot ($(date --rfc-3339=seconds))"
+git commit --message "Automatic Upload of Snapshot ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))" || true
 
 # Push
-git branch -M main
-git push --force --set-upstream origin main
+git branch -M "${GIT_BRANCH}"
+git push --force --set-upstream "origin" "${GIT_BRANCH}"
 
 # Cleanup
-popd
+cd -
 rm -rf "./snapshot"
