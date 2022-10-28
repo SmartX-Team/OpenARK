@@ -64,11 +64,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
             new_state = BoxState::Disconnected;
         }
         // capture the presence of access info
-        else if !data
-            .status
-            .as_ref()
-            .map(|status| status.access.primary.is_some())
-            .unwrap_or_default()
+        else if status.is_some()
+            && !data
+                .status
+                .as_ref()
+                .map(|status| status.access.primary.is_some())
+                .unwrap_or_default()
         {
             new_state = BoxState::Missing;
         }
