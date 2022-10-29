@@ -51,17 +51,15 @@
               --volume "/root/.kube:/root/.kube:ro"
               "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
 
-        - name: Install GPU Operator
+        - name: Install GPU Operator | {{ item }}
           loop:
             - nvidia
-          block:
-            - name: Install GPU Operator | {{ item }}
-              shell: >
-                docker run --detach --rm
-                  --name "gpu-installer-{{ item }}"
-                  --net "host"
-                  --volume "/root/.kube:/root/.kube:ro"
-                  "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
+          shell: >
+            docker run --detach --rm
+              --name "gpu-installer-{{ item }}"
+              --net "host"
+              --volume "/root/.kube:/root/.kube:ro"
+              "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
 
         - name: Install IPIS
           shell: >
