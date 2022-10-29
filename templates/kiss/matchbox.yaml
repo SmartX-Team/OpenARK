@@ -7,7 +7,9 @@ metadata:
 data:
   boot.ipxe: |
     #!ipxe
-    chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform}
+    # Retry automatic configuration indefinitely until it succeeds
+    :boot
+    chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform} || goto boot
 ---
 apiVersion: v1
 kind: ConfigMap
