@@ -2,6 +2,6 @@
 - name: Calico | Add BGP peers
   hosts: kube_control_plane
   tasks:
-    - include: ./bgp-add-calico.yaml
+    - include: ../bgp-add-calico.yaml
 #
-# - import_playbook: ./bgp-add-router.yaml
+# - import_playbook: ../bgp-add-router.yaml
