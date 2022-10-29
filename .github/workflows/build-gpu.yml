@@ -19,10 +19,11 @@ env:
 
   PACKAGE_YQ_URL: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
-  GIT_GPU_DRIVER_REPO: https://gitlab.com/nvidia/container-images/driver.git
+  GIT_GPU_DRIVER_REPO: https://github.com/ulagbulag-village/nvidia-driver-container-images.git
   HELM_GPU_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
   OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
   OS_NAME: flatcar
+  UBUNTU_VERSION: "20.04"
 
 jobs:
   build-and-push-image-nvidia-driver:
@@ -48,6 +49,14 @@ jobs:
             --branch master \
             --single-branch \
             driver
+
+      - name: Get the target cuda version
+        run: |
+          echo NVIDIA_CUDA_VERSION=$(
+            curl -s '${{ env.HELM_GPU_OPERATOR_VALUE_URL }}' |
+              yq -r '.operator.initContainer.version' |
+              egrep -o '^[0-9\.]*'
+          ) >> $GITHUB_ENV
 
       - name: Get the target driver version
         run: |
@@ -87,7 +96,9 @@ jobs:
           containerfiles: |
             ./driver/flatcar/Dockerfile
           build-args: |
+            CUDA_VERSION=${{ env.NVIDIA_CUDA_VERSION }}
             DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
+            UBUNTU_VERSION=${{ env.UBUNTU_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
