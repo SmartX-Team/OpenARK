@@ -205,20 +205,16 @@ jobs:
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
-        if: >
-          ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
-          && steps.build-and-push-image.outcome == 'success'
-          && steps.build-and-push-image.conclusion == 'success'
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
         uses: redhat-actions/push-to-registry@v2
+        continue-on-error: true # ignore errors on building iPXE
         with:
           image: ${{ steps.build-and-push-image.outputs.image }}
           tags: ${{ steps.build-and-push-image.outputs.tags }}
           registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
 
       - name: Print image url
-        if: >
-          steps.build-and-push-image.outcome == 'success'
-          && steps.build-and-push-image.conclusion == 'success'
+        continue-on-error: true # ignore errors on building iPXE
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
   build-and-push-image-snapshot-git:
