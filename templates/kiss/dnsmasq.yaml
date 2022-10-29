@@ -33,6 +33,7 @@ spec:
       initContainers:
         - name: init-tftpboot
           image: quay.io/ulagbulag-village/netai-cloud-ipxe:latest
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: 30m
@@ -50,16 +51,20 @@ spec:
             - -d
             - --enable-tftp
             - --tftp-root=/var/lib/tftpboot
+            ## iPXE START
+            ### ARCH [0x00] - BIOS
             - --dhcp-match=set:bios,option:client-arch,0
             - --dhcp-boot=tag:bios,undionly.kpxe
-            # - --dhcp-match=set:efi-i386,option:client-arch,6
-            # - --dhcp-boot=tag:efi-i386,ipxe-i386.efi
+            ### ARCH [0x07] - EFI - BC
             - --dhcp-match=set:efi-bc,option:client-arch,7
-            - --dhcp-boot=tag:efi-bc,ipxe-x86_64.efi
+            - --dhcp-boot=tag:efi-bc,ipxe-snponly-x86_64.efi
+            ### ARCH [0x09] - EFI - x86_64
             - --dhcp-match=set:efi-x86_64,option:client-arch,9
             - --dhcp-boot=tag:efi-x86_64,ipxe-x86_64.efi
+            ### ARCH [0x0B] - EFI - arm64
             - --dhcp-match=set:efi-arm64,option:client-arch,11
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
+            ## iPXE END
             - --dhcp-userclass=set:ipxe,iPXE
             - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/boot.ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
