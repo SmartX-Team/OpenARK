@@ -8,19 +8,19 @@ operator:
   defaultRuntime: containerd
   affinity:
     nodeAffinity:
+      # KISS normal control plane nodes should be preferred
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
       # KISS ephemeral control plane nodes should be excluded
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
               - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
                 operator: DoesNotExist
-      # KISS normal control plane nodes should be preferred
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 1
-          preference:
-            matchExpressions:
-              - key: "node-role.kubernetes.io/control-plane"
-                operator: Exists
 
 toolkit:
   # Flatcar Container Linux has no write access to /usr directory
