@@ -1,6 +1,45 @@
 ## The logging level for the operator: ERROR | WARNING | INFO | DEBUG
 logLevel: DEBUG
 
+## Settings for whether to disable the drivers or other daemons if they are not
+## needed
+csi:
+  provisionerNodeAffinity:
+    # KISS normal control plane nodes should be preferred
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+    # KISS ephemeral control plane nodes should be excluded
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+              operator: DoesNotExist
+
 # EnableDiscoveryDaemon Whether to enable the daemon for device discovery.
 # If true, the rook-ceph-discover daemonset will be started.
 enableDiscoveryDaemon: true
+
+## Rook Discover configuration
+## toleration: NoSchedule, PreferNoSchedule or NoExecute
+## tolerationKey: Set this to the specific key of the taint to tolerate
+## tolerations: Array of tolerations in YAML format which will be added to agent deployment
+## nodeAffinity: Set to labels of the node to match
+discover:
+  nodeAffinity:
+    # KISS normal control plane nodes should be preferred
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+    # KISS ephemeral control plane nodes should be excluded
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+              operator: DoesNotExist

@@ -2,7 +2,21 @@
 toolbox:
   # Enable Ceph debugging pod deployment
   enabled: true
-
+  affinity:
+    nodeAffinity:
+      # KISS normal control plane nodes should be preferred
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+      # KISS ephemeral control plane nodes should be excluded
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
 # All values below are taken from the CephCluster CRD
 # More information can be found at [Ceph Cluster CRD](/Documentation/CRDs/ceph-cluster-crd.md)
 cephClusterSpec:
@@ -13,7 +27,25 @@ cephClusterSpec:
     # The mons should be on unique nodes. For production, at least 3 nodes are recommended for this reason.
     # Mons should only be allowed on the same node for test environments where data loss is acceptable.
     allowMultiplePerNode: false
-
+  # To control where various services will be scheduled by kubernetes, use the placement configuration sections below.
+  # The example under 'all' would have all services scheduled on kubernetes nodes labeled with 'role=storage-node' and
+  # tolerate taints with a key of 'storage-node'.
+  placement:
+    all:
+      nodeAffinity:
+        # KISS normal control plane nodes should be preferred
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+        # KISS ephemeral control plane nodes should be excluded
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                  operator: DoesNotExist
   resources:
     osd:
       limits:
