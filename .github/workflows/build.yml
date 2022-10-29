@@ -21,7 +21,7 @@ env:
   ALPINE_VERSION: "3.16"
   K8S_VERSION: "1.24.7"
   ROCKYLINUX_VERSION: "8"
-  UBUNTU_VERSION: rolling
+  UBUNTU_VERSION: "20.04"
 
 jobs:
   build-rust:
