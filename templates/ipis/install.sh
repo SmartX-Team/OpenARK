@@ -27,8 +27,21 @@ kubectl apply -R -f "./ipis-*.yaml"
 
 # force rolling-update ipis services
 # note: https://github.com/kubernetes/kubernetes/issues/27081#issuecomment-327321981
-kubectl patch -R -f "./ipis-*.yaml" -p --type "merge" \
-    "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"updatedDate\":\"$(date +'%s')\"}}}}}"
+for resource in "daemonsets" "deployments" "statefulsets"; do
+    for object in $(
+        kubectl get "$resource" \
+            --no-headers \
+            --namespace "kiss" \
+            --output custom-columns=":metadata.name" \
+            --selector 'kissService=true'
+    ); do
+        kubectl patch \
+            --namespace "kiss" \
+            --type "merge" \
+            "$resource" "$object" --patch \
+            "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"updatedDate\":\"$(date +'%s')\"}}}}}"
+    done
+done
 
 # Finished!
 echo "Installed!"

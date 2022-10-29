@@ -242,6 +242,10 @@ kind: Deployment
 metadata:
   name: matchbox
   namespace: kiss
+  labels:
+    name: matchbox
+    kissService: "false"
+    serviceType: internal
 spec:
   replicas: 1
   strategy:

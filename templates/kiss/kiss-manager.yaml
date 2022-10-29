@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: manager
   namespace: kiss
+  labels:
+    name: manager
+    kissService: "true"
+    serviceType: proxy
 spec:
   replicas: 1
   strategy:

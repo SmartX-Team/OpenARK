@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: monitor
   namespace: kiss
+  labels:
+    name: monitor
+    kissService: "true"
+    serviceType: internal
 spec:
   replicas: 1
   strategy:

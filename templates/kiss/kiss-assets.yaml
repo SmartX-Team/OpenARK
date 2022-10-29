@@ -25,6 +25,10 @@ kind: Deployment
 metadata:
   name: assets
   namespace: kiss
+  labels:
+    name: assets
+    kissService: "true"
+    serviceType: proxy
 spec:
   replicas: 1
   strategy:

@@ -50,6 +50,10 @@ kind: Deployment
 metadata:
   name: http-proxy
   namespace: kiss
+  labels:
+    name: http-proxy
+    kissService: "false"
+    serviceType: proxy
 spec:
   replicas: 1
   strategy:

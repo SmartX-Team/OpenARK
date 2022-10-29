@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: dnsmasq
   namespace: kiss
+  labels:
+    name: dnsmasq
+    kissService: "false"
+    serviceType: internal
 spec:
   replicas: 1
   strategy:

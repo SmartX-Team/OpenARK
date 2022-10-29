@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: ntpd
   namespace: kiss
+  labels:
+    name: ntpd
+    kissService: "false"
+    serviceType: internal
 spec:
   replicas: 1
   strategy:

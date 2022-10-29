@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: controller
   namespace: kiss
+  labels:
+    name: controller
+    kissService: "true"
+    serviceType: internal
 spec:
   replicas: 1
   strategy:
