@@ -14,11 +14,13 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://charts.rook.io/release"
+NAMESPACE_DEFAULT="rook-ceph"
 ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED_DEFAULT="true"
 ROOK_CEPH_WAIT_UNTIL_DEPLOYED_DEFAULT="true"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
+NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED="${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED:-$ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED_DEFAULT}"
 ROOK_CEPH_WAIT_UNTIL_DEPLOYED="${ROOK_CEPH_WAIT_UNTIL_DEPLOYED:-$ROOK_CEPH_WAIT_UNTIL_DEPLOYED_DEFAULT}"
 
@@ -39,12 +41,12 @@ echo "- Configuring Helm channel ... "
 helm repo add "csi" "$HELM_CHART"
 
 ###########################################################
-#   Install Operator                                      #
+#   Checking if Operator is already installed             #
 ###########################################################
 
-echo "- Checking Ceph Cluster is already installed ... "
+echo "- Checking Operator is already installed ... "
 if
-    kubectl get namespace --no-headers "rook-ceph" \
+    kubectl get namespace --no-headers "$NAMESPACE" \
         >/dev/null 2>/dev/null
 then
     IS_FIRST=0
@@ -52,15 +54,19 @@ else
     IS_FIRST=1
 fi
 
-echo "- Installing CSI Operator ... "
+###########################################################
+#   Install Operator                                      #
+###########################################################
+
+echo "- Installing Operator ... "
 
 helm upgrade --install "rook-ceph" \
     "csi/rook-ceph" \
     --create-namespace \
-    --namespace "rook-ceph" \
+    --namespace "$NAMESPACE" \
     --values "./values-operator.yaml"
 
-echo "- Waiting for deploying CSI Operator ... "
+echo "- Waiting for deploying Operator ... "
 sleep 30
 
 ###########################################################
@@ -85,7 +91,7 @@ fi
 helm upgrade --install "rook-ceph-cluster" \
     "csi/rook-ceph-cluster" \
     --create-namespace \
-    --namespace "rook-ceph" \
+    --namespace "$NAMESPACE" \
     --values "./values-cluster.yaml"
 
 ###########################################################
@@ -94,7 +100,7 @@ helm upgrade --install "rook-ceph-cluster" \
 
 if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
     echo -n "- Waiting for deploying Ceph Tools ... "
-    kubectl --namespace "rook-ceph" rollout status deployment "rook-ceph-tools" >/dev/null
+    kubectl --namespace "$NAMESPACE" rollout status deployment "rook-ceph-tools" >/dev/null
     echo "OK"
 
     echo -n "- Waiting for deploying Storage Classes ... "
@@ -103,7 +109,7 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
             local COMPLETED=1
             for storageclass in "blockpool" "filesystem" "objectstore"; do
                 local PHASE=$(
-                    kubectl --namespace "rook-ceph" get "ceph$storageclass" "ceph-$storageclass" \
+                    kubectl --namespace "$NAMESPACE" get "ceph$storageclass" "ceph-$storageclass" \
                         --output jsonpath --template '{.status.phase}' \
                         2>/dev/null
                 )
@@ -133,7 +139,7 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
     function wait_ceph_cluster() {
         while :; do
             local PHASE=$(
-                kubectl --namespace "rook-ceph" get "cephcluster" "rook-ceph" \
+                kubectl --namespace "$NAMESPACE" get "cephcluster" "rook-ceph" \
                     --output jsonpath --template '{.status.phase}' \
                     2>/dev/null
             )
@@ -162,7 +168,7 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
             helm upgrade --install "rook-ceph-cluster" \
                 "csi/rook-ceph-cluster" \
                 --create-namespace \
-                --namespace "rook-ceph" \
+                --namespace "$NAMESPACE" \
                 --values "./values-cluster.yaml"
             wait_ceph_cluster
         fi
@@ -170,4 +176,4 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
 fi
 
 # Finished!
-echo "Installed CSI!"
+echo "Installed!"
