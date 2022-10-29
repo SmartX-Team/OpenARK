@@ -12,8 +12,8 @@
         - name: Mark the bootstrapped node as "first-node"
           shell: >
             {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
-              --overwrite
-              node-role.kubernetes.io/first-node=
+            --overwrite
+            node-role.kubernetes.io/first-node=
 
         - name: Create Kiss Namespace
           shell: >
@@ -39,32 +39,32 @@
         - name: Get CSI Information
           shell: >
             {{ bin_dir }}/kubectl get -n kiss configmap "baremetal-config"
-              -o jsonpath --template '{.data.csi}'
+            -o jsonpath --template '{.data.csi}'
           register: result_csi
 
         - name: Install CSI
           when: result_csi.stdout != "none"
           shell: >
             docker run --detach --rm
-              --name "csi-installer-{{ result_csi.stdout }}"
-              --net "host"
-              --volume "/root/.kube:/root/.kube:ro"
-              "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
+            --name "csi-installer-{{ result_csi.stdout }}"
+            --net "host"
+            --volume "/root/.kube:/root/.kube:ro"
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
 
         - name: Install GPU Operator | {{ item }}
           loop:
             - nvidia
           shell: >
             docker run --detach --rm
-              --name "gpu-installer-{{ item }}"
-              --net "host"
-              --volume "/root/.kube:/root/.kube:ro"
-              "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
+            --name "gpu-installer-{{ item }}"
+            --net "host"
+            --volume "/root/.kube:/root/.kube:ro"
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
 
         - name: Install IPIS
           shell: >
             docker run --detach --rm
-              --name "ipis-installer"
-              --net "host"
-              --volume "/root/.kube:/root/.kube:ro"
-              "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
+            --name "ipis-installer"
+            --net "host"
+            --volume "/root/.kube:/root/.kube:ro"
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
