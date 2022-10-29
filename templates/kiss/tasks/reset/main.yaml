@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
+- hosts: target
+  gather_facts: false
   tasks:
     - include: reboot-node.yaml
 - import_playbook: remove-node.yaml

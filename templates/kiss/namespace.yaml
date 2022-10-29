@@ -40,6 +40,8 @@ spec:
             cidr: 10.64.0.0/12
         - ipBlock:
             cidr: 10.112.0.0/12
+        - ipBlock:
+            cidr: 0.0.0.0/0 # TODO: required for reset-reboot-pip, maybe can be resolved by new image?
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
