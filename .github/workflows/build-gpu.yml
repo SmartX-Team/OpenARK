@@ -21,6 +21,7 @@ env:
 
   GIT_GPU_DRIVER_REPO: https://github.com/ulagbulag-village/nvidia-driver-container-images.git
   HELM_GPU_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
+  OS_FLATCAR_RELEASE_CHANNEL: stable
   OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
   OS_NAME: flatcar
   UBUNTU_VERSION: "20.04"
@@ -98,6 +99,9 @@ jobs:
           build-args: |
             CUDA_VERSION=${{ env.NVIDIA_CUDA_VERSION }}
             DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
+            FLATCAR_RELEASE_BOARD=amd64-usr
+            FLATCAR_RELEASE_CHANNEL=${{ env.OS_FLATCAR_RELEASE_CHANNEL }}
+            FLATCAR_VERSION=${{ env.OS_FLATCAR_RELEASE_VERSION }}
             UBUNTU_VERSION=${{ env.UBUNTU_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
