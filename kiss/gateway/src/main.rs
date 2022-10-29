@@ -73,20 +73,29 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                         machine: query.machine,
                         power: None,
                     },
-                    status: Some(BoxStatus {
-                        access: BoxAccessSpec {
-                            primary: Some(query.access_primary.try_into()?),
-                        },
-                        state: BoxState::New,
-                        bind_group: None,
-                        last_updated: Utc::now(),
-                    }),
+                    status: None,
                 };
                 let pp = PostParams {
                     dry_run: false,
                     field_manager: Some("kiss-gateway".into()),
                 };
                 api.create(&pp, &data).await?;
+
+                let crd = BoxCrd::api_resource();
+                let patch = Patch::Apply(json!({
+                    "apiVersion": crd.api_version,
+                    "kind": crd.kind,
+                    "status": BoxStatus {
+                        access: BoxAccessSpec {
+                            primary: Some(query.access_primary.try_into()?),
+                        },
+                        state: BoxState::New,
+                        bind_group: None,
+                        last_updated: Utc::now(),
+                    },
+                }));
+                let pp = PatchParams::apply("kiss-gateway").force();
+                api.patch_status(&name, &pp, &patch).await?;
             }
         }
         Ok(())

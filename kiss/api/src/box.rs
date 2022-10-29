@@ -143,11 +143,12 @@ impl BoxState {
     }
 
     pub fn timeout(&self) -> Option<Duration> {
+        let fallback_new = Duration::minutes(5);
         let fallback_update = Duration::hours(2);
         let fallback_disconnected = Duration::weeks(1);
 
         match self {
-            Self::New => Some(fallback_update),
+            Self::New => Some(fallback_new),
             Self::Commissioning => Some(fallback_update),
             Self::Ready => Some(fallback_update),
             Self::Joining => Some(fallback_update),
@@ -173,7 +174,7 @@ impl BoxState {
 
     pub const fn fail(&self) -> Self {
         match self {
-            Self::New => Self::Failed,
+            Self::New => Self::Missing,
             Self::Commissioning => Self::Failed,
             Self::Ready => Self::Failed,
             Self::Joining => Self::Failed,
