@@ -33,14 +33,15 @@ RUN mkdir /src && cd /src \
     && mkdir /ipxe \
     # Build each iPXE platforms
     # * usage: make [platform]/[driver].[extension]
-    ## Begin cross-gcc
-    && make CROSS=x86_64-linux-gnu- bin-x86_64-efi/ipxe.efi \
-    && mv bin-x86_64-efi/ipxe.efi /ipxe/ipxe-x86_64.efi \
-    && make CROSS=aarch64-linux-gnu- bin-arm64-efi/ipxe.efi \
-    && mv bin-arm64-efi/ipxe.efi /ipxe/ipxe-arm64.efi \
-    ## End cross-gcc
+    ### ARCH [0x00] - BIOS
     && make bin/undionly.kpxe \
     && mv bin/undionly.kpxe /ipxe/undionly.kpxe \
+    ### ARCH [0x09] - EFI - x86_64
+    && make CROSS=x86_64-linux-gnu- bin-x86_64-efi/snp.efi \
+    && mv bin-x86_64-efi/snp.efi /ipxe/ipxe-x86_64.efi \
+    ### ARCH [0x0B] - EFI - arm64
+    && make CROSS=aarch64-linux-gnu- bin-arm64-efi/snp.efi \
+    && mv bin-arm64-efi/snp.efi /ipxe/ipxe-arm64.efi \
     ## Cleanup
     && cd / && rm -rf /src
 

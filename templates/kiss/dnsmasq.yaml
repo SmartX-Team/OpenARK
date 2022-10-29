@@ -57,7 +57,7 @@ spec:
             - --dhcp-boot=tag:bios,undionly.kpxe
             ### ARCH [0x07] - EFI - BC
             - --dhcp-match=set:efi-bc,option:client-arch,7
-            - --dhcp-boot=tag:efi-bc,ipxe-snponly-x86_64.efi
+            - --dhcp-boot=tag:efi-bc,ipxe-x86_64.efi
             ### ARCH [0x09] - EFI - x86_64
             - --dhcp-match=set:efi-x86_64,option:client-arch,9
             - --dhcp-boot=tag:efi-x86_64,ipxe-x86_64.efi
