@@ -1,0 +1,12 @@
+driver:
+  # Flatcar Container Linux should need some patches for driver installer
+  repository: quay.io/ulagbulag-village
+  image: netai-cloud-gpu-nvidia-driver
+
+operator:
+  # KISS uses containerd by default
+  defaultRuntime: containerd
+
+toolkit:
+  # Flatcar Container Linux has no write access to /usr directory
+  installDir: /opt/nvidia-runtime
