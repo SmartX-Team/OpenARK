@@ -19,7 +19,7 @@ env:
   IMAGE_NAME: netai-cloud
 
   ALPINE_VERSION: "3.16"
-  K8S_VERSION: "1.24.4"
+  K8S_VERSION: "1.24.7"
   ROCKYLINUX_VERSION: "8"
   UBUNTU_VERSION: rolling
 
