@@ -45,8 +45,13 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .unwrap_or(BoxState::New);
         let mut new_state = old_state.next();
 
-        // wait new boxes for begin provisioned
-        if matches!(old_state, BoxState::New) {
+        // wait new boxes with no access methods for begin provisioned
+        if matches!(old_state, BoxState::New)
+            && !status
+                .as_ref()
+                .map(|status| status.access.primary.is_some())
+                .unwrap_or_default()
+        {
             let timeout = BoxState::timeout_new();
 
             if let Some(last_updated) = status
