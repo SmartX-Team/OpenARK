@@ -142,13 +142,20 @@ impl BoxState {
         }
     }
 
+    pub fn timeout_new() -> Duration {
+        Duration::seconds(30)
+    }
+
+    pub fn timeout_update() -> Duration {
+        Duration::seconds(15)
+    }
+
     pub fn timeout(&self) -> Option<Duration> {
-        let fallback_new = Duration::minutes(5);
         let fallback_update = Duration::hours(2);
         let fallback_disconnected = Duration::weeks(1);
 
         match self {
-            Self::New => Some(fallback_new),
+            Self::New => None,
             Self::Commissioning => Some(fallback_update),
             Self::Ready => Some(fallback_update),
             Self::Joining => Some(fallback_update),

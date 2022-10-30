@@ -35,19 +35,51 @@ impl ::kiss_api::manager::Ctx for Ctx {
         let status = data.status.as_ref();
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(manager.kube.clone());
 
+        // get the current time
+        let now = Utc::now();
+
+        // load the box's state
         let old_state = status
             .as_ref()
             .map(|status| status.state)
             .unwrap_or(BoxState::New);
         let mut new_state = old_state.next();
 
-        // capture the timeout
-        let now = Utc::now();
-        if let Some(last_updated) = status.map(|status| status.last_updated) {
-            if let Some(time_threshold) = old_state.timeout() {
-                if now > last_updated + time_threshold {
+        // wait new boxes for begin provisioned
+        if matches!(old_state, BoxState::New) {
+            let timeout = BoxState::timeout_new();
+
+            if let Some(created_date) = &data.metadata.creation_timestamp {
+                if now > created_date.0 + timeout {
                     // update the status
                     new_state = old_state.fail();
+                } else {
+                    return Ok(Action::requeue(timeout.to_std().unwrap()));
+                }
+            } else {
+                return Ok(Action::requeue(timeout.to_std().unwrap()));
+            }
+        }
+
+        if let Some(last_updated) = status.map(|status| status.last_updated) {
+            // wait boxes status for begin updated
+            {
+                let timeout = BoxState::timeout_update();
+                if let Some(time_threshold) = old_state.timeout() {
+                    if now < last_updated + time_threshold {
+                        // update the status
+                        return Ok(Action::requeue(timeout.to_std().unwrap()));
+                    }
+                }
+            }
+
+            // capture the timeout
+            {
+                if let Some(time_threshold) = old_state.timeout() {
+                    if now > last_updated + time_threshold {
+                        // update the status
+                        new_state = old_state.fail();
+                    }
                 }
             }
         }

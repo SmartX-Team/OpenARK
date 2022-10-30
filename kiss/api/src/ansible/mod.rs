@@ -100,13 +100,7 @@ impl AnsibleClient {
                         }
                     }
                     _ => {
-                        if !cluster_state.release().await? {
-                            info!(
-                                "Cluster is locked: {} {} -> {}",
-                                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
-                            );
-                            return Ok(false);
-                        }
+                        cluster_state.release().await?;
                     }
                 },
                 // worker: chech whether cluster is locked
