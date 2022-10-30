@@ -49,8 +49,11 @@ impl ::kiss_api::manager::Ctx for Ctx {
         if matches!(old_state, BoxState::New) {
             let timeout = BoxState::timeout_new();
 
-            if let Some(created_date) = &data.metadata.creation_timestamp {
-                if now > created_date.0 + timeout {
+            if let Some(last_updated) = status
+                .map(|status| &status.last_updated)
+                .or_else(|| data.metadata.creation_timestamp.as_ref().map(|e| &e.0))
+            {
+                if now > *last_updated + timeout {
                     // update the status
                     new_state = old_state.fail();
                 } else {
