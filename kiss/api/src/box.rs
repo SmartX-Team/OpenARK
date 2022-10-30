@@ -157,7 +157,7 @@ impl BoxState {
         match self {
             Self::New => None,
             Self::Commissioning => Some(fallback_update),
-            Self::Ready => Some(fallback_update),
+            Self::Ready => None,
             Self::Joining => Some(fallback_update),
             Self::Running => None,
             Self::Failed => Some(fallback_disconnected),
