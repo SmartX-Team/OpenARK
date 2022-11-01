@@ -45,6 +45,10 @@
             name: containerd
             path: /etc/containerd
             size: 16M
+          - kind: etc
+            name: k8s
+            path: /etc/kubernetes
+            size: 16M
           - kind: var
             name: calico
             path: /var/lib/calico
