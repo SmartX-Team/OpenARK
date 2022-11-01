@@ -29,22 +29,22 @@ if [ ! -f "/root/.ssh/id_rsa" ]; then
 
     # Apply the SSH port
     sed -i "s/^#\(Port\) 22/\1 ${ssh_port}/g" /etc/ssh/sshd_config
-
-    # Replace /etc/hostname to local
-    cp /etc/hostname /tmp/hostname &&
-        umount /etc/hostname &&
-        mv /tmp/hostname /etc/hostname
-
-    # Replace /etc/hosts to local
-    cp /etc/hosts /tmp/hosts &&
-        umount /etc/hosts &&
-        mv /tmp/hosts /etc/hosts
-
-    # Replace /etc/resolv.conf to local
-    cp /etc/resolv.conf /tmp/resolv.conf &&
-        umount /etc/resolv.conf &&
-        mv /tmp/resolv.conf /etc/resolv.conf
 fi
+
+# Replace /etc/hostname to local
+cp /etc/hostname /tmp/hostname &&
+    umount /etc/hostname &&
+    mv --force /tmp/hostname /etc/hostname
+
+# Replace /etc/hosts to local
+cp /etc/hosts /tmp/hosts &&
+    umount /etc/hosts &&
+    mv --force /tmp/hosts /etc/hosts
+
+# Replace /etc/resolv.conf to local
+cp /etc/resolv.conf /tmp/resolv.conf &&
+    umount /etc/resolv.conf &&
+    mv --force /tmp/resolv.conf /etc/resolv.conf
 
 # Execute systemd
 exec /usr/sbin/init
