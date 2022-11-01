@@ -38,7 +38,7 @@ kubectl apply -f "./cluster-roles.yaml"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "csi" "$HELM_CHART"
+helm repo add "$NAMESPACE" "$HELM_CHART"
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -61,7 +61,7 @@ fi
 echo "- Installing Operator ... "
 
 helm upgrade --install "rook-ceph" \
-    "csi/rook-ceph" \
+    "$NAMESPACE/rook-ceph" \
     --create-namespace \
     --namespace "$NAMESPACE" \
     --values "./values-operator.yaml"
@@ -89,7 +89,7 @@ if [ "$ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED" == "true" ]; then
 fi
 
 helm upgrade --install "rook-ceph-cluster" \
-    "csi/rook-ceph-cluster" \
+    "$NAMESPACE/rook-ceph-cluster" \
     --create-namespace \
     --namespace "$NAMESPACE" \
     --values "./values-cluster.yaml"
@@ -166,7 +166,7 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
             yq --inplace ".cephClusterSpec.mon.count = $NUM_MONS" "./values-cluster.yaml"
 
             helm upgrade --install "rook-ceph-cluster" \
-                "csi/rook-ceph-cluster" \
+                "$NAMESPACE/rook-ceph-cluster" \
                 --create-namespace \
                 --namespace "$NAMESPACE" \
                 --values "./values-cluster.yaml"

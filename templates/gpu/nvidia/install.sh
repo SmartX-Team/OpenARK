@@ -26,7 +26,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "gpu" "$HELM_CHART"
+helm repo add "$NAMESPACE" "$HELM_CHART"
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -49,7 +49,7 @@ fi
 echo "- Installing Operator ... "
 
 helm upgrade --install "gpu-operator" \
-    "gpu/gpu-operator" \
+    "$NAMESPACE/gpu-operator" \
     --create-namespace \
     --namespace "$NAMESPACE" \
     --values "./values-operator.yaml"
