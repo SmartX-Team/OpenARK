@@ -15,5 +15,6 @@
     groups:
       - all
       - flatcar
+      - kube_node
       - "{{ node[0] }}"
       - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
