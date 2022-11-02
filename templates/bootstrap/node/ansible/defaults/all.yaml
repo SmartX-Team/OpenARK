@@ -46,6 +46,8 @@ all:
         kube_network_plugin: calico
 
         ## Settings for calico CNI
+        # add default ippool blockSize (defaults kube_network_node_prefix)
+        calico_pool_blocksize: 24
         # Global as_num (/calico/bgp/v1/global/as_num)
         global_as_num: "64512"
         # You can set MTU value here. If left undefined or empty, it will
@@ -84,6 +86,23 @@ all:
         # This network must be unused in your network infrastructure!
         kube_pods_subnet: 10.48.0.0/12
         kube_child_pods_subnet: 10.96.0.0/12
+
+        # internal network node size allocation (optional). This is the size allocated
+        # to each node for pod IP address allocation. Note that the number of pods per node is
+        # also limited by the kubelet_max_pods variable which defaults to 110.
+        #
+        # Example:
+        # Up to 64 nodes and up to 254 or kubelet_max_pods (the lowest of the two) pods per node:
+        #  - kube_pods_subnet: 10.233.64.0/18
+        #  - kube_network_node_prefix: 24
+        #  - kubelet_max_pods: 110
+        #
+        # Example:
+        # Up to 128 nodes and up to 126 or kubelet_max_pods (the lowest of the two) pods per node:
+        #  - kube_pods_subnet: 10.233.64.0/18
+        #  - kube_network_node_prefix: 25
+        #  - kubelet_max_pods: 110
+        kube_network_node_prefix: 24
 
         # Kubernetes internal network for services, unused block of space.
         kube_service_addresses: 10.64.0.0/12 # same as calico CIDR
