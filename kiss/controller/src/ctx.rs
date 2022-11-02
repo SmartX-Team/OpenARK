@@ -69,25 +69,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
         }
 
+        // capture the timeout
         if let Some(last_updated) = status.map(|status| status.last_updated) {
-            // wait boxes status for begin updated
-            {
-                let timeout = BoxState::timeout_update();
-                if let Some(time_threshold) = old_state.timeout() {
-                    if now < last_updated + time_threshold {
-                        // update the status
-                        return Ok(Action::requeue(timeout.to_std().unwrap()));
-                    }
-                }
-            }
-
-            // capture the timeout
-            {
-                if let Some(time_threshold) = old_state.timeout() {
-                    if now > last_updated + time_threshold {
-                        // update the status
-                        new_state = old_state.fail();
-                    }
+            if let Some(time_threshold) = old_state.timeout() {
+                if now > last_updated + time_threshold {
+                    // update the status
+                    new_state = old_state.fail();
                 }
             }
         }

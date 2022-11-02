@@ -60,7 +60,7 @@ impl AnsibleClient {
             .status
             .as_ref()
             .and_then(|status| status.bind_group.as_ref());
-        let group = bind_group.unwrap_or(&job.r#box.spec.group);
+        let group = &job.r#box.spec.group;
         let reset = self.kiss.group_force_reset || bind_group != Some(&job.r#box.spec.group);
 
         // delete all previous cronjobs
