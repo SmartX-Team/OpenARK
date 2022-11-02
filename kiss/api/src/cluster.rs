@@ -72,6 +72,7 @@ impl<'a> ClusterState<'a> {
     pub fn get_control_planes_as_string(&self) -> String {
         let nodes = self.control_planes.iter().take(
             self.get_control_plane_index()
+                .map(|index| index + 1)
                 .unwrap_or_else(|| self.get_control_planes_total()),
         );
 
@@ -85,6 +86,7 @@ impl<'a> ClusterState<'a> {
             .iter()
             .take(
                 self.get_control_plane_index()
+                    .map(|index| index + 1)
                     .unwrap_or_else(|| self.get_control_planes_total()),
             )
             .collect();
