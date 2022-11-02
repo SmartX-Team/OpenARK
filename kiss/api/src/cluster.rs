@@ -53,7 +53,7 @@ impl<'a> ClusterState<'a> {
         self.control_planes
             .iter()
             .enumerate()
-            .filter(|(_, control_plane)| control_plane.name == self.owner.machine.uuid.to_string())
+            .filter(|(_, node)| node.name == self.owner.machine.uuid.to_string())
             .map(|(index, _)| index)
             .next()
     }
@@ -139,7 +139,7 @@ impl<'a> ClusterState<'a> {
 
     pub fn is_joinable(&self) -> bool {
         match self.get_control_plane_index() {
-            Some(index) => index == self.get_control_planes_running(),
+            Some(index) => index <= self.get_control_planes_running(),
             None => self.is_control_plane_ready(),
         }
     }
