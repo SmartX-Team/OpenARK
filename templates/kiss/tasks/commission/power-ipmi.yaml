@@ -25,6 +25,16 @@
     | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
   register: ipmi_address
 
+- name: Set IPMI IP Address be Static
+  when: ipmi.stat.exists
+  shell: >
+    docker run --rm
+    --net none
+    --device /dev/ipmi0:/dev/ipmi0:rw
+    quay.io/ulagbulag-village/netai-cloud-ipmitool:latest
+    lan set 1 ipsrc static
+  ignore_errors: true
+
 - name: Set IPMI IP Address
   when: ipmi.stat.exists
   shell: >
