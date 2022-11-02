@@ -6,17 +6,19 @@ use kube::{api::ListParams, Api, Client, Error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::r#box::{BoxCrd, BoxGroupRole, BoxSpec, BoxState};
+use crate::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
 
 pub struct ClusterState<'a> {
-    owner: &'a BoxSpec,
+    owner_group: &'a BoxGroupSpec,
+    owner_uuid: String,
     control_planes: BTreeSet<ClusterBoxState>,
 }
 
 impl<'a> ClusterState<'a> {
     pub async fn load(kube: &'a Client, owner: &'a BoxSpec) -> Result<ClusterState<'a>, Error> {
         Ok(Self {
-            owner,
+            owner_group: &owner.group,
+            owner_uuid: owner.machine.uuid.to_string(),
             // load the current control planes
             control_planes: {
                 let api = Api::<BoxCrd>::all(kube.clone());
@@ -49,13 +51,10 @@ impl<'a> ClusterState<'a> {
         })
     }
 
-    fn get_control_plane_index(&self) -> Option<usize> {
+    fn is_node_control_plane(&self) -> bool {
         self.control_planes
             .iter()
-            .enumerate()
-            .filter(|(_, node)| node.name == self.owner.machine.uuid.to_string())
-            .map(|(index, _)| index)
-            .next()
+            .any(|node| node.name == self.owner_uuid)
     }
 
     fn get_control_planes_running(&self) -> usize {
@@ -69,30 +68,25 @@ impl<'a> ClusterState<'a> {
         self.control_planes.len()
     }
 
+    pub fn get_control_planes_running_as_vec(&self) -> Vec<&ClusterBoxState> {
+        self.control_planes
+            .iter()
+            .filter(|node| node.is_running || node.name == self.owner_uuid)
+            .collect()
+    }
+
     pub fn get_control_planes_as_string(&self) -> String {
-        let nodes = self.control_planes.iter().take(
-            self.get_control_plane_index()
-                .map(|index| index + 1)
-                .unwrap_or_else(|| self.get_control_planes_total()),
-        );
+        let nodes = self.get_control_planes_running_as_vec();
 
         const NODE_ROLE: &str = "kube_control_plane";
         Self::get_nodes_as_string(nodes, NODE_ROLE)
     }
 
     pub fn get_etcd_nodes_as_string(&self) -> String {
-        let mut nodes: Vec<_> = self
-            .control_planes
-            .iter()
-            .take(
-                self.get_control_plane_index()
-                    .map(|index| index + 1)
-                    .unwrap_or_else(|| self.get_control_planes_total()),
-            )
-            .collect();
+        let mut nodes = self.get_control_planes_running_as_vec();
 
         // estimate the number of default nodes
-        let num_default_nodes = usize::from(self.owner.group.is_default());
+        let num_default_nodes = usize::from(self.owner_group.is_default());
 
         // ETCD nodes should be odd (RAFT)
         if (nodes.len() + num_default_nodes) % 2 == 0 {
@@ -121,14 +115,14 @@ impl<'a> ClusterState<'a> {
 
         info!(
             "Cluster \"{}\" status: {}/{} control-plane nodes are ready",
-            &self.owner.group.cluster_name, control_planes_running, control_planes_total,
+            &self.owner_group.cluster_name, control_planes_running, control_planes_total,
         );
 
         // test the count of nodes
-        if control_planes_running == 0 && !self.owner.group.is_default() {
+        if control_planes_running == 0 && !self.owner_group.is_default() {
             info!(
                 "Cluster \"{}\" status: no control-plane nodes are defined",
-                &self.owner.group.cluster_name,
+                &self.owner_group.cluster_name,
             );
             return false;
         }
@@ -138,9 +132,14 @@ impl<'a> ClusterState<'a> {
     }
 
     pub fn is_joinable(&self) -> bool {
-        match self.get_control_plane_index() {
-            Some(index) => index <= self.get_control_planes_running(),
-            None => self.is_control_plane_ready(),
+        if self.is_node_control_plane() {
+            self.control_planes
+                .iter()
+                .find(|node| !node.is_running)
+                .map(|node| node.name == self.owner_uuid)
+                .unwrap_or_default()
+        } else {
+            self.is_control_plane_ready()
         }
     }
 }
