@@ -83,8 +83,11 @@ impl AnsibleClient {
         let cluster_state = ClusterState::load(kube, &job.r#box.spec).await?;
         if matches!(job.new_state, BoxState::Joining) && !cluster_state.is_joinable() {
             info!(
-                "Cluster is not ready: {} {} -> {}",
-                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+                "Cluster is not ready: {} {} {} -> {}",
+                &job.new_state,
+                job.r#box.spec.group.role,
+                &box_name,
+                &job.r#box.spec.group.cluster_name,
             );
             return Ok(false);
         }
