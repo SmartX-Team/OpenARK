@@ -97,7 +97,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 let is_spawned = manager
                     .ansible
                     .spawn(
-                        &manager.cluster,
                         &manager.kube,
                         AnsibleJob {
                             cron: new_state.cron(),

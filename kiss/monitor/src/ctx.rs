@@ -76,9 +76,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
             }
             // keep the state, scheduled by the controller
             else {
-                // release the lock
-                Self::release_cluster_lock(&manager, &box_name, None).await?;
-
                 info!("Skipping updating box state: {}", &box_name,);
                 Ok(Action::requeue(
                     <Self as ::kiss_api::manager::Ctx>::FALLBACK,
@@ -96,9 +93,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 }
                 // do nothing when the job has no fallback state
                 _ => {
-                    // release the lock
-                    Self::release_cluster_lock(&manager, &box_name, Some(fallback_state)).await?;
-
                     info!(
                         "Skipping updating box state: {} -> {}",
                         &box_name, &fallback_state,
@@ -158,29 +152,10 @@ impl Ctx {
             api.patch_status(&box_name, &pp, &patch).await?;
         }
 
-        // release the lock
-        Self::release_cluster_lock(&manager, &box_name, Some(state)).await?;
-
         info!("Updated box state: {} -> {}", &box_name, &state);
         Ok(Action::requeue(
             <Self as ::kiss_api::manager::Ctx>::FALLBACK,
         ))
-    }
-
-    /// Release the cluster lock if finished
-    async fn release_cluster_lock(
-        manager: &Manager<Self>,
-        box_name: &str,
-        state: Option<BoxState>,
-    ) -> Result<(), Error> {
-        let api = Api::<BoxCrd>::all(manager.kube.clone());
-        let r#box = api.get(box_name).await?;
-        let mut cluster_state = manager.cluster.load_state(&manager.kube, &r#box).await?;
-
-        // update cluster state and release the lock
-        cluster_state.update_control_planes(state).await?;
-        cluster_state.release().await?;
-        Ok(())
     }
 
     fn get_box_name(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<String> {

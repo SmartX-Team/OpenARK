@@ -16,9 +16,9 @@ use kube::{
 };
 
 use crate::{
-    cluster::ClusterManager,
+    cluster::ClusterState,
     config::KissConfig,
-    r#box::{BoxCrd, BoxGroupRole, BoxPowerSpec, BoxState},
+    r#box::{BoxCrd, BoxPowerSpec, BoxState},
 };
 
 pub struct AnsibleClient {
@@ -44,12 +44,7 @@ impl AnsibleClient {
         })
     }
 
-    pub async fn spawn(
-        &self,
-        cluster_manager: &ClusterManager,
-        kube: &Client,
-        job: AnsibleJob<'_>,
-    ) -> Result<bool, Error> {
+    pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<bool, Error> {
         let ns = crate::consts::NAMESPACE;
         let box_name = job.r#box.spec.machine.uuid.to_string();
         let box_status = job.r#box.status.as_ref();
@@ -84,49 +79,14 @@ impl AnsibleClient {
             api.delete_collection(&dp, &lp).await?;
         }
 
-        // realize mutual exclusivity
-        let mut cluster_state = cluster_manager.load_state(kube, job.r#box).await?;
-        {
-            match job.r#box.spec.group.role {
-                // control-plane: lock clusters if to join
-                BoxGroupRole::ControlPlane => match job.new_state {
-                    BoxState::Joining | BoxState::Disconnected => {
-                        if !cluster_state.lock().await? {
-                            info!(
-                                "Cluster is locked: {} {} -> {}",
-                                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
-                            );
-                            return Ok(false);
-                        }
-                    }
-                    _ => {
-                        cluster_state.release().await?;
-                    }
-                },
-                // worker: chech whether cluster is locked
-                BoxGroupRole::Worker => {
-                    // skip if to be joined but there is no control planes
-                    if job.new_state == BoxState::Joining
-                        && !cluster_state.is_control_plane_ready().await?
-                    {
-                        info!(
-                            "Control plane is not ready: {} {} -> {}",
-                            &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
-                        );
-                        return Ok(false);
-                    }
-                    // cluster-sensitive tasks are binded to lock
-                    if matches!(job.new_state, BoxState::Joining | BoxState::Disconnected)
-                        && !cluster_state.release().await?
-                    {
-                        info!(
-                            "Cluster is locked: {} {} -> {}",
-                            &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
-                        );
-                        return Ok(false);
-                    }
-                }
-            }
+        // realize mutual exclusivity (QUEUE)
+        let cluster_state = ClusterState::load(kube, &job.r#box.spec).await?;
+        if matches!(job.new_state, BoxState::Joining) && !cluster_state.is_joinable() {
+            info!(
+                "Cluster is not ready: {} {} -> {}",
+                &job.new_state, &box_name, &job.r#box.spec.group.cluster_name,
+            );
+            return Ok(false);
         }
 
         // define the object
