@@ -1,4 +1,4 @@
 ---
-- hosts: kube_node
+- hosts: target
   tasks:
     - include: storage.yaml

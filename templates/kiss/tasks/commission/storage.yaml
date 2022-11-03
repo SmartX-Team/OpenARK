@@ -25,18 +25,20 @@
             name: cni
             path: /opt/cni
             size: 8G
-          # - kind: binary
-          #   name: common
-          #   path: /opt/bin
-          #   size: 1G
+          - kind: binary
+            name: common
+            path: /opt/bin
+            size: 1G
+            overlay: true
           - kind: binary
             name: etcd
             path: /opt/etcd
             size: 8G
-          # - kind: binary
-          #   name: pypy3
-          #   path: /opt/pypy3
-          #   size: 256M
+          - kind: binary
+            name: pypy3
+            path: /opt/pypy3
+            size: 256M
+            overlay: true
           - kind: etc
             name: cni
             path: /etc/cni
@@ -53,6 +55,11 @@
             name: k8s
             path: /etc/kubernetes
             size: 16M
+          - kind: etc
+            name: overlay
+            path: /etc
+            size: 256M
+            overlay: true
           - kind: home
             name: k8s
             path: /root/.kube

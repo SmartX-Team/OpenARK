@@ -21,7 +21,9 @@
     state: mounted
 
 - name: Copy files | {{ lv.kind }} | {{ lv.name }}
-  when: not kiss_storage_exists
+  when:
+    - not kiss_storage_exists
+    - lv.overlay is not defined or not lv.overlay
   copy:
     src: "{{ lv.path }}/"
     dest: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
@@ -36,9 +38,47 @@
     state: absent
 
 - name: Mount a logical volume | {{ lv.kind }} | {{ lv.name }}
+  when: lv.overlay is not defined or not lv.overlay
   mount:
     path: "{{ lv.path }}"
     src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
     fstype: xfs
     opts: rw,relatime
     state: mounted
+
+- name: Mount a logical volume for overlay | {{ lv.kind }} | {{ lv.name }}
+  when: lv.overlay is defined and lv.overlay
+  mount:
+    path: /mnt/overlay{{ lv.path }}
+    src: /dev/mapper/kiss-{{ lv.kind }}.{{ lv.name }}
+    fstype: xfs
+    opts: rw,relatime
+    state: mounted
+
+- name: Create directories for overlay
+  when: lv.overlay is defined and lv.overlay
+  with_items:
+    - upperdir
+    - workdir
+  file:
+    path: /mnt/overlay{{ lv.path }}/{{ item }}
+    state: directory
+
+- name: Mount a volume over {{ lv.overlayTo }} | {{ lv.kind }} | {{ lv.name }}
+  when: lv.overlay is defined and lv.overlay
+  mount:
+    path: "{{ lv.path }}"
+    src: /mnt/overlay{{ lv.path }}
+    fstype: overlay
+    opts: lowerdir={{ lv.path }},upperdir=/mnt/overlay{{ lv.path }}/upperdir,workdir=/mnt/overlay{{ lv.path }}/workdir
+    state: mounted
+
+- name: Restore files | {{ lv.kind }} | {{ lv.name }}
+  when:
+    - not kiss_storage_exists
+    - lv.overlay is not defined or not lv.overlay
+  copy:
+    src: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
+    dest: "{{ lv.path }}/"
+    remote_src: true
+  ignore_errors: true
