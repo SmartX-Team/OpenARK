@@ -15,6 +15,8 @@ pub struct ClusterState<'a> {
 }
 
 impl<'a> ClusterState<'a> {
+    const MAX_ETCD_NODES: usize = 1;
+
     pub async fn load(kube: &'a Client, owner: &'a BoxSpec) -> Result<ClusterState<'a>, Error> {
         Ok(Self {
             owner_group: &owner.group,
@@ -87,6 +89,13 @@ impl<'a> ClusterState<'a> {
 
         // estimate the number of default nodes
         let num_default_nodes = usize::from(self.owner_group.is_default());
+
+        // truncate the number of nodes to MAX_ETCD_NODES
+        nodes.truncate(if Self::MAX_ETCD_NODES < num_default_nodes {
+            0
+        } else {
+            Self::MAX_ETCD_NODES - num_default_nodes
+        });
 
         // ETCD nodes should be odd (RAFT)
         if (nodes.len() + num_default_nodes) % 2 == 0 {
