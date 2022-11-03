@@ -53,6 +53,10 @@
             name: k8s
             path: /etc/kubernetes
             size: 16M
+          - kind: home
+            name: k8s
+            path: /root/.kube
+            size: 16M
           - kind: var
             name: calico
             path: /var/lib/calico

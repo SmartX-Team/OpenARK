@@ -153,6 +153,7 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/etc.containerd:/etc/containerd:shared" \
             --volume "$KUBERNETES_DATA/etc.etcd:/etc/etcd:shared" \
             --volume "$KUBERNETES_DATA/etc.k8s:/etc/kubernetes:shared" \
+            --volume "$KUBERNETES_DATA/home.k8s:/root/.kube:shared" \
             --volume "$KUBERNETES_DATA/var.calico:/var/lib/calico:shared" \
             --volume "$KUBERNETES_DATA/var.cni:/var/lib/cni:shared" \
             --volume "$KUBERNETES_DATA/var.containerd:/var/lib/containerd:shared" \

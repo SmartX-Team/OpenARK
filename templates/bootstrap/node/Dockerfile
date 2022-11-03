@@ -24,6 +24,8 @@ VOLUME [ "/etc/cni" ]
 VOLUME [ "/etc/containerd" ]
 ## etc.etcd
 VOLUME [ "/etc/etcd" ]
+## home.k8s
+VOLUME [ "/root/.kube" ]
 ## etc.k8s
 VOLUME [ "/etc/kubernetes" ]
 ## var.calico
