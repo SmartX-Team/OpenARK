@@ -151,6 +151,8 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/binary.pypy3:/opt/pypy3:shared" \
             --volume "$KUBERNETES_DATA/etc.cni:/etc/cni:shared" \
             --volume "$KUBERNETES_DATA/etc.containerd:/etc/containerd:shared" \
+            --volume "$KUBERNETES_DATA/etc.etcd:/etc/etcd:shared" \
+            --volume "$KUBERNETES_DATA/etc.k8s:/etc/kubernetes:shared" \
             --volume "$KUBERNETES_DATA/var.calico:/var/lib/calico:shared" \
             --volume "$KUBERNETES_DATA/var.cni:/var/lib/cni:shared" \
             --volume "$KUBERNETES_DATA/var.containerd:/var/lib/containerd:shared" \

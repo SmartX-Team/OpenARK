@@ -40,6 +40,7 @@ all:
         etcd_deployment_type: host # data is stored in /opt/etcd
         # Directory where etcd data stored
         etcd_data_dir: /opt/etcd
+        etcd_config_dir: /etc/etcd
 
         # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
         # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing

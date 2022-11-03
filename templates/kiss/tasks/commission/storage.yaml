@@ -46,6 +46,10 @@
             path: /etc/containerd
             size: 16M
           - kind: etc
+            name: etcd
+            path: /etc/etcd
+            size: 16M
+          - kind: etc
             name: k8s
             path: /etc/kubernetes
             size: 16M

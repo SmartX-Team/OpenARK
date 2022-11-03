@@ -22,6 +22,10 @@ VOLUME [ "/opt/pypy3" ]
 VOLUME [ "/etc/cni" ]
 ## etc.containerd
 VOLUME [ "/etc/containerd" ]
+## etc.etcd
+VOLUME [ "/etc/etcd" ]
+## etc.k8s
+VOLUME [ "/etc/kubernetes" ]
 ## var.calico
 VOLUME [ "/var/lib/calico" ]
 ## var.cni
