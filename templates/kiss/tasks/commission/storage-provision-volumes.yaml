@@ -72,13 +72,3 @@
     fstype: overlay
     opts: lowerdir={{ lv.path }},upperdir=/mnt/overlay{{ lv.path }}/upperdir,workdir=/mnt/overlay{{ lv.path }}/workdir
     state: mounted
-
-- name: Restore files | {{ lv.kind }} | {{ lv.name }}
-  when:
-    - not kiss_storage_exists
-    - lv.overlay is not defined or not lv.overlay
-  copy:
-    src: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
-    dest: "{{ lv.path }}/"
-    remote_src: true
-  ignore_errors: true
