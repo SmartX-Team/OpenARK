@@ -23,5 +23,5 @@
     name: "{{ ansible_ipmi_host }}"
     user: kiss
     password: "{{ ansible_ipmi_password }}"
-    state: reset
+    state: boot
   ignore_errors: true
