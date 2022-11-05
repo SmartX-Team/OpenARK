@@ -144,6 +144,7 @@ function spawn_node() {
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
+            --tmpfs "/tmp" \
             --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
             --volume "$KUBERNETES_DATA/binary.cni:/opt/cni:shared" \
             --volume "$KUBERNETES_DATA/binary.common:/usr/local/bin:shared" \
