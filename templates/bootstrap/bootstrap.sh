@@ -129,6 +129,7 @@ function spawn_node() {
             --net "host" \
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
+            --restart "unless-stopped" \
             --tmpfs "/run" \
             --tmpfs "/tmp" \
             --volume "/etc/sysctl.d:/etc/sysctl.d" \
@@ -566,9 +567,6 @@ function install_ipis_cluster() {
 
 # Define a main function
 function main() {
-    # Check Dependencies
-    check_linux_dependencies
-
     # Configure Host
     configure_linux_kernel
     generate_ssh_keypair
