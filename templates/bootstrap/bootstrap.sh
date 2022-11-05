@@ -351,12 +351,12 @@ function install_kiss_cluster() {
                 cat ${SSH_KEYFILE}.pub |
                     awk '{print $1 " " $2}'
             )"
-        "$CONTAINER_RUNTIME" cp "${SSH_KEYFILE}" "$node_first:/tmp/kiss_bootstrap_id_rsa"
+        "$CONTAINER_RUNTIME" cp "${SSH_KEYFILE}" "$node_first:/opt/kiss_bootstrap_id_rsa"
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "matchbox-account" \
-            "--from-file=id_rsa=/tmp/kiss_bootstrap_id_rsa" ||
-            "$CONTAINER_RUNTIME" exec "$node_first" \
-                rm -f "/tmp/kiss_bootstrap_id_rsa"
+            "--from-file=id_rsa=/opt/kiss_bootstrap_id_rsa"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            rm -f "/opt/kiss_bootstrap_id_rsa" || true
 
         # Install cluster
         echo "- Installing kiss cluster ... "
@@ -428,12 +428,12 @@ function install_k8s_snapshot_cluster() {
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
                 base64 --decode |
             "$CONTAINER_RUNTIME" exec -i "$node_first" \
-                tee "/tmp/kiss_snapshot_id_rsa" >/dev/null
+                tee "/opt/kiss_snapshot_id_rsa" >/dev/null
         "$CONTAINER_RUNTIME" exec "$node_first" \
             kubectl create -n kiss secret generic "snapshot-git" \
-            "--from-file=id_rsa=/tmp/kiss_snapshot_id_rsa" ||
-            "$CONTAINER_RUNTIME" exec "$node_first" \
-                rm -f "/tmp/kiss_snapshot_id_rsa"
+            "--from-file=id_rsa=/opt/kiss_snapshot_id_rsa"
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            rm -f "/opt/kiss_snapshot_id_rsa" || true
     fi
 
     # Finished!
