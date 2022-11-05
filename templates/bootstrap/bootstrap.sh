@@ -256,7 +256,7 @@ function install_k8s_cluster() {
             --name "kiss-configuration-loader" \
             --entrypoint "/usr/bin/env" \
             "$KISS_INSTALLER_IMAGE" \
-            tar -cf - -C "./tasks/join/" "." |
+            tar -cf - -C "./tasks/common/" "." |
             tar -xf - -C "$KUBESPRAY_CONFIG_TEMPLATE/bootstrap/tasks/"
         echo "OK"
 
