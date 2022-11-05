@@ -23,7 +23,7 @@
 - name: Calico | Add BGP peers
   hosts: kube_control_plane
   tasks:
-    - include: ../tasks/calico-bgppeer.yaml
+    - include: ../tasks/bgp-add-calico.yaml
 
 - name: Label Nodes | KISS Ephemeral Control Planes
   hosts: kube_control_plane
