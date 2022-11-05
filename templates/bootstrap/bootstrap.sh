@@ -71,20 +71,6 @@ BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE="$(
 )"
 
 ###########################################################
-#   Check Dependencies                                    #
-###########################################################
-
-# Check linux dependencies
-function check_linux_dependencies() {
-    UNAME="$(uname -r)"
-    if [ ! -d "/lib/modules/$UNAME" ]; then
-        echo "Error: Cannot find the linux modules (/lib/modules/$UNAME)"
-        echo "Note: You may reboot your machine to reload the kernel."
-        exit 1
-    fi
-}
-
-###########################################################
 #   Configure Host                                        #
 ###########################################################
 
@@ -145,7 +131,11 @@ function spawn_node() {
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --tmpfs "/run" \
             --tmpfs "/tmp" \
-            --volume "/lib/modules/$UNAME:/lib/modules/$UNAME:ro" \
+            --volume "/etc/sysctl.d:/etc/sysctl.d" \
+            --volume "/lib/modules:/lib/modules" \
+            --volume "/sys/fs/bpf:/sys/fs/bpf" \
+            --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
+            --volume "/sys/kernel/debug:/sys/kernel/debug" \
             --volume "$KUBERNETES_DATA/binary.cni:/opt/cni:shared" \
             --volume "$KUBERNETES_DATA/binary.common:/usr/local/bin:shared" \
             --volume "$KUBERNETES_DATA/binary.etcd:/opt/etcd:shared" \
@@ -162,8 +152,6 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/var.proxy_cache:/var/lib/proxy_cache:shared" \
             --volume "$KUBERNETES_DATA/var.rook:/var/lib/rook:shared" \
             --volume "$KUBERNETES_DATA/var.system.log:/var/log:shared" \
-            --volume "/etc/sysctl.d:/etc/sysctl.d" \
-            --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             "$KISS_BOOTSTRAP_NODE_IMAGE" >/dev/null
     else
         # Start SSH
