@@ -5,11 +5,12 @@ metadata:
   name: ipsis-local
   namespace: ipis
 spec:
+  replicas: 1
   selector:
     matchLabels:
       name: ipsis-local
+      serviceType: ipis-runtime
   serviceName: ipsis-local
-  replicas: 1
   template:
     metadata:
       labels:
@@ -28,6 +29,40 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      # initContainers:
+      #   - name: ipiis-register-as-primary
+      #     image: quay.io/ulagbulag-village/ipiis:latest-tcp
+      #     imagePullPolicy: Always
+      #     command:
+      #       - ipiis-modules-cli
+      #     args:
+      #       - set-account
+      #     env:
+      #       - name: RUST_LOG
+      #         value: INFO
+      #       - name: ipis_account_me
+      #         valueFrom:
+      #           secretKeyRef:
+      #             name: account-root-ca
+      #             key: private_key
+      #       - name: ipiis_account_primary
+      #         valueFrom:
+      #           configMapKeyRef:
+      #             name: account-root-ca
+      #             key: public_key
+      #       - name: ipiis_account_primary_address
+      #         value: ipiis-tcp.ipis:9801
+      #       - name: ipiis_client_kind
+      #         value: __ipis__ipsis__
+      #       - name: ipiis_client_account
+      #         valueFrom:
+      #           configMapKeyRef:
+      #             name: account-root-ca
+      #             key: public_key
+      #       - name: ipiis_client_address
+      #         value: ipsis-local.ipis:9803
+      #       - name: ipiis_client_is_primary
+      #         value: "true"
       containers:
         - name: ipiis
           image: quay.io/ulagbulag-village/ipsis:latest-local
@@ -73,19 +108,19 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 1Ti
+            storage: 10Ti
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ipsis-local
-  namespace: kiss
+  namespace: ipis
 spec:
   type: ClusterIP
   selector:
     name: ipsis-local
+    serviceType: ipis-runtime
   ports:
     - name: ipiis
       protocol: TCP
       port: 9803
-      targetPort: 9803

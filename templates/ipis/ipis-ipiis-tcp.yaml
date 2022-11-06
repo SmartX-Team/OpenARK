@@ -1,6 +1,6 @@
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: ipiis-tcp
   namespace: ipis
@@ -9,9 +9,7 @@ spec:
   selector:
     matchLabels:
       name: ipiis-tcp
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 1
+  serviceName: ipiis-tcp
   template:
     metadata:
       labels:
@@ -47,6 +45,8 @@ spec:
                 configMapKeyRef:
                   name: account-root-ca
                   key: public_key
+            - name: ipiis_rarp_db
+              value: /data/ipiis/rarp
             - name: ipiis_server_port
               value: "9801"
           ports:
@@ -57,15 +57,27 @@ spec:
             requests:
               cpu: 30m
               memory: 20Mi
-            # limits:
-            #   cpu: "4"
-            #   memory: 1Gi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data/ipiis/rarp
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: ceph-block
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ipiis-tcp
-  namespace: kiss
+  namespace: ipis
 spec:
   type: ClusterIP
   selector:
@@ -74,4 +86,3 @@ spec:
     - name: ipiis
       protocol: TCP
       port: 9801
-      targetPort: 9801

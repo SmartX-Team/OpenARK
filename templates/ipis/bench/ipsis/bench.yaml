@@ -63,10 +63,10 @@ spec:
                 configMapKeyRef:
                   name: account-root-ca
                   key: public_key
-            - name: ipiis_client_account_primary_address
+            - name: ipiis_client_account_primary_address_read
               value: "__ADDRESS_READ__:__PORT__"
-            - name: ipsis_client_ipfs_host
-              value: "__ADDRESS_WRITE__"
+            - name: ipiis_client_account_primary_address_write
+              value: "__ADDRESS_WRITE__:__PORT__"
             - name: ipsis_client_ipfs_host_read
               value: "__ADDRESS_READ__"
             - name: ipsis_client_ipfs_host_write

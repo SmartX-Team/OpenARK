@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: ipfs
+  name: postgres
   namespace: ipis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: ipfs
-      serviceType: ipsis-storage-backend
-  serviceName: ipfs
+      name: postgres
+      serviceType: ipdis-db-backend
+  serviceName: postgres
   template:
     metadata:
       labels:
-        name: ipfs
-        serviceType: ipsis-storage-backend
+        name: postgres
+        serviceType: ipdis-db-backend
     spec:
       affinity: # TODO: use service instead
         nodeAffinity:
@@ -30,21 +30,19 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: ipfs
-          image: docker.io/ipfs/kubo:latest
+        - name: ipiis
+          image: docker.io/library/postgres:latest
+          env:
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            - name: POSTGRES_DB
+              value: ipdis
+            - name: POSTGRES_USER
+              value: ipis
           ports:
-            - name: ipfs-tcp-4001
+            - name: postgres
               protocol: TCP
-              containerPort: 4001
-            - name: ipfs-udp-4001
-              protocol: UDP
-              containerPort: 4001
-            - name: ipfs-tcp-5001
-              protocol: TCP
-              containerPort: 5001
-            - name: ipfs-tcp-8080
-              protocol: TCP
-              containerPort: 8080
+              containerPort: 5432
           resources:
             requests:
               cpu: 30m
@@ -54,7 +52,7 @@ spec:
             #   memory: 1Gi
           volumeMounts:
             - name: data
-              mountPath: /data/ipfs
+              mountPath: /data/postgres
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -68,13 +66,13 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ipsis-ipfs
+  name: ipdis-postgres
   namespace: ipis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: ipsis-ipfs
+      name: ipdis-postgres
       serviceType: ipis-runtime
   strategy:
     rollingUpdate:
@@ -82,7 +80,7 @@ spec:
   template:
     metadata:
       labels:
-        name: ipsis-ipfs
+        name: ipdis-postgres
         serviceType: ipis-runtime
     spec:
       affinity: # TODO: use service instead
@@ -99,7 +97,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ipiis
-          image: quay.io/ulagbulag-village/ipsis:latest-ipfs
+          image: quay.io/ulagbulag-village/ipdis:latest-postgres
           imagePullPolicy: Always
           env:
             - name: RUST_LOG
@@ -117,15 +115,13 @@ spec:
             - name: ipiis_client_account_primary_address
               value: 0.0.0.0:9801
             - name: ipiis_server_port
-              value: "9802"
-            - name: ipsis_client_ipfs_host
-              value: "127.0.0.1"
-            - name: ipsis_client_ipfs_port
-              value: "5001"
+              value: "9803"
+            - name: DATABASE_URL
+              value: "postgres://ipis@postgres-0/ipdis"
           ports:
             - name: ipiis
               protocol: TCP
-              containerPort: 9802
+              containerPort: 9805
           resources:
             requests:
               cpu: 30m
@@ -137,14 +133,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ipsis-ipfs
+  name: ipdis-postgres
   namespace: ipis
 spec:
   type: ClusterIP
   selector:
-    name: ipsis-ipfs
+    name: ipdis-postgres
     serviceType: ipis-runtime
   ports:
     - name: ipiis
       protocol: TCP
-      port: 9802
+      port: 9805
