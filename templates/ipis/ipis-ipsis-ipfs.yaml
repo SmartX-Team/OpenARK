@@ -1,4 +1,28 @@
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs
+  namespace: ipis
+spec:
+  type: ClusterIP
+  selector:
+    name: ipfs
+    serviceType: ipsis-storage-backend
+  ports:
+    - name: ipfs-tcp-4001
+      protocol: TCP
+      port: 4001
+    - name: ipfs-udp-4001
+      protocol: UDP
+      port: 4001
+    - name: ipfs-tcp-5001
+      protocol: TCP
+      port: 5001
+    - name: ipfs-tcp-8080
+      protocol: TCP
+      port: 8080
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -64,6 +88,21 @@ spec:
         resources:
           requests:
             storage: 1Ti
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipsis-ipfs
+  namespace: ipis
+spec:
+  type: ClusterIP
+  selector:
+    name: ipsis-ipfs
+    serviceType: ipis-runtime
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9802
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -133,18 +172,3 @@ spec:
             # limits:
             #   cpu: "4"
             #   memory: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ipsis-ipfs
-  namespace: ipis
-spec:
-  type: ClusterIP
-  selector:
-    name: ipsis-ipfs
-    serviceType: ipis-runtime
-  ports:
-    - name: ipiis
-      protocol: TCP
-      port: 9802

@@ -1,4 +1,19 @@
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: ipis
+spec:
+  type: ClusterIP
+  selector:
+    name: postgres
+    serviceType: ipdis-db-backend
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 5432
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -63,6 +78,21 @@ spec:
           requests:
             storage: 1Ti
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipdis-postgres
+  namespace: ipis
+spec:
+  type: ClusterIP
+  selector:
+    name: ipdis-postgres
+    serviceType: ipis-runtime
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9805
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -95,6 +125,31 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: init-db
+          image: quay.io/ulagbulag-village/ipdis:latest-postgres
+          imagePullPolicy: Always
+          command:
+            - diesel
+          args:
+            - migration
+            - run
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: DATABASE_URL
+              value: postgres://ipis@postgres/ipdis
+            - name: DIESEL_CONFIG_FILE
+              value: /sql/postgres/diesel.toml
+            - name: MIGRATION_DIRECTORY
+              value: /sql/postgres/migrations/
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 50Mi
       containers:
         - name: ipiis
           image: quay.io/ulagbulag-village/ipdis:latest-postgres
@@ -115,9 +170,9 @@ spec:
             - name: ipiis_client_account_primary_address
               value: 0.0.0.0:9801
             - name: ipiis_server_port
-              value: "9803"
+              value: "9805"
             - name: DATABASE_URL
-              value: "postgres://ipis@postgres-0/ipdis"
+              value: "postgres://ipis@postgres/ipdis"
           ports:
             - name: ipiis
               protocol: TCP
@@ -129,18 +184,3 @@ spec:
             # limits:
             #   cpu: "4"
             #   memory: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ipdis-postgres
-  namespace: ipis
-spec:
-  type: ClusterIP
-  selector:
-    name: ipdis-postgres
-    serviceType: ipis-runtime
-  ports:
-    - name: ipiis
-      protocol: TCP
-      port: 9805

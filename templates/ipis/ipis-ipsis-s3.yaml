@@ -8,6 +8,21 @@ spec:
   generateBucketName: ipsis
   storageClassName: ceph-bucket
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipsis-s3
+  namespace: ipis
+spec:
+  type: ClusterIP
+  selector:
+    name: ipsis-s3
+    serviceType: ipis-runtime
+  ports:
+    - name: ipiis
+      protocol: TCP
+      port: 9804
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -102,18 +117,3 @@ spec:
             # limits:
             #   cpu: "4"
             #   memory: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ipsis-s3
-  namespace: ipis
-spec:
-  type: ClusterIP
-  selector:
-    name: ipsis-s3
-    serviceType: ipis-runtime
-  ports:
-    - name: ipiis
-      protocol: TCP
-      port: 9804
