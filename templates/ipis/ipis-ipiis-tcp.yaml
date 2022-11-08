@@ -59,7 +59,7 @@ spec:
                 configMapKeyRef:
                   name: account-root-ca
                   key: public_key
-            - name: ipiis_rarp_db
+            - name: ipiis_router_db
               value: /data/ipiis/rarp
             - name: ipiis_server_port
               value: "9801"
