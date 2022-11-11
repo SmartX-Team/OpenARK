@@ -44,12 +44,13 @@ SAVE_DIR="${SAVE_DIR:-$SAVE_DIR_DEFAULT}"
 #   Install Bench Tools                                   #
 ###########################################################
 
-echo "- Installing ipis bench tools ... "
+echo -n "- Installing ipis bench tools ... "
 kubectl apply \
     -f "./bench-tools.yaml" \
     >/dev/null
+echo "OK"
 
-echo -n "- Waiting for deploying Ceph Tools ... "
+echo -n "- Waiting for deploying ipis bench tools ... "
 kubectl --namespace "ipis" rollout status deployment "ipsis-bench-tools" >/dev/null
 echo "OK"
 
@@ -77,9 +78,23 @@ for address_read in $ADDRESS_READ; do
 
                             # skip if address_read is given and protocol is not IPFS
                             if [ "$address_read" != "$address_write" ]; then
-                                if [ "$protocol" != "ipfs" ]; then
+                                if [ "$protocol" != "ipiis" ] && [ "$protocol" != "ipfs" ]; then
                                     continue
                                 fi
+                            fi
+
+                            # change the primary address
+                            if [ "$port" != "none" ]; then
+                                for address in "$address_read" "$address_write"; do
+                                    docker run --rm --net host \
+                                        --env ipis_account_me=$(sudo kubectl get secret -n ipis account-root-ca -o jsonpath --template '{.data.private_key}' | base64 --decode) \
+                                        --env ipiis_account_primary=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
+                                        --env ipiis_account_primary_address="$address:9801" \
+                                        --env ipiis_client_account=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
+                                        --env ipiis_client_address="$address:$port" \
+                                        quay.io/ulagbulag-village/ipiis:latest-tcp \
+                                        ipiis-modules-cli set-account --primary --kind __ipis__ipsis__
+                                done
                             fi
 
                             for simulation_delay_ms in $SIMULATION_DELAY_MS; do

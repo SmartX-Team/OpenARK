@@ -10,7 +10,7 @@ spec:
     name: postgres
     serviceType: ipdis-db-backend
   ports:
-    - name: ipiis
+    - name: postgres
       protocol: TCP
       port: 5432
 ---

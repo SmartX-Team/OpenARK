@@ -17,8 +17,8 @@ metadata:
   name: ipsis-bench-results
   namespace: ipis
 spec:
-  storageClassName: ceph-block
-  accessModes: ["ReadWriteOnce"]
+  storageClassName: ceph-filesystem
+  accessModes: ["ReadWriteMany"]
   resources:
     requests:
       storage: 10Gi
