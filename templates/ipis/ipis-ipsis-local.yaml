@@ -90,13 +90,13 @@ spec:
                 secretKeyRef:
                   name: account-root-ca
                   key: private_key
-            - name: ipiis_client_account_primary
+            - name: ipiis_account_primary
               valueFrom:
                 configMapKeyRef:
                   name: account-root-ca
                   key: public_key
-            - name: ipiis_client_account_primary_address
-              value: 0.0.0.0:9801
+            - name: ipiis_account_primary_address
+              value: 127.0.0.1:9801
             - name: ipiis_server_port
               value: "9803"
             - name: ipsis_client_local_dir
