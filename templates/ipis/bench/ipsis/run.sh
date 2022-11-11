@@ -91,7 +91,7 @@ for address_read in $ADDRESS_READ; do
                                         --env ipiis_account_primary=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
                                         --env ipiis_account_primary_address="$address:9801" \
                                         --env ipiis_client_account=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
-                                        --env ipiis_client_address="$address:$port" \
+                                        --env ipiis_client_address="$address_write:$port" \
                                         quay.io/ulagbulag-village/ipiis:latest-tcp \
                                         ipiis-modules-cli set-account --primary --kind __ipis__ipsis__
                                 done
