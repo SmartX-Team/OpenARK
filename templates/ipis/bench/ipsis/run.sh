@@ -103,6 +103,13 @@ for address_read in $ADDRESS_READ; do
                                     port="9801"
                                 fi
 
+                                # if IPFS, then disable next-hop policy
+                                if [ "$protocol" == "ipfs" ]; then
+                                    enable_get_next_hop="false"
+                                else
+                                    enable_get_next_hop="true"
+                                fi
+
                                 # print options
                                 echo -n "ADDRESS_READ=$address_read | "
                                 echo -n "ADDRESS_WRITE=$address_write | "
@@ -123,6 +130,7 @@ for address_read in $ADDRESS_READ; do
                                     sed "s/__PORT__/$port/g" |
                                     sed "s/__PROTOCOL__/$protocol/g" |
                                     sed "s/__SIMULATION_DELAY_MS__/$simulation_delay_ms/g" |
+                                    sed "s/__ENABLE_GET_NEXT_HOP__/$enable_get_next_hop/g" |
                                     kubectl apply -f - >/dev/null
 
                                 # wait for completing

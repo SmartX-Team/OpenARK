@@ -105,6 +105,8 @@ spec:
                 secretKeyRef:
                   name: ipsis
                   key: AWS_SECRET_ACCESS_KEY
+            - name: ipsis_enable_get_next_hop
+              value: "__ENABLE_GET_NEXT_HOP__"
           volumeMounts:
             - name: data
               mountPath: /data/ipsis
