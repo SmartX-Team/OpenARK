@@ -437,6 +437,50 @@ jobs:
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
+  build-and-push-image-upgrade-network-nvidia:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - build-rust
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to ${{ env.REGISTRY }}
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}-upgrade-network-nvidia
+          tags: latest
+          context: ./templates/network/nvidia
+          containerfiles: |
+            ./templates/network/nvidia/Dockerfile
+          build-args: |
+            K8S_VERSION=${{ env.K8S_VERSION }}
+
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
   release:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
@@ -449,6 +493,7 @@ jobs:
       - build-and-push-image-upgrade-gpu-nvidia
       - build-and-push-image-upgrade-ipis
       - build-and-push-image-upgrade-kiss
+      - build-and-push-image-upgrade-network-nvidia
     runs-on: ubuntu-latest
     permissions:
       contents: write

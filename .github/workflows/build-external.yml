@@ -15,19 +15,19 @@ env:
   REGISTRY_REPOSITORY: ulagbulag-village
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   REPOSITORY_NAME: netai-cloud
-  IMAGE_NAME: netai-cloud-gpu
+  IMAGE_NAME: netai-cloud
 
   PACKAGE_YQ_URL: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
-  GIT_GPU_DRIVER_REPO: https://github.com/ulagbulag-village/nvidia-driver-container-images.git
-  HELM_GPU_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
+  GIT_NVIDIA_GPU_DRIVER_REPO: https://github.com/ulagbulag-village/nvidia-driver-container-images.git
+  HELM_NVIDIA_GPU_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
   OS_FLATCAR_RELEASE_CHANNEL: stable
   OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
   OS_NAME: flatcar
   UBUNTU_VERSION: "20.04"
 
 jobs:
-  build-and-push-image-nvidia-driver:
+  build-and-push-image-gpu-nvidia-driver:
     if: ${{ github.repository }} == 'ulagbulag-village/netai-cloud'
     runs-on: ubuntu-latest
     permissions:
@@ -46,7 +46,7 @@ jobs:
 
       - name: Checkout repository
         run: |
-          git clone '${{ env.GIT_GPU_DRIVER_REPO }}' \
+          git clone '${{ env.GIT_NVIDIA_GPU_DRIVER_REPO }}' \
             --branch master \
             --single-branch \
             driver
@@ -54,7 +54,7 @@ jobs:
       - name: Get the target cuda version
         run: |
           echo NVIDIA_CUDA_VERSION=$(
-            curl -s '${{ env.HELM_GPU_OPERATOR_VALUE_URL }}' |
+            curl -s '${{ env.HELM_NVIDIA_GPU_OPERATOR_VALUE_URL }}' |
               yq -r '.operator.initContainer.version' |
               egrep -o '^[0-9\.]*'
           ) >> $GITHUB_ENV
@@ -62,7 +62,7 @@ jobs:
       - name: Get the target driver version
         run: |
           echo NVIDIA_DRIVER_VERSION=$(
-            curl -s '${{ env.HELM_GPU_OPERATOR_VALUE_URL }}' |
+            curl -s '${{ env.HELM_NVIDIA_GPU_OPERATOR_VALUE_URL }}' |
               yq -r '.driver.version'
           ) >> $GITHUB_ENV
 
@@ -91,7 +91,7 @@ jobs:
         id: build-and-push-image
         uses: redhat-actions/buildah-build@v2
         with:
-          image: ${{ env.IMAGE_NAME }}-nvidia-driver
+          image: ${{ env.IMAGE_NAME }}-gpu-nvidia-driver
           tags: ${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.OS_NAME }}${{ env.OS_FLATCAR_RELEASE_VERSION }}
           context: "./driver/flatcar"
           containerfiles: |

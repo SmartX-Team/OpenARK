@@ -1,0 +1,50 @@
+nfd:
+  # deploy Node Feature Discovery
+  enabled: true
+
+sriovNetworkOperator:
+  # deploy SR-IOV Network Operator
+  enabled: true
+
+# Deploy NicClusterPolicy custom resource according to provided parameters
+deployCR: true
+
+ofedDriver:
+  # deploy Mellanox OFED driver container
+  deploy: false
+
+nvPeerDriver:
+  # deploy NVIDIA Peer memory driver container
+  deploy: true
+
+rdmaSharedDevicePlugin:
+  # Deploy RDMA Shared device plugin
+  deploy: true
+
+sriovDevicePlugin:
+  # Deploy SR-IOV Network device plugin
+  deploy: true
+
+ibKubernetes:
+  # Deploy IB Kubernetes
+  deploy: false
+
+secondaryNetwork:
+  # Deploy Secondary Network
+  deploy: true
+
+  cniPlugins:
+    # cniPlugins.deploy
+    deploy: true
+
+  multus:
+    # multus.deploy
+    deploy: true
+
+  ipoib:
+    # ipoib.deploy
+    deploy: false
+
+  ipamPlugin:
+    # ipamPlugin.deploy
+    deploy: true
