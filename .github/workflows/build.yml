@@ -1,4 +1,4 @@
-name: Build => Test => Deploy Project
+name: Build => Test => Deploy Projects
 
 on:
   push:

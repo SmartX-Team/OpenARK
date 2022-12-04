@@ -1,4 +1,4 @@
-name: Build => Test => Deploy GPU Project
+name: Build => Test => Deploy External Projects
 
 on:
   schedule:
