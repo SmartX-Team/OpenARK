@@ -14,7 +14,7 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://mellanox.github.io/network-operator"
-NAMESPACE_DEFAULT="network-nvidia"
+NAMESPACE_DEFAULT="network-mellanox"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"

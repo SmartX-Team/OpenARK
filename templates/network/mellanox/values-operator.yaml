@@ -11,7 +11,7 @@ deployCR: true
 
 ofedDriver:
   # deploy Mellanox OFED driver container
-  deploy: false
+  deploy: true
 
 nvPeerDriver:
   # deploy NVIDIA Peer memory driver container
