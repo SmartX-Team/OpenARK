@@ -233,7 +233,11 @@ data:
           "flatcar.first_boot=yes",
           "flatcar.autologin",
           "console=tty0",
-          "console=ttyS0"
+          "console=ttyS0",
+          "idle=poll",
+          "intel_idle.max_cstate=0",
+          "intel_pstate=disable",
+          "processor.max_cstate=0"
         ]
       },
       "ignition_id": "flatcar.yaml"
