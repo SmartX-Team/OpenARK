@@ -235,6 +235,7 @@ data:
           "console=tty0",
           "console=ttyS0",
           "idle=poll",
+          "amd_pstate=disable",
           "intel_idle.max_cstate=0",
           "intel_pstate=disable",
           "processor.max_cstate=0"
