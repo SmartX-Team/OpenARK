@@ -123,8 +123,14 @@ spec:
               add:
                 - NET_ADMIN
           volumeMounts:
+            - name: misc
+              mountPath: /var/lib/misc
             - name: tftpboot
               mountPath: /var/lib/tftpboot
       volumes:
+        - name: misc
+          hostPath:
+            path: /var/lib/dnsmasq
+            type: DirectoryOrCreate
         - name: tftpboot
           emptyDir: {}

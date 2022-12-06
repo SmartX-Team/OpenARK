@@ -157,6 +157,7 @@ function spawn_node() {
             --volume "$KUBERNETES_DATA/var.calico:/var/lib/calico:shared" \
             --volume "$KUBERNETES_DATA/var.cni:/var/lib/cni:shared" \
             --volume "$KUBERNETES_DATA/var.containerd:/var/lib/containerd:shared" \
+            --volume "$KUBERNETES_DATA/var.dnsmasq:/var/lib/dnsmasq:shared" \
             --volume "$KUBERNETES_DATA/var.k8s:/var/lib/kubelet:shared" \
             --volume "$KUBERNETES_DATA/var.proxy_cache:/var/lib/proxy_cache:shared" \
             --volume "$KUBERNETES_DATA/var.rook:/var/lib/rook:shared" \

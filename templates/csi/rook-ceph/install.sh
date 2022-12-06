@@ -14,7 +14,7 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://charts.rook.io/release"
-NAMESPACE_DEFAULT="rook-ceph"
+NAMESPACE_DEFAULT="csi-rook-ceph"
 ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED_DEFAULT="false"
 ROOK_CEPH_WAIT_UNTIL_DEPLOYED_DEFAULT="false"
 

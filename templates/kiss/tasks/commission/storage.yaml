@@ -77,9 +77,18 @@
             path: /var/lib/containerd
             size: 64G
           - kind: var
+            name: dnsmasq
+            path: /var/lib/dnsmasq
+            size: 64M
+          - kind: var
             name: k8s
             path: /var/lib/kubelet
             size: 256M
+          - kind: var
+            name: overlay
+            path: /var
+            size: 1G
+            overlay: true
           - kind: var
             name: proxy_cache
             path: /var/lib/proxy_cache
