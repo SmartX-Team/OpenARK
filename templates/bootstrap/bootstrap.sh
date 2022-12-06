@@ -13,10 +13,10 @@ set -e
 # Configure default environment variables
 BAREMETAL_CSI_DEFAULT="rook-ceph"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-csi-__BAREMETAL_CSI__:latest"
-BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-__BAREMETAL_GPU__:latest"
-BAREMETAL_GPU_NVIDIA_DEFAULT="true"
 BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-fabric-__BAREMETAL_FABRIC__:latest"
 BAREMETAL_FABRIC_MELLANOX_DEFAULT="true"
+BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-__BAREMETAL_GPU__:latest"
+BAREMETAL_GPU_NVIDIA_DEFAULT="true"
 CONTAINER_RUNTIME_DEFAULT="docker"
 IPIS_ENABLE_DEFAULT="true"
 IPIS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
@@ -40,10 +40,10 @@ SSH_KEYFILE_DEFAULT="$KUBESPRAY_CONFIG_TEMPLATE_DEFAULT/id_rsa"
 # Configure environment variables
 BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
-BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
-BAREMETAL_GPU_NVIDIA="${BAREMETAL_GPU_NVIDIA:-$BAREMETAL_GPU_NVIDIA_DEFAULT}"
 BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
 BAREMETAL_FABRIC_MELLANOX="${BAREMETAL_FABRIC_MELLANOX:-$BAREMETAL_FABRIC_MELLANOX_DEFAULT}"
+BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
+BAREMETAL_GPU_NVIDIA="${BAREMETAL_GPU_NVIDIA:-$BAREMETAL_GPU_NVIDIA_DEFAULT}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 IPIS_ENABLE="${IPIS_ENABLE:-$IPIS_ENABLE_DEFAULT}"
 IPIS_INSTALLER_IMAGE="${IPIS_INSTALLER_IMAGE:-$IPIS_INSTALLER_IMAGE_DEFAULT}"
@@ -69,13 +69,13 @@ BAREMETAL_CSI_INSTALLER_IMAGE="$(
     echo $BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE |
         sed "s/__BAREMETAL_CSI__/$BAREMETAL_CSI/g"
 )"
-BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE="$(
-    echo $BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE |
-        sed "s/__BAREMETAL_GPU__/nvidia/g"
-)"
 BAREMETAL_FABRIC_MELLANOX_INSTALLER_IMAGE="$(
     echo $BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE |
         sed "s/__BAREMETAL_FABRIC__/mellanox/g"
+)"
+BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE="$(
+    echo $BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE |
+        sed "s/__BAREMETAL_GPU__/nvidia/g"
 )"
 
 ###########################################################
@@ -488,55 +488,6 @@ function install_csi() {
 }
 
 ###########################################################
-#   Install GPU Operator                                 #
-###########################################################
-
-# Define a GPU operator installer function
-function install_gpu() {
-    local names="$1"
-    local node_first="$(echo $names | awk '{print $1}')"
-
-    # Configure environment variables
-    local baremetal_gpu="$3"
-    local baremetal_gpu_installer_image="$4"
-    local baremetal_gpu_name="$2"
-    local baremetal_gpu_namespace="gpu-${baremetal_gpu_name}"
-
-    # Check if GPU operator already exists
-    local NEED_INSTALL=1
-    if [ "$baremetal_gpu" != "true" ]; then
-        echo -n "- Skipping installing GPU operator ... "
-        local NEED_INSTALL=0
-    elif
-        "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl get namespaces "$baremetal_gpu_namespace" \
-            >/dev/null 2>/dev/null
-    then
-        echo -n "- Using already installed $baremetal_gpu_name GPU operator ... "
-        local NEED_INSTALL=0
-    fi
-
-    if [ "$NEED_INSTALL" -eq 1 ]; then
-        # Install GPU operator
-        echo -n "- Installing $baremetal_gpu_name GPU operator in background ... "
-        "$CONTAINER_RUNTIME" run --detach --rm \
-            --name "gpu-operator-installer-$baremetal_gpu_name" \
-            --net "host" \
-            --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
-            "$baremetal_gpu_installer_image" \
-            >/dev/null
-    fi
-
-    # Finished!
-    echo "OK"
-}
-
-# Define GPU operators installer function
-function install_gpu_all() {
-    install_gpu "$1" "nvidia" "$BAREMETAL_GPU_NVIDIA" "$BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE"
-}
-
-###########################################################
 #   Install Fabric Operator                              #
 ###########################################################
 
@@ -583,6 +534,55 @@ function install_fabric() {
 # Define Fabric operators installer function
 function install_fabric_all() {
     install_fabric "$1" "mellanox" "$BAREMETAL_FABRIC_MELLANOX" "$BAREMETAL_FABRIC_MELLANOX_INSTALLER_IMAGE"
+}
+
+###########################################################
+#   Install GPU Operator                                 #
+###########################################################
+
+# Define a GPU operator installer function
+function install_gpu() {
+    local names="$1"
+    local node_first="$(echo $names | awk '{print $1}')"
+
+    # Configure environment variables
+    local baremetal_gpu="$3"
+    local baremetal_gpu_installer_image="$4"
+    local baremetal_gpu_name="$2"
+    local baremetal_gpu_namespace="gpu-${baremetal_gpu_name}"
+
+    # Check if GPU operator already exists
+    local NEED_INSTALL=1
+    if [ "$baremetal_gpu" != "true" ]; then
+        echo -n "- Skipping installing GPU operator ... "
+        local NEED_INSTALL=0
+    elif
+        "$CONTAINER_RUNTIME" exec "$node_first" \
+            kubectl get namespaces "$baremetal_gpu_namespace" \
+            >/dev/null 2>/dev/null
+    then
+        echo -n "- Using already installed $baremetal_gpu_name GPU operator ... "
+        local NEED_INSTALL=0
+    fi
+
+    if [ "$NEED_INSTALL" -eq 1 ]; then
+        # Install GPU operator
+        echo -n "- Installing $baremetal_gpu_name GPU operator in background ... "
+        "$CONTAINER_RUNTIME" run --detach --rm \
+            --name "gpu-operator-installer-$baremetal_gpu_name" \
+            --net "host" \
+            --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
+            "$baremetal_gpu_installer_image" \
+            >/dev/null
+    fi
+
+    # Finished!
+    echo "OK"
+}
+
+# Define GPU operators installer function
+function install_gpu_all() {
+    install_gpu "$1" "nvidia" "$BAREMETAL_GPU_NVIDIA" "$BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE"
 }
 
 ###########################################################
@@ -647,11 +647,11 @@ function main() {
     # Install a CSI
     install_csi $KUBESPRAY_NODES
 
-    # Install GPU operators
-    install_gpu_all $KUBESPRAY_NODES
-
     # Install Fabric operators
     install_fabric_all $KUBESPRAY_NODES
+
+    # Install GPU operators
+    install_gpu_all $KUBESPRAY_NODES
 
     # Install an IPIS cluster
     install_ipis_cluster $KUBESPRAY_NODES
