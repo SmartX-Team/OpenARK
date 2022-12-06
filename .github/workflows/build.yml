@@ -437,7 +437,7 @@ jobs:
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
-  build-and-push-image-upgrade-network-mellanox:
+  build-and-push-image-upgrade-fabric-mellanox:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - build-rust
@@ -461,11 +461,11 @@ jobs:
         id: build-and-push-image
         uses: redhat-actions/buildah-build@v2
         with:
-          image: ${{ env.IMAGE_NAME }}-upgrade-network-mellanox
+          image: ${{ env.IMAGE_NAME }}-upgrade-fabric-mellanox
           tags: latest
-          context: ./templates/network/mellanox
+          context: ./templates/fabric/mellanox
           containerfiles: |
-            ./templates/network/mellanox/Dockerfile
+            ./templates/fabric/mellanox/Dockerfile
           build-args: |
             K8S_VERSION=${{ env.K8S_VERSION }}
 
@@ -493,7 +493,7 @@ jobs:
       - build-and-push-image-upgrade-gpu-nvidia
       - build-and-push-image-upgrade-ipis
       - build-and-push-image-upgrade-kiss
-      - build-and-push-image-upgrade-network-mellanox
+      - build-and-push-image-upgrade-fabric-mellanox
     runs-on: ubuntu-latest
     permissions:
       contents: write

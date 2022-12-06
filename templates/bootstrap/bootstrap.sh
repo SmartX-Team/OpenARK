@@ -15,8 +15,8 @@ BAREMETAL_CSI_DEFAULT="rook-ceph"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-csi-__BAREMETAL_CSI__:latest"
 BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-__BAREMETAL_GPU__:latest"
 BAREMETAL_GPU_NVIDIA_DEFAULT="true"
-BAREMETAL_NETWORK_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-network-__BAREMETAL_NETWORK__:latest"
-BAREMETAL_NETWORK_MELLANOX_DEFAULT="true"
+BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-fabric-__BAREMETAL_FABRIC__:latest"
+BAREMETAL_FABRIC_MELLANOX_DEFAULT="true"
 CONTAINER_RUNTIME_DEFAULT="docker"
 IPIS_ENABLE_DEFAULT="true"
 IPIS_INSTALLER_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
@@ -42,8 +42,8 @@ BAREMETAL_CSI="${BAREMETAL_CSI:-$BAREMETAL_CSI_DEFAULT}"
 BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_CSI_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
 BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
 BAREMETAL_GPU_NVIDIA="${BAREMETAL_GPU_NVIDIA:-$BAREMETAL_GPU_NVIDIA_DEFAULT}"
-BAREMETAL_NETWORK_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_NETWORK_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_NETWORK_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
-BAREMETAL_NETWORK_MELLANOX="${BAREMETAL_NETWORK_MELLANOX:-$BAREMETAL_NETWORK_MELLANOX_DEFAULT}"
+BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE="${BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE:-$BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE_DEFAULT}"
+BAREMETAL_FABRIC_MELLANOX="${BAREMETAL_FABRIC_MELLANOX:-$BAREMETAL_FABRIC_MELLANOX_DEFAULT}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 IPIS_ENABLE="${IPIS_ENABLE:-$IPIS_ENABLE_DEFAULT}"
 IPIS_INSTALLER_IMAGE="${IPIS_INSTALLER_IMAGE:-$IPIS_INSTALLER_IMAGE_DEFAULT}"
@@ -73,9 +73,9 @@ BAREMETAL_GPU_NVIDIA_INSTALLER_IMAGE="$(
     echo $BAREMETAL_GPU_INSTALLER_IMAGE_TEMPLATE |
         sed "s/__BAREMETAL_GPU__/nvidia/g"
 )"
-BAREMETAL_NETWORK_MELLANOX_INSTALLER_IMAGE="$(
-    echo $BAREMETAL_NETWORK_INSTALLER_IMAGE_TEMPLATE |
-        sed "s/__BAREMETAL_NETWORK__/mellanox/g"
+BAREMETAL_FABRIC_MELLANOX_INSTALLER_IMAGE="$(
+    echo $BAREMETAL_FABRIC_INSTALLER_IMAGE_TEMPLATE |
+        sed "s/__BAREMETAL_FABRIC__/mellanox/g"
 )"
 
 ###########################################################
@@ -537,42 +537,42 @@ function install_gpu_all() {
 }
 
 ###########################################################
-#   Install Network Operator                              #
+#   Install Fabric Operator                              #
 ###########################################################
 
-# Define a Network operator installer function
-function install_network() {
+# Define a Fabric operator installer function
+function install_fabric() {
     local names="$1"
     local node_first="$(echo $names | awk '{print $1}')"
 
     # Configure environment variables
-    local baremetal_network="$3"
-    local baremetal_network_installer_image="$4"
-    local baremetal_network_name="$2"
-    local baremetal_network_namespace="network-${baremetal_network_name}"
+    local BAREMETAL_FABRIC="$3"
+    local BAREMETAL_FABRIC_installer_image="$4"
+    local BAREMETAL_FABRIC_name="$2"
+    local BAREMETAL_FABRIC_namespace="fabric-${BAREMETAL_FABRIC_name}"
 
-    # Check if Network operator already exists
+    # Check if Fabric operator already exists
     local NEED_INSTALL=1
-    if [ "$baremetal_network" != "true" ]; then
-        echo -n "- Skipping installing Network operator ... "
+    if [ "$BAREMETAL_FABRIC" != "true" ]; then
+        echo -n "- Skipping installing Fabric operator ... "
         local NEED_INSTALL=0
     elif
         "$CONTAINER_RUNTIME" exec "$node_first" \
-            kubectl get namespaces "$baremetal_network_namespace" \
+            kubectl get namespaces "$BAREMETAL_FABRIC_namespace" \
             >/dev/null 2>/dev/null
     then
-        echo -n "- Using already installed $baremetal_network_name Network operator ... "
+        echo -n "- Using already installed $BAREMETAL_FABRIC_name Fabric operator ... "
         local NEED_INSTALL=0
     fi
 
     if [ "$NEED_INSTALL" -eq 1 ]; then
-        # Install Network operator
-        echo -n "- Installing $baremetal_network_name Network operator in background ... "
+        # Install Fabric operator
+        echo -n "- Installing $BAREMETAL_FABRIC_name Fabric operator in background ... "
         "$CONTAINER_RUNTIME" run --detach --rm \
-            --name "network-operator-installer-$baremetal_network_name" \
+            --name "fabric-operator-installer-$BAREMETAL_FABRIC_name" \
             --net "host" \
             --volume "$KUBERNETES_CONFIG:/root/.kube:ro" \
-            "$baremetal_network_installer_image" \
+            "$BAREMETAL_FABRIC_installer_image" \
             >/dev/null
     fi
 
@@ -580,9 +580,9 @@ function install_network() {
     echo "OK"
 }
 
-# Define Network operators installer function
-function install_network_all() {
-    install_network "$1" "mellanox" "$BAREMETAL_NETWORK_MELLANOX" "$BAREMETAL_NETWORK_MELLANOX_INSTALLER_IMAGE"
+# Define Fabric operators installer function
+function install_fabric_all() {
+    install_fabric "$1" "mellanox" "$BAREMETAL_FABRIC_MELLANOX" "$BAREMETAL_FABRIC_MELLANOX_INSTALLER_IMAGE"
 }
 
 ###########################################################
@@ -650,8 +650,8 @@ function main() {
     # Install GPU operators
     install_gpu_all $KUBESPRAY_NODES
 
-    # Install Network operators
-    install_network_all $KUBESPRAY_NODES
+    # Install Fabric operators
+    install_fabric_all $KUBESPRAY_NODES
 
     # Install an IPIS cluster
     install_ipis_cluster $KUBESPRAY_NODES
