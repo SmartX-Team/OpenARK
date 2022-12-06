@@ -447,8 +447,13 @@ impl AnsibleClient {
                 let job = CronJob {
                     metadata: metadata.clone(),
                     spec: Some(CronJobSpec {
-                        concurrency_policy: Some("Forbid".into()),
+                        concurrency_policy: Some(if job.is_atomic {
+                            "Forbid".into()
+                        } else {
+                            "Replace".into()
+                        }),
                         schedule: schedule.into(),
+                        starting_deadline_seconds: Some(180 /* 3m */),
                         job_template: JobTemplateSpec {
                             metadata: Some(metadata),
                             spec: Some(spec),
@@ -477,6 +482,7 @@ impl AnsibleClient {
 
 pub struct AnsibleJob<'a> {
     pub cron: Option<&'static str>,
+    pub is_atomic: bool,
     pub task: &'static str,
     pub r#box: &'a BoxCrd,
     pub new_state: BoxState,

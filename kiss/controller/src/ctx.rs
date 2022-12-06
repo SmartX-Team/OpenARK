@@ -100,6 +100,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         &manager.kube,
                         AnsibleJob {
                             cron: new_state.cron(),
+                            is_atomic: new_state.is_atomic(),
                             task,
                             r#box: &data,
                             new_state,

@@ -120,6 +120,18 @@ impl BoxState {
         }
     }
 
+    pub const fn is_atomic(&self) -> bool {
+        matches!(
+            self,
+            Self::New
+                | Self::Commissioning
+                | Self::Ready
+                | Self::Joining
+                | Self::Failed
+                | Self::Disconnected,
+        )
+    }
+
     pub const fn cron(&self) -> Option<&'static str> {
         match self {
             // Self::Running => Some("0 * * * *"),
