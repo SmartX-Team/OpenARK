@@ -185,8 +185,8 @@ data:
           mode: 0644
           contents:
             inline: |
-                [http]
-                proxy = http://http-proxy.kiss.svc.ops.netai-cloud:3128
+              [http]
+              proxy = http://http-proxy.kiss.svc.ops.netai-cloud:3128
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
@@ -234,9 +234,12 @@ data:
           "flatcar.autologin",
           "console=tty0",
           "console=ttyS0",
+          "amd_iommu=on",
           "cpufreq.default_governor=performance",
           "idle=poll",
           "intel_idle.max_cstate=0",
+          "intel_iommu=on",
+          "iommu=pt",
           "processor.max_cstate=0"
         ]
       },
