@@ -21,24 +21,40 @@
     - name: Define volume informations
       set_fact:
         lvs:
-          - kind: binary
-            name: cni
-            path: /opt/cni
-            size: 8G
+          #########################
+          # --- BEGIN OVERLAY --- #
+          #########################
           - kind: binary
             name: common
             path: /opt/bin
             size: 1G
             overlay: true
           - kind: binary
-            name: etcd
-            path: /opt/etcd
-            size: 8G
-          - kind: binary
             name: pypy3
             path: /opt/pypy3
             size: 256M
             overlay: true
+          - kind: etc
+            name: overlay
+            path: /etc
+            size: 256M
+            overlay: true
+          - kind: var
+            name: overlay
+            path: /var
+            size: 1G
+            overlay: true
+          #########################
+          # ---  END OVERLAY  --- #
+          #########################
+          - kind: binary
+            name: cni
+            path: /opt/cni
+            size: 8G
+          - kind: binary
+            name: etcd
+            path: /opt/etcd
+            size: 8G
           - kind: etc
             name: cni
             path: /etc/cni
@@ -55,11 +71,6 @@
             name: k8s
             path: /etc/kubernetes
             size: 16M
-          - kind: etc
-            name: overlay
-            path: /etc
-            size: 256M
-            overlay: true
           - kind: home
             name: k8s
             path: /root/.kube
@@ -84,11 +95,6 @@
             name: k8s
             path: /var/lib/kubelet
             size: 256M
-          - kind: var
-            name: overlay
-            path: /var
-            size: 1G
-            overlay: true
           - kind: var
             name: proxy_cache
             path: /var/lib/proxy_cache
