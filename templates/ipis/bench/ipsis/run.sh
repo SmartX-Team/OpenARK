@@ -86,13 +86,13 @@ for address_read in $ADDRESS_READ; do
                             # change the primary address
                             if [ "$port" != "none" ]; then
                                 for address in "$address_read" "$address_write"; do
-                                    docker run --rm --net host \
+                                    ctr run --rm --net-host \
                                         --env ipis_account_me=$(sudo kubectl get secret -n ipis account-root-ca -o jsonpath --template '{.data.private_key}' | base64 --decode) \
                                         --env ipiis_account_primary=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
                                         --env ipiis_account_primary_address="$address:9801" \
                                         --env ipiis_client_account=$(sudo kubectl get configmap -n ipis account-root-ca -o jsonpath --template '{.data.public_key}') \
                                         --env ipiis_client_address="$address_write:$port" \
-                                        quay.io/ulagbulag-village/ipiis:latest-tcp \
+                                        "quay.io/ulagbulag-village/ipiis:latest-tcp" "kiss-ipis-bench-ipsis" \
                                         ipiis-modules-cli set-account --primary --kind __ipis__ipsis__
                                 done
                             fi

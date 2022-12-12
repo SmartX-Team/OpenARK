@@ -45,26 +45,32 @@
         - name: Install CSI
           when: result_csi.stdout != "none"
           shell: >
-            docker run --detach --rm
-            --name "csi-installer-{{ result_csi.stdout }}"
-            --net "host"
-            --volume "/root/.kube:/root/.kube:ro"
+            ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
+            && ctr run --detach --rm
+            --net-host
+            --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
+            "kiss-csi-installer-{{ result_csi.stdout }}"
 
         - name: Install GPU Operator | {{ item }}
           loop:
             - nvidia
           shell: >
-            docker run --detach --rm
-            --name "gpu-installer-{{ item }}"
-            --net "host"
-            --volume "/root/.kube:/root/.kube:ro"
+            ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
+            && ctr run --detach --rm
+            --net-host
+            --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
+            "kiss-gpu-installer-{{ item }}"
 
         - name: Install IPIS
           shell: >
-            docker run --detach --rm
-            --name "ipis-installer"
-            --net "host"
-            --volume "/root/.kube:/root/.kube:ro"
+            ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
+            && ctr run --detach --rm
+            --net-host
+            --mount "type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro"
+            "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
+            "kiss-ipis-installer"
