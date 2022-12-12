@@ -15,7 +15,7 @@ ofedDriver:
 
 nvPeerDriver:
   # deploy NVIDIA Peer memory driver container
-  deploy: true
+  deploy: false
 
 rdmaSharedDevicePlugin:
   # Deploy RDMA Shared device plugin
