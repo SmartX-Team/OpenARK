@@ -3,13 +3,29 @@
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
-# Prehibit errors
-set -e
+###########################################################
+#   Configuration                                         #
+###########################################################
 
-# Reboot all nodes with IPMI address
+# Configure default environment variables
+CONTAINER_RUNTIME_DEFAULT="docker"
+IPMITOOL_IMAGE_DEFAULT="quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
+
+# Configure environment variables
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
+IPMITOOL_IMAGE="${IPMITOOL_IMAGE:-$IPMITOOL_IMAGE_DEFAULT}"
+
+###########################################################
+#   Reboot all nodes with IPMI address                    #
+###########################################################
+
 for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); do
-    ctr run --rm \
-        "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest" \
-        "kiss-ipmitool" ipmitool -H "${address}" \
-        power reset
+    "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" power reset
 done
+
+###########################################################
+#   Finished!                                             #
+###########################################################
+
+echo "OK"
