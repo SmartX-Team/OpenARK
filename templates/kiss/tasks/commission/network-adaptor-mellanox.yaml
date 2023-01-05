@@ -4,8 +4,8 @@
     - kiss_allow_critical_commands | default(False)
   set_fact:
     mellanox_mlxup_architectures:
-      x86_64: x64
       aarch64: Arm
+      x86_64: x64
 
 - name: Get latest utility versions
   when:
@@ -70,7 +70,7 @@
     - ansible_architecture in mellanox_mlxup_architectures
     - "'Restart needed' in result.stdout"
   reboot:
-    reboot_timeout: 3600 # 1h (PXE booting can take a long time)
+    reboot_timeout: 3600 # 1h (booting can take a long time)
 
 - name: Cleanup
   when:

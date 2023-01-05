@@ -3,12 +3,14 @@
   tasks:
     # Step 1 - Test connection
     - include: ping.yaml
-    # Step 2 - Configure kernel and system
+    # Step 2 - Configure base
     - include: hostname.yaml
+    # Step 3 - Configure storage
+    - include: storage.yaml
+    # Step 4 - Configure kernel and system
     - include: system.yaml
-    # Step 3 - Configure devices
+    # Step 5 - Configure devices
     - include: power.yaml
     - include: network.yaml
-    - include: storage.yaml
-    # Step 4 - Submit
+    # Step 6 - Submit
     - include: submit.yaml

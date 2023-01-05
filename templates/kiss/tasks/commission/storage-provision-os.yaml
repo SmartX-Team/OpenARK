@@ -1,0 +1,81 @@
+---
+- name: Define supported architechures
+  set_fact:
+    flatcar_linux_architectures_efi:
+      aarch64: bootaa64.efi
+      x86_64: bootx64.efi
+    flatcar_linux_channel: stable
+    flatcar_linux_repo_host: raw.githubusercontent.com
+    flatcar_linux_repo_user: flatcar
+    flatcar_linux_repo_installer_name: init
+    flatcar_linux_repo_installer_branch_name: flatcar-master
+    flatcar_linux_repo_installer_path: /bin/flatcar-install
+    flatcar_linux_repo_installer_flags: -n
+
+- name: Check whether the boxes' architectures are supported
+  assert:
+    that: ansible_architecture in flatcar_linux_architectures_efi
+    fail_msg: "Unsupported architecture: {{ ansible_architecture }}"
+    success_msg: "Supported architecture: {{ ansible_architecture }}"
+
+- name: Download installer script
+  when: not kiss_os_exists
+  get_url:
+    url: https://{{ flatcar_linux_repo_host }}/{{ flatcar_linux_repo_user }}/{{ flatcar_linux_repo_installer_name }}/{{ flatcar_linux_repo_installer_branch_name }}{{ flatcar_linux_repo_installer_path }}
+    dest: /tmp/flatcar-install
+    mode: "0550"
+    force: true
+    timeout: 30
+  register: result_download
+  until: result_download is succeeded
+  retries: 10
+  delay: 5
+
+- name: Install OS
+  when: not kiss_os_exists
+  command: /tmp/flatcar-install -C {{ flatcar_linux_channel }} -d "/dev/{{ device.name }}" -i /run/ignition.json {{ flatcar_linux_repo_installer_flags }}
+
+- name: Add a LVM partition
+  block:
+    - name: Read device information
+      parted:
+        device: /dev/{{ device.name }}
+        unit: KiB
+      register: device_info
+
+    - name: Find the last partition
+      set_fact:
+        partition: "{{ device_info.partitions | sort(attribute='begin') | last }}"
+
+    - name: Define a LVM partition
+      set_fact:
+        device:
+          parent: "{{ device.name }}"
+          name: "{{ device.name }}{{ 'p' if device.name.startswith('nvme') }}{{ partition.num + (0 if kiss_os_exists else 1) }}"
+          number: "{{ partition.num + (0 if kiss_os_exists else 1) }}"
+          part_start: "{{ (partition.begin if kiss_os_exists else partition.end) | int }}KiB"
+
+    - name: Move the secondary GPT header to the new end of the disk
+      when: not kiss_os_exists
+      shell: sgdisk --move-second-header "/dev/{{ device.parent }}" && sync
+
+    - name: Add a LVM partition in the remaining space
+      when: not kiss_os_exists
+      shell: >-
+        sgdisk
+        --new {{ device.number }}:{{ device.part_start }}:
+        --change-name {{ device.number }}:"KISS LVM"
+        --typecode {{ device.number }}:8e00 "/dev/{{ device.parent }}"
+
+- name: Create UEFI boot entry
+  when: not kiss_os_exists
+  shell: >-
+    efibootmgr
+    --create
+    --disk "/dev/{{ device.parent }}"
+    --label "NetAI Cloud KISS Linux (Flatcar Container Linux {{ flatcar_linux_channel }})"
+    --loader "\\efi\\boot\\{{ flatcar_linux_architectures_efi[ansible_architecture] }}"
+
+- name: Update boot order
+  when: not kiss_os_exists
+  include: boot.yaml

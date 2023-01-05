@@ -5,16 +5,17 @@
     name:
       - pyghmi
 
-- name: Power | IPMI | Change boot order to PXE-first
-  when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
-  delegate_to: localhost
-  ipmi_boot:
-    name: "{{ ansible_ipmi_host }}"
-    user: kiss
-    password: "{{ ansible_ipmi_password }}"
-    bootdev: network
-    persistent: true
-  ignore_errors: true
+# TODO: should we use it?
+# - name: Power | IPMI | Change boot order to PXE-first
+#   when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
+#   delegate_to: localhost
+#   ipmi_boot:
+#     name: "{{ ansible_ipmi_host }}"
+#     user: kiss
+#     password: "{{ ansible_ipmi_password }}"
+#     bootdev: network
+#     persistent: true
+#   ignore_errors: true
 
 - name: Power | IPMI | Reset node's power
   when: ansible_ipmi_host is defined and ansible_ipmi_host != ""

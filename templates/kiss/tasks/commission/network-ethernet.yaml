@@ -1,5 +1,5 @@
 ---
-- name: Collect network inteface infomations
+- name: Collect network inteface informations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
   when: >

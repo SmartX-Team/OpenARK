@@ -1,0 +1,15 @@
+---
+- name: Check whether IPMI exists
+  stat:
+    path: /dev/ipmi0
+  register: ipmi
+
+- name: Pull IPMI docker image
+  when: ipmi.stat.exists
+  shell: >
+    ctr images pull
+    "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
+  register: ipmi_pull_docker_image
+  until: ipmi_pull_docker_image.rc == 0
+  retries: 5
+  delay: 5

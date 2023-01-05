@@ -29,9 +29,12 @@
     - name: Cleanup
       loop: "{{ ansible_devices.items() }}"
       loop_control:
-        loop_var: device
+        loop_var: item
       # filter the devices that has 1 or more physical IDs
-      when: device[1].links.ids | length
+      when: >-
+        (item[1].links.ids | length) > 0
+        and item[1].scheduler_mode != ''
+        and (item[0] != device.name or not kiss_os_exists)
       include: storage-cleanup-device-physical.yaml
 
     - name: Update facts

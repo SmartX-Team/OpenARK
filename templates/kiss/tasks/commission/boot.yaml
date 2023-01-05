@@ -1,0 +1,3 @@
+---
+- name: Provision Boot Orders - IPMI
+  include: power-ipmi-boot.yaml

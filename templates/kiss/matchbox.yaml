@@ -36,14 +36,26 @@ data:
     ---
     ignition:
       proxy:
-        httpProxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
-        httpsProxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
-        noProxy:
+        http_proxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
+        https_proxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
+        no_proxy:
           - 10.0.0.0/8
           - 127.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
           - .netai-cloud
+    kernel_arguments:
+      should_exist:
+        - amd_iommu=on
+        - console=tty0
+        - console=ttyS0
+        - cpufreq.default_governor=performance
+        - flatcar.autologin
+        - idle=poll
+        - intel_idle.max_cstate=0
+        - intel_iommu=on
+        - iommu=pt
+        - processor.max_cstate=0
     passwd:
       users:
         - name: ENV_USERNAME
@@ -108,6 +120,8 @@ data:
             inline: |
               [Unit]
               Description=Notify to the kiss cluster that a new (this) box has been appeared.
+              Wants=network-online.target
+              After=network-online.target
 
               [Service]
               Type=oneshot
@@ -236,17 +250,7 @@ data:
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
           "flatcar.config.url=http://matchbox.kiss.svc.ops.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
-          "flatcar.first_boot=yes",
-          "flatcar.autologin",
-          "console=tty0",
-          "console=ttyS0",
-          "amd_iommu=on",
-          "cpufreq.default_governor=performance",
-          "idle=poll",
-          "intel_idle.max_cstate=0",
-          "intel_iommu=on",
-          "iommu=pt",
-          "processor.max_cstate=0"
+          "flatcar.first_boot=yes"
         ]
       },
       "ignition_id": "flatcar.yaml"

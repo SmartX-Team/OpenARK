@@ -1,8 +1,40 @@
 ---
+- name: Determine whether kiss OS is installed in a disk
+  stat:
+    path: /boot/flatcar
+  register: boot_file
+
+- name: Check whether kiss OS is already configured
+  set_fact:
+    kiss_os_exists: >-
+      {{
+        boot_file.stat.exists
+      }}
+
+- name: Collect brief device informations
+  loop: "{{ ansible_devices.items() }}"
+  # filter the devices that has 1 or more physical IDs
+  when: >-
+    (item[1].links.ids | length) > 0
+    and item[1].scheduler_mode != ''
+  set_fact:
+    # TODO: sort names numerically
+    devices: >
+      {{ devices|default([]) + [{
+        'name': item[0],
+        'size': (item[1].sectors | int) * (item[1].sectorsize | int),
+      }] }}
+
+- name: Find the most suitable device (>=200Gi)
+  set_fact:
+    device: "{{ devices | selectattr('size', 'ge', 200 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
+
 - name: Check whether kiss storage is already configured
   set_fact:
     kiss_storage_exists: >-
       {{
+        kiss_os_exists
+      and
         (not (kiss_group_force_reset | default(False)))
       and
         ('kiss' in ansible_lvm.vgs.keys())
@@ -13,103 +45,9 @@
   include: storage-cleanup.yaml
 
 - name: Provision disks
-  when: not kiss_storage_exists
   include: storage-provision.yaml
 
-- name: Provision logical volumes
-  block:
-    - name: Define volume informations
-      set_fact:
-        lvs:
-          #########################
-          # --- BEGIN OVERLAY --- #
-          #########################
-          - kind: binary
-            name: common
-            path: /opt/bin
-            size: 1G
-            overlay: true
-          - kind: binary
-            name: pypy3
-            path: /opt/pypy3
-            size: 256M
-            overlay: true
-          - kind: etc
-            name: overlay
-            path: /etc
-            size: 256M
-            overlay: true
-          - kind: var
-            name: overlay
-            path: /var
-            size: 1G
-            overlay: true
-          #########################
-          # ---  END OVERLAY  --- #
-          #########################
-          - kind: binary
-            name: cni
-            path: /opt/cni
-            size: 8G
-          - kind: binary
-            name: etcd
-            path: /opt/etcd
-            size: 8G
-          - kind: etc
-            name: cni
-            path: /etc/cni
-            size: 16M
-          - kind: etc
-            name: containerd
-            path: /etc/containerd
-            size: 16M
-          - kind: etc
-            name: etcd
-            path: /etc/etcd
-            size: 16M
-          - kind: etc
-            name: k8s
-            path: /etc/kubernetes
-            size: 16M
-          - kind: home
-            name: k8s
-            path: /root/.kube
-            size: 16M
-          - kind: var
-            name: calico
-            path: /var/lib/calico
-            size: 16M
-          - kind: var
-            name: cni
-            path: /var/lib/cni
-            size: 256M
-          - kind: var
-            name: containerd
-            path: /var/lib/containerd
-            size: 64G
-          - kind: var
-            name: dnsmasq
-            path: /var/lib/dnsmasq
-            size: 64M
-          - kind: var
-            name: k8s
-            path: /var/lib/kubelet
-            size: 256M
-          - kind: var
-            name: proxy_cache
-            path: /var/lib/proxy_cache
-            size: 16G
-          - kind: var
-            name: rook
-            path: /var/lib/rook
-            size: 64G
-          - kind: var
-            name: system.log
-            path: /var/log
-            size: 16G
-
-    - name: Do Provision
-      loop: "{{ lvs }}"
-      loop_control:
-        loop_var: lv
-      include: storage-provision-volumes.yaml
+- name: Reboot the boxes after installing OS (The task will be restarted)
+  when: not kiss_os_exists
+  reboot:
+    reboot_timeout: 3600 # 1h (booting can take a long time)
