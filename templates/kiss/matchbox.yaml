@@ -17,11 +17,11 @@ metadata:
   name: matchbox-groups
   namespace: kiss
 data:
-  flatcar.json: |
+  default.json: |
     {
-      "id": "flatcar",
-      "name": "Flatcar Linux",
-      "profile": "flatcar",
+      "id": "default",
+      "name": "default",
+      "profile": "kiss",
       "selector": {},
       "metadata": {}
     }
@@ -32,8 +32,10 @@ metadata:
   name: matchbox-ignition
   namespace: kiss
 data:
-  flatcar.yaml: |
+  kiss.yaml: |
     ---
+    variant: flatcar
+    version: 1.0.0
     ignition:
       proxy:
         http_proxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
@@ -238,10 +240,10 @@ metadata:
   name: matchbox-profiles
   namespace: kiss
 data:
-  flatcar.json: |
+  kiss.json: |
     {
-      "id": "flatcar",
-      "name": "Flatcar Linux",
+      "id": "kiss",
+      "name": "NetAI Cloud KISS Linux (Flatcar Container Linux)",
       "boot": {
         "kernel": "http://assets.kiss.svc.ops.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
         "initrd": [
@@ -249,11 +251,11 @@ data:
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
-          "flatcar.config.url=http://matchbox.kiss.svc.ops.netai-cloud/ignition?mac=${mac:hexhyp}&uuid=${uuid}&buildarch=${buildarch}",
+          "flatcar.config.url=http://matchbox.kiss.svc.ops.netai-cloud/ignition",
           "flatcar.first_boot=yes"
         ]
       },
-      "ignition_id": "flatcar.yaml"
+      "ignition_id": "kiss.yaml"
     }
 ---
 apiVersion: apps/v1
@@ -322,7 +324,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: matchbox
-          image: quay.io/poseidon/matchbox:v0.9.1-12-gcff233c9
+          image: quay.io/poseidon/matchbox:v0.9.1-48-gddbed051
           env:
             - name: MATCHBOX_ADDRESS
               value: 0.0.0.0:8080
