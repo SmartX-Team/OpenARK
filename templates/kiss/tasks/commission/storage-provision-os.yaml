@@ -75,6 +75,7 @@
     --disk "/dev/{{ device.parent }}"
     --label "NetAI Cloud KISS Linux (Flatcar Container Linux {{ flatcar_linux_channel }})"
     --loader "\\efi\\boot\\{{ flatcar_linux_architectures_efi[ansible_architecture] }}"
+  ignore_errors: true
 
 - name: Update boot order
   when: not kiss_os_exists
