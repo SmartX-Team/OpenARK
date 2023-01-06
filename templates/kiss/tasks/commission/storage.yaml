@@ -30,14 +30,13 @@
     device: "{{ devices | selectattr('size', 'ge', 200 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
 
 - name: Check whether kiss storage is already configured
+  # TODO: verify data
   set_fact:
     kiss_storage_exists: >-
       {{
         kiss_os_exists
       and
         (not (kiss_group_force_reset | default(False)))
-      and
-        ('kiss' in ansible_lvm.vgs.keys())
       }}
 
 - name: Cleanup disks
