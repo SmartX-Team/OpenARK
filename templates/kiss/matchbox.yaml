@@ -37,17 +37,6 @@ data:
     variant: flatcar
     version: 1.0.0
     kernel_arguments:
-      should_exist:
-        - amd_iommu=on
-        - console=tty0
-        - console=ttyS0
-        - cpufreq.default_governor=performance
-        - flatcar.autologin
-        - idle=poll
-        - intel_idle.max_cstate=0
-        - intel_iommu=on
-        - iommu=pt
-        - processor.max_cstate=0
     passwd:
       users:
         - name: ENV_USERNAME
@@ -60,9 +49,11 @@ data:
       directories:
         - path: /etc/systemd/system/docker.service.d
           filesystem: root
+          overwrite: true
       files:
         - path: /etc/docker/daemon.json
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -73,6 +64,7 @@ data:
               }
         - path: /etc/modules-load.d/10-gpu-nvidia-driver.conf
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -81,6 +73,7 @@ data:
               ipmi_msghandler
         - path: /etc/profile.d/90-proxy.sh
           filesystem: root
+          overwrite: true
           mode: 0555
           contents:
             inline: |
@@ -89,12 +82,14 @@ data:
               export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /etc/sysctl.d/50-hugepages.conf
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
               vm.nr_hugepages=8192
         - path: /etc/sysctl.d/90-reverse-path-filter.conf
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -102,6 +97,7 @@ data:
               net.ipv4.conf.default.rp_filter=0
         - path: /etc/systemd/system/notify-new-box.service
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -125,6 +121,7 @@ data:
               WantedBy=multi-user.target
         - path: /etc/systemd/timesyncd.conf
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -132,6 +129,7 @@ data:
               #NTP=ntp.kiss.svc.ops.netai-cloud
         - path: /etc/wgetrc
           filesystem: root
+          overwrite: true
           mode: 0444
           contents:
             inline: |
@@ -141,6 +139,7 @@ data:
               no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
+          overwrite: true
           mode: 0555
           contents:
             inline: |
@@ -198,6 +197,7 @@ data:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
           filesystem: root
+          overwrite: true
           hard: false
     systemd:
       units:
