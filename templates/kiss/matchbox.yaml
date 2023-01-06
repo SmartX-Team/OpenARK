@@ -36,16 +36,6 @@ data:
     ---
     variant: flatcar
     version: 1.0.0
-    ignition:
-      proxy:
-        http_proxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
-        https_proxy: http://http-proxy.kiss.svc.ops.netai-cloud:3128
-        no_proxy:
-          - 10.0.0.0/8
-          - 127.0.0.0/8
-          - 172.16.0.0/12
-          - 192.168.0.0/16
-          - .netai-cloud
     kernel_arguments:
       should_exist:
         - amd_iommu=on
@@ -81,11 +71,6 @@ data:
                   "registry.kiss.svc.ops.netai-cloud"
                 ]
               }
-        - path: /etc/hostname
-          filesystem: root
-          mode: 0644
-          contents:
-            inline: unknown
         - path: /etc/modules-load.d/10-gpu-nvidia-driver.conf
           filesystem: root
           mode: 0444
@@ -265,7 +250,7 @@ metadata:
   namespace: kiss
   labels:
     name: matchbox
-    kissService: "false"
+    kissService: "true"
     serviceType: internal
 spec:
   replicas: 1
@@ -279,7 +264,7 @@ spec:
     metadata:
       labels:
         name: matchbox
-        kissService: "false"
+        kissService: "true"
         serviceType: internal
     spec:
       securityContext:
