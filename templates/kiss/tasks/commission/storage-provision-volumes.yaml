@@ -20,15 +20,24 @@
     opts: rw,relatime
     state: mounted
 
+- name: Check whether original directory exists | {{ lv.kind }} | {{ lv.name }}
+  when:
+    - not kiss_storage_exists
+    - lv.overlay is not defined or not lv.overlay
+  stat:
+    path: "{{ lv.path }}/"
+  register: original_directory
+
 - name: Copy files | {{ lv.kind }} | {{ lv.name }}
   when:
     - not kiss_storage_exists
     - lv.overlay is not defined or not lv.overlay
+    - original_directory.stat.exists
   copy:
     src: "{{ lv.path }}/"
     dest: /tmp/kiss-storage-{{ lv.kind }}.{{ lv.name }}
     remote_src: true
-  ignore_errors: true
+    directory_mode: true
 
 - name: Unmount a logical volume located in the temporary path | {{ lv.kind }} | {{ lv.name }}
   when: not kiss_storage_exists
