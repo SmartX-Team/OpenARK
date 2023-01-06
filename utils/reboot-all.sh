@@ -20,6 +20,15 @@ IPMITOOL_IMAGE="${IPMITOOL_IMAGE:-$IPMITOOL_IMAGE_DEFAULT}"
 ###########################################################
 
 for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); do
+    echo "Rebooting \"${address}\"..."
+
+    # Assert PxE Boot
+    "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootparam set bootflag force_pxe
+    "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe
+
+    # Reboot now anyway
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
         -H "${address}" -U "kiss" -P "kiss.netaiCloud" power reset
 done
