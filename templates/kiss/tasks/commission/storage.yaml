@@ -84,7 +84,7 @@
   include: storage-provision.yaml
 
 - name: Update boot order to Disk-first
-  when: not kiss_storage_exists
+  when: not kiss_os_exists
   include: boot-disk.yaml
 
 - name: Reboot the boxes after installing OS (The task will be restarted)
@@ -93,6 +93,6 @@
     reboot_timeout: 3600 # 1h (booting can take a long time)
 
 - name: Assert rebooting
-  when: not kiss_storage_exists
+  when: not kiss_os_exists
   fail:
     msg: The nodes should be rebooted!
