@@ -135,7 +135,7 @@ impl BoxState {
     pub const fn cron(&self) -> Option<&'static str> {
         match self {
             // Self::Running => Some("0 * * * *"),
-            Self::Running => Some("@hourly"),
+            Self::Running => Some("*/5 * * * *"),
             // Self::Disconnected | Self::Missing => Some("@hourly"),
             _ => None,
         }
