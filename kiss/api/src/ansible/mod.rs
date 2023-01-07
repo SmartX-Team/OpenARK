@@ -289,6 +289,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_group_force_reset_os".into(),
+                                value: Some(self.kiss.group_force_reset_os.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_group_role".into(),
                                 value: Some(group.role.to_string()),
                                 ..Default::default()

@@ -44,6 +44,7 @@
 
 - name: Update boot order to PxE-first
   when:
+    - kiss_group_force_reset_os
     - kiss_os_exists
     - kiss_os_dirty
     - not kiss_storage_exists
@@ -51,6 +52,7 @@
 
 - name: Reboot the boxes before re-installing OS (The task will be restarted)
   when:
+    - kiss_group_force_reset_os
     - kiss_os_exists
     - kiss_os_dirty
     - not kiss_storage_exists
@@ -59,6 +61,7 @@
 
 - name: Assert rebooting
   when:
+    - kiss_group_force_reset_os
     - kiss_os_exists
     - kiss_os_dirty
     - not kiss_storage_exists
