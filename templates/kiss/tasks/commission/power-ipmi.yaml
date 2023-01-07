@@ -1,5 +1,5 @@
 ---
 - name: Provision Power Planes - IPMI Boot
-  include: power-ipmi-boot.yaml
+  include: power-ipmi-boot-disk.yaml
 - name: Provision Power Planes - IPMI Channel
   include: power-ipmi-channel.yaml

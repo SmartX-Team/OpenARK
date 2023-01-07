@@ -1,0 +1,13 @@
+---
+- name: Provision Power Planes - IPMI Common
+  include: power-ipmi-common.yaml
+
+- name: Change boot order to PxE-first
+  when: ipmi.stat.exists
+  shell: >
+    ctr run --rm
+    --device /dev/ipmi0
+    "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
+    "kiss-ipmitool" ipmitool
+    chassis bootdev pxe options=efiboot,persistent
+  ignore_errors: true

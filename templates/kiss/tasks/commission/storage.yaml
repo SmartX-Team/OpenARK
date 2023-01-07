@@ -1,15 +1,18 @@
 ---
-- name: Determine whether kiss OS is installed in a disk
+- name: Check whether kiss OS is installed in a disk
   stat:
     path: /boot/flatcar
   register: boot_file
 
+- name: Check whether kiss OS is dirty
+  stat:
+    path: /opt/.kiss-dirty
+  register: kiss_dirty_file
+
 - name: Check whether kiss OS is already configured
   set_fact:
-    kiss_os_exists: >-
-      {{
-        boot_file.stat.exists
-      }}
+    kiss_os_exists: "{{ boot_file.stat.exists }}"
+    kiss_os_dirty: "{{ kiss_dirty_file.stat.exists }}"
 
 - name: Collect brief device informations
   loop: "{{ ansible_devices.items() }}"
@@ -39,6 +42,38 @@
         (not (kiss_group_force_reset | default(False)))
       }}
 
+- name: Update boot order to PxE-first
+  when:
+    - kiss_os_exists
+    - kiss_os_dirty
+    - not kiss_storage_exists
+  include: boot-pxe.yaml
+
+- name: Reboot the boxes before re-installing OS (The task will be restarted)
+  when:
+    - kiss_os_exists
+    - kiss_os_dirty
+    - not kiss_storage_exists
+  reboot:
+    reboot_timeout: 3600 # 1h (booting can take a long time)
+
+- name: Assert rebooting
+  when:
+    - kiss_os_exists
+    - kiss_os_dirty
+    - not kiss_storage_exists
+  fail:
+    msg: The nodes should be rebooted!
+
+- name: Regard kiss OS as dirty
+  when:
+    - kiss_os_exists
+    - not kiss_os_dirty
+  file:
+    path: /opt/.kiss-dirty
+    state: touch
+    mode: "0444"
+
 - name: Cleanup disks
   when: not kiss_storage_exists
   include: storage-cleanup.yaml
@@ -46,7 +81,16 @@
 - name: Provision disks
   include: storage-provision.yaml
 
+- name: Update boot order to Disk-first
+  when: not kiss_storage_exists
+  include: boot-disk.yaml
+
 - name: Reboot the boxes after installing OS (The task will be restarted)
   when: not kiss_os_exists
   reboot:
     reboot_timeout: 3600 # 1h (booting can take a long time)
+
+- name: Assert rebooting
+  when: not kiss_storage_exists
+  fail:
+    msg: The nodes should be rebooted!

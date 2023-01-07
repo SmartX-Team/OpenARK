@@ -1,6 +1,6 @@
 ---
 - name: Wipe Filesystem | {{ item[0] }}
-  shell: wipefs --all /dev/{{ item[0] }} && sync
+  shell: wipefs --all --force /dev/{{ item[0] }} && sync
 
 - name: Wipe GUID partiton table (GPT) | {{ item[0] }}
   shell: sgdisk --zap-all /dev/{{ item[0] }} && sync

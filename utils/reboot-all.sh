@@ -24,8 +24,6 @@ for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); 
 
     # Assert PxE Boot
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootparam set bootflag force_pxe
-    "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
         -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=efiboot,persistent
 
     # Reboot now anyway

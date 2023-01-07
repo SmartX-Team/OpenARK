@@ -72,6 +72,14 @@
   reboot:
     reboot_timeout: 3600 # 1h (booting can take a long time)
 
+- name: Assert rebooting
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_mlxup_architectures
+    - "'Restart needed' in result.stdout"
+  fail:
+    msg: The nodes should be rebooted!
+
 - name: Cleanup
   when:
     - kiss_allow_critical_commands | default(False)
