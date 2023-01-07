@@ -137,6 +137,8 @@ function spawn_node() {
             --net "host" \
             --privileged \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
+            --log-opt "max-size=100m" \
+            --log-opt "max-file=5" \
             --restart "unless-stopped" \
             --tmpfs "/run" \
             --tmpfs "/tmp" \
