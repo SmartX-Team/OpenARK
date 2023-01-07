@@ -24,11 +24,11 @@ for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); 
 
     # Assert PxE Boot
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=efiboot,persistent
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=persistent,efiboot
 
     # Reboot now anyway
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" power reset
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" power cycle
 done
 
 ###########################################################
