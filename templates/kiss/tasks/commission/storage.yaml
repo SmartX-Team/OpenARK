@@ -79,7 +79,7 @@
 
 - name: Cleanup disks
   when:
-    - kiss_os_dirty
+    - not kiss_os_exists or kiss_os_dirty
     - not kiss_storage_exists
   include: storage-cleanup.yaml
 
