@@ -34,6 +34,7 @@
       when: >-
         (item[1].links.ids | length) > 0
         and item[1].scheduler_mode != ''
+        and not (item[0] == device.name and kiss_os_exists)
       include: storage-cleanup-device-physical.yaml
 
     - name: Update facts

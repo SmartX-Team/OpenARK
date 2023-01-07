@@ -75,7 +75,9 @@
     mode: "0444"
 
 - name: Cleanup disks
-  when: not kiss_storage_exists
+  when:
+    - kiss_os_dirty
+    - not kiss_storage_exists
   include: storage-cleanup.yaml
 
 - name: Provision disks
