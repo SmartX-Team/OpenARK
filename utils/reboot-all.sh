@@ -23,8 +23,10 @@ for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); 
     echo "Rebooting \"${address}\"..."
 
     # Assert PxE Boot
+    # FIXME: wait until ipmitool PR is released to Alpine Linux (ipmitool chassis bootdev floppy options=efiboot,persistent not work): https://github.com/ipmitool/ipmitool/issues/258
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=persistent,efiboot
+        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=efiboot
+    # -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=persistent,efiboot
 
     # Reboot now anyway
     "$CONTAINER_RUNTIME" run --rm --net "host" "${IPMITOOL_IMAGE}" \
