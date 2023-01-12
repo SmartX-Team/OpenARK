@@ -92,7 +92,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // skip joining if already joined
-        if matches!(new_state, BoxState::Joining)
+        if !matches!(old_state, BoxState::Joining)
+            && matches!(new_state, BoxState::Joining)
             && status
                 .as_ref()
                 .and_then(|status| status.bind_group.as_ref())
