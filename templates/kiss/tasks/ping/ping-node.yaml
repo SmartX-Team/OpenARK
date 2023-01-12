@@ -11,8 +11,8 @@
     url: https://localhost:6443/livez?verbose
     method: GET
     ca_path: /etc/kubernetes/ssl/ca.crt
-    client_cert: /var/lib/kubelet/pki/kubeletlient-current.pem
-    client_key: /var/lib/kubelet/pki/kubeletlient-current.pem
+    client_cert: /var/lib/kubelet/pki/kubelet-client-current.pem
+    client_key: /var/lib/kubelet/pki/kubelet-client-current.pem
   register: result
   until: result.status == 200
   retries: 5
