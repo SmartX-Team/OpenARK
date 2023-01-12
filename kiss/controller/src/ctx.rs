@@ -81,8 +81,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         // capture the group info is changed
         if matches!(old_state, BoxState::Running)
-            && !data
-                .status
+            && !status
                 .as_ref()
                 .and_then(|status| status.bind_group.as_ref())
                 .map(|bind_group| &data.spec.group == bind_group)
