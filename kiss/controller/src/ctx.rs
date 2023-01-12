@@ -31,6 +31,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
+        let crd = BoxCrd::api_resource();
         let name = data.name_any();
         let status = data.status.as_ref();
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(manager.kube.clone());
@@ -90,6 +91,30 @@ impl ::kiss_api::manager::Ctx for Ctx {
             new_state = BoxState::Disconnected;
         }
 
+        // skip joining if already joined
+        if matches!(new_state, BoxState::Joining)
+            && status
+                .as_ref()
+                .and_then(|status| status.bind_group.as_ref())
+                .map(|bind_group| bind_group == &data.spec.group)
+                .unwrap_or_default()
+        {
+            let patch = Patch::Apply(json!({
+                "apiVersion": crd.api_version,
+                "kind": crd.kind,
+                "status": BoxStatus {
+                    state: new_state,
+                    access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
+                    bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
+                    last_updated: Utc::now(),
+                },
+            }));
+            let pp = PatchParams::apply("kiss-controller").force();
+            api.patch_status(&name, &pp, &patch).await?;
+
+            info!("Skipped joining (already joined) {name:?}");
+        }
+
         // spawn an Ansible job
         if old_state != new_state || new_state.cron().is_some() {
             if let Some(task) = new_state.as_task() {
@@ -124,7 +149,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 return Ok(Action::await_change());
             }
 
-            let crd = BoxCrd::api_resource();
             let patch = Patch::Apply(json!({
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
