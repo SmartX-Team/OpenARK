@@ -13,6 +13,7 @@
     ca_path: /etc/kubernetes/ssl/ca.crt
     client_cert: /var/lib/kubelet/pki/kubelet-client-current.pem
     client_key: /var/lib/kubelet/pki/kubelet-client-current.pem
+    validate_certs: false
   register: result
   until: result.status == 200
   retries: 5
@@ -25,6 +26,7 @@
     ca_path: /etc/kubernetes/ssl/ca.crt
     client_cert: /var/lib/kubelet/pki/kubelet-client-current.pem
     client_key: /var/lib/kubelet/pki/kubelet-client-current.pem
+    validate_certs: false
   register: result
   until: result.status == 200
   retries: 5
