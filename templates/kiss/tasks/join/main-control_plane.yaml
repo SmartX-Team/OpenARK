@@ -47,7 +47,8 @@
           shell: >
             ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
-            && ctr run --detach --rm
+            && ctr containers ls | grep "^kiss-csi-installer-{{ result_csi.stdout }}" >/dev/null ||
+            || ctr run --detach --rm
             --net-host
             --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
             "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
@@ -59,7 +60,8 @@
           shell: >
             ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
-            && ctr run --detach --rm
+            && ctr containers ls | grep "^kiss-gpu-installer-{{ item }}" >/dev/null ||
+            || ctr run --detach --rm
             --net-host
             --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
             "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
@@ -69,7 +71,8 @@
           shell: >
             ctr images pull
             "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
-            && ctr run --detach --rm
+            && ctr containers ls | grep "^kiss-ipis-installer" >/dev/null ||
+            || ctr run --detach --rm
             --net-host
             --mount "type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro"
             "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
