@@ -9,6 +9,7 @@ use kube::{Api, Client};
 pub struct KissConfig {
     pub allow_critical_commands: bool,
     pub allow_pruning_network_interfaces: bool,
+    pub group_enable_default_cluster: bool,
     pub group_force_reset: bool,
     pub group_force_reset_os: bool,
     pub network_interface_mtu_size: u16,
@@ -29,6 +30,7 @@ impl KissConfig {
         Ok(Self {
             allow_critical_commands: infer(&config, "allow_critical_commands")?,
             allow_pruning_network_interfaces: infer(&config, "allow_pruning_network_interfaces")?,
+            group_enable_default_cluster: infer(&config, "group_enable_default_cluster")?,
             group_force_reset: infer(&config, "group_force_reset")?,
             group_force_reset_os: infer(&config, "group_force_reset_os")?,
             network_interface_mtu_size: infer(&config, "network_interface_mtu_size")?,

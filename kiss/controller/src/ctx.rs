@@ -13,7 +13,7 @@ use kiss_api::{
         Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
-    r#box::{BoxCrd, BoxState, BoxStatus},
+    r#box::{BoxCrd, BoxGroupRole, BoxState, BoxStatus},
     serde_json::json,
 };
 
@@ -91,29 +91,49 @@ impl ::kiss_api::manager::Ctx for Ctx {
             new_state = BoxState::Disconnected;
         }
 
-        // skip joining if already joined
-        if !matches!(old_state, BoxState::Joining)
-            && matches!(new_state, BoxState::Joining)
-            && status
+        if !matches!(old_state, BoxState::Joining) && matches!(new_state, BoxState::Joining) {
+            // skip joining to default cluster as worker nodes when disabled
+            if !manager.ansible.kiss.group_enable_default_cluster
+                && status
+                    .as_ref()
+                    .and_then(|status| status.bind_group.as_ref())
+                    .map(|bind_group| {
+                        bind_group.is_default()
+                            && !matches!(bind_group.role, BoxGroupRole::ControlPlane)
+                    })
+                    .unwrap_or_default()
+            {
+                info!("Skipped joining (default cluster is disabled) {name:?}");
+                return Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ));
+            }
+
+            // skip joining if already joined
+            if status
                 .as_ref()
                 .and_then(|status| status.bind_group.as_ref())
                 .map(|bind_group| bind_group == &data.spec.group)
                 .unwrap_or_default()
-        {
-            let patch = Patch::Apply(json!({
-                "apiVersion": crd.api_version,
-                "kind": crd.kind,
-                "status": BoxStatus {
-                    state: new_state,
-                    access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
-                    bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
-                    last_updated: Utc::now(),
-                },
-            }));
-            let pp = PatchParams::apply("kiss-controller").force();
-            api.patch_status(&name, &pp, &patch).await?;
+            {
+                let patch = Patch::Apply(json!({
+                    "apiVersion": crd.api_version,
+                    "kind": crd.kind,
+                    "status": BoxStatus {
+                        state: new_state,
+                        access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
+                        bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
+                        last_updated: Utc::now(),
+                    },
+                }));
+                let pp = PatchParams::apply("kiss-controller").force();
+                api.patch_status(&name, &pp, &patch).await?;
 
-            info!("Skipped joining (already joined) {name:?}");
+                info!("Skipped joining (already joined) {name:?}");
+                return Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ));
+            }
         }
 
         // spawn an Ansible job

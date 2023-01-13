@@ -23,7 +23,7 @@ use crate::{
 
 pub struct AnsibleClient {
     config: self::config::AnsibleConfig,
-    kiss: KissConfig,
+    pub kiss: KissConfig,
 }
 
 impl AnsibleClient {
@@ -281,6 +281,11 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_cluster_is_default".into(),
                                 value: Some(group.is_default().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_group_enable_default_cluster".into(),
+                                value: Some(self.kiss.group_enable_default_cluster.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

@@ -7,6 +7,7 @@ metadata:
 data:
   allow_critical_commands: "true"
   allow_pruning_network_interfaces: "false"
+  group_enable_default_cluster: "false"
   group_force_reset: "false"
   group_force_reset_os: "false"
   network_interface_mtu_size: "9000" # enable Jumbo Frames
