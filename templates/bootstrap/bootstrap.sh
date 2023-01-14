@@ -365,7 +365,7 @@ function install_kiss_cluster() {
             "${CONTAINER_RUNTIME}" run --interactive --rm "${YQ_IMAGE}" \
                 "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
                     cat "${SSH_KEYFILE}"
-                )\"" |
+                )\n\"" |
             "${CONTAINER_RUNTIME}" exec -i "${node_first}" \
                 kubectl apply -f -
         "${CONTAINER_RUNTIME}" exec "${node_first}" \
