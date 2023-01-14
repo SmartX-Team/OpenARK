@@ -1,6 +1,7 @@
+---
 name: Build => Test => Deploy External Projects
 
-on:
+on: # yamllint disable-line rule:truthy
   schedule:
     - cron: "0 0 * * *" # run at 0 AM UTC
 

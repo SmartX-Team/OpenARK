@@ -16,7 +16,7 @@
         vg: "{{ lv[1].vg }}"
         lv: "{{ lv[0] }}"
         state: absent
-        force: yes
+        force: true
 
     - name: Unregister all logical devices
       command: dmsetup remove_all

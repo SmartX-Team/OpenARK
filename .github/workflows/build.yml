@@ -1,6 +1,7 @@
-name: Build => Test => Deploy Projects
+---
+name: Lint => Build => Test => Deploy Projects
 
-on:
+on: # yamllint disable-line rule:truthy
   push:
     branches:
       - master
@@ -24,7 +25,21 @@ env:
   UBUNTU_VERSION: "20.04"
 
 jobs:
+  lint-yaml:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Lint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          config_file: ./.github/linters/yamllint.yaml
+
   build-rust:
+    needs:
+      - lint-yaml
     runs-on: ubuntu-latest
 
     steps:

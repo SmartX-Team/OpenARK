@@ -1,0 +1,26 @@
+---
+# It extends the default conf by adjusting some options.
+extends: default
+
+# When linting a document with yamllint, a series of rules
+# (such as line-length, trailing-spaces, etc.) are checked against.
+rules:
+  # Use this rule to control the position and formatting of comments.
+  comments:
+    # Use ignore-shebangs to ignore a shebang at the beginning of the file
+    # when require-starting-space is set.
+    ignore-shebangs: true
+
+    # min-spaces-from-content is used to visually separate inline comments from content.
+    # It defines the minimal required number of spaces between a comment and its preceding content.
+    min-spaces-from-content: 1
+
+    # Use require-starting-space to require a space character right after the #.
+    # Set to true to enable, false to disable.
+    require-starting-space: true
+
+  # Use this rule to force comments to be indented like content.
+  comments-indentation: disable
+
+  # Use this rule to set a limit to lines length.
+  line-length: disable

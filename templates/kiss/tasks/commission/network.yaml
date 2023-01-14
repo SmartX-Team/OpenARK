@@ -17,4 +17,4 @@
   systemd:
     name: systemd-networkd.service
     state: restarted
-    daemon_reload: yes
+    daemon_reload: true

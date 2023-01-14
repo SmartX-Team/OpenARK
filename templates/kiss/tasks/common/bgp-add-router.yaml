@@ -1,3 +1,4 @@
+---
 - name: Router | Add BGP peers
   hosts: global_rr
   gather_facts: false

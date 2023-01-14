@@ -1,3 +1,4 @@
+---
 sites:
   - name: flatcar-arm64
     host: https://stable.release.flatcar-linux.net/arm64-usr/

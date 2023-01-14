@@ -1,3 +1,4 @@
+---
 nfd:
   # deploy Node Feature Discovery
   enabled: true

@@ -1,3 +1,4 @@
+---
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment

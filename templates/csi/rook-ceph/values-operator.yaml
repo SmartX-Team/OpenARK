@@ -1,3 +1,4 @@
+---
 ## The logging level for the operator: ERROR | WARNING | INFO | DEBUG
 logLevel: DEBUG
 
