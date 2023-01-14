@@ -144,7 +144,7 @@ impl AnsibleClient {
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
-                        image: Some(self.kiss.image.clone()),
+                        image: Some(self.kiss.kubespray_image.clone()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec![
                             "--become".into(),
