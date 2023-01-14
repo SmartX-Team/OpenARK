@@ -512,7 +512,7 @@ impl AnsibleClient {
             limits: Some(
                 vec![
                     ("cpu".into(), Quantity("50m".into())),
-                    ("memory".into(), Quantity("100Mi".into())),
+                    ("memory".into(), Quantity("500Mi".into())),
                 ]
                 .into_iter()
                 .collect(),
