@@ -195,7 +195,7 @@ impl AnsibleClient {
                                 value_from: Some(EnvVarSource {
                                     config_map_key_ref: Some(ConfigMapKeySelector {
                                         name: Some("kiss-config".into()),
-                                        key: "username".into(),
+                                        key: "auth_ssh_username".into(),
                                         ..Default::default()
                                     }),
                                     ..Default::default()
@@ -330,7 +330,7 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_power_ipmi_username".into(),
                                 value_from: Some(EnvVarSource {
-                                    config_map_key_ref: Some(ConfigMapKeySelector {
+                                    secret_key_ref: Some(SecretKeySelector {
                                         name: Some("kiss-config".into()),
                                         key: "power_ipmi_username".into(),
                                         ..Default::default()
