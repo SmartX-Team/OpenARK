@@ -7,23 +7,23 @@
 set -e
 
 # Skip re-initialization
-if [ ! -f "/root/.ssh/id_rsa" ]; then
+if [ ! -f "${HOME}/.ssh/id_ed25519" ]; then
     # Port scanner
     function get_available_port() {
         comm -23 <(seq 49152 65535 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1
     }
 
     # Generate SSH keys
-    ssh-keygen -q -t rsa -f $HOME/.ssh/id_rsa -N ''
+    ssh-keygen -q -t ed25519 -f "${HOME}/.ssh/id_ed25519" -N ''
     ssh-keygen -q -A
 
     # Register the given public SSH key as authorized
-    if [ ! "$SSH_PUBKEY" ]; then
+    if [ ! "${SSH_PUBKEY}" ]; then
         echo "Error: SSH Public Key (\$SSH_PUBKEY) is not given!"
         exit 1
     fi
-    echo $SSH_PUBKEY >>$HOME/.ssh/authorized_keys
-    chmod 600 $HOME/.ssh/authorized_keys
+    echo "${SSH_PUBKEY}" >>"${HOME}/.ssh/authorized_keys"
+    chmod 600 "${HOME}/.ssh/authorized_keys"
 
     # Find an available SSH port
     while [ ! "$ssh_port" ]; do
@@ -31,7 +31,7 @@ if [ ! -f "/root/.ssh/id_rsa" ]; then
     done
 
     # Apply the SSH port
-    sed -i "s/^#\(Port\) 22/\1 ${ssh_port}/g" /etc/ssh/sshd_config
+    sed -i "s/^#\(Port\) 22/\1 ${ssh_port}/g" "/etc/ssh/sshd_config"
 fi
 
 # Replace /etc/hostname to local

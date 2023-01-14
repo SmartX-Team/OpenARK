@@ -1,0 +1,110 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiss-config
+  namespace: kiss
+data:
+  ###########################################################################
+  # Bare-metal Box Authentication Configuration
+  ###########################################################################
+  auth_ssh_key_id_ed25519_public: "" # to be filled
+  auth_ssh_username: kiss
+
+  ###########################################################################
+  # Bare-metal Box Commissioning Configuration
+  ###########################################################################
+  allow_critical_commands: "true"
+  allow_pruning_network_interfaces: "false"
+
+  ###########################################################################
+  # Bare-metal Box Grouping Configuration
+  ###########################################################################
+  group_enable_default_cluster: "false"
+  group_force_reset: "false"
+  group_force_reset_os: "false"
+
+  ###########################################################################
+  # Bootstrapper Node Configuration
+  ###########################################################################
+  bootstrapper_auth_ssh_key_path: ./config/id_ed25519
+  bootstrapper_kubernetes_config_path: ~/.kube/
+  bootstrapper_kubespray_config_path: ./config/bootstrap/defaults/all.yaml
+  bootstrapper_kubespray_config_all_path: ./config/bootstrap/defaults/all.yaml
+  bootstrapper_kubespray_config_template_path: ./config/
+  bootstrapper_node_data_kubernetes_path: /opt/kiss/
+  bootstrapper_node_image: quay.io/ulagbulag-village/netai-cloud-bootstrap-node:latest
+  bootstrapper_node_name: node1.master
+  bootstrapper_node_reuse_container: "true"
+  bootstrapper_node_reuse_data_kubernetes: "false"
+
+  ###########################################################################
+  # KISS Configuration
+  ###########################################################################
+  kiss_cluster_name: "" # note: DO NOT FIX IT!
+  kiss_installer_image: quay.io/ulagbulag-village/netai-cloud-upgrade-kiss:latest
+
+  ###########################################################################
+  # Kubespray Configuration
+  ###########################################################################
+  kubespray_image: quay.io/ulagbulag-village/kubespray:latest
+
+  ###########################################################################
+  # Network Configuration
+  ###########################################################################
+  network_interface_mtu_size: "9000" # enable Jumbo Frames
+  network_ipv4_dhcp_duration: "7d"
+  network_ipv4_dhcp_range_begin: "10.32.0.0"
+  network_ipv4_dhcp_range_end: "10.32.255.254"
+  network_ipv4_gateway: "10.47.255.254"
+  network_ipv4_subnet: "10.32.0.0/12"
+  network_nameserver_incluster_ipv4: "10.64.0.3"
+
+  ###########################################################################
+  # Service/CSI Configuration
+  ###########################################################################
+  service_csi_enable_rook_ceph: "true"
+  service_csi_installer_image_template: quay.io/ulagbulag-village/netai-cloud-upgrade-csi-__NAME__:latest
+
+  ###########################################################################
+  # Service/Fabric Configuration
+  ###########################################################################
+  service_fabric_enable_mellanox: "true"
+  service_fabric_installer_image_template: quay.io/ulagbulag-village/netai-cloud-upgrade-fabric-__NAME__:latest
+
+  ###########################################################################
+  # Service/GPU Configuration
+  ###########################################################################
+  service_gpu_enable_nvidia: "true"
+  service_gpu_installer_image_template: quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-__NAME__:latest
+
+  ###########################################################################
+  # Service/IPIS Configuration
+  ###########################################################################
+  service_ipis_enable: "true"
+  service_ipis_installer_image: quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest
+
+  ###########################################################################
+  # Snapshot Configuration
+  ###########################################################################
+  snapshot_git_repository: ""
+  snapshot_git_user_email: "kiss.bot@ulagbulag.io"
+  snapshot_git_user_name: "NetAI Cloud KISS BOT"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kiss-config
+  namespace: kiss
+stringData:
+  ###########################################################################
+  # Bare-metal Box Authentication Configuration
+  ###########################################################################
+  auth_ssh_key_id_ed25519: "" # to be filled
+
+  ###########################################################################
+  # Bare-metal Box IPMI Configuration
+  ###########################################################################
+  power_ipmi_username: kiss
+  power_ipmi_password: kiss.netaiCloud

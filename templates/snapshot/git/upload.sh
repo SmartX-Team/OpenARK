@@ -6,6 +6,12 @@
 # Prehibit errors
 set -e
 
+# Check repository
+if [ "${GIT_REPOSITORY}" == "" ]; then
+    echo "Skipping snapshot job: Git repository is not set"
+    exit 0
+fi
+
 # Configure git
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
@@ -13,6 +19,10 @@ git config --global user.name "${GIT_USER_NAME}"
 # Download repository
 git clone "${GIT_REPOSITORY}" "./snapshot"
 cd "./snapshot"
+
+# Checkout branch
+# FIXME: is it working?
+git checkout -B "${GIT_BRANCH}"
 
 # Dump k8s snapshot
 mkdir -p "./kiss"
@@ -27,7 +37,6 @@ git add --force "./kiss"
 git commit --message "Automatic Upload of Snapshot ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))" || true
 
 # Push
-git branch -M "${GIT_BRANCH}"
 git push --force --set-upstream "origin" "${GIT_BRANCH}"
 
 # Cleanup

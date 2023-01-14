@@ -28,23 +28,23 @@ spec:
                 - name: GIT_BRANCH
                   valueFrom:
                     configMapKeyRef:
-                      name: snapshot-git
-                      key: branch
+                      name: kiss-config
+                      key: kiss_cluster_name
                 - name: GIT_REPOSITORY
                   valueFrom:
                     configMapKeyRef:
-                      name: snapshot-git
-                      key: repository
+                      name: kiss-config
+                      key: snapshot_git_repository
                 - name: GIT_USER_EMAIL
                   valueFrom:
                     configMapKeyRef:
-                      name: snapshot-git
-                      key: user.email
+                      name: kiss-config
+                      key: snapshot_git_user_email
                 - name: GIT_USER_NAME
                   valueFrom:
                     configMapKeyRef:
-                      name: snapshot-git
-                      key: user.name
+                      name: kiss-config
+                      key: snapshot_git_user_name
               resources:
                 requests:
                   cpu: 30m
@@ -54,13 +54,13 @@ spec:
                   memory: 100Mi
               volumeMounts:
                 - name: ssh
-                  mountPath: /root/.ssh/id_rsa
-                  subPath: id_rsa
+                  mountPath: /root/.ssh/id_ed25519
+                  subPath: id_ed25519
           volumes:
             - name: ssh
               secret:
-                secretName: snapshot-git
+                secretName: kiss-config
                 defaultMode: 0400
                 items:
-                  - key: id_rsa
-                    path: id_rsa
+                  - key: auth_ssh_key_id_ed25519
+                    path: id_ed25519

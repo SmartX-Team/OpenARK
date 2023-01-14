@@ -20,60 +20,144 @@
             {{ bin_dir }}/kubectl get namespace kiss
             || {{ bin_dir }}/kubectl create namespace kiss
 
-        - name: Inherit ConfigMap - baremetal-config
+        - name: Inherit KISS ConfigMap
           block:
             - name: Download ConfigMap
               delegate_to: localhost
               shell:
                 cmd: >
-                  kubectl get -n kiss configmap "baremetal-config" -o yaml
+                  {{ bin_dir }}/kubectl get configmap "kiss-config"
+                  --namespace kiss
+                  --output yaml
               register: result
 
             - name: Save ConfigMap
               shell:
                 cmd: >
-                  {{ bin_dir }}/kubectl get -n kiss configmap "baremetal-config"
+                  {{ bin_dir }}/kubectl get configmap "kiss-config"
+                  --namespace kiss
                   || {{ bin_dir }}/kubectl create -f -
                 stdin: "{{ result.stdout }}"
 
-        - name: Get CSI Information
-          shell: >
-            {{ bin_dir }}/kubectl get -n kiss configmap "baremetal-config"
-            -o jsonpath --template '{.data.csi}'
-          register: result_csi
+            - name: Update Cluster Name
+              shell:
+                cmd: >
+                  {{ bin_dir }}/kubectl patch configmap "kiss-config"
+                  --namespace kiss
+                  --patch '{"data":{"kiss_cluster_name":"{{ kiss_cluster_name_snake_case }}"}}'
 
-        - name: Install CSI
-          when: result_csi.stdout != "none"
-          shell: >
-            ctr containers delete "kiss-csi-installer-{{ result_csi.stdout }}"
-            ; ctr images pull
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
-            && ctr run --detach --rm
-            --net-host
-            --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-csi-{{ result_csi.stdout }}:latest"
-            "kiss-csi-installer-{{ result_csi.stdout }}"
-
-        - name: Install GPU Operator | {{ item }}
-          loop:
-            - nvidia
-          shell: >
-            ctr containers delete "kiss-gpu-installer-{{ item }}"
-            ; ctr images pull
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
-            && ctr run --detach --rm
-            --net-host
-            --mount type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-gpu-{{ item }}:latest"
-            "kiss-gpu-installer-{{ item }}"
-
-        - name: Install IPIS
-          shell: >
-            ctr containers delete "kiss-ipis-installer"
-            ; ctr images pull
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
-            && ctr run --detach --rm
-            --net-host
-            --mount "type=bind,src=/root/.kube,dst=/root/.kube,options=rbind:ro"
-            "quay.io/ulagbulag-village/netai-cloud-upgrade-ipis:latest"
-            "kiss-ipis-installer"
+        - name: Install KISS
+          shell:
+            cmd: >
+              sed "s/__IMAGE__/$(
+              {{ bin_dir }}/kubectl get configmap "kiss-config
+              --namespace kiss
+              --output jsonpath
+              --template "{.data.kiss_installer_image}"
+              )/g"
+              | {{ bin_dir }}/kubectl apply -f -
+            stdin: |
+              ---
+              apiVersion: v1
+              kind: ServiceAccount
+              metadata:
+                name: kiss-system
+                namespace: kiss
+              ---
+              apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: kiss-system
+                namespace: kiss
+              rules:
+                - apiGroups:
+                    - "*"
+                  resources:
+                    - "*"
+                  verbs:
+                    - "*"
+              ---
+              apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: kiss-system
+                namespace: kiss
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: kiss-system
+              subjects:
+                - apiGroup: ""
+                  kind: ServiceAccount
+                  name: kiss-system
+                  namespace: kiss
+              ---
+              apiVersion: rbac.authorization.k8s.io/v1
+              kind: ClusterRole
+              metadata:
+                name: kiss-system
+              rules:
+                - apiGroups:
+                    - "*"
+                  resources:
+                    - "*"
+                  verbs:
+                    - "*"
+              ---
+              apiVersion: rbac.authorization.k8s.io/v1
+              kind: ClusterRoleBinding
+              metadata:
+                name: kiss-system
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: ClusterRole
+                name: kiss-system
+              subjects:
+                - apiGroup: ""
+                  kind: ServiceAccount
+                  name: kiss-system
+                  namespace: kiss
+              ---
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: kiss-installer
+                namespace: kiss
+              spec:
+                template:
+                  metadata:
+                    labels:
+                      name: kiss-installer
+                      serviceType: kiss-installer
+                  spec:
+                    affinity:
+                      nodeAffinity:
+                        # KISS normal control plane nodes should be preferred
+                        preferredDuringSchedulingIgnoredDuringExecution:
+                          - weight: 1
+                            preference:
+                              matchExpressions:
+                                - key: node-role.kubernetes.io/control-plane
+                                  operator: Exists
+                        # KISS ephemeral control plane nodes should be excluded
+                        requiredDuringSchedulingIgnoredDuringExecution:
+                          nodeSelectorTerms:
+                            - matchExpressions:
+                                - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                                  operator: DoesNotExist
+                    restartPolicy: OnFailure
+                    securityContext:
+                      seccompProfile:
+                        type: RuntimeDefault
+                    serviceAccount: kiss-system
+                    containers:
+                      - name: installer
+                        image: __IMAGE__
+                        imagePullPolicy: Always
+                        resources:
+                          requests:
+                            cpu: 30m
+                            memory: 20Mi
+                          limits:
+                            cpu: 100m
+                            memory: 100Mi

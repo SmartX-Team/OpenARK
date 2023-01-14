@@ -1,5 +1,3 @@
-mod config;
-
 use inflector::Inflector;
 use ipis::{core::anyhow::Result, log::info};
 use k8s_openapi::api::{
@@ -22,7 +20,6 @@ use crate::{
 };
 
 pub struct AnsibleClient {
-    config: self::config::AnsibleConfig,
     pub kiss: KissConfig,
 }
 
@@ -39,7 +36,6 @@ impl AnsibleClient {
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
-            config: self::config::AnsibleConfig::try_default(kube).await?,
             kiss: KissConfig::try_default(kube).await?,
         })
     }
@@ -148,7 +144,7 @@ impl AnsibleClient {
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {
                         name: "ansible".into(),
-                        image: Some(self.config.image.clone()),
+                        image: Some(self.kiss.image.clone()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec![
                             "--become".into(),
@@ -190,53 +186,16 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "ansible_ssh_private_key_file".into(),
+                                value: Some("/root/.ssh/id_ed25519".into()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "ansible_user".into(),
                                 value_from: Some(EnvVarSource {
                                     config_map_key_ref: Some(ConfigMapKeySelector {
-                                        name: Some("matchbox-account".into()),
+                                        name: Some("kiss-config".into()),
                                         key: "username".into(),
-                                        ..Default::default()
-                                    }),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            },
-                            EnvVar {
-                                name: "ansible_ssh_private_key_file".into(),
-                                value: Some("/root/.ssh/id_rsa".into()),
-                                ..Default::default()
-                            },
-                            EnvVar {
-                                name: "ansible_ipmi_host".into(),
-                                value: job
-                                    .r#box
-                                    .spec
-                                    .power
-                                    .as_ref()
-                                    .map(|power| match power {
-                                        BoxPowerSpec::Ipmi { address } => address,
-                                    })
-                                    .map(|address| address.to_string()),
-                                ..Default::default()
-                            },
-                            EnvVar {
-                                name: "ansible_ipmi_username".into(),
-                                value_from: Some(EnvVarSource {
-                                    config_map_key_ref: Some(ConfigMapKeySelector {
-                                        name: Some("kiss-box-power-ipmi".into()),
-                                        key: "username".into(),
-                                        ..Default::default()
-                                    }),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            },
-                            EnvVar {
-                                name: "ansible_ipmi_password".into(),
-                                value_from: Some(EnvVarSource {
-                                    secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-box-power-ipmi".into()),
-                                        key: "password".into(),
                                         ..Default::default()
                                     }),
                                     ..Default::default()
@@ -355,6 +314,43 @@ impl AnsibleClient {
                                 ),
                                 ..Default::default()
                             },
+                            EnvVar {
+                                name: "kiss_power_ipmi_host".into(),
+                                value: job
+                                    .r#box
+                                    .spec
+                                    .power
+                                    .as_ref()
+                                    .map(|power| match power {
+                                        BoxPowerSpec::Ipmi { address } => address,
+                                    })
+                                    .map(|address| address.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_power_ipmi_username".into(),
+                                value_from: Some(EnvVarSource {
+                                    config_map_key_ref: Some(ConfigMapKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "power_ipmi_username".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_power_ipmi_password".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "power_ipmi_password".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
                         ]),
                         volume_mounts: Some(vec![
                             VolumeMount {
@@ -429,11 +425,11 @@ impl AnsibleClient {
                         Volume {
                             name: "ssh".into(),
                             secret: Some(SecretVolumeSource {
-                                secret_name: Some("matchbox-account".into()),
+                                secret_name: Some("kiss-config".into()),
                                 default_mode: Some(0o400),
                                 items: Some(vec![KeyToPath {
-                                    key: "id_rsa".into(),
-                                    path: "id_rsa".into(),
+                                    key: "auth_ssh_key_id_ed25519".into(),
+                                    path: "id_ed25519".into(),
                                     ..Default::default()
                                 }]),
                                 ..Default::default()

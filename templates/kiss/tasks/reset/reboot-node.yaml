@@ -7,22 +7,22 @@
 
 # TODO: should we use it?
 # - name: Power | IPMI | Change boot order to PXE-first
-#   when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
+#   when: kiss_power_ipmi_host is defined and kiss_power_ipmi_host != ""
 #   delegate_to: localhost
 #   ipmi_boot:
-#     name: "{{ ansible_ipmi_host }}"
+#     name: "{{ kiss_power_ipmi_host }}"
 #     user: kiss
-#     password: "{{ ansible_ipmi_password }}"
+#     password: "{{ kiss_power_ipmi_password }}"
 #     bootdev: network
 #     persistent: true
 #   ignore_errors: true
 
 - name: Power | IPMI | Reset node's power
-  when: ansible_ipmi_host is defined and ansible_ipmi_host != ""
+  when: kiss_power_ipmi_host is defined and kiss_power_ipmi_host != ""
   delegate_to: localhost
   ipmi_power:
-    name: "{{ ansible_ipmi_host }}"
+    name: "{{ kiss_power_ipmi_host }}"
     user: kiss
-    password: "{{ ansible_ipmi_password }}"
+    password: "{{ kiss_power_ipmi_password }}"
     state: boot
   ignore_errors: true

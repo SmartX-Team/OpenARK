@@ -60,7 +60,7 @@
     --device /dev/ipmi0
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
-    user set name 9 '{{ ansible_ipmi_username }}'
+    user set name 9 '{{ kiss_power_ipmi_username }}'
   ignore_errors: true
   no_log: true
 
@@ -71,7 +71,7 @@
     --device /dev/ipmi0
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
-    user set password 9 '{{ ansible_ipmi_password }}'
+    user set password 9 '{{ kiss_power_ipmi_password }}'
   ignore_errors: true
   no_log: true
 

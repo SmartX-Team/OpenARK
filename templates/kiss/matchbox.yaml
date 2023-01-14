@@ -286,13 +286,13 @@ spec:
             - name: SSH_AUTHORIZED_KEYS
               valueFrom:
                 configMapKeyRef:
-                  name: matchbox-account
-                  key: id_rsa.pub
+                  name: kiss-config
+                  key: auth_ssh_key_id_ed25519_public
             - name: USERNAME
               valueFrom:
                 configMapKeyRef:
-                  name: matchbox-account
-                  key: username
+                  name: kiss-config
+                  key: auth_ssh_username
           resources:
             requests:
               cpu: 30m
