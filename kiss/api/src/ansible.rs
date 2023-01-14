@@ -1,11 +1,15 @@
 use inflector::Inflector;
 use ipis::{core::anyhow::Result, log::info};
-use k8s_openapi::api::{
-    batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
-    core::v1::{
-        ConfigMapKeySelector, ConfigMapVolumeSource, Container, EnvVar, EnvVarSource, KeyToPath,
-        PodSpec, PodTemplateSpec, SecretKeySelector, SecretVolumeSource, Volume, VolumeMount,
+use k8s_openapi::{
+    api::{
+        batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
+        core::v1::{
+            ConfigMapKeySelector, ConfigMapVolumeSource, Container, EnvVar, EnvVarSource,
+            KeyToPath, PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector,
+            SecretVolumeSource, Volume, VolumeMount,
+        },
     },
+    apimachinery::pkg::api::resource::Quantity,
 };
 use kube::{
     api::{DeleteParams, ListParams, PostParams},
@@ -352,6 +356,7 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                         ]),
+                        resources: Some(Self::default_resources()),
                         volume_mounts: Some(vec![
                             VolumeMount {
                                 name: "ansible".into(),
@@ -483,6 +488,27 @@ impl AnsibleClient {
 
         info!("spawned a job: {name}");
         Ok(true)
+    }
+
+    pub fn default_resources() -> ResourceRequirements {
+        ResourceRequirements {
+            requests: Some(
+                vec![
+                    ("cpu".into(), Quantity("30m".into())),
+                    ("memory".into(), Quantity("20Mi".into())),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+            limits: Some(
+                vec![
+                    ("cpu".into(), Quantity("50m".into())),
+                    ("memory".into(), Quantity("100Mi".into())),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        }
     }
 }
 

@@ -5,6 +5,7 @@ use ipis::{
     log::{info, warn},
 };
 use kiss_api::{
+    ansible::AnsibleClient,
     k8s_openapi::{
         api::{
             batch::v1::{Job, JobSpec},
@@ -207,6 +208,7 @@ impl Handler {
                                     ..Default::default()
                                 },
                             ]),
+                            resources: Some(AnsibleClient::default_resources()),
                             ..Default::default()
                         }],
                         ..Default::default()
