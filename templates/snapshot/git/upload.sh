@@ -21,8 +21,12 @@ git clone "${GIT_REPOSITORY}" "./snapshot"
 cd "./snapshot"
 
 # Checkout branch
-# FIXME: is it working?
-git checkout -B "${GIT_BRANCH}"
+if $(git branch --list | grep "^\*\? *${GIT_BRANCH} *\$" >/dev/null); then
+    git switch "${GIT_BRANCH}"
+else
+    # Create an empty branch
+    git switch --orphan "${GIT_BRANCH}"
+fi
 
 # Dump k8s snapshot
 mkdir -p "./kiss"
