@@ -32,7 +32,7 @@ all:
         ## If this is not set, container manager will be inherited from the Kubespray defaults
         ## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
         ## Also this makes possible to use different container manager for etcd nodes.
-        container_manager: docker
+        container_manager: "{{ 'containerd' if inventory_hostname in groups['kiss_ephemeral_node'] else 'docker' }}"
         # Whether to deploy the container engine
         deploy_container_engine: "{{ inventory_hostname in groups['kiss_ephemeral_node'] }}"
 
@@ -46,7 +46,7 @@ all:
 
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
-        etcd_deployment_type: docker # data is stored in /opt/etcd
+        etcd_deployment_type: "{{ 'docker' if container_manager == 'docker' else 'host' }}" # data is stored in /opt/etcd
         # Directory where etcd data stored
         etcd_data_dir: /opt/etcd
         etcd_config_dir: /etc/etcd
