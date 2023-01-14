@@ -89,8 +89,8 @@ function install_kiss_cluster() {
 # Define a service installer template function
 function __install_service() {
     local kind="$1"
-    local image_template="$2"
-    local name="$3"
+    local image="$2"
+    local name="$(echo "$3" | sed 's/\_/\-/g')"
     local is_enabled="$4"
 
     local image="$(echo "${image_template}" | sed "s/__NAME__/${name}/g")"
@@ -108,7 +108,10 @@ function __install_service() {
         cat "./templates/service-installer.yaml" |
             sed "s/__KIND__/${kind}/g" |
             sed "s/__NAME__/${name}/g" |
-            sed "s/__IMAGE__/${image}/g" |
+            sed "s/__IMAGE__/$(
+                echo "${image}" |
+                    sed 's/[^a-zA-Z0-9]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
+            )/g" |
             kubectl apply -f -
     fi
 
@@ -144,7 +147,7 @@ function __install_service_all() {
             kubectl get configmap "kiss-config" \
                 --namespace kiss \
                 --output jsonpath \
-                --template "{.data.${key_prefix_is_enabled}${name}"
+                --template "{.data.${key_prefix_is_enabled}${name}}"
         )"
         __install_service "${kind}" "${image_template}" "${name}" "${is_enabled}"
     done
@@ -175,13 +178,13 @@ function install_services() {
         kubectl get configmap "kiss-config" \
             --namespace kiss \
             --output jsonpath \
-            --template "{.data.service_ipis_installer_image"
+            --template "{.data.service_ipis_installer_image}"
     )"
     local ipis_is_enabled="$(
         kubectl get configmap "kiss-config" \
             --namespace kiss \
             --output jsonpath \
-            --template "{.data.service_ipis_enable"
+            --template "{.data.service_ipis_enable}"
     )"
     __install_service "ipis" "${ipis_image}" "ipis" "${ipis_is_enabled}"
 }

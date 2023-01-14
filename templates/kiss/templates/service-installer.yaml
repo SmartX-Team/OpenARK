@@ -2,13 +2,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kiss-service-installer-__KIND__-__NAME__
+  name: service-installer-__KIND__-__NAME__
   namespace: kiss
 spec:
   template:
     metadata:
       labels:
-        name: kiss-service-installer-__KIND__-__NAME__
+        name: service-installer-__KIND__-__NAME__
         serviceKind: __KIND__
         serviceName: __NAME__
         serviceType: service-installer

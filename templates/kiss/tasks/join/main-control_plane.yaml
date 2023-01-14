@@ -50,10 +50,11 @@
           shell:
             cmd: >
               sed "s/__IMAGE__/$(
-              {{ bin_dir }}/kubectl get configmap "kiss-config
+              {{ bin_dir }}/kubectl get configmap "kiss-config"
               --namespace kiss
               --output jsonpath
               --template "{.data.kiss_installer_image}"
+              | sed 's/[^a-zA-Z0-9]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
               )/g"
               | {{ bin_dir }}/kubectl apply -f -
             stdin: |
@@ -121,14 +122,16 @@
               apiVersion: batch/v1
               kind: Job
               metadata:
-                name: kiss-installer
+                name: service-installer-kiss-kiss
                 namespace: kiss
               spec:
                 template:
                   metadata:
                     labels:
-                      name: kiss-installer
-                      serviceType: kiss-installer
+                      name: service-installer-kiss-kiss
+                      serviceKind: kiss
+                      serviceName: kiss
+                      serviceType: service-installer
                   spec:
                     affinity:
                       nodeAffinity:

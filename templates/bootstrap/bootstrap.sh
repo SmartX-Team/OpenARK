@@ -366,7 +366,7 @@ function install_kiss_cluster() {
                 "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
                     cat "${SSH_KEYFILE}"
                 )\"" |
-            "${CONTAINER_RUNTIME}" exec "${node_first}" \
+            "${CONTAINER_RUNTIME}" exec -i "${node_first}" \
                 kubectl apply -f -
         "${CONTAINER_RUNTIME}" exec "${node_first}" \
             kubectl create -n kiss configmap "ansible-control-planes-default" \
