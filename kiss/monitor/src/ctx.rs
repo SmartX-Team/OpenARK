@@ -50,15 +50,15 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .labels()
             .get(AnsibleClient::LABEL_COMPLETED_STATE)
             .and_then(|state| state.parse().ok());
-        let group = None.or_else(|| {
+        let bind_group = None.or_else(|| {
             Some(BoxGroupSpec {
                 cluster_name: data
                     .labels()
-                    .get(AnsibleClient::LABEL_GROUP_CLUSTER_NAME)
+                    .get(AnsibleClient::LABEL_BIND_GROUP_CLUSTER_NAME)
                     .cloned()?,
                 role: data
                     .labels()
-                    .get(AnsibleClient::LABEL_GROUP_ROLE)
+                    .get(AnsibleClient::LABEL_BIND_GROUP_ROLE)
                     .and_then(|e| e.parse().ok())?,
             })
         });
@@ -72,7 +72,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
             // update the state
             if let Some(completed_state) = completed_state {
-                Self::update_box_state(manager, data, completed_state, group).await
+                Self::update_box_state(manager, data, completed_state, bind_group).await
             }
             // keep the state, scheduled by the controller
             else {
@@ -89,7 +89,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             let fallback_state = completed_state.unwrap_or(BoxState::Failed).fail();
             match fallback_state {
                 BoxState::Failed => {
-                    Self::update_box_state(manager, data, fallback_state, group).await
+                    Self::update_box_state(manager, data, fallback_state, bind_group).await
                 }
                 // do nothing when the job has no fallback state
                 _ => {
@@ -117,7 +117,7 @@ impl Ctx {
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
         state: BoxState,
-        group: Option<BoxGroupSpec>,
+        bind_group: Option<BoxGroupSpec>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -144,7 +144,7 @@ impl Ctx {
                         }),
                     },
                     state,
-                    bind_group: group,
+                    bind_group,
                     last_updated: Utc::now(),
                 },
             }));

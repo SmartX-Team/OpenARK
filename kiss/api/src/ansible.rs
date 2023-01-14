@@ -20,7 +20,7 @@ use kube::{
 use crate::{
     cluster::ClusterState,
     config::KissConfig,
-    r#box::{BoxCrd, BoxPowerSpec, BoxState},
+    r#box::{BoxCrd, BoxGroupSpec, BoxPowerSpec, BoxState},
 };
 
 pub struct AnsibleClient {
@@ -28,6 +28,8 @@ pub struct AnsibleClient {
 }
 
 impl AnsibleClient {
+    pub const LABEL_BIND_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
+    pub const LABEL_BIND_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
     pub const LABEL_BOX_ACCESS_PRIMARY_ADDRESS: &'static str =
         "kiss.netai-cloud/box_access_primary_address";
@@ -35,8 +37,6 @@ impl AnsibleClient {
         "kiss.netai-cloud/box_access_primary_speed_mbps";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
-    pub const LABEL_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
-    pub const LABEL_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
@@ -56,7 +56,9 @@ impl AnsibleClient {
             .as_ref()
             .and_then(|status| status.bind_group.as_ref());
         let group = &job.r#box.spec.group;
-        let reset = self.kiss.group_force_reset || bind_group != Some(&job.r#box.spec.group);
+        let reset = self.kiss.group_force_reset || bind_group != Some(group);
+
+        let new_group = job.new_group.or(bind_group);
 
         // delete all previous cronjobs
         {
@@ -125,11 +127,18 @@ impl AnsibleClient {
                         .as_ref()
                         .map(ToString::to_string)
                         .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
-                    Some((
-                        Self::LABEL_GROUP_CLUSTER_NAME.into(),
-                        group.cluster_name.clone(),
-                    )),
-                    Some((Self::LABEL_GROUP_ROLE.into(), group.role.to_string())),
+                    new_group.map(|new_group| {
+                        (
+                            Self::LABEL_BIND_GROUP_CLUSTER_NAME.into(),
+                            new_group.cluster_name.clone(),
+                        )
+                    }),
+                    new_group.map(|new_group| {
+                        (
+                            Self::LABEL_BIND_GROUP_ROLE.into(),
+                            new_group.role.to_string(),
+                        )
+                    }),
                 ]
                 .into_iter()
                 .flatten()
@@ -517,6 +526,7 @@ pub struct AnsibleJob<'a> {
     pub is_atomic: bool,
     pub task: &'static str,
     pub r#box: &'a BoxCrd,
+    pub new_group: Option<&'a BoxGroupSpec>,
     pub new_state: BoxState,
     pub completed_state: Option<BoxState>,
 }

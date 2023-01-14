@@ -45,6 +45,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .map(|status| status.state)
             .unwrap_or(BoxState::New);
         let mut new_state = old_state.next();
+        let mut new_group = None;
 
         // wait new boxes with no access methods for begin provisioned
         if matches!(old_state, BoxState::New)
@@ -120,7 +121,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
-                        state: new_state,
+                        state: BoxState::Running,
                         access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
                         bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
                         last_updated: Utc::now(),
@@ -134,6 +135,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                 ));
             }
+
+            // bind to new group
+            new_group = Some(&data.spec.group);
         }
 
         // spawn an Ansible job
@@ -148,6 +152,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                             is_atomic: new_state.is_atomic(),
                             task,
                             r#box: &data,
+                            new_group,
                             new_state,
                             completed_state: new_state.complete(),
                         },
