@@ -2,7 +2,6 @@
 - import_playbook: ./add-node-as-control_plane.yaml
 - import_playbook: ./add-node-as-bgp-peer.yaml
 
-# TODO: manage by root cluster
 - hosts: kube_control_plane
   tasks:
     - when:
