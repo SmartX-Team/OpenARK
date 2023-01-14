@@ -1,6 +1,8 @@
 ---
 all:
   children:
+    kiss_ephemeral_node:
+      vars: {}
     kube_control_plane:
     kube_node:
     calico_rr:
@@ -30,15 +32,21 @@ all:
         ## If this is not set, container manager will be inherited from the Kubespray defaults
         ## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
         ## Also this makes possible to use different container manager for etcd nodes.
-        container_manager: containerd # docker (system/socket) should be disabled
-        # Versions
-        # FIXME: Rook-Ceph on Flatcar OS is not working on containerd version >= 1.6.0
-        # See also: https://github.com/rook/rook/issues/10110
-        # containerd_version: 1.5.9
+        container_manager: docker
+        # Whether to deploy the container engine
+        deploy_container_engine: false
+
+        ## Uncomment this if you want to force overlay/overlay2 as docker storage driver
+        ## Please note that overlay2 is only supported on newer kernels
+        docker_storage_options: -s overlay2 --storage-opt overlay2.override_kernel_check=true
+        ## Used to set docker daemon iptables options to true
+        docker_iptables_enabled: "true"
+        # define docker bin_dir
+        docker_bin_dir: "/usr/bin"
 
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
-        etcd_deployment_type: host # data is stored in /opt/etcd
+        etcd_deployment_type: docker # data is stored in /opt/etcd
         # Directory where etcd data stored
         etcd_data_dir: /opt/etcd
         etcd_config_dir: /etc/etcd

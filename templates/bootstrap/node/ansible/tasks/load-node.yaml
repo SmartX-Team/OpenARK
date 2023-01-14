@@ -18,5 +18,6 @@
       - all
       - etcd
       - k8s_cluster_default
+      - kiss_ephemeral_node
       - kube_control_plane
       - kube_node
