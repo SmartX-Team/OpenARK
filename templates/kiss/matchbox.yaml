@@ -71,15 +71,6 @@ data:
               loop
               i2c_core
               ipmi_msghandler
-        - path: /etc/profile.d/90-proxy.sh
-          filesystem: root
-          overwrite: true
-          mode: 0555
-          contents:
-            inline: |
-              export HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128
-              export HTTPS_PROXY=$HTTP_PROXY
-              export NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /etc/sysctl.d/50-hugepages.conf
           filesystem: root
           overwrite: true
@@ -127,16 +118,6 @@ data:
             inline: |
               [Time]
               #NTP=ntp.kiss.svc.ops.netai-cloud
-        - path: /etc/wgetrc
-          filesystem: root
-          overwrite: true
-          mode: 0444
-          contents:
-            inline: |
-              use_proxy=yes
-              http_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:3128
-              https_proxy=http://http-proxy.kiss.svc.ops.netai-cloud:3128
-              no_proxy=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain
         - path: /opt/bin/python
           filesystem: root
           overwrite: true
@@ -186,13 +167,6 @@ data:
           mode: 0444
           contents:
             inline: ""
-        - path: /root/.gitconfig
-          filesystem: root
-          mode: 0644
-          contents:
-            inline: |
-              [http]
-              proxy = http://http-proxy.kiss.svc.ops.netai-cloud:3128
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
@@ -204,12 +178,6 @@ data:
         - name: docker.service
           enable: true
           dropins:
-            - name: 20-http-proxy.conf
-              contents: |
-                [Service]
-                Environment="HTTP_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128"
-                Environment="HTTPS_PROXY=http://http-proxy.kiss.svc.ops.netai-cloud:3128"
-                Environment="NO_PROXY=0,1,2,3,4,5,6,7,8,9,.netai-cloud,localhost,localdomain"
             - name: 30-increase-ulimit.conf
               contents: |
                 [Service]

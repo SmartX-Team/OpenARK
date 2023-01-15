@@ -32,7 +32,6 @@ function install_kiss_cluster() {
         kubectl apply \
             -f "dnsmasq.yaml" \
             -f "docker-registry.yaml" \
-            -f "http-proxy.yaml" \
             -f "matchbox.yaml" \
             -f "ntpd.yaml"
 
