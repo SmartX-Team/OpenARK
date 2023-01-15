@@ -503,7 +503,7 @@ impl AnsibleClient {
         ResourceRequirements {
             requests: Some(
                 vec![
-                    ("cpu".into(), Quantity("30m".into())),
+                    ("cpu".into(), Quantity("1000m".into())),
                     ("memory".into(), Quantity("20Mi".into())),
                 ]
                 .into_iter()
