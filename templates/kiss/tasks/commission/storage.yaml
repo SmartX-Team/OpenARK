@@ -19,6 +19,7 @@
   # filter the devices that has 1 or more physical IDs
   when: >-
     (item[1].links.ids | length) > 0
+    and item[1].sectors != '0'
     and item[1].scheduler_mode != ''
   set_fact:
     # TODO: sort names numerically
