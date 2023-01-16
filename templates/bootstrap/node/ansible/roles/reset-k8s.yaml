@@ -1,3 +1,6 @@
 ---
 - name: Reset k8s cluster
-  import_playbook: /kubespray/reset.yml
+  import_playbook: >
+    /kubespray/reset.yml
+    reset_confirmation="yes"
+  ignore_errors: true
