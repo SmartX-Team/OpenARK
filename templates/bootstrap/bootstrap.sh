@@ -279,6 +279,24 @@ function install_k8s_cluster() {
         local KUBESPRAY_CONFIG_TEMPLATE="$(realpath "${KUBESPRAY_CONFIG_TEMPLATE}")"
         echo "OK"
 
+        # Remove last cluster if exists
+        echo "- Resetting last k8s cluster ... "
+        "${CONTAINER_RUNTIME}" run --rm \
+            --name "k8s-reset" \
+            --net "host" \
+            --env "KUBESPRAY_NODES=${nodes}" \
+            --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
+            --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
+            --volume "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/:/etc/kiss/bootstrap/:ro" \
+            --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
+            --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
+            "${KUBESPRAY_IMAGE}" ansible-playbook \
+            --become --become-user="root" \
+            --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
+            --inventory "/root/kiss/bootstrap/all.yaml" \
+            --inventory "/root/kiss/bootstrap/config.yaml" \
+            "/etc/kiss/bootstrap/roles/reset-k8s.yaml" || true
+
         # Install cluster
         echo "- Installing k8s cluster ... "
         "${CONTAINER_RUNTIME}" run --rm \
