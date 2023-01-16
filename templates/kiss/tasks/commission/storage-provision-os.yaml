@@ -10,7 +10,7 @@
     flatcar_linux_repo_installer_name: init
     flatcar_linux_repo_installer_branch_name: flatcar-master
     flatcar_linux_repo_installer_path: /bin/flatcar-install
-    flatcar_linux_repo_installer_flags: -n
+    flatcar_linux_repo_installer_flags: ""
 
 - name: Check whether the boxes' architectures are supported
   assert:
