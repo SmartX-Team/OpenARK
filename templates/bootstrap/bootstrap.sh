@@ -290,12 +290,15 @@ function install_k8s_cluster() {
             --volume "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/:/etc/kiss/bootstrap/:ro" \
             --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
             --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
-            "${KUBESPRAY_IMAGE}" ansible-playbook \
-            --become --become-user="root" \
-            --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
-            --inventory "/root/kiss/bootstrap/all.yaml" \
-            --inventory "/root/kiss/bootstrap/config.yaml" \
-            "/etc/kiss/bootstrap/roles/reset-k8s.yaml" || true
+            "${KUBESPRAY_IMAGE}" bash -c '
+                sed -i "s/\(^ \+default: \)\"no\"/\1\"yes\"/g" /kubespray/reset.yml \
+                && ansible-playbook \
+                    --become --become-user="root" \
+                    --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
+                    --inventory "/root/kiss/bootstrap/all.yaml" \
+                    --inventory "/root/kiss/bootstrap/config.yaml" \
+                    "/etc/kiss/bootstrap/roles/reset-k8s.yaml"
+            ' || true
 
         # Install cluster
         echo "- Installing k8s cluster ... "
