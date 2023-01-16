@@ -292,6 +292,7 @@ function install_k8s_cluster() {
             --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
             "${KUBESPRAY_IMAGE}" bash -c '
                 sed -i "s/\(^ \+default: \)\"no\"/\1\"yes\"/g" /kubespray/reset.yml \
+                && sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
                 && ansible-playbook \
                     --become --become-user="root" \
                     --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
