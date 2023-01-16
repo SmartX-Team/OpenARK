@@ -10,7 +10,7 @@
       include: ../tasks/load-node.yaml
 
 - name: Save hosts to nodes
-  hosts: kube_node
+  hosts: kiss_ephemeral_node
   gather_facts: false
   tasks:
     - template:

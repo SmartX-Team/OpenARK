@@ -10,7 +10,7 @@
       include: ../tasks/load-node.yaml
 
 - name: Save hosts to nodes
-  hosts: kube_node
+  hosts: kiss_ephemeral_node
   gather_facts: false
   tasks:
     - template:
@@ -26,7 +26,7 @@
     - include: ../tasks/bgp-add-calico.yaml
 
 - name: Label Nodes | KISS Ephemeral Control Planes
-  hosts: kube_control_plane
+  hosts: kiss_ephemeral_node
   tasks:
     - command: >
         {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
@@ -34,9 +34,9 @@
         node-role.kubernetes.io/kiss-ephemeral-control-plane=
 
 - name: Label Nodes | First Node
-  hosts: kube_control_plane
+  hosts: kiss_ephemeral_node
   tasks:
-    - when: groups['kube_control_plane'] | length == 1
+    - when: groups['kiss_ephemeral_node'] | length == 1
       command: >
         {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
         --overwrite
