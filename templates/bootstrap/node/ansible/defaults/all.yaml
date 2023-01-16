@@ -32,15 +32,7 @@ all:
         ## If this is not set, container manager will be inherited from the Kubespray defaults
         ## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
         ## Also this makes possible to use different container manager for etcd nodes.
-        container_manager: "{{ 'containerd' if inventory_hostname in groups['kiss_ephemeral_node'] else 'docker' }}"
-
-        ## Uncomment this if you want to force overlay/overlay2 as docker storage driver
-        ## Please note that overlay2 is only supported on newer kernels
-        docker_storage_options: -s overlay2 --storage-opt overlay2.override_kernel_check=true
-        ## Used to set docker daemon iptables options to true
-        docker_iptables_enabled: "true"
-        # define docker bin_dir
-        docker_bin_dir: "/usr/bin"
+        container_manager: containerd
 
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
