@@ -33,8 +33,6 @@ all:
         ## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
         ## Also this makes possible to use different container manager for etcd nodes.
         container_manager: "{{ 'containerd' if inventory_hostname in groups['kiss_ephemeral_node'] else 'docker' }}"
-        # Whether to deploy the container engine
-        deploy_container_engine: "{{ inventory_hostname in groups['kiss_ephemeral_node'] }}"
 
         ## Uncomment this if you want to force overlay/overlay2 as docker storage driver
         ## Please note that overlay2 is only supported on newer kernels
