@@ -116,6 +116,7 @@ data:
 
     # Configure the bootloader.
     bootloader --boot-drive $ROOTDEV
+    EOF
 
     # Reboot after installation
     if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); do
@@ -129,8 +130,6 @@ data:
     reboot
     EOF
     fi
-
-    EOF
 
     %end
 
