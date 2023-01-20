@@ -328,6 +328,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_os_default".into(),
+                                value: Some(self.kiss.os_default.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_power_ipmi_host".into(),
                                 value: job
                                     .r#box

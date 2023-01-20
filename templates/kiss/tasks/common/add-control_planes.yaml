@@ -14,7 +14,7 @@
     name: "{{ node[1] }}"
     groups:
       - all
-      - flatcar
       - "{{ 'kube_node' if node[0] == 'kube_control_plane' else 'all' }}"
       - "{{ node[0] }}"
       - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
+      - "os_{{ lookup('env', 'kiss_os_default') }}"

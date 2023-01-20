@@ -1,8 +1,15 @@
 ---
 - name: Check whether kiss OS is installed in a disk
-  stat:
-    path: /boot/flatcar
-  register: boot_file
+  block:
+    - name: Check whether kiss OS is installed in a disk - Flatcar Container Linux
+      stat:
+        path: /boot/flatcar
+      when: lookup('env', 'kiss_os_default') == 'flatcar'
+    - name: Check whether kiss OS is installed in a disk - RockyLinux
+      stat:
+        path: /boot/efi/EFI/rocky
+      register: boot_file
+      when: lookup('env', 'kiss_os_default') == 'rocky9'
 
 - name: Check whether kiss OS is dirty
   stat:
@@ -88,8 +95,16 @@
   include: storage-provision.yaml
 
 - name: Update boot order to Disk-first
-  when: not kiss_os_exists
+  when:
+    - not kiss_os_exists
+    - lookup('env', 'kiss_os_default') in ['flatcar']
   include: boot-disk.yaml
+
+- name: Update boot order to PxE-first
+  when:
+    - not kiss_os_exists
+    - lookup('env', 'kiss_os_default') not in ['flatcar']
+  include: boot-pxe.yaml
 
 - name: Reboot the boxes after installing OS (The task will be restarted)
   when: not kiss_os_exists

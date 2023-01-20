@@ -66,7 +66,7 @@ spec:
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             ## iPXE END
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/boot.ipxe
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/boot-$(OS_DEFAULT).ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
             - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
             - --dhcp-option=26,$(NETWORK_INTERFACE_MTU_SIZE)
@@ -97,16 +97,21 @@ spec:
                 configMapKeyRef:
                   name: kiss-config
                   key: network_ipv4_gateway
-            - name: NETWORK_INTERFACE_MTU_SIZE
-              valueFrom:
-                configMapKeyRef:
-                  name: kiss-config
-                  key: network_interface_mtu_size
             - name: DHCP_RANGE_IPV4_NAMESERVER_1
               valueFrom:
                 configMapKeyRef:
                   name: kiss-config
                   key: network_nameserver_incluster_ipv4
+            - name: NETWORK_INTERFACE_MTU_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: network_interface_mtu_size
+            - name: OS_DEFAULT
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: os_default
           ports:
             - name: dhcp
               protocol: UDP

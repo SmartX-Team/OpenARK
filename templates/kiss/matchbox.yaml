@@ -5,11 +5,220 @@ metadata:
   name: matchbox-boot
   namespace: kiss
 data:
-  boot.ipxe: |
+  boot-flatcar.ipxe: |
     #!ipxe
     # Retry automatic configuration indefinitely until it succeeds
     :boot
     chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform} || goto boot
+  boot-rocky9.ipxe: >
+    #!ipxe
+
+
+    :kernel
+
+    kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/images/pxeboot/vmlinuz
+    initrd=initrd.img
+    inst.repo=https://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/
+    inst.ks=http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/rocky9.ks
+    || goto kernel
+
+
+    :initrd
+
+    initrd http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/images/pxeboot/initrd.img
+    || goto initrd
+
+
+    boot
+  rocky9.ks: |
+    # https://access.redhat.com/labs/kickstartconfig/
+
+    # Install Method
+    firstboot --disable
+    text
+
+    # Reboot after installation
+    reboot
+
+    # Machine Information
+    ## EULA Agreement
+    eula --agreed
+    ## Firewall configuration
+    firewall --disabled
+    ## Keyboard layouts
+    keyboard us
+    ## Network
+    network --activate --bootproto=dhcp
+    ## SELinux configuration
+    selinux --permissive
+    ## System authorization
+    auth --enablesssd --enablesssdauth --enablemkhomedir --updateall
+    ## System language
+    lang en_US.UTF-8
+    ## System timezone
+    timezone Asia/Seoul --isUtc
+
+    # Install Packages
+    %packages
+    @^minimal-environment
+    @NetworkManager-wifi
+    %end
+
+    # KDump Configuration
+    %addon com_redhat_kdump --enable --reserve-mb='auto'
+    %end
+
+    # User Configuration
+    rootpw --lock
+    group --name docker
+    group --name users
+    group --name wheel
+    user --name ENV_USERNAME --groups docker,users,wheel --password qlalfqjsgh
+    sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
+
+    # Disk Configuration
+    clearpart --all --initlabel
+    %include /tmp/kiss-config-disk
+    %pre
+
+    # Minimum size of disk needed specified in GIBIBYTES
+    MINSIZE=200
+
+    BLOCKDEV="/sys/block"
+    ROOTDEV=""
+    ROOTSIZE=1000000000
+
+    # /sys/block/*/size is in 512 byte chunks
+    for DEV in $(lsblk -d | sed 's/^\(nvme[0-9]\+n[0-9]\+\)\?\(sd[a-z]\+\)\?.*$/\1\2/g' | xargs); do
+      if [ -d $BLOCKDEV/$DEV ]; then
+        if (( $(cat $BLOCKDEV/$DEV/removable) == 0 )); then
+          # Remove all data in disks
+          wipefs --all --force /dev/$DEV && sync
+          sgdisk --zap-all /dev/$DEV && sync
+          dd if=/dev/zero of=/dev/$DEV bs=1M count=1024 && sync
+          partprobe /dev/$DEV && sync
+
+          # Find the suitable disk
+          SIZE=$(( $(cat $BLOCKDEV/$DEV/size)/2**21 ))
+          if (( $SIZE > $MINSIZE + 5 )); then
+            if (( $SIZE < $ROOTSIZE )); then
+              echo "Detected suitable disk: $DEV ($SIZE GiB)"
+              ROOTDEV=$DEV
+              ROOTSIZE=$SIZE
+            fi
+          fi
+        fi
+      fi
+    done
+
+    cat << EOF > /tmp/kiss-config-disk
+    # Write partition table
+    part /boot/efi --fstype=efi --size=200 --ondisk=$ROOTDEV
+    part /boot --fstype=ext4 --size=512 --ondisk=$ROOTDEV
+    part / --fstype=ext4 --size=$(( $MINSIZE*2**10 )) --ondisk=$ROOTDEV
+
+    # Configure the bootloader.
+    bootloader --boot-drive $ROOTDEV
+    EOF
+
+    %end
+
+    %post --erroronfail
+
+    # Advanced Network configuration
+    mkdir -p /etc/NetworkManager/system-connections/
+    ## Wireless - WIFI
+    if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
+    for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
+    cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
+    [connection]
+    id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
+    uuid=
+    type=wifi
+    interface-name=$interface
+
+    [wifi]
+    mode=infrastructure
+    ssid=NETWORK_WIRELESS_WIFI_SSID
+
+    [wifi-security]
+    auth-log=open
+    key-mgmt=NETWORK_WIRELESS_WIFI_KEY_MGMT
+    psk=NETWORK_WIRELESS_WIFI_KEY_PSK
+
+    [ipv4]
+    method=auto
+
+    [ipv6]
+    addr-gen-mode=default
+    method=auto
+
+    [proxy]
+    EOF
+    done
+    fi
+
+    # Allow passwordless sudo command
+    cat <<EOF >/etc/sudoers.d/10-wheel
+    ENV_USERNAME ALL=(ALL) NOPASSWD: ALL
+    EOF
+    chmod 440 /etc/sudoers.d/10-wheel
+
+    # Docker Configuration
+    mkdir -p /etc/docker/
+    mkdir -p /etc/systemd/system/docker.service.d/
+    cat <<EOF >/etc/docker/daemon.json
+    {
+      "insecure-registries": [
+        "registry.kiss.svc.ops.netai-cloud"
+      ]
+    }
+    EOF
+
+    # Kernel Module Configuration
+    mkdir -p /etc/modules-load.d/
+    cat <<EOF >/etc/modules-load.d/10-gpu-nvidia-driver.conf
+    loop
+    i2c_core
+    ipmi_msghandler
+    EOF
+
+    # KISS Configuration
+    mkdir -p /etc/systemd/system/multi-user.target.wants/
+    cat <<EOF >/etc/systemd/system/notify-new-box.service
+    [Unit]
+    Description=Notify to the kiss cluster that a new (this) box has been appeared.
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    Type=oneshot
+    Restart=on-failure
+    ExecStart=/bin/bash -c " \
+        ADDRESS=\$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.' | head -1) ;\
+        UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
+        sleep 30 ;\
+        curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.netai-cloud/new?address=\$ADDRESS&uuid=\$UUID\" ;\
+    "
+    Restart=on-failure
+    RestartSec=30
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+    ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+
+    # Sysctl Configuration
+    mkdir -p /etc/sysctl.d/
+    cat <<EOF >/etc/sysctl.d/50-hugepages.conf
+    vm.nr_hugepages=8192
+    EOF
+    cat <<EOF >/etc/sysctl.d/90-reverse-path-filter.conf
+    net.ipv4.conf.all.rp_filter=0
+    net.ipv4.conf.default.rp_filter=0
+    EOF
+
+    %end
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -246,11 +455,36 @@ spec:
           args:
             - -c
             - |
+              # Boot
+              cp /var/lib/matchbox/assets/boot-raw/* /var/lib/matchbox/assets/boot/
+              SSH_AUTHORIZED_KEYS_SED=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< ${SSH_AUTHORIZED_KEYS})
+              sed -i "s/NETWORK_WIRELESS_WIFI_SSID/${NETWORK_WIRELESS_WIFI_SSID}/g" /var/lib/matchbox/assets/boot/*.ks
+              sed -i "s/NETWORK_WIRELESS_WIFI_KEY_MGMT/${NETWORK_WIRELESS_WIFI_KEY_MGMT}/g" /var/lib/matchbox/assets/boot/*.ks
+              sed -i "s/NETWORK_WIRELESS_WIFI_KEY_PSK/${NETWORK_WIRELESS_WIFI_KEY_PSK}/g" /var/lib/matchbox/assets/boot/*.ks
+              sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/assets/boot/*.ks
+              sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/assets/boot/*.ks
+
+              # Ignition
               cp /var/lib/matchbox/ignition-raw/*.yaml /var/lib/matchbox/ignition/
               SSH_AUTHORIZED_KEYS_SED=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< ${SSH_AUTHORIZED_KEYS})
               sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/ignition/*.yaml
               sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/ignition/*.yaml
           env:
+            - name: NETWORK_WIRELESS_WIFI_SSID
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: network_wireless_wifi_ssid
+            - name: NETWORK_WIRELESS_WIFI_KEY_MGMT
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: network_wireless_wifi_key_mgmt
+            - name: NETWORK_WIRELESS_WIFI_KEY_PSK
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: network_wireless_wifi_key_psk
             - name: SSH_AUTHORIZED_KEYS
               valueFrom:
                 configMapKeyRef:
@@ -269,6 +503,10 @@ spec:
               cpu: 50m
               memory: 50Mi
           volumeMounts:
+            - name: boot
+              mountPath: /var/lib/matchbox/assets/boot
+            - name: boot-raw
+              mountPath: /var/lib/matchbox/assets/boot-raw
             - name: ignition
               mountPath: /var/lib/matchbox/ignition
             - name: ignition-raw
@@ -313,6 +551,8 @@ spec:
         - name: assets
           emptyDir: {}
         - name: boot
+          emptyDir: {}
+        - name: boot-raw
           configMap:
             name: matchbox-boot
             defaultMode: 0400

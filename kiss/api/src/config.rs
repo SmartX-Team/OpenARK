@@ -20,6 +20,7 @@ pub struct KissConfig {
     pub network_ipv4_gateway: Ipv4Addr,
     pub network_ipv4_subnet: Ipv4Net,
     pub network_nameserver_incluster_ipv4: Ipv4Addr,
+    pub os_default: String,
 }
 
 impl KissConfig {
@@ -42,6 +43,7 @@ impl KissConfig {
             network_ipv4_gateway: infer(&config, "network_ipv4_gateway")?,
             network_ipv4_subnet: infer(&config, "network_ipv4_subnet")?,
             network_nameserver_incluster_ipv4: infer(&config, "network_nameserver_incluster_ipv4")?,
+            os_default: infer(&config, "os_default")?,
         })
     }
 }

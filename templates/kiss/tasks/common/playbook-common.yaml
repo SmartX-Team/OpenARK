@@ -53,9 +53,9 @@
         name: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all
-          - flatcar
           - kube_node
           - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
+          - "os_{{ lookup('env', 'kiss_os_default') }}"
           - target
 
 - hosts: kube_node
@@ -79,7 +79,7 @@
         kube_pods_subnet: "{{ kube_child_pods_subnet }}"
         kube_service_addresses: "{{ kube_child_service_addresses }}"
 
-- hosts: flatcar
+- hosts: os_flatcar
   gather_facts: false
   tasks:
     - name: Set common facts

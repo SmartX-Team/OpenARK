@@ -1,8 +1,8 @@
 ---
-driver:
-  # Flatcar Container Linux should need some patches for driver installer
-  repository: quay.io/ulagbulag-village
-  image: netai-cloud-gpu-nvidia-driver
+# driver:
+#   # Flatcar Container Linux should need some patches for driver installer
+#   repository: quay.io/ulagbulag-village
+#   image: netai-cloud-gpu-nvidia-driver
 
 operator:
   # KISS uses containerd by default
