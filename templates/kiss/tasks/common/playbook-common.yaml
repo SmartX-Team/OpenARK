@@ -65,6 +65,10 @@
 - hosts: kube_node
   gather_facts: false
   tasks:
+    - name: Append network_nameserver_incluster_ipv4 into upstream_dns_servers
+      set_fact:
+        upstream_dns_servers: "{{ [network_nameserver_incluster_ipv4] + upstream_dns_servers }}"
+
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
       set_fact:
         cluster_name: "ops.{{ lookup('env', 'kiss_cluster_domain') }}"
