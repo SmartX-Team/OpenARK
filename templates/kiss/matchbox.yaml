@@ -73,7 +73,7 @@ data:
     group --name docker
     group --name users
     group --name wheel
-    user --name ENV_USERNAME --groups docker,users,wheel --password qlalfqjsgh
+    user --name ENV_USERNAME --groups docker,users,wheel
     sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
 
     # Disk Configuration
