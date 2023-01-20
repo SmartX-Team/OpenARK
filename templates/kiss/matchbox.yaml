@@ -56,7 +56,7 @@ data:
     ## System language
     lang en_US.UTF-8
     ## System timezone
-    timezone Asia/Seoul --isUtc
+    timezone Asia/Seoul --utc
 
     # Install Packages
     %packages
