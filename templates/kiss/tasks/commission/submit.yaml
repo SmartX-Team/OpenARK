@@ -13,9 +13,9 @@
 - name: Update submit template | Power | IPMI
   when: ipmi_address is defined
   set_fact:
-    kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_date_patch, recursive=true) }}"
+    kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
   vars:
-    kiss_submit_date_patch:
+    kiss_submit_data_patch:
       power:
         type: Ipmi
         address: "{{ ipmi_address.stdout }}"
