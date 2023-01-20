@@ -11,7 +11,7 @@
     ansible_ssh_host: "{{ node[1] }}"
     ansible_ssh_port: "{{ node[2] }}"
     ansible_user: root
-    bin_dir: /opt/bin
+    bin_dir: /usr/local/bin
     ip: "{{ node[1] }}"
     name: "{{ node[0] }}"
     groups:

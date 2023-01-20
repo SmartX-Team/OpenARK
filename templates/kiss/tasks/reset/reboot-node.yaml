@@ -11,7 +11,7 @@
 #   delegate_to: localhost
 #   ipmi_boot:
 #     name: "{{ kiss_power_ipmi_host }}"
-#     user: kiss
+#     user: "{{ kiss_power_ipmi_username }}"
 #     password: "{{ kiss_power_ipmi_password }}"
 #     bootdev: network
 #     persistent: true
@@ -22,7 +22,7 @@
   delegate_to: localhost
   ipmi_power:
     name: "{{ kiss_power_ipmi_host }}"
-    user: kiss
+    user: "{{ kiss_power_ipmi_username }}"
     password: "{{ kiss_power_ipmi_password }}"
     state: boot
   ignore_errors: true
