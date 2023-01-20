@@ -12,3 +12,5 @@ sites:
     host: https://storage.googleapis.com/
   - name: helm
     host: https://get.helm.sh/
+  - name: rocky9
+    host: http://download.rockylinux.org/pub/rocky/9/BaseOS/

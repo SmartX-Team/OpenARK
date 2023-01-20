@@ -16,16 +16,16 @@ data:
 
     :kernel
 
-    kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/images/pxeboot/vmlinuz
+    kernel http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/images/pxeboot/vmlinuz
     initrd=initrd.img
-    inst.repo=https://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/
+    inst.repo=http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/
     inst.ks=http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/rocky9.ks
     || goto kernel
 
 
     :initrd
 
-    initrd http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/kickstart/images/pxeboot/initrd.img
+    initrd http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/images/pxeboot/initrd.img
     || goto initrd
 
 
