@@ -11,6 +11,12 @@
     state: absent
     force: true
 
+- name: Remove CNI data files
+  file:
+    path: /opt/cni/
+    state: absent
+    force: true
+
 - name: Remove CNI variables files
   file:
     path: /var/lib/cni/
