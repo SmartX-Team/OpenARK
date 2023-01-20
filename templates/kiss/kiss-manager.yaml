@@ -23,7 +23,11 @@ spec:
         kissService: "true"
         serviceType: proxy
     spec:
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsConfig:
+        nameservers:
+          - 1.1.1.1
+          - 8.8.8.8
+      dnsPolicy: ClusterFirst
       securityContext:
         seccompProfile:
           type: RuntimeDefault
