@@ -61,7 +61,7 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
-    NetworkManager-wifi
+    ^NetworkManager-wifi
     %end
 
     # KDump Configuration
@@ -133,7 +133,7 @@ data:
     cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     [connection]
     id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
-    uuid=
+    uuid=$(uuidgen $interface)
     type=wifi
     interface-name=$interface
 
@@ -155,6 +155,7 @@ data:
 
     [proxy]
     EOF
+    chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     done
     fi
 
