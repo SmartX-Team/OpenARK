@@ -60,6 +60,7 @@ data:
     @^minimal-environment
     lvm2
     NetworkManager-wifi
+    podman-docker
     %end
 
     # KDump Configuration
@@ -177,8 +178,10 @@ data:
     chmod 440 /etc/sudoers.d/10-wheel
 
     # Docker Configuration
+    mkdir -p /etc/containers/
     mkdir -p /etc/docker/
     mkdir -p /etc/systemd/system/docker.service.d/
+    touch /etc/containers/nodocker
     cat <<EOF >/etc/docker/daemon.json
     {
       "insecure-registries": [
