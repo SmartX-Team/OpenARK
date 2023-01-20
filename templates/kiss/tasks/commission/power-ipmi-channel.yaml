@@ -30,7 +30,7 @@
     --device /dev/ipmi0
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
-    lan set 1 ipaddr "{{ ipmi_address.stdout }}"
+    lan set 1 ipaddr '{{ ipmi_address.stdout }}'
   ignore_errors: true
 
 - name: Set IPMI IP Address Netmask
