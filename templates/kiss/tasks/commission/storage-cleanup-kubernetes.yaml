@@ -1,0 +1,24 @@
+---
+- name: Remove CNI configuration files
+  file:
+    path: /etc/cni/
+    state: absent
+    force: true
+
+- name: Remove ETCD configuration files
+  file:
+    path: /etc/etcd/
+    state: absent
+    force: true
+
+- name: Remove ETCD data files
+  file:
+    path: /opt/etcd/
+    state: absent
+    force: true
+
+- name: Remove kubernetes configuration files
+  file:
+    path: /etc/kubernetes/
+    state: absent
+    force: true
