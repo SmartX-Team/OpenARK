@@ -31,6 +31,7 @@
         ansible_ssh_private_key_file: "{{ lookup('env', 'ansible_ssh_private_key_file') }}"
         ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
         ansible_user: "{{ lookup('env', 'ansible_user') }}"
+        bin_dir: /opt/bin
         kiss_allow_critical_commands: "{{ lookup('env', 'kiss_allow_critical_commands') == 'true' }}"
         kiss_allow_pruning_network_interfaces: "{{ lookup('env', 'kiss_allow_pruning_network_interfaces') == 'true' }}"
         kiss_group_enable_default_cluster: "{{ lookup('env', 'kiss_group_enable_default_cluster') == 'true' }}"
@@ -85,4 +86,3 @@
     - name: Set common facts
       set_fact:
         ansible_python_interpreter: /opt/bin/python
-        bin_dir: /opt/bin

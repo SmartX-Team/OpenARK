@@ -10,6 +10,7 @@
     ansible_python_interpreter: /opt/bin/python
     ansible_ssh_host: "{{ node[2] }}"
     ansible_user: kiss
+    bin_dir: /opt/bin
     ip: "{{ node[2] }}"
     name: "{{ node[1] }}"
     groups:

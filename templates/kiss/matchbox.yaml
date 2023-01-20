@@ -61,7 +61,7 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
-    @NetworkManager-wifi
+    NetworkManager-wifi
     %end
 
     # KDump Configuration
