@@ -34,6 +34,10 @@
   set_fact:
     interfaces: "{{ interfaces | sort(attribute='speed_neg,module,pciid') }}"
 
+- name: Show about the intefaces
+  debug:
+    var: interfaces
+
 - name: Select the fastest interface as Primary
   when: interfaces | length > 0
   set_fact:
