@@ -33,6 +33,7 @@
         ansible_user: "{{ lookup('env', 'ansible_user') }}"
         kiss_allow_critical_commands: "{{ lookup('env', 'kiss_allow_critical_commands') == 'true' }}"
         kiss_allow_pruning_network_interfaces: "{{ lookup('env', 'kiss_allow_pruning_network_interfaces') == 'true' }}"
+        kiss_cluster_name_snake_case: "{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
         kiss_group_enable_default_cluster: "{{ lookup('env', 'kiss_group_enable_default_cluster') == 'true' }}"
         kiss_group_force_reset: "{{ lookup('env', 'kiss_group_force_reset') == 'true' }}"
         kiss_group_force_reset_os: "{{ lookup('env', 'kiss_group_force_reset_os') == 'true' }}"
