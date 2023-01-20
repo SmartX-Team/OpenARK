@@ -1,4 +1,19 @@
 ---
+- name: Define ethernet modules
+  set_fact:
+    ethernet_modules:
+      wireless_wifi:
+        - iwlwifi
+    ethernet_priority:
+      - wireless_wifi
+
+- name: Calculate ethernet priority map
+  loop: "{{ ethernet_priority | flatten(levels=1) }}"
+  loop_control:
+    index_var: priority
+    loop_var: modules
+  include: network-ethernet-priority-map.yaml
+
 - name: Collect network inteface informations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
@@ -10,8 +25,8 @@
     and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
     and 'network' in ansible_facts[item].ipv4
     and ansible_facts[item].ipv4.network == kiss_network_ipv4_subnet_address
-    and 'speed' in ansible_facts[item]
-    and ansible_facts[item].speed | int >= 10
+    and 'type' in ansible_facts[item]
+    and ansible_facts[item].type == 'ether'
   set_fact:
     interfaces: >
       {{ interfaces|default([]) + [{
@@ -26,13 +41,17 @@
         'module': ansible_facts[item].module,
         'mtu': kiss_network_interface_mtu_size,
         'pciid': ansible_facts[item].pciid,
-        'speed': ansible_facts[item].speed,
-        'speed_neg': -ansible_facts[item].speed,
+        'priority':
+          ethernet_priority_map[ansible_facts[item].module]
+          if ansible_facts[item].module in ethernet_priority_map
+          else (ethernet_priority | length),
+        'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
       }] }}
 
 - name: Sort by speed, module, and PCI ID
   set_fact:
-    interfaces: "{{ interfaces | sort(attribute='speed_neg,module,pciid') }}"
+    interfaces: "{{ interfaces | sort(attribute='priority,speed_neg,pciid') }}"
 
 - name: Show about the intefaces
   debug:
@@ -57,7 +76,7 @@
   retries: 5
 
 - name: Update SSH access IP
-  when: interface_primary is defined
+  when: interface_primary_address_ipv4 is defined
   set_fact:
     ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
 
@@ -67,6 +86,7 @@
     var: interface_primary
 
 - name: List all network configurations
+  when: kiss_network_service == 'systemd-networkd'
   find:
     paths:
       - /etc/systemd/network/
@@ -75,6 +95,7 @@
   register: results
 
 - name: Remove all network configurations
+  when: kiss_network_service == 'systemd-networkd'
   file:
     path: "{{ item.path }}"
     state: absent
