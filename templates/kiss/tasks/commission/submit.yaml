@@ -1,21 +1,32 @@
 ---
-- name: Submit results to kiss cluster
-  uri:
-    url: http://gateway.kiss.svc.ops.netai-cloud/commission
-    method: POST
-    return_content: false
-    body_format: json
-    body:
+- name: Make a submit template
+  set_fact:
+    kiss_submit_data:
       access:
         primary:
           address: "{{ interface_primary_address_ipv4 | default(ansible_ssh_host) }}"
           speedMbps: "{{ interface_primary_speed_mbps | default('0') }}"
       machine:
         uuid: "{{ ansible_host_uuid }}"
+      reset: "{{ not kiss_storage_exists }}"
+
+- name: Update submit template | Power | IPMI
+  when: ipmi_address is defined
+  set_fact:
+    kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_date_patch, recursive=true) }}"
+  vars:
+    kiss_submit_date_patch:
       power:
         type: Ipmi
         address: "{{ ipmi_address.stdout }}"
-      reset: "{{ not kiss_storage_exists }}"
+
+- name: Submit results to kiss cluster
+  uri:
+    url: http://gateway.kiss.svc.ops.netai-cloud/commission
+    method: POST
+    return_content: false
+    body_format: json
+    body: "{{ kiss_submit_data }}"
   register: result
   until: result.status == 200
   retries: 5

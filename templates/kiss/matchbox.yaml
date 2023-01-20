@@ -58,8 +58,8 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
-    ^lvm2
-    ^NetworkManager-wifi
+    lvm2
+    NetworkManager-wifi
     %end
 
     # KDump Configuration
