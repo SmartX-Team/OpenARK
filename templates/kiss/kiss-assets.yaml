@@ -19,6 +19,8 @@ data:
       host: https://storage.googleapis.com/
     - name: helm
       host: https://get.helm.sh/
+    - name: rocky9
+      host: https://download.rockylinux.org/pub/rocky/9/BaseOS/
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -44,6 +46,7 @@ spec:
         kissService: "true"
         serviceType: proxy
     spec:
+      dnsPolicy: ClusterFirstWithHostNet
       securityContext:
         seccompProfile:
           type: RuntimeDefault
