@@ -5,6 +5,24 @@
     state: absent
     force: true
 
+- name: Remove CNI configuration files | calico
+  file:
+    path: /etc/calico/
+    state: absent
+    force: true
+
+- name: Remove CNI variables files
+  file:
+    path: /var/lib/cni/
+    state: absent
+    force: true
+
+- name: Remove CNI variables files | calico
+  file:
+    path: /var/lib/calico/
+    state: absent
+    force: true
+
 - name: Remove ETCD configuration files
   file:
     path: /etc/etcd/
@@ -20,5 +38,11 @@
 - name: Remove kubernetes configuration files
   file:
     path: /etc/kubernetes/
+    state: absent
+    force: true
+
+- name: Remove kubernetes variables files
+  file:
+    path: /var/lib/kubelet/
     state: absent
     force: true
