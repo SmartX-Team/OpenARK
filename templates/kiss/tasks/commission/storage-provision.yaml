@@ -1,4 +1,4 @@
 ---
 - name: Install Flatcar Container Linux on top
-  when: lookup('env', 'kiss_os_default') == 'flatcar'
+  when: kiss_os_default == 'flatcar'
   include: storage-provision-os-flatcar.yaml

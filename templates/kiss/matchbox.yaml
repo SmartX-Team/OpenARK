@@ -58,6 +58,7 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
+    ^lvm2
     ^NetworkManager-wifi
     %end
 
@@ -108,7 +109,7 @@ data:
       fi
     done
 
-    cat << EOF > /tmp/kiss-config
+    cat <<EOF >/tmp/kiss-config
     # Write partition table
     part /boot/efi --fstype=efi --size=200 --ondisk=$ROOTDEV
     part /boot --fstype=ext4 --size=512 --ondisk=$ROOTDEV
@@ -119,14 +120,14 @@ data:
     EOF
 
     # Reboot after installation
-    if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); do
+    if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); then
     ## Wireless - WIFI => Power Off
-    cat << EOF >>/tmp/kiss-config
+    cat <<EOF >>/tmp/kiss-config
     poweroff
     EOF
     else
     ## Wired => Reboot
-    cat << EOF >>/tmp/kiss-config
+    cat <<EOF >>/tmp/kiss-config
     reboot
     EOF
     fi

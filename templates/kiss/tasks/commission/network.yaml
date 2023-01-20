@@ -2,7 +2,13 @@
 - name: Populate service facts
   service_facts:
 
+- name: Check whether NetworkManager is running
+  when: kiss_network_service == 'NetworkManager'
+  assert:
+    that: ansible_facts.services["NetworkManager.service"].state == "running"
+
 - name: Check whether systemd-networkd is running
+  when: kiss_network_service == 'systemd-networkd'
   assert:
     that: ansible_facts.services["systemd-networkd.service"].state == "running"
 
@@ -12,8 +18,19 @@
 - name: Provision Ethernet Interfaces
   include: network-ethernet.yaml
 
+- name: Restart NetworkManager
+  when:
+    - interface_primary is defined
+    - kiss_network_service == 'NetworkManager'
+  systemd:
+    name: NetworkManager.service
+    state: restarted
+    daemon_reload: true
+
 - name: Restart systemd-networkd
-  when: interface_primary is defined
+  when:
+    - interface_primary is defined
+    - kiss_network_service == 'systemd-networkd'
   systemd:
     name: systemd-networkd.service
     state: restarted
