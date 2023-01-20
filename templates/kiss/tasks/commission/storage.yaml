@@ -4,6 +4,7 @@
     - name: Check whether kiss OS is installed in a disk - Flatcar Container Linux
       stat:
         path: /boot/flatcar
+      register: boot_file
       when: lookup('env', 'kiss_os_default') == 'flatcar'
     - name: Check whether kiss OS is installed in a disk - RockyLinux
       stat:
