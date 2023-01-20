@@ -95,14 +95,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
         if !matches!(old_state, BoxState::Joining) && matches!(new_state, BoxState::Joining) {
             // skip joining to default cluster as worker nodes when disabled
             if !manager.ansible.kiss.group_enable_default_cluster
-                && status
-                    .as_ref()
-                    .and_then(|status| status.bind_group.as_ref())
-                    .map(|bind_group| {
-                        bind_group.is_default()
-                            && !matches!(bind_group.role, BoxGroupRole::ControlPlane)
-                    })
-                    .unwrap_or_default()
+                && data.spec.group.is_default()
+                && !matches!(data.spec.group.role, BoxGroupRole::ControlPlane)
             {
                 info!("Skipped joining (default cluster is disabled) {name:?}");
                 return Ok(Action::requeue(
