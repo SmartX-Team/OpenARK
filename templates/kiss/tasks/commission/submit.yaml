@@ -11,7 +11,7 @@
       reset: "{{ not kiss_storage_exists }}"
 
 - name: Update submit template | Power | IPMI
-  when: ipmi_address is defined
+  when: ipmi_address.stdout is defined
   set_fact:
     kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
   vars:
