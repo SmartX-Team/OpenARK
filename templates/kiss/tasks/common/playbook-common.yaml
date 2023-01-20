@@ -68,7 +68,8 @@
     - name: Append network_nameserver_incluster_ipv4 into upstream_dns_servers
       when: not kiss_cluster_is_default
       set_fact:
-        upstream_dns_servers: "{{ [network_nameserver_incluster_ipv4] + upstream_dns_servers }}"
+        upstream_dns_servers:
+          - "{{ network_nameserver_incluster_ipv4 }}"
 
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
       set_fact:
