@@ -197,6 +197,15 @@ data:
     EOF
     ln -sf /usr/lib/systemd/system/podman.socket /etc/systemd/system/sockets.target.wants/podman.socket
 
+    # Environment Variables Configuration
+    mkdir -p /etc/profile.d/
+    cat <<EOF /etc/profile.d/path-local-bin.sh
+    # local binary path registration
+
+    export PATH=\${PATH}:/usr/local/bin
+    export PATH=\${PATH}:/opt/bin
+    EOF
+
     # Kernel Module Configuration
     mkdir -p /etc/modules-load.d/
     cat <<EOF >/etc/modules-load.d/10-gpu-nvidia-driver.conf
