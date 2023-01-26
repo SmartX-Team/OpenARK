@@ -5,8 +5,6 @@ driver:
   image: netai-cloud-gpu-nvidia-driver
 
 operator:
-  # KISS uses containerd by default
-  defaultRuntime: containerd
   affinity:
     nodeAffinity:
       # KISS normal control plane nodes should be preferred
@@ -24,5 +22,16 @@ operator:
                 operator: DoesNotExist
 
 toolkit:
+  # KISS uses containerd by default
+  env:
+    - name: CONTAINERD_CONFIG
+      value: /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+    - name: CONTAINERD_SOCKET
+      value: /run/k3s/containerd/containerd.sock
+    - name: CONTAINERD_RUNTIME_CLASS
+      value: nvidia
+    - name: CONTAINERD_SET_AS_DEFAULT
+      value: "true"
+
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
