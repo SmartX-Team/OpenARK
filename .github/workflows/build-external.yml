@@ -130,11 +130,9 @@ jobs:
           context: "./driver/flatcar"
           containerfiles: |
             ./driver/rocky/Dockerfile
-          # FIXME: infer the value: NV_CUDA_CUDART_VERSION
           build-args: |
             CUDA_VERSION=${{ env.NVIDIA_CUDA_VERSION }}
             DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
-            NV_CUDA_CUDART_VERSION="12.0.107-1"
             ROCKYLINUX_VERSION=${{ env.OS_ROCKYLINUX_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }} | RockyLinux
