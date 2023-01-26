@@ -21,9 +21,11 @@ env:
   PACKAGE_YQ_URL: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
   # Common variables
+  OS_FLATCAR_NAME: flatcar
   OS_FLATCAR_RELEASE_CHANNEL: stable
   OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
-  OS_NAME: flatcar
+  OS_ROCKYLINUX_NAME: rocky
+  OS_ROCKYLINUX_VERSION: "9.1"
   UBUNTU_VERSION: "20.04"
 
   # GPU => NVIDIA => Driver
@@ -72,7 +74,7 @@ jobs:
 
       - name: Get the latest OS version
         run: |
-          echo OS_FLATCAR_RELEASE_VERSION=$(
+          echo OS_FLATCAR_VERSION=$(
             curl -s '${{ env.OS_FLATCAR_RELEASE_URL }}' |
               jq -r '[ to_entries[] | select(.value.channel == "stable") | select(.key > "0") | select(.key <= "9") | .key ] | max'
           ) >> $GITHUB_ENV
@@ -81,7 +83,7 @@ jobs:
         run: |
           echo OS_FLATCAR_RELEASE_KERNEL_VERSION=$(
             curl -s '${{ env.OS_FLATCAR_RELEASE_URL }}' |
-              jq -r '."${{ env.OS_FLATCAR_RELEASE_VERSION }}".major_software.kernel[0]'
+              jq -r '."${{ env.OS_FLATCAR_VERSION }}".major_software.kernel[0]'
           ) >> $GITHUB_ENV
 
       - name: Log in to ${{ env.REGISTRY }}
@@ -91,12 +93,12 @@ jobs:
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
 
-      - name: Build Image
-        id: build-and-push-image
+      - name: Build Image | Flatcar Container Linux
+        id: build-and-push-image-flatcar
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}-gpu-nvidia-driver
-          tags: ${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.OS_NAME }}${{ env.OS_FLATCAR_RELEASE_VERSION }}
+          tags: ${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.OS_FLATCAR_NAME }}${{ env.OS_FLATCAR_VERSION }}
           context: "./driver/flatcar"
           containerfiles: |
             ./driver/flatcar/Dockerfile
@@ -105,16 +107,43 @@ jobs:
             DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
             FLATCAR_RELEASE_BOARD=amd64-usr
             FLATCAR_RELEASE_CHANNEL=${{ env.OS_FLATCAR_RELEASE_CHANNEL }}
-            FLATCAR_VERSION=${{ env.OS_FLATCAR_RELEASE_VERSION }}
+            FLATCAR_VERSION=${{ env.OS_FLATCAR_VERSION }}
             UBUNTU_VERSION=${{ env.UBUNTU_VERSION }}
 
-      - name: Push To ${{ env.REGISTRY }}
-        id: push-to-quay
+      - name: Push To ${{ env.REGISTRY }} | Flatcar Container Linux
+        id: push-to-quay-flatcar
         uses: redhat-actions/push-to-registry@v2
         with:
-          image: ${{ steps.build-and-push-image.outputs.image }}
-          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          image: ${{ steps.build-and-push-image-flatcar.outputs.image }}
+          tags: ${{ steps.build-and-push-image-flatcar.outputs.tags }}
           registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
 
-      - name: Print image url
-        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+      - name: Print image url | Flatcar Container Linux
+        run: echo "Image pushed to ${{ steps.push-to-quay-flatcar.outputs.registry-paths }}"
+
+      - name: Build Image | RockyLinux
+        id: build-and-push-image-rockylinux
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}-gpu-nvidia-driver
+          tags: ${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.OS_ROCKYLINUX_NAME }}${{ env.OS_ROCKYLINUX_VERSION }}
+          context: "./driver/flatcar"
+          containerfiles: |
+            ./driver/rocky/Dockerfile
+          # FIXME: infer the value: NV_CUDA_CUDART_VERSION
+          build-args: |
+            CUDA_VERSION=${{ env.NVIDIA_CUDA_VERSION }}
+            DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }}
+            NV_CUDA_CUDART_VERSION="12.0.107-1"
+            ROCKYLINUX_VERSION=${{ env.OS_ROCKYLINUX_VERSION }}
+
+      - name: Push To ${{ env.REGISTRY }} | RockyLinux
+        id: push-to-quay-rockylinux
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-and-push-image-rockylinux.outputs.image }}
+          tags: ${{ steps.build-and-push-image-rockylinux.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
+
+      - name: Print image url | RockyLinux
+        run: echo "Image pushed to ${{ steps.push-to-quay-rockylinux.outputs.registry-paths }}"
