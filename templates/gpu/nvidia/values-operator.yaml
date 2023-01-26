@@ -23,3 +23,8 @@ operator:
 
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
+
+toolkit:
+  # Flatcar Container Linux has no write access to /usr directory
+  installDir: /opt/nvidia-runtime
+  version: v1.11.0-ubi8 # should be run over rockylinux
