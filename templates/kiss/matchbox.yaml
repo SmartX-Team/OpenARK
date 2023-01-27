@@ -74,10 +74,17 @@ data:
 
     # User Configuration
     rootpw --lock
-    group --name docker
-    group --name users
-    group --name wheel
-    user --name ENV_USERNAME --groups docker,users,wheel
+    group --gid 5 --name tty
+    group --gid 10 --name wheel
+    group --gid 11 --name cdrom
+    group --gid 39 --name video
+    group --gid 63 --name audio
+    group --gid 100 --name users
+    group --gid 989 --name pipewire
+    group --gid 999 --name input
+    group --gid 1000 --name docker
+    user --uid 1000 --gid 1001 --name ENV_USERNAME --groups docker,users,wheel
+    user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,tty,video --shell /sbin/nologin --homedir /opt/vdi/tenants/host --lock
     sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
 
     # Disk Configuration
@@ -263,6 +270,11 @@ data:
     net.ipv4.conf.all.rp_filter=0
     net.ipv4.conf.default.rp_filter=0
     EOF
+
+    # User Configuration
+    mkdir -p /opt/vdi/tenants/host
+    chmod 700 /opt/vdi/tenants/host
+    chown tenant:tenant /opt/vdi/tenants/host
 
     # Post-Hook
     ## Desktop Environment Configuration
