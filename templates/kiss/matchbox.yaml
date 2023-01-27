@@ -94,20 +94,20 @@ data:
 
     # /sys/block/*/size is in 512 byte chunks
     for DEV in $(lsblk -d | sed 's/^\(nvme[0-9]\+n[0-9]\+\)\?\(sd[a-z]\+\)\?.*$/\1\2/g' | xargs); do
-      if [ -d $BLOCKDEV/$DEV ]; then
-        if (( $(cat $BLOCKDEV/$DEV/removable) == 0 )); then
+      if [ -d ${BLOCKDEV}/${DEV} ]; then
+        if (( $(cat ${BLOCKDEV}/${DEV}/removable) == 0 )); then
           # Remove all data in disks
-          wipefs --all --force /dev/$DEV && sync
-          sgdisk --zap-all /dev/$DEV && sync
-          dd if=/dev/zero of=/dev/$DEV bs=1M count=1024 && sync
-          partprobe /dev/$DEV && sync
+          wipefs --all --force /dev/${DEV} && sync
+          sgdisk --zap-all /dev/${DEV} && sync
+          dd if=/dev/zero of=/dev/${DEV} bs=1M count=1024 && sync
+          partprobe /dev/${DEV} && sync
 
           # Find the suitable disk
-          SIZE=$(( $(cat $BLOCKDEV/$DEV/size)/2**21 ))
-          if (( $SIZE > $MINSIZE + 5 )); then
-            if (( $SIZE < $ROOTSIZE )); then
-              echo "Detected suitable disk: $DEV ($SIZE GiB)"
-              ROOTDEV=$DEV
+          SIZE=$(( $(cat ${BLOCKDEV}/${DEV}/size)/2**21 ))
+          if (( $SIZE > ${MINSIZE} + 5 )); then
+            if (( $SIZE < ${ROOTSIZE} )); then
+              echo "Detected suitable disk: ${DEV} (${SIZE} GiB)"
+              ROOTDEV=${DEV}
               ROOTSIZE=$SIZE
             fi
           fi
@@ -117,12 +117,12 @@ data:
 
     cat <<EOF >/tmp/kiss-config
     # Write partition table
-    part /boot/efi --fstype=efi --size=200 --ondisk=$ROOTDEV
-    part /boot --fstype=ext4 --size=512 --ondisk=$ROOTDEV
-    part / --fstype=ext4 --size=$(( $MINSIZE*2**10 )) --ondisk=$ROOTDEV
+    part /boot/efi --fstype=efi --size=200 --ondisk=${ROOTDEV}
+    part /boot --fstype=ext4 --size=512 --ondisk=${ROOTDEV}
+    part / --fstype=ext4 --size=$(( ${MINSIZE}*2**10 )) --ondisk=${ROOTDEV}
 
     # Configure the bootloader.
-    bootloader --boot-drive $ROOTDEV
+    bootloader --boot-drive ${ROOTDEV}
     EOF
 
     # Reboot after installation
@@ -142,11 +142,16 @@ data:
 
     %post --erroronfail
 
+    # Pre-Hook
+    ## Desktop Environment Configuration
+    _IS_DESKTOP=false
+
     # Advanced Network configuration
     mkdir -p /etc/NetworkManager/system-connections/
     ## Wireless - WIFI
     if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
     for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
+    _IS_DESKTOP=true
     cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     [connection]
     id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
@@ -183,7 +188,7 @@ data:
     chmod 440 /etc/sudoers.d/10-wheel
 
     # Driver Configuration
-    ## NVIDIA GPU
+    ## GPU - NVIDIA
     if lspci | grep 'VGA' | grep 'NVIDIA'; then
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
       dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
@@ -258,6 +263,13 @@ data:
     net.ipv4.conf.all.rp_filter=0
     net.ipv4.conf.default.rp_filter=0
     EOF
+
+    # Post-Hook
+    ## Desktop Environment Configuration
+    if [ "${_IS_DESKTOP}" == "true" ]; then
+      ### Common
+      dnf install -y pipewire vulkan wireplumber xdg-dbus-proxy xorg-x11-server-Xorg
+    fi
 
     %end
 ---
