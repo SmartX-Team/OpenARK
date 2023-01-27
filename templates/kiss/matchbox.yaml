@@ -58,8 +58,12 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
+    epel-release
+    kernel-devel
+    kernel-headers
     lvm2
     NetworkManager-wifi
+    pciutils
     podman-docker
     yum-utils
     %end
@@ -177,6 +181,13 @@ data:
     ENV_USERNAME ALL=(ALL) NOPASSWD: ALL
     EOF
     chmod 440 /etc/sudoers.d/10-wheel
+
+    # Driver Configuration
+    ## NVIDIA GPU
+    if lspci | grep 'VGA' | grep 'NVIDIA'; then
+      dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
+      dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
+    fi
 
     # ContainerD Configuration
     yum-config-manager --add-repo "https://download.docker.com/linux/centos/docker-ce.repo"
