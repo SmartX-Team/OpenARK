@@ -84,7 +84,7 @@ data:
     group --gid 999 --name input
     group --gid 1000 --name docker
     user --uid 1000 --gid 1001 --name ENV_USERNAME --groups docker,users,wheel
-    user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,tty,video --shell /sbin/nologin --homedir /opt/vdi/tenants/host --lock
+    user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
     sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
 
     # Disk Configuration
@@ -134,13 +134,13 @@ data:
 
     # Reboot after installation
     if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); then
-    ## Wireless - WIFI => Power Off
-    cat <<EOF >>/tmp/kiss-config
+      ## Wireless - WIFI => Power Off
+      cat <<EOF >>/tmp/kiss-config
     poweroff
     EOF
     else
-    ## Wired => Reboot
-    cat <<EOF >>/tmp/kiss-config
+      ## Wired => Reboot
+      cat <<EOF >>/tmp/kiss-config
     reboot
     EOF
     fi
@@ -157,9 +157,9 @@ data:
     mkdir -p /etc/NetworkManager/system-connections/
     ## Wireless - WIFI
     if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
-    for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
-    _IS_DESKTOP=true
-    cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
+      for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
+        _IS_DESKTOP=true
+        cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     [connection]
     id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     uuid=$(uuidgen $interface)
@@ -184,8 +184,8 @@ data:
 
     [proxy]
     EOF
-    chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
-    done
+        chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
+      done
     fi
 
     # Allow passwordless sudo command
@@ -249,9 +249,9 @@ data:
     Type=oneshot
     Restart=on-failure
     ExecStart=/bin/bash -c " \
-        ADDRESS=\$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.' | head -1) ;\
-        UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
-        curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.netai-cloud/new?address=\$ADDRESS&uuid=\$UUID\" ;\
+      ADDRESS=\$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.' | head -1) ;\
+      UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
+      curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.netai-cloud/new?address=\$ADDRESS&uuid=\$UUID\" ;\
     "
     Restart=on-failure
     RestartSec=30
@@ -272,15 +272,50 @@ data:
     EOF
 
     # User Configuration
-    mkdir -p /opt/vdi/tenants/host
-    chmod 700 /opt/vdi/tenants/host
-    chown tenant:tenant /opt/vdi/tenants/host
+    TENANT_HOME="/opt/vdi/tenants/host"
+    mkdir -p "${TENANT_HOME}"
+    chmod 700 "${TENANT_HOME}"
+    chown tenant:tenant "${TENANT_HOME}"
 
     # Post-Hook
     ## Desktop Environment Configuration
     if [ "${_IS_DESKTOP}" == "true" ]; then
       ### Common
       dnf install -y pipewire vulkan wireplumber xdg-dbus-proxy xorg-x11-server-Xorg
+
+      ### SystemD Configuration
+      SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
+      for service in \
+        "pipewire.service default.target.wants/pipewire.service" \
+        "pipewire.socket sockets.target.wants/pipewire.socket" \
+        "wireplumber.service pipewire-session-manager.service" \
+        "wireplumber.service pipewire.service.wants/wireplumber.service" \
+      ; do
+        SERVICE_SRC="/usr/lib/systemd/user/$(echo "${service}" | awk '{print $1}')"
+        SERVICE_DST="${SERVICE_HOME}/$(echo "${service}" | awk '{print $2}')"
+        if [ -f "${SERVICE_SRC}" ]; then
+          mkdir -p "$(dirname "${SERVICE_DST}")"
+          ln -sf "${SERVICE_SRC}" "${SERVICE_DST}"
+        fi
+      done
+      chown -R tenant:tenant "${TENANT_HOME}"
+
+      #### Autologin
+      _GETTY="/etc/systemd/system/getty@tty1.service.d"
+      mkdir -p "${_GETTY}"
+      cat <<EOF >"${_GETTY}/override.conf"
+    [Service]
+    ExecStart=
+    ExecStart=-/sbin/agetty --noclear --autologin tenant %I $TERM
+    EOF
+
+      #### Limit the maximum number of TTYs to 1
+      _LOGIND="/etc/systemd/logind.conf"
+      sed -i 's/^\#\?\(NAutoVTs=\).*$/\11/g' "${_LOGIND}"
+      sed -i 's/^\#\?\(ReserveVT=\).*$/\11/g' "${_LOGIND}"
+      for i in {2..63}; do
+        systemctl mask getty@tty${i}.service >/dev/null
+      done
     fi
 
     %end
