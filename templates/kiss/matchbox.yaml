@@ -10,22 +10,23 @@ data:
     # Retry automatic configuration indefinitely until it succeeds
     :boot
     chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform} || goto boot
+  # TODO: use assets service for caching
   boot-rocky9.ipxe: >
     #!ipxe
 
 
     :kernel
 
-    kernel http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/images/pxeboot/vmlinuz
+    kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/images/pxeboot/vmlinuz
     initrd=initrd.img
-    inst.repo=http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/
+    inst.repo=http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/
     inst.ks=http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/rocky9.ks
     || goto kernel
 
 
     :initrd
 
-    initrd http://assets.kiss.svc.ops.netai-cloud/rocky9/${buildarch}/kickstart/images/pxeboot/initrd.img
+    initrd http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/images/pxeboot/initrd.img
     || goto initrd
 
 
@@ -58,9 +59,7 @@ data:
     # Install Packages
     %packages
     @^minimal-environment
-    epel-release
-    kernel-devel
-    kernel-headers
+    kernel
     lvm2
     NetworkManager-wifi
     pciutils
@@ -197,6 +196,7 @@ data:
     # Driver Configuration
     ## GPU - NVIDIA
     if lspci | grep 'VGA' | grep 'NVIDIA'; then
+      dnf install -y epel-release kernel-devel kernel-headers
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
       dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
     fi
@@ -283,6 +283,21 @@ data:
       ### Common
       dnf install -y pipewire vulkan wireplumber xdg-dbus-proxy xorg-x11-server-Xorg
 
+      #### Autologin
+      cat <<EOF >/etc/systemd/system/x11.service
+    [Unit]
+    After=getty.target
+
+    [Service]
+    ExecStart=/bin/Xorg
+    Restart=on-failure
+    RestartSec=1
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+      ln -sf /etc/systemd/system/x11.service /etc/systemd/system/multi-user.target.wants/x11.service
+
       ### SystemD Configuration
       SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
       for service in \
@@ -299,15 +314,6 @@ data:
         fi
       done
       chown -R tenant:tenant "${TENANT_HOME}"
-
-      #### Autologin
-      _GETTY="/etc/systemd/system/getty@tty1.service.d"
-      mkdir -p "${_GETTY}"
-      cat <<EOF >"${_GETTY}/override.conf"
-    [Service]
-    ExecStart=
-    ExecStart=-/sbin/agetty --noclear --autologin tenant %I $TERM
-    EOF
 
       #### Limit the maximum number of TTYs to 1
       _LOGIND="/etc/systemd/logind.conf"
@@ -408,7 +414,6 @@ data:
 
               [Service]
               Type=oneshot
-              Restart=on-failure
               ExecStart=/bin/bash -c " \
                   ADDRESS=$(ip -4 addr | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^10\.' | head -1) ;\
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
