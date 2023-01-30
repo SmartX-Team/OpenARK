@@ -200,7 +200,7 @@ data:
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
       dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
 
-    cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
+      cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
     blacklist nouveau
     blacklistlbm-nouveau
     EOF
