@@ -202,7 +202,6 @@ data:
 
       cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
     blacklist nouveau
-    blacklistlbm-nouveau
     EOF
     fi
 
@@ -294,6 +293,7 @@ data:
     After=getty.target
 
     [Service]
+    ExecStartPre=/bin/sleep 30  # TODO: wait until NVIDIA Driver is running
     ExecStart=/bin/Xorg
     Restart=on-failure
     RestartSec=1
