@@ -91,6 +91,11 @@ data:
     %include /tmp/kiss-config
     %pre
 
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
+
     # Minimum size of disk needed specified in GIBIBYTES
     MINSIZE=200
 
@@ -147,6 +152,11 @@ data:
     %end
 
     %post --erroronfail
+
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
 
     # Pre-Hook
     ## Desktop Environment Configuration
@@ -287,14 +297,36 @@ data:
       ### Common
       dnf install -y mesa-dri-drivers pipewire vulkan wireplumber xdg-dbus-proxy xorg-x11-server-Xorg
 
-      #### Autologin
+      #### Autologin to X11
+      cat <<EOF >/usr/local/bin/xinit
+    #!/bin/bash
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
+
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
+
+    echo "Wait until graphic drivers are ready ..."
+    ## NVIDIA
+    if lspci | grep 'VGA' | grep 'NVIDIA'; then
+      while ! nvidia-smi >/dev/null 2>/dev/null; do
+        sleep 0.1
+      done
+    fi
+
+    echo "Starting Xorg display server ..."
+    exec /bin/Xorg
+    EOF
+      chmod 500 /usr/local/bin/xinit
       cat <<EOF >/etc/systemd/system/x11.service
     [Unit]
     After=getty.target
 
     [Service]
-    ExecStartPre=/bin/sleep 30  # TODO: wait until NVIDIA Driver is running
-    ExecStart=/bin/Xorg
+    ExecStart=/usr/local/bin/xinit
     Restart=on-failure
     RestartSec=1
 
