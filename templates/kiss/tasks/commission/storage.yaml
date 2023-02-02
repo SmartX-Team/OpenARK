@@ -19,7 +19,12 @@
 
 - name: Check whether kubelet service is running
   set_fact:
-    kiss_k8s_is_ok: "{{ ansible_facts.services['kubelet.service'].state == 'running' }}"
+    kiss_k8s_is_ok: >-
+      {{
+          'kubelet.service' in ansible_facts.services
+        and
+          ansible_facts.services['kubelet.service'].state == 'running'
+      }}
 
 - when: kiss_k8s_is_ok
   block:
