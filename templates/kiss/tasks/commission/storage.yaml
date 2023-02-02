@@ -23,15 +23,27 @@
 
 - when: kiss_k8s_is_ok
   block:
+    - name: Check whether the kubelet config file exists
+      stat:
+        path: /var/lib/kubelet/config.yaml
+      register: result_stat
+
     - name: Check whether the cluster name is same
+      when: result_stat.stat.exists
       lineinfile:
         dest: /var/lib/kubelet/config.yaml
         line: "clusterDomain: {{ cluster_name }}"
       check_mode: true
-      register: result
+      register: result_config
 
-    - set_fact:
-        kiss_k8s_is_ok: "{{ result.changed }}"
+    - name: Update k8s status
+      set_fact:
+        kiss_k8s_is_ok: >-
+          {{
+            result_stat.stat.exists
+          and
+            result_config.changed
+          }}
 
 - name: Check whether kiss OS is already configured
   set_fact:
