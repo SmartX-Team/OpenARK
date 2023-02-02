@@ -4,13 +4,23 @@
     path: /dev/ipmi0
   register: ipmi
 
+- name: Check whether ctr command exists
+  stat:
+    path: "{{ bin_dir }}/ctr"
+  register: ctr_file
+
+- name: Link ctr command to bin_dir
+  when: not ctr_file.stat.exists
+  file:
+    src: /bin/ctr
+    dest: "{{ bin_dir }}/ctr"
+    state: link
+
 - name: Pull IPMI docker image
   when: ipmi.stat.exists
   shell: >
-    ctr images pull
+    {{ bin_dir }}/ctr images pull
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
-  args:
-    executable: /bin/bash
   register: ipmi_pull_docker_image
   until: ipmi_pull_docker_image.rc == 0
   retries: 5
