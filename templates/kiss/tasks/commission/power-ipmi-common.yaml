@@ -9,6 +9,8 @@
   shell: >
     ctr images pull
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
+  args:
+    executable: /bin/bash
   register: ipmi_pull_docker_image
   until: ipmi_pull_docker_image.rc == 0
   retries: 5

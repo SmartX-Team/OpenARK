@@ -11,6 +11,8 @@
     "kiss-ipmitool" ipmitool
     lan print
     | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
+  args:
+    executable: /bin/bash
   register: ipmi_address
 
 - name: Set IPMI IP Address be Static
@@ -21,6 +23,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     lan set 1 ipsrc static
+  args:
+    executable: /bin/bash
   ignore_errors: true
 
 - name: Set IPMI IP Address
@@ -31,6 +35,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     lan set 1 ipaddr '{{ ipmi_address.stdout }}'
+  args:
+    executable: /bin/bash
   ignore_errors: true
 
 - name: Set IPMI IP Address Netmask
@@ -41,6 +47,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     lan set 1 netmask '{{ kiss_network_ipv4_subnet_mask }}'
+  args:
+    executable: /bin/bash
   ignore_errors: true
 
 - name: Set IPMI IP Address Default Gateway
@@ -51,6 +59,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     lan set 1 defgw ipaddr '{{ kiss_network_ipv4_gateway }}'
+  args:
+    executable: /bin/bash
   ignore_errors: true
 
 - name: Set IPMI user 9 name
@@ -61,6 +71,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     user set name 9 '{{ kiss_power_ipmi_username }}'
+  args:
+    executable: /bin/bash
   ignore_errors: true
   no_log: true
 
@@ -72,6 +84,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     user set password 9 '{{ kiss_power_ipmi_password }}'
+  args:
+    executable: /bin/bash
   ignore_errors: true
   no_log: true
 
@@ -83,6 +97,8 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     user enable 9
+  args:
+    executable: /bin/bash
   ignore_errors: true
 
 - name: Link on IPMI user 9 as ADMIN
@@ -93,4 +109,6 @@
     "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
+  args:
+    executable: /bin/bash
   ignore_errors: true
