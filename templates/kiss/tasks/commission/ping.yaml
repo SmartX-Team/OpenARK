@@ -1,3 +1,6 @@
 ---
 - name: Test connection
   ping:
+
+- name: Populate service facts
+  service_facts:

@@ -227,12 +227,20 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "kiss_cluster_control_planes".into(),
-                                value: Some(cluster_state.get_control_planes_as_string()),
+                                value: Some(if matches!(job.new_state, BoxState::Joining) {
+                                    cluster_state.get_control_planes_as_string()
+                                } else {
+                                    Default::default()
+                                }),
                                 ..Default::default()
                             },
                             EnvVar {
                                 name: "kiss_cluster_etcd_nodes".into(),
-                                value: Some(cluster_state.get_etcd_nodes_as_string()),
+                                value: Some(if matches!(job.new_state, BoxState::Joining) {
+                                    cluster_state.get_etcd_nodes_as_string()
+                                } else {
+                                    Default::default()
+                                }),
                                 ..Default::default()
                             },
                             EnvVar {
