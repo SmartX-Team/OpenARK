@@ -17,6 +17,22 @@
     path: /opt/.kiss-dirty
   register: kiss_dirty_file
 
+- name: Check whether kubelet service is running
+  set_fact:
+    kiss_k8s_is_ok: ansible_facts.services["kubelet.service"].state == "running"
+
+- when: kiss_k8s_is_ok
+  block:
+    - name: Check whether the cluster name is same
+      lineinfile:
+        dest: /var/lib/kubelet/config.yaml
+        line: "clusterDomain: {{ cluster_name }}"
+      check_mode: true
+      register: result
+
+    - set_fact:
+        kiss_k8s_is_ok: result.changed
+
 - name: Check whether kiss OS is already configured
   set_fact:
     kiss_os_exists: "{{ boot_file.stat.exists }}"
@@ -49,6 +65,8 @@
         kiss_os_exists
       and
         (not (kiss_group_force_reset | default(False)))
+      and
+        kiss_k8s_is_ok
       }}
 
 - name: Update boot order to PxE-first

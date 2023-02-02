@@ -236,7 +236,7 @@ data:
 
     # Environment Variables Configuration
     mkdir -p /etc/profile.d/
-    cat <<EOF /etc/profile.d/path-local-bin.sh
+    cat <<EOF >/etc/profile.d/path-local-bin.sh
     # local binary path registration
 
     export PATH=\${PATH}:/usr/local/bin
@@ -373,6 +373,11 @@ data:
       Option "XKbOptions" "srvrkeys:none"
     EndSection
     EOF
+    fi
+
+    ## DKMS build
+    if which dkms >/dev/null 2>/dev/null; then
+      dkms autoinstall
     fi
 
     %end
