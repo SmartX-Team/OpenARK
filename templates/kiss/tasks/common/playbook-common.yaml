@@ -87,7 +87,7 @@
       when: not kiss_cluster_is_default
       set_fact:
         upstream_dns_servers:
-          - "{{ kiss_network_nameserver_incluster_ipv4 }}"
+          - "{{ lookup('env', 'kiss_network_nameserver_incluster_ipv4') }}"
 
 - hosts: os_flatcar
   gather_facts: false
