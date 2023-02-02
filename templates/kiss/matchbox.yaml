@@ -352,6 +352,14 @@ data:
       done
       chown -R tenant:tenant "${TENANT_HOME}"
 
+      #### Autologin
+      mkdir -p /etc/systemd/system/getty@tty1.service.d/
+      cat <<EOF >/etc/systemd/system/getty@tty1.service.d/override.conf
+    [Service]
+    ExecStart=
+    ExecStart=-/sbin/agetty -a tenant --noclear - $TERM
+    EOF
+
       #### Limit the maximum number of TTYs to 1
       _LOGIND="/etc/systemd/logind.conf"
       sed -i 's/^\#\?\(NAutoVTs=\).*$/\11/g' "${_LOGIND}"
