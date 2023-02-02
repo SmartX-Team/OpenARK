@@ -65,12 +65,6 @@
 - hosts: kube_node
   gather_facts: false
   tasks:
-    - name: Append network_nameserver_incluster_ipv4 into upstream_dns_servers
-      when: not kiss_cluster_is_default
-      set_fact:
-        upstream_dns_servers:
-          - "{{ network_nameserver_incluster_ipv4 }}"
-
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
       set_fact:
         cluster_name: "ops.{{ lookup('env', 'kiss_cluster_domain') }}"
@@ -88,6 +82,12 @@
       set_fact:
         kube_pods_subnet: "{{ kube_child_pods_subnet }}"
         kube_service_addresses: "{{ kube_child_service_addresses }}"
+
+    - name: Append network_nameserver_incluster_ipv4 into upstream_dns_servers
+      when: not kiss_cluster_is_default
+      set_fact:
+        upstream_dns_servers:
+          - "{{ network_nameserver_incluster_ipv4 }}"
 
 - hosts: os_flatcar
   gather_facts: false
