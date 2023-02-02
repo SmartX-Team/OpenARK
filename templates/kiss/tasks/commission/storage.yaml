@@ -19,7 +19,7 @@
 
 - name: Check whether kubelet service is running
   set_fact:
-    kiss_k8s_is_ok: ansible_facts.services["kubelet.service"].state == "running"
+    kiss_k8s_is_ok: "{{ ansible_facts.services['kubelet.service'].state == 'running' }}"
 
 - when: kiss_k8s_is_ok
   block:
@@ -31,7 +31,7 @@
       register: result
 
     - set_fact:
-        kiss_k8s_is_ok: result.changed
+        kiss_k8s_is_ok: "{{ result.changed }}"
 
 - name: Check whether kiss OS is already configured
   set_fact:
