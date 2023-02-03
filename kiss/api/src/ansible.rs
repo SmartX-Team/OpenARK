@@ -158,6 +158,7 @@ impl AnsibleClient {
                     containers: vec![Container {
                         name: "ansible".into(),
                         image: Some(self.kiss.kubespray_image.clone()),
+                        image_pull_policy: Some("Always".into()),
                         command: Some(vec!["ansible-playbook".into()]),
                         args: Some(vec![
                             "--become".into(),
