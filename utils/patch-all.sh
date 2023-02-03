@@ -8,7 +8,7 @@
 ###########################################################
 
 # Configure default environment variables
-SCRIPT_DST_DEFAULT="/tmp/patch-$(date -u +'%Y-%m-%dT%H:%M:%SZ').sh"
+SCRIPT_DST_DEFAULT="/tmp/patch-$(date -u +'%Y%m%dT%H%M%SZ').sh"
 SCRIPT_PATH_DEFAULT="./patch.sh"
 SSH_KEYFILE_PATH_DEFAULT="${HOME}/.ssh/kiss"
 
