@@ -20,17 +20,24 @@ IPMITOOL_IMAGE="${IPMITOOL_IMAGE:-$IPMITOOL_IMAGE_DEFAULT}"
 ###########################################################
 
 for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); do
-    echo "Rebooting \"${address}\"..."
+    echo -n "Rebooting \"${address}\"... "
 
-    # Assert PxE Boot
-    "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootparam set bootflag force_pxe
-    "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=persistent,efiboot
+    if
+        ping -c 1 -W 3 "${address}" >/dev/null 2>/dev/null
+    then
+        # Assert PxE Boot
+        "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+            -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootparam set bootflag force_pxe >/dev/null
+        "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+            -H "${address}" -U "kiss" -P "kiss.netaiCloud" chassis bootdev pxe options=persistent,efiboot >/dev/null
 
-    # Reboot now anyway
-    "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-        -H "${address}" -U "kiss" -P "kiss.netaiCloud" power cycle
+        # Reboot now anyway
+        "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
+            -H "${address}" -U "kiss" -P "kiss.netaiCloud" power cycle >/dev/null
+        echo "OK"
+    else
+        echo "Skipped"
+    fi
 done
 
 ###########################################################
