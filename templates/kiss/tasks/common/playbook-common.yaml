@@ -101,6 +101,7 @@
       set_fact:
         ansible_python_interpreter: /opt/bin/python
         bin_dir: /opt/bin
+        download_run_once: false
 
 - hosts: os_rocky9
   gather_facts: false
