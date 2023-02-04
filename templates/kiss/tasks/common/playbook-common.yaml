@@ -109,3 +109,4 @@
       set_fact:
         ansible_python_interpreter: /usr/bin/python3
         bin_dir: /usr/local/bin
+        download_run_once: true
