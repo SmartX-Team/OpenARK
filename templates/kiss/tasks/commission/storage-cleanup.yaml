@@ -6,4 +6,5 @@
   include: storage-cleanup-csi.yaml
 
 - name: Cleanup all kubernetes data
-  include: storage-cleanup-kubernetes.yaml
+  include_tasks: /kubespray/roles/reset/tasks.yml
+  ignore_errors: true
