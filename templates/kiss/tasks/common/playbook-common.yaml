@@ -120,15 +120,15 @@
   gather_facts: False
   environment: "{{ proxy_disable_env }}"
   roles:
-    - role: kubespray-defaults
-    - role: download
-      tags: facts
+    - role: /kubespray/roles/kubespray-defaults
+    - role: /kubespray/roles/download
+      tags: /kubespray/roles/facts
       vars:
         skip_downloads: true
-    - role: bastion-ssh-config
+    - role: /kubespray/roles/bastion-ssh-config
       tags:
-        - "localhost"
-        - "bastion"
+        - localhost
+        - bastion
 
 - name: Gather facts
   import_playbook: /kubespray/facts.yml
