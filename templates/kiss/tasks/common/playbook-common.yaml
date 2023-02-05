@@ -109,3 +109,26 @@
       set_fact:
         ansible_python_interpreter: /usr/bin/python3
         bin_dir: /usr/local/bin
+
+- name: Check ansible version
+  import_playbook: /kubespray/ansible_version.yml
+
+- name: Ensure compatibility with old groups
+  import_playbook: /kubespray/legacy_groups.yml
+
+- hosts: bastion[0]
+  gather_facts: False
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - role: kubespray-defaults
+    - role: download
+      tags: facts
+      vars:
+        skip_downloads: true
+    - role: bastion-ssh-config
+      tags:
+        - "localhost"
+        - "bastion"
+
+- name: Gather facts
+  import_playbook: /kubespray/facts.yml
