@@ -108,7 +108,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 .map(|bind_group| bind_group == &data.spec.group)
                 .unwrap_or_default()
             {
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -164,7 +164,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 return Ok(Action::await_change());
             }
 
-            let patch = Patch::Apply(json!({
+            let patch = Patch::Merge(json!({
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
                 "status": BoxStatus {

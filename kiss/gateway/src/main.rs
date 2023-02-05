@@ -47,7 +47,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
         match api.get(&name).await {
             Ok(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -82,7 +82,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                 api.create(&pp, &data).await?;
 
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -123,7 +123,7 @@ async fn post_commission(
         match api.get(&name).await {
             Ok(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "spec": BoxSpec {
