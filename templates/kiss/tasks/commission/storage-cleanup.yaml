@@ -9,7 +9,8 @@
   include_tasks: /kubespray/roles/reset/tasks/main.yml
   ignore_errors: true
   vars:
-    containerd_bin_dir: "{{ bin_dir }}"
+    containerd_bin_dir: "{{ containerd_bin_dir | default(bin_dir) }}"
+    deploy_container_engine: "{{ deploy_container_engine | default(inventory_hostname in groups['k8s_cluster'] or etcd_deployment_type == 'docker') }}"
     flush_iptables: true
-    is_fedora_coreos: false
+    is_fedora_coreos: "{{ is_fedora_coreos | default(False) }}"
     reset_restart_network: true
