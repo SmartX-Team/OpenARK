@@ -62,7 +62,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                             .unwrap_or_default()
                     {
                         // update the status
-                        new_state = old_state.fail();
+                        new_state = BoxState::Disconnected;
                     }
                 } else {
                     return Ok(Action::requeue(timeout.to_std().unwrap()));
@@ -77,7 +77,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             if let Some(time_threshold) = old_state.timeout() {
                 if now > last_updated + time_threshold {
                     // update the status
-                    new_state = old_state.fail();
+                    new_state = BoxState::Failed;
                 }
             }
         }
@@ -149,7 +149,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                             r#box: &data,
                             new_group,
                             new_state,
-                            completed_state: new_state.complete(),
                         },
                     )
                     .await?;

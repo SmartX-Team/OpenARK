@@ -62,7 +62,7 @@ use strum::{Display, EnumString};
     printcolumn = r#"{
         "name": "network-speed",
         "type": "string",
-        "description":"network interface link speed (Unit: Mb/s)",
+        "description":"network interface link speed (Unit: Mbps)",
         "jsonPath":".status.access.primary.speedMbps"
     }"#
 )]
@@ -105,7 +105,6 @@ pub enum BoxState {
     Running,
     Failed,
     Disconnected,
-    Missing,
 }
 
 impl BoxState {
@@ -116,7 +115,7 @@ impl BoxState {
             Self::Ready => None,
             Self::Joining => Some("join"),
             Self::Running => Some("ping"),
-            Self::Failed | Self::Disconnected | Self::Missing => Some("reset"),
+            Self::Failed | Self::Disconnected => Some("reset"),
         }
     }
 
@@ -135,7 +134,7 @@ impl BoxState {
     pub const fn cron(&self) -> Option<&'static str> {
         match self {
             Self::Running => Some("@hourly"),
-            // Self::Disconnected | Self::Missing => Some("@hourly"),
+            // Self::Disconnected => Some("@hourly"),
             _ => None,
         }
     }
@@ -149,7 +148,6 @@ impl BoxState {
             Self::Running => Self::Running,
             Self::Failed => Self::Disconnected,
             Self::Disconnected => Self::Disconnected,
-            Self::Missing => Self::Missing,
         }
     }
 
@@ -165,41 +163,13 @@ impl BoxState {
             Self::Running => None,
             Self::Failed => Some(fallback_disconnected),
             Self::Disconnected => Some(fallback_disconnected),
-            Self::Missing => None,
         }
     }
 
     pub fn timeout_update(&self) -> Option<Duration> {
         match self {
             Self::New => Some(Duration::seconds(30)),
-            Self::Ready => Some(Duration::seconds(5)),
             _ => None,
-        }
-    }
-
-    pub const fn complete(&self) -> Option<Self> {
-        match self {
-            Self::New => None,
-            Self::Commissioning => Some(Self::Ready),
-            Self::Ready => None,
-            Self::Joining => Some(Self::Running),
-            Self::Running => None,
-            Self::Failed => None,
-            Self::Disconnected => None,
-            Self::Missing => None,
-        }
-    }
-
-    pub const fn fail(&self) -> Self {
-        match self {
-            Self::New => Self::Missing,
-            Self::Commissioning => Self::Failed,
-            Self::Ready => Self::Failed,
-            Self::Joining => Self::Failed,
-            Self::Running => Self::Disconnected,
-            Self::Failed => Self::Missing,
-            Self::Disconnected => Self::Missing,
-            Self::Missing => Self::Missing,
         }
     }
 }

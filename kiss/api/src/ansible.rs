@@ -28,15 +28,8 @@ pub struct AnsibleClient {
 }
 
 impl AnsibleClient {
-    pub const LABEL_BIND_GROUP_CLUSTER_NAME: &'static str = "kiss.netai-cloud/group_cluster_name";
-    pub const LABEL_BIND_GROUP_ROLE: &'static str = "kiss.netai-cloud/group_role";
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
-    pub const LABEL_BOX_ACCESS_PRIMARY_ADDRESS: &'static str =
-        "kiss.netai-cloud/box_access_primary_address";
-    pub const LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS: &'static str =
-        "kiss.netai-cloud/box_access_primary_speed_mbps";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
-    pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
@@ -57,8 +50,6 @@ impl AnsibleClient {
             .and_then(|status| status.bind_group.as_ref());
         let group = &job.r#box.spec.group;
         let reset = self.kiss.group_force_reset || bind_group != Some(group);
-
-        let new_group = job.new_group.or(bind_group);
 
         // delete all previous cronjobs
         {
@@ -100,48 +91,14 @@ impl AnsibleClient {
             namespace: Some(ns.into()),
             labels: Some(
                 vec![
-                    Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
-                    box_status
-                        .and_then(|status| status.access.primary.as_ref())
-                        .map(|interface| {
-                            (
-                                Self::LABEL_BOX_ACCESS_PRIMARY_ADDRESS.into(),
-                                interface.address.to_string(),
-                            )
-                        }),
-                    box_status
-                        .and_then(|status| status.access.primary.as_ref())
-                        .and_then(|interface| interface.speed_mbps)
-                        .map(|primary_speed_mbps| {
-                            (
-                                Self::LABEL_BOX_ACCESS_PRIMART_SPEED_MBPS.into(),
-                                primary_speed_mbps.to_string(),
-                            )
-                        }),
-                    Some((
+                    (Self::LABEL_BOX_NAME.into(), box_name.clone()),
+                    (
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.r#box.spec.machine.uuid.to_string(),
-                    )),
-                    Some(("serviceType".into(), "ansible-task".to_string())),
-                    job.completed_state
-                        .as_ref()
-                        .map(ToString::to_string)
-                        .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
-                    new_group.map(|new_group| {
-                        (
-                            Self::LABEL_BIND_GROUP_CLUSTER_NAME.into(),
-                            new_group.cluster_name.clone(),
-                        )
-                    }),
-                    new_group.map(|new_group| {
-                        (
-                            Self::LABEL_BIND_GROUP_ROLE.into(),
-                            new_group.role.to_string(),
-                        )
-                    }),
+                    ),
+                    ("serviceType".into(), "ansible-task".to_string()),
                 ]
                 .into_iter()
-                .flatten()
                 .collect(),
             ),
             ..Default::default()
@@ -542,5 +499,4 @@ pub struct AnsibleJob<'a> {
     pub r#box: &'a BoxCrd,
     pub new_group: Option<&'a BoxGroupSpec>,
     pub new_state: BoxState,
-    pub completed_state: Option<BoxState>,
 }
