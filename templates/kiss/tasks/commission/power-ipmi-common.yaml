@@ -10,6 +10,12 @@
     state: present
   ignore_errors: true
 
+- name: Start NetworkManager
+  systemd:
+    name: containerd.service
+    state: started
+    daemon_reload: true
+
 - name: Check whether ctr command exists
   stat:
     path: "{{ bin_dir }}/ctr"
