@@ -8,3 +8,6 @@
 - name: Cleanup all kubernetes data
   include_tasks: /kubespray/roles/reset/tasks/main.yml
   ignore_errors: true
+  vars:
+    flush_iptables: true
+    reset_restart_network: true
