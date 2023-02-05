@@ -28,9 +28,11 @@
         ansible_host_uuid: "{{ lookup('env', 'ansible_host_uuid') }}"
         ansible_host_key_checking: false
         ansible_ssh_host: "{{ lookup('env', 'ansible_ssh_host') }}"
+        ansible_ssh_port: 22
         ansible_ssh_private_key_file: "{{ lookup('env', 'ansible_ssh_private_key_file') }}"
         ansible_ssh_user: "{{ lookup('env', 'ansible_user') }}"
         ansible_user: "{{ lookup('env', 'ansible_user') }}"
+        ip: "{{ lookup('env', 'ansible_ssh_host') }}"
         kiss_allow_critical_commands: "{{ lookup('env', 'kiss_allow_critical_commands') == 'true' }}"
         kiss_allow_pruning_network_interfaces: "{{ lookup('env', 'kiss_allow_pruning_network_interfaces') == 'true' }}"
         kiss_cluster_name_snake_case: "{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
