@@ -30,6 +30,7 @@ pub struct AnsibleClient {
 impl AnsibleClient {
     pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
+    pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
@@ -91,14 +92,20 @@ impl AnsibleClient {
             namespace: Some(ns.into()),
             labels: Some(
                 vec![
-                    (Self::LABEL_BOX_NAME.into(), box_name.clone()),
-                    (
+                    Some((Self::LABEL_BOX_NAME.into(), box_name.clone())),
+                    Some((
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.r#box.spec.machine.uuid.to_string(),
-                    ),
-                    ("serviceType".into(), "ansible-task".to_string()),
+                    )),
+                    Some(("serviceType".into(), "ansible-task".to_string())),
+                    job.new_state
+                        .complete()
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
                 ]
                 .into_iter()
+                .flatten()
                 .collect(),
             ),
             ..Default::default()

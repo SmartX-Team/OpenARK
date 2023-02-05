@@ -37,30 +37,47 @@ impl ::kiss_api::manager::Ctx for Ctx {
         let name = data.name_any();
 
         // skip reconciling if not managed
-        if Self::get_box_name(&data).is_none() {
-            info!("{name} is not a target; skipping");
-            return Ok(Action::await_change());
-        }
+        let box_name: String = match Self::get_box_name(&data) {
+            Some(e) => e,
+            None => {
+                info!("{} is not a target; skipping", &name);
+                return Ok(Action::await_change());
+            }
+        };
 
         let status = data.status.as_ref();
+        let completed_state = data
+            .labels()
+            .get(AnsibleClient::LABEL_COMPLETED_STATE)
+            .and_then(|state| state.parse().ok());
+
         let has_completed = status.and_then(|e| e.succeeded).unwrap_or_default() > 0;
         let has_failed = status.and_then(|e| e.failed).unwrap_or_default() > 0;
 
         // when the ansible job is succeeded
         if has_completed {
-            info!("Job has completed: {name}");
+            info!("Job has completed: {name} ({box_name})");
 
-            Ok(Action::requeue(
-                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
-            ))
+            // update the state
+            if let Some(completed_state) = completed_state {
+                info!("Updating box state: {name} ({box_name} => {completed_state})");
+                Self::update_box_state(manager, data, completed_state).await
+            }
+            // keep the state, scheduled by the controller
+            else {
+                info!("Skipping updating box state: {name} ({box_name})");
+                Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ))
+            }
         }
         // when the ansible job is failed
         else if has_failed {
-            let state = BoxState::Failed;
-            warn!("Job has failed: {name}");
-            warn!("Updating box state: {name} => {state}");
+            let failed_state = BoxState::Failed;
+            warn!("Job has failed: {name} ({box_name})");
+            warn!("Updating box state: {name} ({box_name} => {failed_state})");
 
-            Self::update_box_state(manager, data, state).await
+            Self::update_box_state(manager, data, failed_state).await
         }
         // when the ansible job is not finished yet
         else {

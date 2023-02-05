@@ -166,6 +166,17 @@ impl BoxState {
     pub fn timeout_new() -> Duration {
         Duration::seconds(30)
     }
+
+    pub const fn complete(&self) -> Option<Self> {
+        match self {
+            Self::New => None,
+            Self::Commissioning => None,
+            Self::Ready => None,
+            Self::Joining => Some(Self::Running),
+            Self::Running => None,
+            Self::GroupChanged | Self::Failed | Self::Disconnected => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
