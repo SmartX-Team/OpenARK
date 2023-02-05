@@ -47,7 +47,7 @@
           {{
             result_stat.stat.exists
           and
-            result_config.changed
+            not result_config.changed
           }}
 
 - name: Check whether kiss OS is already configured
