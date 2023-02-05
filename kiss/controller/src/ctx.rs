@@ -69,9 +69,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
         }
 
         // capture the timeout
-        if let Some(last_updated) = status.map(|status| status.last_updated) {
-            if let Some(time_threshold) = old_state.timeout() {
-                if now > last_updated + time_threshold {
+        if let Some(time_threshold) = old_state.timeout() {
+            if let Some(last_updated) = data.last_updated() {
+                if now > *last_updated + time_threshold {
                     // update the status
                     new_state = BoxState::Failed;
                 }
