@@ -19,6 +19,13 @@ all:
         # k8s-cluster
         #############################
 
+        # Kubernetes configuration dirs and system namespace.
+        # Those are where all the additional config stuff goes
+        # the kubernetes normally puts in /srv/kubernetes.
+        # This puts them in a sane location and namespace.
+        # Editing those values will almost surely break something.
+        kube_config_dir: /etc/kubernetes
+
         ### fail with swap on (default true)
         kubelet_fail_swap_on: true
 
@@ -34,12 +41,16 @@ all:
         ## Also this makes possible to use different container manager for etcd nodes.
         container_manager: containerd
 
+        # Containerd conf default dir
+        containerd_storage_dir: "/var/lib/containerd"
+
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
         etcd_deployment_type: "{{ 'docker' if container_manager == 'docker' else 'host' }}" # data is stored in /opt/etcd
         # Directory where etcd data stored
         etcd_data_dir: /opt/etcd
         etcd_config_dir: /etc/etcd
+        etcd_events_data_dir: /var/lib/etcd-events
 
         # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
         # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
@@ -108,6 +119,9 @@ all:
         kube_service_addresses: 10.64.0.0/12 # same as calico CIDR
         kube_child_service_addresses: 10.112.0.0/12 # same as calico CIDR
 
+        ## Kube Proxy mode One of ['iptables','ipvs']
+        kube_proxy_mode: ipvs
+
         # Configure Dual Stack networking (i.e. both IPv4 and IPv6)
         enable_dual_stack_networks: false # disable IPv6
 
@@ -132,6 +146,15 @@ all:
         coredns_k8s_external_zone: k8s.netai-cloud # Inter-cluster External DNS
         # Enable endpoint_pod_names option for kubernetes plugin
         enable_coredns_k8s_endpoint_pod_names: false
+
+        # nginx-proxy configure
+        nginx_config_dir: /etc/nginx
+
+        # krew root dir
+        krew_root_dir: /usr/local/krew
+
+        # sysctl_file_path to add sysctl conf to
+        sysctl_file_path: /etc/sysctl.d/99-sysctl.conf
 
         #############################
         # addons

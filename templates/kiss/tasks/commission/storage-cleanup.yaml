@@ -9,5 +9,7 @@
   include_tasks: /kubespray/roles/reset/tasks/main.yml
   ignore_errors: true
   vars:
+    containerd_bin_dir: "{{ bin_dir }}"
     flush_iptables: true
+    is_fedora_coreos: false
     reset_restart_network: true
