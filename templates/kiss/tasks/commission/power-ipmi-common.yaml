@@ -4,6 +4,16 @@
     path: /dev/ipmi0
   register: ipmi
 
+- name: Install ContainerD
+  block:
+    - name: Install ContainerD | Rockylinux
+      when:
+        - "'rocky9' in groups"
+        - inventory_hostname in groups['rocky9']
+      package:
+        name: containerd.io
+        state: present
+
 - name: Check whether ctr command exists
   stat:
     path: "{{ bin_dir }}/ctr"
