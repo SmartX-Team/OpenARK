@@ -9,6 +9,15 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
+impl BoxCrd {
+    pub fn last_updated(&self) -> Option<&DateTime<Utc>> {
+        self.status
+            .as_ref()
+            .map(|status| &status.last_updated)
+            .or_else(|| self.metadata.creation_timestamp.as_ref().map(|e| &e.0))
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "kiss.netai-cloud",
@@ -103,6 +112,7 @@ pub enum BoxState {
     Ready,
     Joining,
     Running,
+    GroupChanged,
     Failed,
     Disconnected,
 }
@@ -115,26 +125,14 @@ impl BoxState {
             Self::Ready => None,
             Self::Joining => Some("join"),
             Self::Running => Some("ping"),
-            Self::Failed | Self::Disconnected => Some("reset"),
+            Self::GroupChanged | Self::Failed | Self::Disconnected => Some("reset"),
         }
-    }
-
-    pub const fn is_atomic(&self) -> bool {
-        matches!(
-            self,
-            Self::New
-                | Self::Commissioning
-                | Self::Ready
-                | Self::Joining
-                | Self::Failed
-                | Self::Disconnected,
-        )
     }
 
     pub const fn cron(&self) -> Option<&'static str> {
         match self {
             Self::Running => Some("@hourly"),
-            // Self::Disconnected => Some("@hourly"),
+            // Self::GroupChanged | Self::Failed | Self::Disconnected => Some("@hourly"),
             _ => None,
         }
     }
@@ -146,14 +144,14 @@ impl BoxState {
             Self::Ready => Self::Joining,
             Self::Joining => Self::Joining,
             Self::Running => Self::Running,
-            Self::Failed => Self::Disconnected,
+            Self::GroupChanged => Self::GroupChanged,
+            Self::Failed => Self::Failed,
             Self::Disconnected => Self::Disconnected,
         }
     }
 
     pub fn timeout(&self) -> Option<Duration> {
         let fallback_update = Duration::hours(2);
-        let fallback_disconnected = Duration::weeks(1);
 
         match self {
             Self::New => None,
@@ -161,16 +159,12 @@ impl BoxState {
             Self::Ready => None,
             Self::Joining => Some(fallback_update),
             Self::Running => None,
-            Self::Failed => Some(fallback_disconnected),
-            Self::Disconnected => Some(fallback_disconnected),
+            Self::GroupChanged | Self::Failed | Self::Disconnected => None,
         }
     }
 
-    pub fn timeout_update(&self) -> Option<Duration> {
-        match self {
-            Self::New => Some(Duration::seconds(30)),
-            _ => None,
-        }
+    pub fn timeout_new() -> Duration {
+        Duration::seconds(30)
     }
 }
 
