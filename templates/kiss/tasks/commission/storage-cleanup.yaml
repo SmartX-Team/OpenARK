@@ -4,9 +4,3 @@
 
 - name: Cleanup all CSI plugins
   include: storage-cleanup-csi.yaml
-
-- name: Cleanup all kubernetes data
-  import_playbook: >
-    /kubespray/reset.yml
-    reset_confirmation="yes"
-  ignore_errors: true

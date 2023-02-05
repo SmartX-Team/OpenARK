@@ -12,5 +12,14 @@
     # Step 5 - Configure devices
     - include: power.yaml
     - include: network.yaml
-    # Step 6 - Submit
+
+- name: Cleanup all kubernetes data
+  import_playbook: >
+    /kubespray/reset.yml
+    reset_confirmation="yes"
+  ignore_errors: true
+
+---
+- hosts: target
+  tasks:
     - include: submit.yaml
