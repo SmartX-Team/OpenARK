@@ -47,22 +47,23 @@ impl ::kiss_api::manager::Ctx for Ctx {
         let mut new_state = old_state.next();
         let mut new_group = None;
 
-        // wait new boxes with no access methods for begin provisioned
-        if matches!(old_state, BoxState::New)
-            && !status
-                .as_ref()
-                .map(|status| status.access.primary.is_some())
-                .unwrap_or_default()
-        {
-            let timeout = BoxState::timeout_new();
-
+        // wait until status updating timeout is end
+        if let Some(timeout) = old_state.timeout_update() {
             if let Some(last_updated) = status
                 .map(|status| &status.last_updated)
                 .or_else(|| data.metadata.creation_timestamp.as_ref().map(|e| &e.0))
             {
                 if now > *last_updated + timeout {
-                    // update the status
-                    new_state = old_state.fail();
+                    // wait new boxes with no access methods for begin provisioned
+                    if matches!(old_state, BoxState::New)
+                        && !status
+                            .as_ref()
+                            .map(|status| status.access.primary.is_some())
+                            .unwrap_or_default()
+                    {
+                        // update the status
+                        new_state = old_state.fail();
+                    }
                 } else {
                     return Ok(Action::requeue(timeout.to_std().unwrap()));
                 }
