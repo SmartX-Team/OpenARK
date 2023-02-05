@@ -4,3 +4,6 @@
 
 - name: Cleanup all CSI plugins
   include: storage-cleanup-csi.yaml
+
+- name: Cleanup all kubernetes data
+  include: storage-cleanup-kubernetes.yaml

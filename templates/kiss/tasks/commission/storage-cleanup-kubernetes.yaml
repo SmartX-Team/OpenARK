@@ -1,0 +1,18 @@
+---
+- include_role:
+    name: /kubespray/roles/kubespray-defaults
+
+- when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'"
+  include_role:
+    name: /kubespray/roles/kubernetes/preinstall
+    apply:
+      tags:
+        - resolvconf
+  vars:
+    dns_early: true
+
+- include_role:
+    name: /kubespray/roles/reset
+    apply:
+      tags:
+        - reset
