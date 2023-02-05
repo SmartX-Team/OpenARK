@@ -10,7 +10,9 @@
   vars:
     skip_downloads: true
 
-- when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'"
+- when:
+    - dns_mode is defined and dns_mode != 'none'
+    - resolvconf_mode is defined and resolvconf_mode == 'host_resolvconf'
   include_role:
     name: /kubespray/roles/kubernetes/preinstall
     apply:
