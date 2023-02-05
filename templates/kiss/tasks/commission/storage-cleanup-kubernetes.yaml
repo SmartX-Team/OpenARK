@@ -7,8 +7,8 @@
     apply:
       tags:
         - facts
-    vars:
-      skip_downloads: true
+  vars:
+    skip_downloads: true
 
 - when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'"
   include_role:
