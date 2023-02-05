@@ -1,0 +1,14 @@
+---
+- name: Set common facts for resetting
+  set_fact:
+    containerd_bin_dir: "{{ containerd_bin_dir | default(bin_dir) }}"
+    deploy_container_engine: "{{ deploy_container_engine | default(inventory_hostname in groups['k8s_cluster'] or etcd_deployment_type == 'docker') }}"
+    is_fedora_coreos: "{{ is_fedora_coreos | default(False) }}"
+
+- name: Reset the kubespray node
+  include_tasks: /kubespray/roles/reset/tasks/main.yml
+  ignore_errors: true
+  vars:
+    flush_iptables: true
+    kube_network_plugin: null
+    reset_restart_network: true
