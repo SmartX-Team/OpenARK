@@ -2,11 +2,11 @@
 - import_playbook: ./add-node-as-control_plane.yaml
 - import_playbook: ./add-node-as-bgp-peer.yaml
 
-- hosts: kube_control_plane
+- hosts: target
   tasks:
     - when:
-        - groups['kube_control_plane'] | length == 1
         - kiss_cluster_is_default is defined and not kiss_cluster_is_default
+        - kiss_cluster_is_new is defined and kiss_cluster_is_new
       block:
         - name: Mark the bootstrapped node as "first-node"
           shell: >

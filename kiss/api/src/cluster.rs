@@ -153,6 +153,10 @@ impl<'a> ClusterState<'a> {
             self.is_control_plane_ready()
         }
     }
+
+    pub fn is_new(&self) -> bool {
+        self.is_node_control_plane() && self.get_control_planes_running() == 0
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
