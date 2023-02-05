@@ -57,12 +57,16 @@
         name: "{{ lookup('env', 'ansible_host') }}"
         groups:
           - all
-          - kube_node
+          - >-
+            {{ 'kube_node'
+              if 'kube_control_plane' in groups and (groups['kube_control_plane'] | length > 0)
+              else 'kube_control_plane'
+            }}
           - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
           - "os_{{ lookup('env', 'kiss_os_default') }}"
           - target
 
-- hosts: kube_node
+- hosts: k8s_cluster
   gather_facts: false
   tasks:
     - name: Change cluster name - {{ lookup('env', 'kiss_cluster_name') }}
