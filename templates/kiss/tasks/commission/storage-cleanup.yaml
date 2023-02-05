@@ -13,4 +13,5 @@
     deploy_container_engine: "{{ deploy_container_engine | default(inventory_hostname in groups['k8s_cluster'] or etcd_deployment_type == 'docker') }}"
     flush_iptables: true
     is_fedora_coreos: "{{ is_fedora_coreos | default(False) }}"
+    kube_network_plugin: null
     reset_restart_network: true
