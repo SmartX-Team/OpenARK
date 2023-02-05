@@ -14,12 +14,14 @@
     - include: network.yaml
 
 - name: Cleanup all kubernetes data
+  when:
+    - not kiss_os_exists
+    - kiss_os_hot_install
   import_playbook: >
     /kubespray/reset.yml
     reset_confirmation="yes"
   ignore_errors: true
 
----
 - hosts: target
   tasks:
     - include: submit.yaml
