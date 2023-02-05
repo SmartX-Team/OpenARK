@@ -6,4 +6,7 @@
   include: storage-cleanup-csi.yaml
 
 - name: Cleanup all kubernetes data
-  include: storage-cleanup-kubernetes.yaml
+  import_playbook: >
+    /kubespray/reset.yml
+    reset_confirmation="yes"
+  ignore_errors: true
