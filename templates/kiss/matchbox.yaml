@@ -336,7 +336,6 @@ data:
 
       ### SystemD Configuration
       SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
-      ln -sf /usr/local/lib/systemd/user/x11.service "${SERVICE_HOME}/default.target.wants/x11.service"
 
       for service in \
         "pipewire.service default.target.wants/pipewire.service" \
