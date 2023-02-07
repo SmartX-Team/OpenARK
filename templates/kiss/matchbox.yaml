@@ -83,7 +83,7 @@ data:
     group --gid 999 --name input
     group --gid 1000 --name docker
     user --uid 1000 --gid 1001 --name ENV_USERNAME --groups docker,users,wheel
-    user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
+    user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,render,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
     sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
 
     # Disk Configuration
@@ -320,23 +320,24 @@ data:
     echo "Starting Xorg display server ..."
     exec /bin/Xorg
     EOF
-      chmod 500 /usr/local/bin/xinit
-      cat <<EOF >/etc/systemd/system/x11.service
-    [Unit]
-    After=getty.target
+      chmod 555 /usr/local/bin/xinit
 
-    [Service]
-    ExecStart=/usr/local/bin/xinit
-    Restart=on-failure
-    RestartSec=1
+      mkdir -p /etc/profile.d/
+      cat <<EOF >/etc/profile.d/x11.sh
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
 
-    [Install]
-    WantedBy=multi-user.target
+    # Execute X11 Display Server on login
+    if [ "${XDG_SESSION_TYPE}" == "tty" ]; then
+      exec /usr/local/bin/xinit
+    fi
     EOF
-      ln -sf /etc/systemd/system/x11.service /etc/systemd/system/multi-user.target.wants/x11.service
 
       ### SystemD Configuration
       SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
+      ln -sf /usr/local/lib/systemd/user/x11.service "${SERVICE_HOME}/default.target.wants/x11.service"
+
       for service in \
         "pipewire.service default.target.wants/pipewire.service" \
         "pipewire.socket sockets.target.wants/pipewire.socket" \
@@ -372,13 +373,23 @@ data:
       mkdir -p /etc/X11/xorg.conf.d/
       cat <<EOF >/etc/X11/xorg.conf.d/65-setxkbmap.conf
     Section "ServerFlags"
-    Option "DontVTSwitch" "on"
+      Option "DontVTSwitch" "on"
     EndSection
 
     Section "InputClass"
       Identifier "keyboard defaults"
       MatchIsKeyboard "on"
       Option "XKbOptions" "srvrkeys:none"
+    EndSection
+    EOF
+
+      #### Disable Screen Blank Time
+      cat <<EOF >/etc/X11/xorg.conf.d/10-monitor.conf
+    Section "ServerFlags"
+      Option "BlankTime" "0"
+      Option "OffTime" "0"
+      Option "StandbyTime" "0"
+      Option "SuspendTime" "0"
     EndSection
     EOF
     fi
