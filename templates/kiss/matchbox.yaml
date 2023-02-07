@@ -406,7 +406,7 @@ data:
 
     ## DKMS build
     if which dkms >/dev/null 2>/dev/null; then
-      dkms autoinstall
+      dkms autoinstall -k "$(ls /lib/modules/)"
     fi
 
     %end
