@@ -206,7 +206,7 @@ data:
     # Driver Configuration
     ## GPU - NVIDIA
     if lspci | grep 'VGA' | grep 'NVIDIA'; then
-      dnf install -y epel-release kernel-devel-$(uname -r) kernel-headers-$(uname -r)
+      dnf install -y epel-release "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)"
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
       dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
 
