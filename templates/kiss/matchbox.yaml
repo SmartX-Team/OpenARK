@@ -136,6 +136,12 @@ data:
     bootloader --boot-drive ${ROOTDEV}
     EOF
 
+    # Repository Information
+    cat <<EOF >>/tmp/kiss-config
+    repo --name=AppStream --baseurl="http://download.rockylinux.org/pub/rocky/9/AppStream/$(uname -m)/os/"
+    repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/9/extras/$(uname -m)/os/"
+    EOF
+
     # Reboot after installation
     if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); then
       ## Wireless - WIFI => Power Off
@@ -206,7 +212,7 @@ data:
     # Driver Configuration
     ## GPU - NVIDIA
     if lspci | grep 'VGA' | grep 'NVIDIA'; then
-      dnf install -y epel-release "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)"
+      dnf install -y epel-release kernel-devel kernel-headers
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
       dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
 
