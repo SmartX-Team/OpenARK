@@ -59,7 +59,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss");
+                let pp = PatchParams::apply("kiss-gateway");
                 api.patch_status(&name, &pp, &patch).await?;
             }
             Err(_) => {
@@ -94,7 +94,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss");
+                let pp = PatchParams::apply("kiss-gateway");
                 api.patch_status(&name, &pp, &patch).await?;
             }
         }
@@ -146,7 +146,7 @@ async fn post_commission(
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss");
+                let pp = PatchParams::apply("kiss-gateway");
                 api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
