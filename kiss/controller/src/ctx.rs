@@ -162,7 +162,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 return Ok(Action::await_change());
             }
 
-            // Fix bind group before joining to a cluster
+            // bind group before joining to a cluster
             let bind_group = if matches!(new_state, BoxState::Joining) {
                 Some(&data.spec.group)
             } else {
