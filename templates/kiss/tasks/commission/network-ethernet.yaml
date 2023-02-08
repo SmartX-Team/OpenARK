@@ -85,38 +85,13 @@
   debug:
     var: interface_primary
 
-- name: List all network configurations
-  when: kiss_network_service == 'systemd-networkd'
-  find:
-    paths:
-      - /etc/systemd/network/
-    file_type: directory
-    pattern: "*-kiss-*"
-  register: results
+- name: Configure network interfaces | NetworkManager
+  when: kiss_network_service == 'NetworkManager'
+  include: network-ethernet-conf-network-manager.yaml
 
-- name: Remove all network configurations
+- name: Configure network interfaces | systemd-networkd
   when: kiss_network_service == 'systemd-networkd'
-  file:
-    path: "{{ item.path }}"
-    state: absent
-    force: true
-  with_items: "{{ results.files }}"
-
-- name: Enable primary interfaces
-  when: kiss_network_service == 'systemd-networkd'
-  with_items: "{{ interfaces[:1] }}"
-  template:
-    src: ./template_systemd-networkd_10-enable.network.j2
-    dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.network
-
-- name: Disable all other interfaces
-  when:
-    - kiss_allow_pruning_network_interfaces | default(False)
-    - kiss_network_service == 'systemd-networkd'
-  with_items: "{{ interfaces[1:] }}"
-  template:
-    src: ./template_systemd-networkd_20-disable.network.j2
-    dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network
+  include: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
   with_items: "{{ interfaces[:1] }}"
