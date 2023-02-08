@@ -116,7 +116,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         "lastUpdated": Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-controller");
+                let pp = PatchParams::apply("kiss");
                 api.patch_status(&name, &pp, &patch).await?;
 
                 info!("Skipped joining (already joined) {name:?}");
@@ -178,7 +178,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     "lastUpdated": Utc::now(),
                 },
             }));
-            let pp = PatchParams::apply("kiss-controller");
+            let pp = PatchParams::apply("kiss");
             api.patch_status(&name, &pp, &patch).await?;
 
             info!("Reconciled Document {name:?}");

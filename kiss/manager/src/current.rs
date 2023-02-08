@@ -93,7 +93,7 @@ impl Handler {
                 "version": version.to_string(),
             },
         }));
-        let pp = PatchParams::apply("kiss-manager").force();
+        let pp = PatchParams::apply("kiss").force();
         self.api_config.patch("manager", &pp, &patch).await?;
         Ok(())
     }

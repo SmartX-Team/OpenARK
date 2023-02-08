@@ -112,7 +112,7 @@ impl Ctx {
                     "lastUpdated": Utc::now(),
                 },
             }));
-            let pp = PatchParams::apply("kiss-monitor").force();
+            let pp = PatchParams::apply("kiss").force();
             api.patch_status(&box_name, &pp, &patch).await?;
         }
 
