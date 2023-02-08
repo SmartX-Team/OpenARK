@@ -13,7 +13,7 @@ use kiss_api::{
         Api, CustomResourceExt, Error, ResourceExt,
     },
     manager::Manager,
-    r#box::{BoxCrd, BoxGroupRole, BoxState, BoxStatus},
+    r#box::{BoxCrd, BoxGroupRole, BoxState},
     serde_json::json,
 };
 
@@ -108,14 +108,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 .map(|bind_group| bind_group == &data.spec.group)
                 .unwrap_or_default()
             {
-                let patch = Patch::Merge(json!({
+                let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
-                    "status": BoxStatus {
-                        state: BoxState::Running,
-                        access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
-                        bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
-                        last_updated: Utc::now(),
+                    "status": {
+                        "state": BoxState::Running,
+                        "lastUpdated": Utc::now(),
                     },
                 }));
                 let pp = PatchParams::apply("kiss-controller");
@@ -164,14 +162,20 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 return Ok(Action::await_change());
             }
 
-            let patch = Patch::Merge(json!({
+            // Fix bind group before joining to a cluster
+            let bind_group = if matches!(new_state, BoxState::Joining) {
+                Some(&data.spec.group)
+            } else {
+                None
+            };
+
+            let patch = Patch::Apply(json!({
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
-                "status": BoxStatus {
-                    state: new_state,
-                    access: status.as_ref().map(|status| status.access.clone()).unwrap_or_default(),
-                    bind_group: status.as_ref().and_then(|status| status.bind_group.clone()),
-                    last_updated: Utc::now(),
+                "status": {
+                    "state": new_state,
+                    "bindGroup": bind_group,
+                    "lastUpdated": Utc::now(),
                 },
             }));
             let pp = PatchParams::apply("kiss-controller");
