@@ -335,9 +335,9 @@ data:
     # found in the LICENSE file.
 
     # Execute X11 Display Server on login
-    if [ "${XDG_SESSION_TYPE}" == "tty" && "$(id -u)" == "2000" ]; then
-      TTY=$(tty)
-      if [ "${TTY/\/dev\/tty}" == "1" ]; then
+    if [[ "\${XDG_SESSION_TYPE}" == "tty" && "\$(id -u)" == "2000" ]]; then
+      TTY="\$(tty)"
+      if [[ "\${TTY/\/dev\/tty}" == "1" ]]; then
         unset TTY
         exec /usr/local/bin/xinit
       fi
