@@ -297,6 +297,12 @@ data:
     chmod 700 "${TENANT_HOME}"
     chown tenant:tenant "${TENANT_HOME}"
 
+    # Guest User Configuration
+    TENANT_GUEST_HOME="/opt/vdi/tenants/remote/guest"
+    mkdir -p "${TENANT_GUEST_HOME}"
+    chmod 700 "${TENANT_GUEST_HOME}"
+    chown tenant:tenant "${TENANT_GUEST_HOME}"
+
     # Post-Hook
     ## Desktop Environment Configuration
     if [ "${_IS_DESKTOP}" == "true" ]; then
