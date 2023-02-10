@@ -111,6 +111,9 @@ RUN dnf install -y \
     xfce4-appfinder xfce4-panel xfce4-pulseaudio-plugin xfce4-session \
     xfce4-settings xfce4-terminal \
     xfconf xfdesktop xfwm4 \
+    # Disable xfce-polkit
+    && rm /etc/xdg/autostart/xfce-polkit.desktop \
+    && rm /usr/libexec/xfce-polkit \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
