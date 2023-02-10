@@ -30,7 +30,7 @@ if [ "${X11VNC_FOREVER}" != "false" ]; then
 fi
 
 # Multi-user sharing
-if [ "${X11VNC_MULTIPTR}" != "false" ]; then
+if [ "${X11VNC_MULTIPTR}" == "true" ]; then
     ARGS="${ARGS} -multiptr"
 fi
 if [ "${X11VNC_REPEAT}" != "false" ]; then
