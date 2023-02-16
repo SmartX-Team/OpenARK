@@ -3,8 +3,7 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG CUDA_VERSION="12.0.1"
-ARG ROCKYLINUX_VERSION_MAJOR="8"
+ARG ROCKYLINUX_VERSION="8"
 
 # Configure user-specific environment variables
 ARG USER_GID="2000"
@@ -14,10 +13,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "docker.io/nvidia/cuda:${CUDA_VERSION}-runtime-rockylinux${ROCKYLINUX_VERSION_MAJOR}"
-
-# Load environment variables
-ARG ROCKYLINUX_VERSION_MAJOR
+FROM "quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION}"
 
 # Load user-specific environment variables
 ARG USER_GID
@@ -47,7 +43,10 @@ RUN echo 'override_install_langs=en_US' >>/etc/yum.conf
 ADD ./repos/*.repo /etc/yum.repos.d/
 RUN dnf install -y \
     epel-release \
-    "https://pkgs.dyn.su/el${ROCKYLINUX_VERSION_MAJOR}/base/x86_64/raven-release.el${ROCKYLINUX_VERSION_MAJOR}.noarch.rpm" \
+    "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
+    "https://pkgs.dyn.su/el$(rpm -E %rhel)/base/x86_64/raven-release.el$(rpm -E %rhel).noarch.rpm" \
+    && dnf config-manager --set-enabled powertools \
+    && dnf config-manager --set-disabled raven raven-extras raven-modular raven-multimedia raven-testing \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -58,8 +57,56 @@ RUN dnf install -y \
     mesa-dri-drivers \
     pipewire \
     vulkan \
-    # wireplumber \
-    xdg-dbus-proxy \
+    #wireplumber \
+    yum-utils \
+    # Cleanup
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+# Install locale dependencies
+RUN dnf install -y \
+    glibc-langpack-ko \
+    # Cleanup
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+# Install AI dev core dependencies
+RUN yum check-update -y \
+    ; CUDA_VERSION="$( \
+    repoquery --requires --recursive --resolve 'tensorrt' \
+    | grep -Po 'cuda-cudart-devel-\K[0-9]+\-[0-9]+' \
+    | tail -n 1 \
+    )" \
+    && dnf install -y --enablerepo rpmfusion-free-updates \
+    "cuda-cudart-devel-${CUDA_VERSION}" \
+    "$(dnf list 'cuda-cufft-[0-9-]*' -q | grep -Po 'cuda-cufft-[0-9-]*' | tail -n 1)" \
+    glib2-devel \
+    gstreamer1-devel \
+    gstreamer1-libav \
+    gstreamer1-plugins-bad-free \
+    gstreamer1-plugins-base-devel \
+    gstreamer1-plugins-good \
+    gstreamer1-plugins-ugly \
+    gstreamer1-plugins-ugly-free \
+    gstreamer1-svt-av1 \
+    json-glib \
+    "libcublas-devel-${CUDA_VERSION}" \
+    "$(dnf list 'libcublas-devel-[0-9-]*' -q | grep -Po 'libcublas-devel-[0-9-]*' | tail -n 1)" \
+    "libnpp-devel-${CUDA_VERSION}" \
+    libuuid \
+    opencv \
+    openssl \
+    tensorrt \
+    yaml-cpp \
+    # Environment Variables Configuration
+    && echo '# NVIDIA CUDA binary path registration' >/etc/profile.d/path-nvidia-cuda-bin.sh \
+    && echo '# NVIDIA CUDA library path registration' >/etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    && for cuda_home in /usr/local/cuda\-[0-9]*.[0-9]*; do true \
+    && echo "export PATH=\${PATH}:${cuda_home}/bin" >>/etc/profile.d/path-nvidia-cuda-bin.sh \
+    && echo "${cuda_home}/lib" >>/etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    && echo "${cuda_home}/lib64" >>/etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    ; done \
+    && ldconfig \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -77,7 +124,6 @@ RUN dnf install -y \
     "${USER_SHELL}" \
     vim \
     wget \
-    yum-utils \
     zip \
     # Allow passwordless sudo command
     && if [ "${USER_SUDO}" == "true" ]; then \
@@ -88,15 +134,19 @@ RUN dnf install -y \
     && systemctl enable podman \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
-    && echo 'export PATH=${PATH}:/usr/local/bin' >/etc/profile.d/path-local-bin.sh \
-    && echo 'export PATH=${PATH}:/opt/bin' >/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/opt/bin' >>/etc/profile.d/path-local-bin.sh \
     && ln -sf /usr/local/bin /opt/bin \
+    && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && ldconfig \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install desktop environment dependencies
-RUN dnf install -y \
+RUN dnf install -y --enablerepo raven \
     code \
     dbus-x11 \
     file-roller \
@@ -108,6 +158,7 @@ RUN dnf install -y \
     sqlite \
     Thunar thunar-archive-plugin thunar-volman \
     tumbler \
+    xdg-dbus-proxy \
     xfce4-appfinder xfce4-panel xfce4-pulseaudio-plugin xfce4-session \
     xfce4-settings xfce4-terminal \
     xfconf xfdesktop xfwm4 \
@@ -126,15 +177,146 @@ RUN dnf install -y \
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
-# Install locale dependencies
+# Install AI dev build dependencies - Force update glibc & libstdc++
+RUN BIN_DIR="/opt/tmp-updates" \
+    && mkdir -p "${BIN_DIR}" \
+    && pushd "${BIN_DIR}" \
+    # Download
+    && dnf download --quiet --arch "$(uname -m)" --releasever 9 --repo baseos \
+    glibc \
+    libstdc++ \
+    # Decompress the downloaded files
+    && for file in *.rpm; do true \
+    && rpm2cpio "${file}" | cpio -idmv -D "/" \
+    ; done \
+    && ldconfig \
+    # Cleanup
+    && popd \
+    && rm -rf "${BIN_DIR}" \
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+# Install AI dev build dependencies - `gst-rtsp-server-devel`
+ARG GST_RTSP_SERVER_FILENAME="gst-rtsp-server-1.14.5.tar.xz"
+ARG GST_RTSP_SERVER_REPO="https://gstreamer.freedesktop.org/src/gst-rtsp-server"
+RUN true \
+    ## Get the latest version
+    #&& GST_RTSP_SERVER_FILENAME=$( \
+    #curl -s "${GST_RTSP_SERVER_REPO}/" \
+    #| grep -Po 'a href="\Kgst-rtsp-server-[0-9.]+.tar.xz' \
+    #| tail -n 1 \
+    #) \
+    # Download
+    && GST_RTSP_SERVER_SRC_FILE="/opt/gst-rtsp-server.tar.xz" \
+    && GST_RTSP_SERVER_SRC_HOME="/opt/${GST_RTSP_SERVER_FILENAME%.tar.xz}" \
+    && wget -O "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_REPO}/${GST_RTSP_SERVER_FILENAME}" \
+    # Decompress the downloaded file
+    && tar -x -C "$(dirname "${GST_RTSP_SERVER_SRC_HOME}")" -f "${GST_RTSP_SERVER_SRC_FILE}" \
+    # Build
+    && pushd "${GST_RTSP_SERVER_SRC_HOME}" \
+    && ./configure && make && make install \
+    && popd \
+    # Cleanup
+    && rm -rf "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_SRC_HOME}"
+
+# Install AI dev dependencies
+ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
+ARG DEEPSTREAM_URL_HOME="https://developer.nvidia.com/deepstream-getting-started"
+RUN true \
+    # Get the latest version
+    && DEEPSTREAM_VERSION=$( \
+    curl -s "${DEEPSTREAM_URL_HOME}" \
+    | grep -Po '/downloads/deepstream\-sdk\-v\K[0-9]+' \
+    | head -n 1 \
+    ) \
+    # Parse the version information
+    && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
+    && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION:0:1}" \
+    && DEEPSTREAM_VERSION_MINOR="${DEEPSTREAM_VERSION:1:1}" \
+    && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION:2:1}" \
+    && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
+    && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
+    # Download
+    && DEEPSTREAM_SDK_FILE="/opt/deepstream-sdk.tbz2" \
+    && wget -O "${DEEPSTREAM_SDK_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/DeepStream_${DEEPSTREAM_VERSION_RELEASE}/deepstream_sdk_v${DEEPSTREAM_VERSION_FULL}_$(uname -m).tbz2" \
+    # Decompress the downloaded file
+    && tar -x -C '/' -f "${DEEPSTREAM_SDK_FILE}" \
+    # Install
+    && pushd "${DEEPSTREAM_HOME}" \
+    && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
+    && ./install.sh && ldconfig \
+    && rm -f *.sh \
+    && popd \
+    # Download the latest configuration files
+    && DEEPSTREAM_MODELS_DIR="${DEEPSTREAM_HOME}/samples/configs/tao_pretrained_models" \
+    && DEEPSTREAM_SAMPLE_HOME="/opt/deepstream_reference_apps" \
+    && git clone "${DEEPSTREAM_REFERENCES_REPO_URL}" "${DEEPSTREAM_SAMPLE_HOME}" \
+    && pushd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
+    && cp -a * "${DEEPSTREAM_MODELS_DIR}" \
+    && popd \
+    # Download the models
+    && pushd "${DEEPSTREAM_MODELS_DIR}" \
+    && ./download_models.sh \
+    && popd \
+    # Change permissions for user-level modification
+    && chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
+    # Cleanup
+    && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
+    && rm -f "${DEEPSTREAM_SDK_FILE}"
+
+# Install utilities
 RUN dnf install -y \
-    glibc-langpack-ko \
+    # Games (Lutris)
+    gamemode \
+    gnutls.i686 \
+    mesa-libEGL.i686 \
+    mesa-libGLU.i686 \
+    python3-certifi \
+    python3-distro \
+    python3-gobject \
+    python3-lxml \
+    python3-pillow \
+    python3-pyyaml \
+    python3-requests \
+    vulkan-loader.i686 \
+    webkit2gtk3 \
+    wine \
+    winetricks \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
+# Install utilities - Games - Lutris
+ARG LUTRIS_REPO="https://lutris.net/releases"
+RUN true \
+    # Get the latest version
+    && LUTRIS_VERSION=$( \
+    curl -s "${LUTRIS_REPO}/" \
+    | grep -Po 'lutris\_[0-9\.]+\.tar\.xz' \
+    | sort -V \
+    | tail -n 1 \
+    ) \
+    # Download
+    && LUTRIS_HOME="/opt/lutris" \
+    && LUTRIS_OBJ_FILE="/opt/lutris.tar.xz" \
+    && wget -O "${LUTRIS_OBJ_FILE}" "${LUTRIS_REPO}/${LUTRIS_VERSION}" \
+    # Decompress the downloaded file
+    && tar -x -C "$(dirname "${LUTRIS_HOME}")" -f "${LUTRIS_OBJ_FILE}" \
+    # Environment Variables Configuration
+    && echo '# Lutris binary path registration' >/etc/profile.d/path-games-lutris-bin.sh \
+    && echo "export PATH=\${PATH}:${LUTRIS_REPO}/bin" >>/etc/profile.d/path-games-lutris-bin.sh \
+    && ln -sf /usr/local/bin /opt/bin \
+    && echo '# Lutris library path registration' >/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
+    && echo "${LUTRIS_REPO}/lib" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
+    && echo "${LUTRIS_REPO}/lib64" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
+    && ldconfig \
+    # Cleanup
+    && rm -rf "${LUTRIS_OBJ_FILE}"
+
 # Add a user
-RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
+RUN ldconfig \
+    && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pipewire,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}"
 USER "${USER_NAME}"

@@ -1,5 +1,5 @@
 [microsoft]
-name=packages.microsoft.com
+name=Extras - Microsoft
 baseurl=https://packages.microsoft.com/yumrepos/vscode/
 enabled=1
 gpgcheck=1
