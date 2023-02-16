@@ -266,12 +266,14 @@ RUN true \
     && rm -f "${DEEPSTREAM_SDK_FILE}"
 
 # Install utilities
-RUN dnf install -y \
+RUN ARCH_WIN32='i686' \
+    && dnf install -y \
     # Games (Lutris)
     gamemode \
-    gnutls.i686 \
-    mesa-libEGL.i686 \
-    mesa-libGLU.i686 \
+    "gnutls.${ARCH_WIN32}" \
+    "mesa-dri-drivers.${ARCH_WIN32}" \
+    "mesa-libEGL.${ARCH_WIN32}" \
+    "mesa-libGLU.${ARCH_WIN32}" \
     python3-certifi \
     python3-distro \
     python3-gobject \
@@ -279,7 +281,7 @@ RUN dnf install -y \
     python3-pillow \
     python3-pyyaml \
     python3-requests \
-    vulkan-loader.i686 \
+    "vulkan-loader.${ARCH_WIN32}" \
     webkit2gtk3 \
     wine \
     winetricks \
@@ -305,11 +307,11 @@ RUN true \
     && tar -x -C "$(dirname "${LUTRIS_HOME}")" -f "${LUTRIS_OBJ_FILE}" \
     # Environment Variables Configuration
     && echo '# Lutris binary path registration' >/etc/profile.d/path-games-lutris-bin.sh \
-    && echo "export PATH=\${PATH}:${LUTRIS_REPO}/bin" >>/etc/profile.d/path-games-lutris-bin.sh \
+    && echo "export PATH=\${PATH}:${LUTRIS_HOME}/bin" >>/etc/profile.d/path-games-lutris-bin.sh \
     && ln -sf /usr/local/bin /opt/bin \
     && echo '# Lutris library path registration' >/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
-    && echo "${LUTRIS_REPO}/lib" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
-    && echo "${LUTRIS_REPO}/lib64" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
+    && echo "${LUTRIS_HOME}/lib" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
+    && echo "${LUTRIS_HOME}/lib64" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
     && ldconfig \
     # Cleanup
     && rm -rf "${LUTRIS_OBJ_FILE}"

@@ -166,6 +166,11 @@ data:
 
     # Pre-Hook
     ## Desktop Environment Configuration
+    if [ "$(uname -m)" = 'x86_64' ]; then
+      ARCH_WIN32='i686'
+    else
+      ARCH_WIN32="$(uname -m)"
+    fi
     _IS_DESKTOP=false
 
     # Advanced Network configuration
@@ -214,7 +219,14 @@ data:
     if lspci | grep 'VGA' | grep 'NVIDIA'; then
       dnf install -y epel-release kernel-devel kernel-headers
       dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
-      dnf install -y cuda-driver dkms kmod-nvidia-latest-dkms
+      dnf install -y \
+        cuda-driver \
+        dkms \
+        kmod-nvidia-latest-dkms \
+        "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
+        "nvidia-driver-libs.${ARCH_WIN32}" \
+        "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
+        "nvidia-driver-NVML.${ARCH_WIN32}"
 
       cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
     blacklist nouveau
@@ -307,7 +319,18 @@ data:
     ## Desktop Environment Configuration
     if [ "${_IS_DESKTOP}" == "true" ]; then
       ### Common
-      dnf install -y mesa-dri-drivers pipewire vulkan wireplumber xdg-dbus-proxy xorg-x11-server-Xorg
+      dnf install -y \
+        "gnutls.${ARCH_WIN32}" \
+        mesa-dri-drivers \
+        "mesa-dri-drivers.${ARCH_WIN32}" \
+        "mesa-libGLU.${ARCH_WIN32}" \
+        pipewire \
+        "pipewire.${ARCH_WIN32}" \
+        vulkan \
+        "vulkan-loader.${ARCH_WIN32}" \
+        wireplumber \
+        xdg-dbus-proxy \
+        xorg-x11-server-Xorg
 
       #### Autologin to X11
       cat <<EOF >/usr/local/bin/xinit
