@@ -491,6 +491,13 @@ data:
                   "registry.kiss.svc.ops.netai-cloud"
                 ]
               }
+        - path: /etc/flatcar/update.conf
+          filesystem: root
+          overwrite: true
+          mode: 0444
+          contents:
+            inline: |
+              REBOOT_STRATEGY=off
         - path: /etc/modules-load.d/10-gpu-nvidia-driver.conf
           filesystem: root
           overwrite: true
