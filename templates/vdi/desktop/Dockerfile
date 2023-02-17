@@ -159,8 +159,8 @@ RUN dnf install -y --enablerepo raven \
     Thunar thunar-archive-plugin thunar-volman \
     tumbler \
     xdg-dbus-proxy \
-    xfce4-appfinder xfce4-panel xfce4-pulseaudio-plugin xfce4-session \
-    xfce4-settings xfce4-terminal \
+    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
+    xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop xfwm4 \
     # Disable xfce-polkit
     && rm /etc/xdg/autostart/xfce-polkit.desktop \
@@ -265,6 +265,37 @@ RUN true \
     && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
     && rm -f "${DEEPSTREAM_SDK_FILE}"
 
+# Install WINE
+ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
+RUN true \
+    # Get the latest version
+    && WINE_ARCH="amd64" \
+    && WINE_VERSION="8.1" \
+    # Install dependencies
+    && dnf install -y wine \
+    && dnf remove -y --noautoremove "wine*" \
+    && dnf install -y \
+    winetricks \
+    # Download
+    && WINE_HOME="/opt/wine" \
+    && WINE_OBJ_FILE="/opt/wine.tar.xz" \
+    && wget -O "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}.tar.xz" \
+    # Decompress the downloaded file
+    && mkdir -p "${WINE_HOME}" \
+    && tar -x -C "${WINE_HOME}" -f "${WINE_OBJ_FILE}" \
+    # Environment Variables Configuration
+    && echo '# WINE binary path registration' >/etc/profile.d/path-wine-bin.sh \
+    && echo '# WINE library path registration' >/etc/ld.so.conf.d/900-wine.conf \
+    && for wine_home in ${WINE_HOME}/wine\-*; do true \
+    && echo "export PATH=\${PATH}:${wine_home}/bin" >>/etc/profile.d/path-wine-bin.sh \
+    && echo "${wine_home}/lib" >>/etc/ld.so.conf.d/900-wine.conf \
+    ; done \
+    && ldconfig \
+    # Cleanup
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.* \
+    && rm -rf "${WINE_OBJ_FILE}"
+
 # Install utilities
 RUN ARCH_WIN32='i686' \
     && dnf install -y \
@@ -283,8 +314,6 @@ RUN ARCH_WIN32='i686' \
     python3-requests \
     "vulkan-loader.${ARCH_WIN32}" \
     webkit2gtk3 \
-    wine \
-    winetricks \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -315,6 +344,19 @@ RUN true \
     && ldconfig \
     # Cleanup
     && rm -rf "${LUTRIS_OBJ_FILE}"
+
+# Install utilities - Custom
+ARG ADDONS_HOME="/opt/netai-cloud/vdi/desktop"
+ADD ./addons "${ADDONS_HOME}"
+RUN for file in ${ADDONS_HOME}/bin/*; do true \
+    && chmod a+x "${file}" \
+    ; done \
+    && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \
+    && ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
+    ; done \
+    && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
+    && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
+    ; done
 
 # Add a user
 RUN ldconfig \
