@@ -7,7 +7,7 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
-    "vdi/api",
-    "vdi/controller",
-    "vdi/login",
+    "vine/api",
+    "vine/controller",
+    "vine/login",
 ]
