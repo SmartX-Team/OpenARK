@@ -1,0 +1,137 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: login-shell-scripts
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
+
+    # Get the screen size
+    SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
+    SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
+
+    echo "Executing a login shell..."
+    firefox \
+      --kiosk \
+      --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
+      "${VINE_LOGIN_PORTAL_ENTRYPOINT}" &
+
+    echo "Waiting until window is ready..."
+    while ! xdotool search --classname 'Navigator' >/dev/null; do
+      sleep 0.5
+    done
+
+    while :; do
+      # Enforce: Resizing window to fullscreen
+      xdotool search --classname 'Firefox' windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
+      xdotool search --classname 'Navigator' windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
+      sleep 1
+    done
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: login-shell
+spec:
+  selector:
+    matchLabels:
+      name: login-shell
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: login-shell
+    spec:
+      containers:
+        - name: desktop-environment
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          imagePullPolicy: Always
+          command:
+            - /opt/scripts/entrypoint.sh
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: LANG
+              value: ko_KR.UTF-8
+            - name: LC_ALL
+              value: ko_KR.UTF-8
+            - name: LOCALE
+              value: ko_KR.UTF-8
+            - name: USER
+              value: "2000"
+            - name: VINE_LOGIN_PORTAL_ENTRYPOINT
+              value: https://mobilex.kr/oauth2
+            - name: XDG_RUNTIME_DIR
+              value: /run/user/2000
+          workingDir: /home/user
+          volumeMounts:
+            - name: machine-id
+              mountPath: /etc/machine-id
+              readOnly: true
+            - name: home
+              mountPath: /home/user
+            - name: ice
+              mountPath: /tmp/.ICE-unix
+            - name: runtime-user
+              mountPath: /run/user/2000
+            - name: scripts
+              mountPath: /opt/scripts
+            - name: tmp
+              mountPath: /tmp
+            - name: x11
+              mountPath: /tmp/.X11-unix
+        - name: remote-management-novnc
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-novnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+        - name: remote-management-x11vnc
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-x11vnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: X11VNC_ARGS
+              value: -cursor most -noscr -nowcr -nowf -noxdamage
+            - name: X11VNC_MULTIPTR
+              value: "false"
+            - name: X11VNC_XKB
+              value: "true"
+          volumeMounts:
+            - name: x11
+              mountPath: /tmp/.X11-unix
+      securityContext:
+        runAsUser: 2000
+        fsGroup: 2000
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: machine-id
+          hostPath:
+            path: /etc/machine-id
+            type: File
+        - name: home
+          emptyDir: {}
+        - name: ice
+          hostPath:
+            path: /tmp/.ICE-unix
+            type: Directory
+        - name: runtime-user
+          hostPath:
+            path: /run/user/2000
+            type: Directory
+        - name: scripts
+          configMap:
+            defaultMode: 0555
+            name: login-shell-scripts
+        - name: tmp
+          emptyDir: {}
+        - name: x11
+          hostPath:
+            path: /tmp/.X11-unix
+            type: Directory

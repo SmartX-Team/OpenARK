@@ -58,6 +58,8 @@ RUN dnf install -y \
     pipewire \
     vulkan \
     #wireplumber \
+    wmctrl \
+    xprop \
     yum-utils \
     # Cleanup
     && dnf clean all \
