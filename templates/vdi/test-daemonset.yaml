@@ -1,0 +1,293 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: browser-firefox-scripts
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
+
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
+
+    # Initialize desktop environment
+    "$(dirname "$0")/init-desktop.sh"
+
+    # Execute a desktop environment
+    "$(dirname "$0")/init-desktop-xfce4.sh"
+
+  init-desktop.sh: |-
+    #!/bin/bash
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
+
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
+
+    # Skip if already initialized
+    LOCKFILE="${HOME}/.kiss-lock"
+    if [ -f "${LOCKFILE}" ]; then
+      exec true
+    fi
+
+    # Install 3rd-party libraries
+    function download_library() {
+      # Configure variables
+      URL=$1
+      filename="${URL##*/}"
+      extension="${filename##*.}"
+
+      # Download a file
+      wget "${URL}" -o "${filename}"
+
+      # Extract the file
+      case "${extension}" in
+        "tar")
+          tar -xf "${filename}"
+          ;;
+        "zip")
+          unzip -o -q "${filename}"
+          ;;
+        * )
+          echo "Skipping extracting a file: ${filename}"
+          ;;
+      esac
+
+      # Remove the original file
+      rm -f "${filename}"
+    }
+
+    # ## Fonts
+    # FONT_HOME="${HOME}/.local/share/fonts"
+    # mkdir -p "${FONT_HOME}" && pushd "${FONT_HOME}"
+    #   for url in ${KISS_DESKTOP_FONTS_URL}; do
+    #     download_library "${url}"
+    #   done
+    #   fc-cache -f
+    # popd
+
+    # ## Icons
+    # ICON_HOME="${HOME}/.local/share/icons"
+    # mkdir -p "${ICON_HOME}" && pushd "${ICON_HOME}"
+    #   for url in ${KISS_DESKTOP_ICONS_URL}; do
+    #     download_library "${url}"
+    #   done
+    # popd
+
+    # ## Themes
+    # THEME_HOME="${HOME}/.local/share/themes"
+    # mkdir -p "${THEME_HOME}" && pushd "${THEME_HOME}"
+    #   for url in ${KISS_DESKTOP_THEMES_URL}; do
+    #     download_library "${url}"
+    #   done
+    # popd
+
+    ## ZSH Theme
+    pushd "${HOME}"
+      sh -c "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh")"
+      git clone --depth=1 "https://github.com/romkatv/powerlevel10k.git" "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+
+      ### Cleanup ZSH configurations
+      rm -rf "${HOME}/.zshrc" "${HOME}/.zshrc.pre-oh-my-zsh"
+    popd
+
+    # Download and install templates
+    pushd "${HOME}"
+      git init .
+      git remote add origin "${KISS_DESKTOP_TEMPLATE_GIT}"
+      git pull origin "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
+    popd
+
+    # Disable screen blanking
+    xset -dpms
+    xset s off
+
+    # Finished!
+    exec touch "${LOCKFILE}"
+
+  init-desktop-xfce4.sh: |-
+    #!/bin/bash
+    # Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+    # Use of this source code is governed by a GPL-3-style license that can be
+    # found in the LICENSE file.
+
+    # Prehibit errors
+    set -e
+    # Verbose
+    set -x
+
+    # Run desktop environment
+    exec /bin/dbus-launch xfce4-session
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: browser-firefox
+spec:
+  selector:
+    matchLabels:
+      name: browser-firefox
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: browser-firefox
+    spec:
+      containers:
+        - name: desktop-environment
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          imagePullPolicy: Always
+          command:
+            - /opt/scripts/entrypoint.sh
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: KISS_DESKTOP_FONTS_URL
+              value: ""
+            - name: KISS_DESKTOP_ICONS_URL
+              value: ""
+            - name: KISS_DESKTOP_THEMES_URL
+              value: ""
+            - name: KISS_DESKTOP_TEMPLATE_GIT
+              value: https://github.com/ulagbulag-village/netai-cloud-desktop-template.git
+            - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
+              value: master
+            - name: LANG
+              value: ko_KR.UTF-8
+            - name: LC_ALL
+              value: ko_KR.UTF-8
+            - name: LOCALE
+              value: ko_KR.UTF-8
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: all
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: USER
+              value: "2000"
+            - name: WINEVERSION
+              value: "7.22"
+            - name: XDG_RUNTIME_DIR
+              value: /run/user/2000
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+          workingDir: /home/user
+          volumeMounts:
+            # - name: dev
+            #   mountPath: /dev
+            - name: dev-dri
+              mountPath: /dev/dri
+            - name: egl-icd-loader
+              mountPath: /etc/glvnd/egl_vendor.d
+              readOnly: true
+            - name: home
+              mountPath: /home/user
+            - name: machine-id
+              mountPath: /etc/machine-id
+              readOnly: true
+            - name: ice
+              mountPath: /tmp/.ICE-unix
+            - name: runtime-dbus
+              mountPath: /run/dbus
+            - name: runtime-user
+              mountPath: /run/user/2000
+            - name: scripts
+              mountPath: /opt/scripts
+            - name: tmp
+              mountPath: /tmp
+            - name: vulkan-icd-loader
+              mountPath: /etc/vulkan/icd.d
+              readOnly: true
+            - name: x11
+              mountPath: /tmp/.X11-unix
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+        - name: remote-management-novnc
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-novnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+        - name: remote-management-x11vnc
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-x11vnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: X11VNC_ARGS
+              value: -cursor most -noscr -nowcr -nowf -noxdamage
+            - name: X11VNC_MULTIPTR
+              value: "false"
+            - name: X11VNC_XKB
+              value: "true"
+          volumeMounts:
+            - name: x11
+              mountPath: /tmp/.X11-unix
+      hostIPC: true
+      hostNetwork: true
+      securityContext:
+        runAsUser: 2000
+        fsGroup: 2000
+        # sysctls:
+        #   - name: fs.file-max
+        #     value: "524288"
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: dev-dri
+          hostPath:
+            path: /dev/dri
+            type: Directory
+        - name: egl-icd-loader
+          hostPath:
+            path: /usr/share/glvnd/egl_vendor.d
+            type: Directory
+        - name: home
+          # emptyDir: {}
+          hostPath:
+            path: /opt/vdi/tenants/remote/guest/
+            type: Directory
+        - name: machine-id
+          hostPath:
+            path: /etc/machine-id
+            type: File
+        - name: ice
+          hostPath:
+            path: /tmp/.ICE-unix
+            type: Directory
+        - name: runtime-dbus
+          hostPath:
+            path: /run/dbus
+            type: Directory
+        - name: runtime-user
+          hostPath:
+            path: /run/user/2000
+            type: Directory
+        - name: scripts
+          configMap:
+            defaultMode: 0555
+            name: browser-firefox-scripts
+        - name: tmp
+          emptyDir: {}
+        - name: vulkan-icd-loader
+          hostPath:
+            path: /usr/share/vulkan/icd.d
+            type: Directory
+        - name: x11
+          hostPath:
+            path: /tmp/.X11-unix
+            type: Directory
