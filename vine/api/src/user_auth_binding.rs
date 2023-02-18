@@ -39,5 +39,6 @@ use serde::{Deserialize, Serialize};
 pub struct UserAuthBindingSpec {
     pub user: String,
     pub auth: String,
+    pub user_id: String,
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

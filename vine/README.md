@@ -1,1 +1,1 @@
-# VINE Is Not a VDI
+# VINE Is Not Ephemeral

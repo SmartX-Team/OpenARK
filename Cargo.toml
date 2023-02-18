@@ -9,5 +9,5 @@ members = [
     "kiss/monitor",
     "vine/api",
     "vine/controller",
-    "vine/login",
+    "vine/login/backend",
 ]
