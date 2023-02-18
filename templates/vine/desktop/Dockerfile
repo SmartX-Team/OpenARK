@@ -59,6 +59,7 @@ RUN dnf install -y \
     vulkan \
     #wireplumber \
     wmctrl \
+    xdotool \
     xprop \
     yum-utils \
     # Cleanup
