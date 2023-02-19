@@ -14,21 +14,16 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { git = "https://github.com/ulagbulag-village/ipis" }
+ipis = { workspace = true }
 
-email_address = "0.2"
-inflector = { package = "Inflector", version = "0.11" }
-ipnet = { version = "2.5", features = ["schemars", "serde"] }
-kube = { version = "0.74", default-features = false, features = [
-    "client",
-    "derive",
-    "runtime",
-    "rustls-tls",
-] }
-k8s-openapi = { version = "0.15", features = ["schemars", "v1_24"] }
-schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.9"
-strum = { version = "0.24", features = ["derive"] }
-url = { version = "2.2", features = ["serde"] }
+email_address = { workspace = true }
+inflector = { workspace = true }
+ipnet = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+strum = { workspace = true }
+url = { workspace = true }

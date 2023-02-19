@@ -14,5 +14,7 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { git = "https://github.com/ulagbulag-village/ipis" }
+ipis = { workspace = true }
 vine-api = { path = "../../api" }
+
+actix-web = { workspace = true }
