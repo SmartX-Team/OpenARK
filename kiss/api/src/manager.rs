@@ -11,7 +11,7 @@ use ipis::{
 };
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{
-    api::{ListParams, PostParams},
+    api::{ListParams, Patch, PatchParams, PostParams},
     runtime::{controller::Action, Controller},
     Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
 };
@@ -35,8 +35,13 @@ where
 {
     type Data;
 
+    const NAME: &'static str;
     const NAMESPACE: Option<&'static str> = None;
     const FALLBACK: Duration = Duration::from_secs(30 * 60); // 30 minutes
+
+    fn get_subcrds() -> Vec<CustomResourceDefinition> {
+        Default::default()
+    }
 
     async fn spawn() {
         logger::init_once();
@@ -49,22 +54,40 @@ where
     where
         <Self as Ctx>::Data: CustomResourceExt,
     {
-        logger::init_once();
-        <Self as Ctx>::try_spawn(|api, client| async move {
-            // Ensure CRD is installed before loop-watching
-            if api.list(&ListParams::default().limit(1)).await.is_err() {
-                let crd = <Self as Ctx>::Data::crd();
-                let name = crd.name_any();
-                let api = Api::<CustomResourceDefinition>::all(client);
-
+        let create_crd = |api: Api<CustomResourceDefinition>, crd: CustomResourceDefinition| async move {
+            let name = crd.name_any();
+            if api.get_opt(&name).await?.is_none() {
                 let pp = PostParams {
                     dry_run: false,
-                    field_manager: Some("kube-controller".into()),
+                    field_manager: Some(<Self as Ctx>::NAME.into()),
                 };
                 api.create(&pp, &crd).await?;
 
                 info!("Created CRD: {name}");
+                Result::<_, Error>::Ok(())
+            } else {
+                let pp = PatchParams {
+                    dry_run: false,
+                    force: true,
+                    field_manager: Some(<Self as Ctx>::NAME.into()),
+                    ..Default::default()
+                };
+                api.patch(&name, &pp, &Patch::Apply(&crd)).await?;
+
+                info!("Updated CRD: {name}");
+                Result::<_, Error>::Ok(())
             }
+        };
+
+        logger::init_once();
+        <Self as Ctx>::try_spawn(|_, client| async move {
+            // Ensure CRD is installed before loop-watching
+            let api = Api::<CustomResourceDefinition>::all(client);
+
+            for crd in <Self as Ctx>::get_subcrds() {
+                create_crd(api.clone(), crd).await?;
+            }
+            create_crd(api, <Self as Ctx>::Data::crd()).await?;
             Ok(())
         })
         .await

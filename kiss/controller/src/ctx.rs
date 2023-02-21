@@ -24,6 +24,8 @@ pub struct Ctx {}
 impl ::kiss_api::manager::Ctx for Ctx {
     type Data = BoxCrd;
 
+    const NAME: &'static str = "kiss-controller";
+
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
@@ -116,7 +118,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                         "lastUpdated": Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-controller").force();
+                let pp = PatchParams::apply(Self::NAME).force();
                 api.patch_status(&name, &pp, &patch).await?;
 
                 info!("Skipped joining (already joined) {name:?}");
