@@ -15,4 +15,5 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 
 [dependencies]
 ipis = { workspace = true }
+kiss-api = { path = "../../kiss/api" }
 vine-api = { path = "../api" }

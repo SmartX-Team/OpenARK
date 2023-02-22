@@ -2,18 +2,18 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: remote-management-novnc
+  name: novnc
   namespace: vine
 spec:
   selector:
     matchLabels:
-      name: remote-management-novnc
+      name: novnc
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        name: remote-management-novnc
+        name: novnc
     spec:
       containers:
         - name: novnc

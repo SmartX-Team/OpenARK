@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "vine.netai-cloud",
     version = "v1alpha1",
     kind = "UserBoxBinding",
     struct = "UserBoxBindingCrd",
@@ -42,9 +42,9 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct UserBoxBindingSpec {
+pub struct UserBoxBindingSpec<Box = String> {
     pub user: String,
-    pub r#box: String,
+    pub r#box: Box,
     pub autologin: bool,
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

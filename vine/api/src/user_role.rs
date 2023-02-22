@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "vine.netai-cloud",
     version = "v1alpha1",
     kind = "UserRole",
     struct = "UserRoleCrd",
-    shortname = "ubq",
+    shortname = "ur",
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
@@ -17,4 +17,9 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct UserRoleSpec {}
+pub struct UserRoleSpec {
+    pub is_admin: bool,
+    pub is_ops: bool,
+    pub is_dev: bool,
+    pub is_ai_dev: bool,
+}

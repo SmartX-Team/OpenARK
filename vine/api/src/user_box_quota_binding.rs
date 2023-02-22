@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "vine.netai-cloud",
     version = "v1alpha1",
     kind = "UserBoxQuotaBinding",
     struct = "UserBoxQuotaBindingCrd",
@@ -36,8 +36,8 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct UserBoxQuotaBindingSpec {
+pub struct UserBoxQuotaBindingSpec<Quota = String> {
     pub user: String,
-    pub quota: String,
+    pub quota: Quota,
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

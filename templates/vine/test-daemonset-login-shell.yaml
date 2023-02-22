@@ -7,13 +7,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      name: remote-management-novnc
+      name: login-shell
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        name: remote-management-novnc
+        name: login-shell
     spec:
       containers:
         - name: login-shell
@@ -37,7 +37,7 @@ spec:
             - name: USER
               value: "2000"
             - name: VINE_LOGIN_PORTAL_ENTRYPOINT
-              value: https://mobilex.kr/oauth2
+              value: https://mobilex.kr/bastion/auth
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
           workingDir: /home/user

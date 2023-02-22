@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "vine.netai-cloud",
     version = "v1alpha1",
-    kind = "UserBoxQuora",
-    struct = "UserBoxQuoraCrd",
+    kind = "UserBoxQuota",
+    struct = "UserBoxQuotaCrd",
     shortname = "ubq",
     printcolumn = r#"{
         "name": "amount",
@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct UserBoxQuoraSpec {
+pub struct UserBoxQuotaSpec {
     pub amount: u32,
     pub resources: ResourceRequirements,
 }

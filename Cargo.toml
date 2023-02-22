@@ -8,8 +8,9 @@ members = [
     "kiss/manager",
     "kiss/monitor",
     "vine/api",
+    "vine/bastion",
     "vine/controller",
-    "vine/login/backend",
+    "vine/hook",
 ]
 
 [workspace.dependencies]
@@ -20,6 +21,7 @@ actix-web = { version = "4.2", default-features = false, features = [
     "macros",
     "rustls",
 ] }
+base64 = "0.21"
 email_address = "0.2"
 http-cache-reqwest = { version = "0.5", features = ["manager-cacache"] }
 inflector = { package = "Inflector", version = "0.11" }

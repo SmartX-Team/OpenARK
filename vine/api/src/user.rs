@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ipis::core::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -5,12 +7,18 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "vine.netai-cloud",
     version = "v1alpha1",
     kind = "User",
     struct = "UserCrd",
     status = "UserStatus",
     shortname = "u",
+    printcolumn = r#"{
+        "name": "real name",
+        "type": "string",
+        "description":"user's real name",
+        "jsonPath":".spec.name"
+    }"#,
     printcolumn = r#"{
         "name": "email",
         "type": "string",
@@ -34,6 +42,7 @@ use serde::{Deserialize, Serialize};
 pub struct UserSpec {
     pub name: String,
     pub contact: UserContact,
+    pub detail: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
