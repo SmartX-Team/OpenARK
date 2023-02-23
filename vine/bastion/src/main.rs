@@ -115,10 +115,9 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
                         .unwrap_or(true)
                 })
                 .filter_map(|item| {
-                    let name = item.name_any();
                     Some(UserBoxBindingSpec {
                         user: item.spec.user,
-                        r#box: boxes.get(&name)?.clone(),
+                        r#box: boxes.get(&item.spec.r#box)?.clone(),
                         autologin: item.spec.autologin,
                         expired_timestamp: item.spec.expired_timestamp,
                     })
@@ -153,10 +152,9 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
                         .unwrap_or(true)
                 })
                 .filter_map(|item| {
-                    let name = item.name_any();
                     Some(UserBoxQuotaBindingSpec {
                         user: item.spec.user,
-                        quota: quotas.get(&name)?.clone(),
+                        quota: quotas.get(&item.spec.quota)?.clone(),
                         expired_timestamp: item.spec.expired_timestamp,
                     })
                 })
