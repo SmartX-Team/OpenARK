@@ -272,12 +272,12 @@ pub enum BoxGroupRole {
     /*
         General Worker
     */
-    Worker,
+    GenericWorker,
 }
 
 impl Default for BoxGroupRole {
     fn default() -> Self {
-        Self::Worker
+        Self::GenericWorker
     }
 }
 
