@@ -3,7 +3,10 @@ use std::{collections::BTreeMap, net::SocketAddr};
 use actix_web::{get, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use base64::Engine;
 use ipis::{
-    core::anyhow::{bail, Error, Result},
+    core::{
+        anyhow::{bail, Error, Result},
+        chrono::Utc,
+    },
     env::infer,
     log::{error, info, warn},
     logger,
@@ -34,6 +37,9 @@ async fn health() -> impl Responder {
 #[get("/auth")]
 async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder {
     async fn try_handle(request: HttpRequest, client: Data<Client>) -> Result<UserAuthResponse> {
+        // get current time
+        let now = Utc::now();
+
         // parse the Authorization token
         let payload: UserAuthPayload = match request.headers().get("Authorization") {
             Some(token) => match token.to_str().map_err(Error::from).and_then(|token| {
@@ -101,6 +107,13 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
                 .await?
                 .items
                 .into_iter()
+                .filter(|item| {
+                    item.spec
+                        .expired_timestamp
+                        .as_ref()
+                        .map(|timestamp| timestamp < &now)
+                        .unwrap_or(true)
+                })
                 .filter_map(|item| {
                     let name = item.name_any();
                     Some(UserBoxBindingSpec {
@@ -132,6 +145,13 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
                 .await?
                 .items
                 .into_iter()
+                .filter(|item| {
+                    item.spec
+                        .expired_timestamp
+                        .as_ref()
+                        .map(|timestamp| timestamp < &now)
+                        .unwrap_or(true)
+                })
                 .filter_map(|item| {
                     let name = item.name_any();
                     Some(UserBoxQuotaBindingSpec {
