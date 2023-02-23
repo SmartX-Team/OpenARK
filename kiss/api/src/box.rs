@@ -281,6 +281,18 @@ impl Default for BoxGroupRole {
     }
 }
 
+impl BoxGroupRole {
+    pub fn to_playbook(&self) -> String {
+        format!(
+            "playbook-{}.yaml",
+            match self {
+                Self::ControlPlane => "control_plane",
+                _ => "worker",
+            }
+        )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxMachineSpec {
