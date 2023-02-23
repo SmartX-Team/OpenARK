@@ -39,6 +39,14 @@ data:
   bootstrapper_node_reuse_data_kubernetes: "false"
 
   ###########################################################################
+  # Domain Configuration
+  ###########################################################################
+  # domain_name: example.com
+  # domain_dns_server_ns1: 1.1.1.1
+  # domain_dns_server_ns2: 2.2.2.2
+  # domain_ingress_server: 3.3.3.3
+
+  ###########################################################################
   # KISS Configuration
   ###########################################################################
   kiss_cluster_name: "" # note: DO NOT FIX IT!

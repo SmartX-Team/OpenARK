@@ -26,7 +26,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "$NAMESPACE" "$HELM_CHART"
+helm repo add "${NAMESPACE}" "${HELM_CHART}"
 
 ###########################################################
 #   Install Dex                                           #
@@ -35,18 +35,18 @@ helm repo add "$NAMESPACE" "$HELM_CHART"
 echo "- Installing Operator ... "
 
 helm upgrade --install "dex" \
-    "$NAMESPACE/dex" \
+    "${NAMESPACE}/dex" \
     --create-namespace \
-    --namespace "$NAMESPACE" \
+    --namespace "${NAMESPACE}" \
     --values "./values.yaml"
 
 ###########################################################
 #   Install Operator                                      #
 ###########################################################
-  
+
 echo "- Installing OAuth2 Proxy ... "
 
 kubectl apply -f "oauth2-proxy.yaml"
-  
+
 # Finished!
 echo "Installed!"

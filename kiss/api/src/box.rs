@@ -257,7 +257,20 @@ impl BoxGroupSpec {
     JsonSchema,
 )]
 pub enum BoxGroupRole {
+    /*
+        Control Plane
+    */
     ControlPlane,
+    /*
+        Specialized Worker
+    */
+    Compute,
+    Desktop,
+    Ingress,
+    Storage,
+    /*
+        General Worker
+    */
     Worker,
 }
 

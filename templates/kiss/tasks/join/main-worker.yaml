@@ -1,3 +1,4 @@
 ---
 - import_playbook: ./add-node-as-worker.yaml
 - import_playbook: ./add-node-as-bgp-peer.yaml
+- import_playbook: ./add-node-role.yaml

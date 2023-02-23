@@ -87,7 +87,6 @@ spec:
             limits:
               nvidia.com/gpu: "1"
       hostIPC: true
-      hostNetwork: true
       securityContext:
         runAsUser: 2000
         fsGroup: 2000

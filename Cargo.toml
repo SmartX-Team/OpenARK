@@ -10,7 +10,6 @@ members = [
     "vine/api",
     "vine/bastion",
     "vine/controller",
-    "vine/hook",
 ]
 
 [workspace.dependencies]

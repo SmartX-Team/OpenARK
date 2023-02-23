@@ -1,5 +1,3 @@
-mod node_selector;
-
 use std::{collections::BTreeMap, net::SocketAddr};
 
 use actix_web::{get, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder};
@@ -144,14 +142,6 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
                 })
                 .collect::<Vec<_>>()
         };
-
-        // let api = Api::<Node>::all((**client).clone());
-        // let node = api.get(&query.box_uuid.to_string()).await?;
-
-        // let capacity = node
-        //     .status
-        //     .as_ref()
-        //     .and_then(|status| status.capacity.as_ref());
 
         // Login Successed!
         info!("login accepted: {primary_key:?}");

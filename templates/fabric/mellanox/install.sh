@@ -26,7 +26,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "$NAMESPACE" "$HELM_CHART"
+helm repo add "${NAMESPACE}" "${HELM_CHART}"
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -34,7 +34,7 @@ helm repo add "$NAMESPACE" "$HELM_CHART"
 
 echo "- Checking Operator is already installed ... "
 if
-    kubectl get namespace --no-headers "$NAMESPACE" \
+    kubectl get namespace --no-headers "${NAMESPACE}" \
         >/dev/null 2>/dev/null
 then
     IS_FIRST=0
@@ -49,9 +49,9 @@ fi
 echo "- Installing Operator ... "
 
 helm upgrade --install "network-operator" \
-    "$NAMESPACE/network-operator" \
+    "${NAMESPACE}/network-operator" \
     --create-namespace \
-    --namespace "$NAMESPACE" \
+    --namespace "${NAMESPACE}" \
     --values "./values-operator.yaml"
 
 # Finished!

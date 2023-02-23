@@ -38,7 +38,7 @@ kubectl apply -f "./cluster-roles.yaml"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "$NAMESPACE" "$HELM_CHART"
+helm repo add "${NAMESPACE}" "${HELM_CHART}"
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -46,7 +46,7 @@ helm repo add "$NAMESPACE" "$HELM_CHART"
 
 echo "- Checking Operator is already installed ... "
 if
-    kubectl get namespace --no-headers "$NAMESPACE" \
+    kubectl get namespace --no-headers "${NAMESPACE}" \
         >/dev/null 2>/dev/null
 then
     IS_FIRST=0
@@ -61,9 +61,9 @@ fi
 echo "- Installing Operator ... "
 
 helm upgrade --install "rook-ceph" \
-    "$NAMESPACE/rook-ceph" \
+    "${NAMESPACE}/rook-ceph" \
     --create-namespace \
-    --namespace "$NAMESPACE" \
+    --namespace "${NAMESPACE}" \
     --values "./values-operator.yaml"
 
 echo "- Waiting for deploying Operator ... "
@@ -76,31 +76,31 @@ sleep 30
 echo "- Installing Storage Class ... "
 
 # do not update the number of monitors when re-deploying
-if [ "$IS_FIRST" -eq 0 ]; then
+if [ "${IS_FIRST}" -eq 0 ]; then
     ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED="false"
 fi
 
 # tweaks - use single monitor node until ceph cluster is deployed
 # FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
 # See also: https://github.com/rook/rook/issues/10110
-if [ "$ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED" == "true" ]; then
+if [ "${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "true" ]; then
     NUM_MONS=$(yq ".cephClusterSpec.mon.count" "./values-cluster.yaml")
     yq --inplace ".cephClusterSpec.mon.count = 1" "./values-cluster.yaml"
 fi
 
 helm upgrade --install "rook-ceph-cluster" \
-    "$NAMESPACE/rook-ceph-cluster" \
+    "${NAMESPACE}/rook-ceph-cluster" \
     --create-namespace \
-    --namespace "$NAMESPACE" \
+    --namespace "${NAMESPACE}" \
     --values "./values-cluster.yaml"
 
 ###########################################################
 #   Wait for deploying Storage Class                      #
 ###########################################################
 
-if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
+if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
     echo -n "- Waiting for deploying Ceph Tools ... "
-    kubectl --namespace "$NAMESPACE" rollout status deployment "rook-ceph-tools" >/dev/null
+    kubectl --namespace "${NAMESPACE}" rollout status deployment "rook-ceph-tools" >/dev/null
     echo "OK"
 
     echo -n "- Waiting for deploying Storage Classes ... "
@@ -109,11 +109,11 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
             local COMPLETED=1
             for storageclass in "blockpool" "filesystem" "objectstore"; do
                 local PHASE=$(
-                    kubectl --namespace "$NAMESPACE" get "ceph$storageclass" "ceph-$storageclass" \
+                    kubectl --namespace "${NAMESPACE}" get "ceph${storageclass}" "ceph-${storageclass}" \
                         --output jsonpath --template '{.status.phase}' \
                         2>/dev/null
                 )
-                case "$PHASE" in
+                case "${PHASE}" in
                 "Connected" | "Ready")
                     continue
                     ;;
@@ -124,7 +124,7 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
                 esac
             done
 
-            if [ "$COMPLETED" -eq 1 ]; then
+            if [ "${COMPLETED}" -eq 1 ]; then
                 break
             fi
 
@@ -139,11 +139,11 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
     function wait_ceph_cluster() {
         while :; do
             local PHASE=$(
-                kubectl --namespace "$NAMESPACE" get "cephcluster" "rook-ceph" \
+                kubectl --namespace "${NAMESPACE}" get "cephcluster" "rook-ceph" \
                     --output jsonpath --template '{.status.phase}' \
                     2>/dev/null
             )
-            case "$PHASE" in
+            case "${PHASE}" in
             "Ready")
                 break
                 ;;
@@ -161,14 +161,14 @@ if [ "$ROOK_CEPH_WAIT_UNTIL_DEPLOYED" == "true" ]; then
     # tweaks - use single monitor nodes until ceph cluster is deployed
     # FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
     # See also: https://github.com/rook/rook/issues/10110
-    if [ "$ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED" == "true" ]; then
-        if [ "$NUM_MONS" != "1" ]; then
-            yq --inplace ".cephClusterSpec.mon.count = $NUM_MONS" "./values-cluster.yaml"
+    if [ "${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "true" ]; then
+        if [ "${NUM_MONS}" != "1" ]; then
+            yq --inplace ".cephClusterSpec.mon.count = ${NUM_MONS}" "./values-cluster.yaml"
 
             helm upgrade --install "rook-ceph-cluster" \
-                "$NAMESPACE/rook-ceph-cluster" \
+                "${NAMESPACE}/rook-ceph-cluster" \
                 --create-namespace \
-                --namespace "$NAMESPACE" \
+                --namespace "${NAMESPACE}" \
                 --values "./values-cluster.yaml"
             wait_ceph_cluster
         fi
