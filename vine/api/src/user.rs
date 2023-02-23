@@ -48,6 +48,7 @@ pub struct UserSpec {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserStatus {
+    pub last_box: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 

@@ -25,6 +25,5 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserBoxQuotaSpec {
-    pub amount: u32,
     pub resources: ResourceRequirements,
 }

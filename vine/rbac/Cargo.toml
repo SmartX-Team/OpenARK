@@ -1,5 +1,5 @@
 [package]
-name = "vine-bastion"
+name = "vine-rbac"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,7 +15,9 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 
 [dependencies]
 ipis = { workspace = true }
+kiss-api = { path = "../../kiss/api" }
 vine-api = { path = "../api" }
-vine-rbac = { path = "../rbac" }
 
 actix-web = { workspace = true }
+base64 = { workspace = true }
+serde_json = { workspace = true }
