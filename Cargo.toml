@@ -17,7 +17,6 @@ members = [
 ipis = { git = "https://github.com/ulagbulag-village/ipis" }
 
 actix-web = { version = "4.2", default-features = false, features = [
-    "experimental-io-uring",
     "macros",
     "rustls",
 ] }
