@@ -137,7 +137,7 @@ impl AnsibleClient {
                             "/root/ansible/hosts.yaml".into(),
                             format!(
                                 "/opt/playbook/playbook-{}.yaml",
-                                group.role.to_string().to_snake_case(),
+                                group.role.to_playbook(),
                             ),
                         ]),
                         env: Some(vec![
