@@ -1,0 +1,74 @@
+---
+## Configure grafana datasources
+## ref: http://docs.grafana.org/administration/provisioning/#datasources
+##
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server/
+        access: proxy
+        isDefault: true
+
+ingress:
+  enabled: true
+  # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
+  # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
+  # ingressClassName: nginx
+  # Values can be templated
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: https://$host/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://$host/oauth2/start?rd=$escaped_request_uri
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "false"
+    vine.ulagbulag.io/service-kind: Grafana
+
+  path: /dashboard/grafana/?(.*)
+
+  # pathType is only for k8s >= 1.1=
+  pathType: Prefix
+
+# # Administrator credentials when not using an existing secret (see below)
+# adminUser: admin
+# adminPassword: gistAi.kiss.netaiCloud
+
+## Grafana's primary configuration
+## NOTE: values in map will be converted to ini format
+## ref: http://docs.grafana.org/installation/configuration/
+##
+grafana.ini:
+  auth:
+    # Disable usage of Grafana build-in login solution.
+    disable_login: true
+
+    # Set to true to disable (hide) the login form, useful if you use OAuth
+    disable_login_form: true
+
+    # Set to true to disable the sign out link in the side menu. Useful if you use auth.proxy or auth.jwt.
+    disable_signout_menu: true
+
+  # Anonymous Auth
+  auth.anonymous:
+    # enable anonymous access
+    enabled: true
+
+    # specify organization name that should be used for unauthenticated users
+    # org_name: Ulagbulag Village - VINE
+
+    # specify role for unauthenticated users
+    org_role: Admin
+
+  # Basic Auth
+  auth.basic:
+    enabled: false
+
+  # grafana Authentication can be enabled with the following values on grafana.ini
+  server:
+    # The full public facing url you use in browser, used for redirects and emails
+    root_url: null
