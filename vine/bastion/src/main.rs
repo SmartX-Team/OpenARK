@@ -22,7 +22,7 @@ async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder 
         }
         Ok(response) => HttpResponse::Forbidden().json(response),
         Err(e) => {
-            error!("failed to register a client: {e}");
+            error!("failed to auth: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }
