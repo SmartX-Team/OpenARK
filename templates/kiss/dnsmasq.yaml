@@ -23,6 +23,16 @@ spec:
         kissService: "false"
         serviceType: internal
     spec:
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be included
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
       hostNetwork: true
       nodeSelector:
         # control plane nodes should get ready for DHCP

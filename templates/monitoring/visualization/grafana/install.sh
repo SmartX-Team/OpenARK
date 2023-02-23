@@ -44,10 +44,10 @@ echo "- Configuring Helm channel ... "
 helm repo add "${NAMESPACE}-grafana" "${HELM_CHART}"
 
 ###########################################################
-#   Install NGINX Ingress                                 #
+#   Install Grafana                                       #
 ###########################################################
 
-echo "- Installing NGINX Ingress ... "
+echo "- Installing Grafana ... "
 
 helm upgrade --install "grafana" \
     "${NAMESPACE}-grafana/grafana" \

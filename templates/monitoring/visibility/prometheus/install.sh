@@ -29,13 +29,13 @@ echo "- Configuring Helm channel ... "
 helm repo add "${NAMESPACE}-prometheus" "${HELM_CHART}"
 
 ###########################################################
-#   Install NGINX Ingress                                 #
+#   Install Prometheus Stack                              #
 ###########################################################
 
-echo "- Installing NGINX Ingress ... "
+echo "- Installing Prometheus Stack ... "
 
-helm upgrade --install "prometheus" \
-    "${NAMESPACE}-prometheus/prometheus" \
+helm upgrade --install "kube-prometheus-stack" \
+    "${NAMESPACE}-prometheus/kube-prometheus-stack" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
     --values "./values.yaml"
