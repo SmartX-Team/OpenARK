@@ -117,6 +117,7 @@ impl AnsibleClient {
                     ..Default::default()
                 }),
                 spec: Some(PodSpec {
+                    affinity: Some(crate::job::affinity()),
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
                     containers: vec![Container {

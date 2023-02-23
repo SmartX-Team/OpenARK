@@ -188,6 +188,7 @@ impl Handler {
                         ..Default::default()
                     }),
                     spec: Some(PodSpec {
+                        affinity: Some(::kiss_api::job::affinity()),
                         restart_policy: Some("OnFailure".into()),
                         service_account: Some("kiss-system".into()),
                         containers: vec![Container {
