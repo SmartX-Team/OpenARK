@@ -265,6 +265,7 @@ pub enum BoxGroupRole {
         Specialized Worker
     */
     Compute,
+    Dashboard,
     Desktop,
     Ingress,
     Storage,

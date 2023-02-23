@@ -15,6 +15,17 @@ spec:
       labels:
         name: desktop
     spec:
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be excluded
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Dashboard
+                      - Desktop
       containers:
         - name: desktop-environment
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest

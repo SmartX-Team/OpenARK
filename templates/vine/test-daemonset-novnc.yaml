@@ -15,6 +15,17 @@ spec:
       labels:
         name: novnc
     spec:
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be excluded
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Dashboard
+                      - Desktop
       containers:
         - name: novnc
           image: quay.io/ulagbulag-village/netai-cloud-vdi-novnc:latest

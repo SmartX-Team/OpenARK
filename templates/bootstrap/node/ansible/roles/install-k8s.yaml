@@ -25,6 +25,15 @@
   tasks:
     - include: ../tasks/bgp-add-calico.yaml
 
+- name: Label Nodes | KISS Control Planes
+  hosts: kiss_ephemeral_node
+  tasks:
+    - when: groups['kiss_ephemeral_node'] | length == 1
+      command: >
+        {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
+        --overwrite
+        node-role.kubernetes.io/kiss=ControlPlane
+
 - name: Label Nodes | KISS Ephemeral Control Planes
   hosts: kiss_ephemeral_node
   tasks:
