@@ -135,10 +135,7 @@ impl AnsibleClient {
                             "/root/ansible/config.yaml".into(),
                             "--inventory".into(),
                             "/root/ansible/hosts.yaml".into(),
-                            format!(
-                                "/opt/playbook/playbook-{}.yaml",
-                                group.role.to_playbook(),
-                            ),
+                            format!("/opt/playbook/{}", group.role.to_playbook()),
                         ]),
                         env: Some(vec![
                             EnvVar {

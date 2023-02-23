@@ -2,7 +2,7 @@
 - hosts: target
   tasks:
     - name: Mark the bootstrapped node as "{{ kiss_group_role }}"
-      delegate_to: "{{ kube_control_plane | first }}"
+      delegate_to: "{{ groups['kube_control_plane'] | first }}"
       shell: >
         {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
         --overwrite
