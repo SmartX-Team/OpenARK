@@ -179,7 +179,7 @@ data:
     if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
       for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
         _IS_DESKTOP=true
-        cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
+        cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
     [connection]
     id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
     uuid=$(uuidgen $interface)
