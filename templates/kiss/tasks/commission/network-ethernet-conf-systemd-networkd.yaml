@@ -22,22 +22,12 @@
     src: ./template_systemd-networkd_10-enable.network.j2
     dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.network
 
-- name: Enable primary interfaces now | systemd-networkd
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[:1] }}"
-  command: nmcli connection up 10-kiss-enable-{{ item.name }}
-
 - name: Disable all other interfaces | systemd-networkd
   when: kiss_allow_pruning_network_interfaces | default(False)
   with_items: "{{ interfaces[1:] }}"
   template:
     src: ./template_systemd-networkd_20-disable.network.j2
     dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network
-
-- name: Disable all other interfaces now | systemd-networkd
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[1:] }}"
-  command: nmcli connection up 20-kiss-disable-{{ item.name }}
 
 - name: Restart systemd-networkd
   systemd:
