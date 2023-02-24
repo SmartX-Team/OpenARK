@@ -2,19 +2,19 @@
 - name: Define ethernet modules
   set_fact:
     ethernet_modules:
-      wireless_wifi:
+      wifi:
         - iwlwifi
-    ethernet_priority: []
-    # ethernet_priority:
-    #   - wireless_wifi
+    ethernet_modules_map: {}
+    ethernet_priority:
+      - wifi
     ethernet_priority_map: {}
 
-- name: Calculate ethernet priority map
+- name: Calculate ethernet map
   loop: "{{ ethernet_priority | flatten(levels=1) }}"
   loop_control:
     index_var: priority
     loop_var: modules
-  include: network-ethernet-priority-map.yaml
+  include: network-ethernet-map.yaml
 
 - name: Collect network inteface informations
   loop: "{{ ansible_interfaces }}"
@@ -49,6 +49,10 @@
           else (ethernet_priority | length),
         'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'type':
+          ethernet_modules_map[ansible_facts[item].module]
+          if ansible_facts[item].module in ethernet_modules_map
+          else 'ethernet',
         'uuid': 9999999999999999999999 | random | to_uuid,
       }] }}
 

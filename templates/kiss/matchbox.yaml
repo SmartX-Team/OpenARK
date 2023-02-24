@@ -186,6 +186,14 @@ data:
     type=wifi
     interface-name=$interface
 
+    [ipv4]
+    method=auto
+    route-metric=10
+
+    [ipv6]
+    addr-gen-mode=default
+    method=disabled
+
     [wifi]
     mode=infrastructure
     ssid=NETWORK_WIRELESS_WIFI_SSID
@@ -194,13 +202,6 @@ data:
     auth-log=open
     key-mgmt=NETWORK_WIRELESS_WIFI_KEY_MGMT
     psk=NETWORK_WIRELESS_WIFI_KEY_PSK
-
-    [ipv4]
-    method=auto
-
-    [ipv6]
-    addr-gen-mode=default
-    method=auto
 
     [proxy]
     EOF
@@ -712,11 +713,6 @@ spec:
               sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/ignition/*.yaml
               sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/ignition/*.yaml
           env:
-            - name: NETWORK_WIRELESS_WIFI_SSID
-              valueFrom:
-                secretKeyRef:
-                  name: kiss-config
-                  key: network_wireless_wifi_ssid
             - name: NETWORK_WIRELESS_WIFI_KEY_MGMT
               valueFrom:
                 secretKeyRef:
@@ -727,6 +723,11 @@ spec:
                 secretKeyRef:
                   name: kiss-config
                   key: network_wireless_wifi_key_psk
+            - name: NETWORK_WIRELESS_WIFI_SSID
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: network_wireless_wifi_ssid
             - name: SSH_AUTHORIZED_KEYS
               valueFrom:
                 configMapKeyRef:

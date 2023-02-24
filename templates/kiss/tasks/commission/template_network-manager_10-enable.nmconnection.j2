@@ -1,7 +1,7 @@
 [connection]
 id={{ item.name }}
 uuid={{ item.uuid }}
-type=ethernet
+type={{ item.type }}
 interface-name={{ item.name }}
 
 autoconnect=true
@@ -15,8 +15,20 @@ address1={{ item.address_ipv4 }}/{{ item.address_ipv4_netmask }},{{ item.address
 dns={{ item.dns | join(';') }};
 dns-search=
 method=manual
+route-metric=10
 
 [ipv6]
 addr-gen-mode=eui64
 dns-search=
 method=disabled
+
+[wifi]
+mode=infrastructure
+ssid={{ kiss_network_wireless_wifi_ssid }}
+
+[wifi-security]
+auth-log=open
+key-mgmt={{ kiss_network_wireless_wifi_key_mgmt }}
+psk={{ kiss_network_wireless_wifi_key_psk }}
+
+[proxy]

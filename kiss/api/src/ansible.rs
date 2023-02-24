@@ -304,6 +304,42 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_network_wireless_wifi_key_mgmt".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "network_wireless_wifi_key_mgmt".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_wireless_wifi_key_psk".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "network_wireless_wifi_key_psk".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_network_wireless_wifi_ssid".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "network_wireless_wifi_ssid".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_os_default".into(),
                                 value: Some(self.kiss.os_default.to_string()),
                                 ..Default::default()
