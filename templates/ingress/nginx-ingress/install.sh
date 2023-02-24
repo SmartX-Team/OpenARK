@@ -63,7 +63,8 @@ helm upgrade --install "ingress-nginx" \
     --create-namespace \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \
     --set controller.ingressClass="${DOMAIN_NAME}" \
-    --set controller.service.loadBalancerIP="${LOADBALANCER_IP}"
+    --set controller.service.loadBalancerIP="${LOADBALANCER_IP}" \
+    --values "./values.yaml"
 
 ###########################################################
 #   Install Cluster Issuers                               #

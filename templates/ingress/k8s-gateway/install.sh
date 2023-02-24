@@ -87,14 +87,16 @@ helm upgrade --install "exdns-1" \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \
     --set domain="${DOMAIN_NAME}" \
     --set secondary="exdns-2-${NAMESPACE}-k8s-gateway.$NAMESPACE" \
-    --set service.loadBalancerIP="${DNS_SERVER_1}"
+    --set service.loadBalancerIP="${DNS_SERVER_1}" \
+    --values "./values.yaml"
 helm upgrade --install "exdns-2" \
     "${NAMESPACE}-k8s-gateway/k8s-gateway" \
     --create-namespace \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \
     --set domain="${DOMAIN_NAME}" \
     --set secondary="exdns-1-${NAMESPACE}-k8s-gateway.$NAMESPACE" \
-    --set service.loadBalancerIP="${DNS_SERVER_2}"
+    --set service.loadBalancerIP="${DNS_SERVER_2}" \
+    --values "./values.yaml"
 
 # Finished!
 echo "Installed!"

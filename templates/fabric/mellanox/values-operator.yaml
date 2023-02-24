@@ -7,6 +7,39 @@ sriovNetworkOperator:
   # deploy SR-IOV Network Operator
   enabled: true
 
+# SR-IOV Network Operator chart related values
+sriov-network-operator:
+  affinity:
+    nodeAffinity:
+      # KISS ephemeral control plane nodes should be excluded
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+
+# General Operator related values
+# The operator element allows to deploy network operator from an alternate location
+operator:
+  affinity:
+    nodeAffinity:
+      # KISS ephemeral control plane nodes should be excluded
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+
 # Deploy NicClusterPolicy custom resource according to provided parameters
 deployCR: true
 
