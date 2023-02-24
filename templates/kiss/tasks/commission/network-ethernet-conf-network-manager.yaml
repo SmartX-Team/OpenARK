@@ -34,7 +34,6 @@
   find:
     paths:
       - /etc/NetworkManager/system-connections/
-    file_type: directory
     pattern: "*-kiss-*"
   register: results
 
