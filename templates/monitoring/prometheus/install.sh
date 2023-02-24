@@ -13,7 +13,7 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://grafana.github.io/helm-charts"
+HELM_CHART_DEFAULT="https://prometheus-community.github.io/helm-charts"
 NAMESPACE_DEFAULT="monitoring"
 
 # Set environment variables
@@ -41,24 +41,24 @@ fi
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "${NAMESPACE}-grafana" "${HELM_CHART}"
+helm repo add "${NAMESPACE}-prometheus" "${HELM_CHART}"
 
 ###########################################################
-#   Install Grafana                                       #
+#   Install Prometheus Stack                              #
 ###########################################################
 
-echo "- Installing Grafana ... "
+echo "- Installing Prometheus Stack ... "
 
-helm upgrade --install "grafana" \
-    "${NAMESPACE}-grafana/grafana" \
+helm upgrade --install "kube-prometheus-stack" \
+    "${NAMESPACE}-prometheus/kube-prometheus-stack" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
-    --set ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
-    --set ingress.hosts[0]="${DOMAIN_NAME}" \
-    --set ingress.tls[0].secretName="${DOMAIN_NAME}-cert" \
-    --set ingress.tls[0].hosts[0]="${DOMAIN_NAME}" \
-    --set "grafana\.ini".server.root_url="https://${DOMAIN_NAME}/dashboard/grafana/" \
+    --set grafana.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
+    --set grafana.ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
+    --set grafana.ingress.hosts[0]="${DOMAIN_NAME}" \
+    --set grafana.ingress.tls[0].secretName="${DOMAIN_NAME}-cert" \
+    --set grafana.ingress.tls[0].hosts[0]="${DOMAIN_NAME}" \
+    --set grafana."grafana\.ini".server.root_url="https://${DOMAIN_NAME}/dashboard/grafana/" \
     --values "./values.yaml"
 
 # Finished!
