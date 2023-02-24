@@ -4,7 +4,6 @@
   find:
     paths:
       - /etc/systemd/network/
-    file_type: directory
     pattern: "*-kiss-*"
   register: results
 
@@ -29,3 +28,9 @@
   template:
     src: ./template_systemd-networkd_20-disable.network.j2
     dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network
+
+- name: Restart systemd-networkd
+  systemd:
+    name: systemd-networkd.service
+    state: restarted
+    daemon_reload: true

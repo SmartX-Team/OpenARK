@@ -4,7 +4,6 @@
   find:
     paths:
       - /etc/NetworkManager/system-connections/
-    file_type: directory
     pattern: "*.nmconnection"
   register: results
 
@@ -46,3 +45,9 @@
     mode: "0400"
     force: true
   with_items: "{{ results.files }}"
+
+- name: Restart NetworkManager
+  systemd:
+    name: NetworkManager.service
+    state: restarted
+    daemon_reload: true

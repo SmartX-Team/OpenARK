@@ -4,8 +4,10 @@
     ethernet_modules:
       wireless_wifi:
         - iwlwifi
-    ethernet_priority:
-      - wireless_wifi
+    ethernet_priority: []
+    # ethernet_priority:
+    #   - wireless_wifi
+    ethernet_priority_map: {}
 
 - name: Calculate ethernet priority map
   loop: "{{ ethernet_priority | flatten(levels=1) }}"
@@ -65,6 +67,14 @@
     interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
     interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
+- name: Configure network interfaces | NetworkManager
+  when: kiss_network_service == 'NetworkManager'
+  include: network-ethernet-conf-network-manager.yaml
+
+- name: Configure network interfaces | systemd-networkd
+  when: kiss_network_service == 'systemd-networkd'
+  include: network-ethernet-conf-systemd-networkd.yaml
+
 - name: Ping from primary interface to the gateway
   when: interface_primary_address_ipv4 is defined
   command: >
@@ -85,14 +95,6 @@
   when: interface_primary is defined
   debug:
     var: interface_primary
-
-- name: Configure network interfaces | NetworkManager
-  when: kiss_network_service == 'NetworkManager'
-  include: network-ethernet-conf-network-manager.yaml
-
-- name: Configure network interfaces | systemd-networkd
-  when: kiss_network_service == 'systemd-networkd'
-  include: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
   with_items: "{{ interfaces[:1] }}"
