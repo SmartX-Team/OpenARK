@@ -141,9 +141,3 @@
   until: result.rc == 0
   delay: 30
   retries: 10
-
-- name: Link down unused network interfaces
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[1:] }}"
-  command: ip link set {{ item.name }} down
-  ignore_errors: true
