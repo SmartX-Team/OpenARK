@@ -267,7 +267,7 @@ pub enum BoxGroupRole {
     Compute,
     Dashboard,
     Desktop,
-    Ingress,
+    Gateway,
     Storage,
     /*
         General Worker
