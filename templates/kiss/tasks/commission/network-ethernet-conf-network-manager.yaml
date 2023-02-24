@@ -23,8 +23,10 @@
     dest: /etc/NetworkManager/system-connections/10-kiss-enable-{{ item.name }}.nmconnection
 
 - name: Disable all other interfaces | NetworkManager
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[1:] }}"
+  when:
+    - kiss_allow_pruning_network_interfaces | default(False)
+    - item.name != interfaces[0].name
+  with_items: "{{ all_interfaces }}"
   template:
     src: ./template_network-manager_20-disable.nmconnection.j2
     dest: /etc/NetworkManager/system-connections/20-kiss-disable-{{ item.name }}.nmconnection
@@ -57,6 +59,8 @@
   command: nmcli connection up 10-kiss-enable-{{ item.name }}
 
 - name: Disable all other interfaces now | systemd-networkd
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[1:] }}"
+  when:
+    - kiss_allow_pruning_network_interfaces | default(False)
+    - item.name != interfaces[0].name
+  with_items: "{{ all_interfaces }}"
   command: nmcli connection up 20-kiss-disable-{{ item.name }}

@@ -23,8 +23,10 @@
     dest: /etc/systemd/network/10-kiss-enable-{{ item.name }}.network
 
 - name: Disable all other interfaces | systemd-networkd
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[1:] }}"
+  when:
+    - kiss_allow_pruning_network_interfaces | default(False)
+    - item.name != interfaces[0].name
+  with_items: "{{ all_interfaces }}"
   template:
     src: ./template_systemd-networkd_20-disable.network.j2
     dest: /etc/systemd/network/20-kiss-disable-{{ item.name }}.network

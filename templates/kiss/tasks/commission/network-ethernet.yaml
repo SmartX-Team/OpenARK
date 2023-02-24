@@ -21,6 +21,33 @@
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
     item in ansible_facts
+    and 'type' in ansible_facts[item]
+    and ansible_facts[item].type == 'ether'
+  set_fact:
+    all_interfaces: >
+      {{ interfaces|default([]) + [{
+        'name': item,
+        'macaddress': ansible_facts[item].macaddress,
+        'module': ansible_facts[item].module,
+        'mtu': kiss_network_interface_mtu_size,
+        'priority':
+          ethernet_priority_map[ansible_facts[item].module]
+          if ansible_facts[item].module in ethernet_priority_map
+          else (ethernet_priority | length),
+        'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'type':
+          ethernet_modules_map[ansible_facts[item].module]
+          if ansible_facts[item].module in ethernet_modules_map
+          else 'ethernet',
+        'uuid': 9999999999999999999999 | random | to_uuid,
+      }] }}
+
+- name: Collect running network inteface informations
+  loop: "{{ ansible_interfaces }}"
+  # filter the physical devices that has connected to the specific network as ethernet
+  when: >
+    item in ansible_facts
     and ansible_facts[item].active
     and 'ipv4' in ansible_facts[item]
     and 'netmask' in ansible_facts[item].ipv4
