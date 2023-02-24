@@ -1,5 +1,6 @@
 ---
 - name: List all network configurations | systemd-networkd
+  when: kiss_allow_pruning_network_interfaces | default(False)
   find:
     paths:
       - /etc/systemd/network/
@@ -8,6 +9,7 @@
   register: results
 
 - name: Remove all network configurations | systemd-networkd
+  when: kiss_allow_pruning_network_interfaces | default(False)
   file:
     path: "{{ item.path }}"
     state: absent
@@ -15,6 +17,7 @@
   with_items: "{{ results.files }}"
 
 - name: Enable primary interfaces | systemd-networkd
+  when: kiss_allow_pruning_network_interfaces | default(False)
   with_items: "{{ interfaces[:1] }}"
   template:
     src: ./template_systemd-networkd_10-enable.network.j2

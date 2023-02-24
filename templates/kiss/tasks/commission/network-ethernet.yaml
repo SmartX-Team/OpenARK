@@ -47,6 +47,7 @@
           else (ethernet_priority | length),
         'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'uuid': 9999999999999999999999 | random | to_uuid,
       }] }}
 
 - name: Sort by speed, module, and PCI ID

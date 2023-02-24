@@ -1,28 +1,48 @@
 ---
-# - name: List all network configurations | NetworkManager
-#   find:
-#     paths:
-#       - /etc/NetworkManager/system-connections/
-#     file_type: directory
-#     pattern: "*-kiss-*"
-#   register: results
+- name: List all network configurations | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  find:
+    paths:
+      - /etc/NetworkManager/system-connections/
+    file_type: directory
+    pattern: "*.nmconnection"
+  register: results
 
-# - name: Remove all network configurations | NetworkManager
-#   file:
-#     path: "{{ item.path }}"
-#     state: absent
-#     force: true
-#   with_items: "{{ results.files }}"
+- name: Remove all network configurations | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  file:
+    path: "{{ item.path }}"
+    state: absent
+    force: true
+  with_items: "{{ results.files }}"
 
-# - name: Enable primary interfaces | NetworkManager
-#   with_items: "{{ interfaces[:1] }}"
-#   template:
-#     src: ./template_network-manager_10-enable.nmconnection.j2
-#     dest: /etc/NetworkManager/system-connections/10-kiss-enable-{{ item.name }}.nmconnection
+- name: Enable primary interfaces | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  with_items: "{{ interfaces[:1] }}"
+  template:
+    src: ./template_network-manager_10-enable.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/10-kiss-enable-{{ item.name }}.nmconnection
 
-# - name: Disable all other interfaces | NetworkManager
-#   when: kiss_allow_pruning_network_interfaces | default(False)
-#   with_items: "{{ interfaces[1:] }}"
-#   template:
-#     src: ./template_network-manager_20-disable.nmconnection.j2
-#     dest: /etc/NetworkManager/system-connections/20-kiss-disable-{{ item.name }}.nmconnection
+- name: Disable all other interfaces | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  with_items: "{{ interfaces[1:] }}"
+  template:
+    src: ./template_network-manager_20-disable.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/20-kiss-disable-{{ item.name }}.nmconnection
+
+- name: List all network configurations | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  find:
+    paths:
+      - /etc/NetworkManager/system-connections/
+    file_type: directory
+    pattern: "*-kiss-*"
+  register: results
+
+- name: Change all network configurations permissions | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  file:
+    path: "{{ item.path }}"
+    mode: "0400"
+    force: true
+  with_items: "{{ results.files }}"

@@ -1,0 +1,20 @@
+[connection]
+id={{ item.name }}
+uuid={{ item.uuid }}
+type=ethernet
+interface-name={{ item.name }}
+
+autoconnect=true
+
+[ethernet]
+mac-address={{ item.macaddress }}
+mtu={{ item.mtu }}
+
+[ipv4]
+dns-search=
+method=disabled
+
+[ipv6]
+addr-gen-mode=eui64
+dns-search=
+method=disabled
