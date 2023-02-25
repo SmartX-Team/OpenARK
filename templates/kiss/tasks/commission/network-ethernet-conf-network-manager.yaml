@@ -57,10 +57,3 @@
   when: kiss_allow_pruning_network_interfaces | default(False)
   with_items: "{{ interfaces[:1] }}"
   command: nmcli connection up 10-kiss-enable-{{ item.name }}
-
-- name: Disable all other interfaces now | systemd-networkd
-  when:
-    - kiss_allow_pruning_network_interfaces | default(False)
-    - item.name != interfaces[0].name
-  with_items: "{{ all_interfaces }}"
-  command: nmcli connection up 20-kiss-disable-{{ item.name }}

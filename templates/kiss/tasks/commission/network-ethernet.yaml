@@ -166,3 +166,7 @@
   until: result.rc == 0
   delay: 30
   retries: 10
+
+- name: Configure network interfaces now | NetworkManager
+  when: kiss_network_service == 'NetworkManager'
+  include: network-ethernet-conf-network-manager-post.yaml
