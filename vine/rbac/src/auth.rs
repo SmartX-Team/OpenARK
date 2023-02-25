@@ -33,10 +33,13 @@ pub async fn execute(request: HttpRequest, client: Data<Client>) -> Result<UserA
                 .strip_prefix("Bearer ")
                 .and_then(|token| token.split('.').nth(1))
             {
-                Some(payload) => ::base64::engine::general_purpose::STANDARD
-                    .decode(payload)
-                    .map_err(Into::into)
-                    .and_then(|payload| ::serde_json::from_slice(&payload).map_err(Into::into)),
+                Some(payload) => {
+                    let payload = ::base64::engine::general_purpose::STANDARD_NO_PAD
+                        .decode(payload)
+                        .unwrap();
+                    let payload = ::serde_json::from_slice(&payload).unwrap();
+                    Ok(payload)
+                }
                 None => bail!("the Authorization token is not a Bearer token"),
             }
         }) {

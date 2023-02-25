@@ -1,18 +1,28 @@
 ---
-apiVersion: apps/v1
+apiVersion: v1
 kind: Pod
 metadata:
-  name: "login-shell-{{ nodeName }}"
-  namespace: vine
+  name: login-shell
+  namespace: "vine-desktop-{{ nodeName }}"
 spec:
-spec:
+  affinity:
+    nodeAffinity:
+      # KISS ephemeral control plane nodes should be excluded
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Dashboard
+                  - Desktop
   nodeName: "{{ nodeName }}"
   containers:
     - name: login-shell
       image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
       imagePullPolicy: Always
       command:
-        - /opt/scripts/entrypoint.sh
+        - /opt/scripts/entrypoint-login-shell.sh
       env:
         - name: DISPLAY
           value: ":0"
@@ -29,7 +39,7 @@ spec:
         - name: USER
           value: "2000"
         - name: VINE_LOGIN_PORTAL_ENTRYPOINT
-          value: "{{ vineLoginPortalEntrypoint }}"
+          value: "http://login/"
         - name: XDG_RUNTIME_DIR
           value: /run/user/2000
       workingDir: /home/user
@@ -50,8 +60,6 @@ spec:
           mountPath: /run/dbus
         - name: runtime-user
           mountPath: /run/user/2000
-        - name: scripts
-          mountPath: /opt/scripts
         - name: tmp
           mountPath: /tmp
         - name: vulkan-icd-loader
@@ -59,9 +67,6 @@ spec:
           readOnly: true
         - name: x11
           mountPath: /tmp/.X11-unix
-      resources:
-        limits:
-          nvidia.com/gpu: "1"
   securityContext:
     runAsUser: 2000
     fsGroup: 2000
@@ -93,10 +98,6 @@ spec:
       hostPath:
         path: /run/user/2000
         type: Directory
-    - name: scripts
-      configMap:
-        defaultMode: 0555
-        name: login-shell-scripts
     - name: tmp
       emptyDir: {}
     - name: vulkan-icd-loader

@@ -45,7 +45,7 @@ metadata:
   name: ansible-playbook
 rules:
   - apiGroups:
-      - kiss.netai-cloud
+      - kiss.ulagbulag.io
     resources:
       - boxes
       - boxes/status

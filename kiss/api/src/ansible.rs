@@ -28,9 +28,9 @@ pub struct AnsibleClient {
 }
 
 impl AnsibleClient {
-    pub const LABEL_BOX_NAME: &'static str = "kiss.netai-cloud/box_name";
-    pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.netai-cloud/box_machine_uuid";
-    pub const LABEL_COMPLETED_STATE: &'static str = "kiss.netai-cloud/completed_state";
+    pub const LABEL_BOX_NAME: &'static str = "kiss.ulagbulag.io/box_name";
+    pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.ulagbulag.io/box_machine_uuid";
+    pub const LABEL_COMPLETED_STATE: &'static str = "kiss.ulagbulag.io/completed_state";
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {

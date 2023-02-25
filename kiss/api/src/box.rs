@@ -20,7 +20,7 @@ impl BoxCrd {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "kiss.netai-cloud",
+    group = "kiss.ulagbulag.io",
     version = "v1alpha1",
     kind = "Box",
     struct = "BoxCrd",

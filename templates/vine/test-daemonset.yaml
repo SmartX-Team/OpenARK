@@ -31,7 +31,7 @@ spec:
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
           imagePullPolicy: Always
           command:
-            - /opt/scripts/entrypoint.sh
+            - /opt/scripts/entrypoint-desktop.sh
           env:
             - name: DISPLAY
               value: ":0"
@@ -65,10 +65,11 @@ spec:
             capabilities:
               add:
                 - apparmor:unconfined
+            privileged: true
           workingDir: /home/user
           volumeMounts:
-            # - name: dev
-            #   mountPath: /dev
+            - name: dev
+              mountPath: /dev
             - name: dev-dri
               mountPath: /dev/dri
             - name: egl-icd-loader

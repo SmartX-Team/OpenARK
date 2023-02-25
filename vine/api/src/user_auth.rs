@@ -1,4 +1,9 @@
-use ipis::core::{anyhow::Result, uuid::Uuid};
+use std::{ops::Deref, str::FromStr};
+
+use ipis::core::{
+    anyhow::{bail, Result},
+    uuid::Uuid,
+};
 use kiss_api::r#box::BoxSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -13,7 +18,7 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "vine.netai-cloud",
+    group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserAuth",
     struct = "UserAuthCrd",
@@ -50,26 +55,31 @@ pub struct UserAuthOAuth2Common {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct UserAuthPayload {
     /// User e-mail address
-    email: EmailAddress,
+    email: String,
     /// User name
     name: String,
+    /// Preferred user name
+    preferred_username: String,
 }
 
 impl UserAuthPayload {
     pub fn primary_key(&self) -> Result<String> {
-        // TODO: verify email address
-        Ok(format!(
-            "email-{}",
-            self.email
-                .0
-                .as_str()
-                .to_lowercase()
+        fn encode(s: &str) -> String {
+            s.to_lowercase()
                 // common special words
                 .replace('-', "-s-")
                 .replace('@', "-at-")
                 // other special words
                 .replace('_', "-u-")
-        ))
+        }
+
+        match self.email.parse::<EmailAddress>() {
+            Ok(email) => Ok(format!("email-{}", encode(email.0.as_str()))),
+            Err(_) => match self.preferred_username.as_str() {
+                "" => bail!("failed to parse primary key: {:?}", self),
+                name => Ok(format!("name-{}", encode(name))),
+            },
+        }
     }
 }
 
@@ -87,9 +97,44 @@ pub enum UserAuthResponse {
     UserNotRegistered,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", tag = "status", content = "data")]
+pub enum UserLoginResponse {
+    Accept {
+        box_quota: Option<UserBoxQuotaSpec>,
+        user: UserSpec,
+    },
+    AuthorizationTokenMalformed,
+    AuthorizationTokenNotFound,
+    BoxNotFound,
+    BoxNotInCluster,
+    BoxNotRunning,
+    Deny {
+        user: UserSpec,
+    },
+    PrimaryKeyMalformed,
+    UserNotRegistered,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Url(pub ::url::Url);
+
+impl FromStr for Url {
+    type Err = <::url::Url as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <::url::Url as FromStr>::from_str(s).map(Self)
+    }
+}
+
+impl Deref for Url {
+    type Target = ::url::Url;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl PartialOrd for Url {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

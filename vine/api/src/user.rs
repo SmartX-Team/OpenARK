@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Deref, str::FromStr};
 
 use ipis::core::chrono::{DateTime, Utc};
 use kube::CustomResource;
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "vine.netai-cloud",
+    group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "User",
     struct = "UserCrd",
@@ -65,6 +65,22 @@ pub struct UserContact {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EmailAddress(pub ::email_address::EmailAddress);
+
+impl FromStr for EmailAddress {
+    type Err = <::email_address::EmailAddress as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <::email_address::EmailAddress as FromStr>::from_str(s).map(Self)
+    }
+}
+
+impl Deref for EmailAddress {
+    type Target = ::email_address::EmailAddress;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl PartialOrd for EmailAddress {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

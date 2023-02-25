@@ -31,7 +31,7 @@ spec:
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
           imagePullPolicy: Always
           command:
-            - /opt/scripts/entrypoint.sh
+            - /opt/scripts/entrypoint-login-shell.sh
           env:
             - name: DISPLAY
               value: ":0"

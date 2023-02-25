@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "vine.netai-cloud",
+    group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserRole",
     struct = "UserRoleCrd",

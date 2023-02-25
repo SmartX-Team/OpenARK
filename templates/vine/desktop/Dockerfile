@@ -359,6 +359,10 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
 
+# Add scripts
+ADD ./scripts /opt/scripts/
+RUN chmod 0555 /opt/scripts/*
+
 # Add a user
 RUN ldconfig \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
