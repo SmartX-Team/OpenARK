@@ -1,8 +1,10 @@
+mod routes;
+
 use std::net::SocketAddr;
 
-use actix_web::{get, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder};
-use ipis::{core::anyhow::Result, env::infer, log::error, logger};
-use vine_api::{kube::Client, user_auth::UserAuthResponse};
+use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use ipis::{core::anyhow::Result, env::infer,  logger};
+use vine_api::kube::Client;
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -12,20 +14,6 @@ async fn index() -> impl Responder {
 #[get("/health")]
 async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
-}
-
-#[get("/auth")]
-async fn get_auth(request: HttpRequest, client: Data<Client>) -> impl Responder {
-    match ::vine_rbac::auth::execute(request, client).await {
-        Ok(response) if matches!(response, UserAuthResponse::Accept { .. }) => {
-            HttpResponse::Ok().json(response)
-        }
-        Ok(response) => HttpResponse::Forbidden().json(response),
-        Err(e) => {
-            error!("failed to auth: {e}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
 }
 
 #[actix_web::main]
@@ -42,7 +30,8 @@ async fn main() {
                 .app_data(Data::clone(&client))
                 .service(index)
                 .service(health)
-                .service(get_auth)
+                .service(crate::routes::auth::get)
+                .service(crate::routes::r#box::login::get)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

@@ -12,44 +12,61 @@ set -x
 #   Configuration                                         #
 ###########################################################
 
-# Configure default environment variables
-HELM_CHART_DEFAULT="https://kubernetes.github.io/ingress-nginx"
-NAMESPACE_DEFAULT="vine"
-
-# Set environment variables
-HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
-NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
+# Parse from kiss-config
+export DNS_SERVER_1="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq '.data.domain_dns_server_ns1'
+)"
+export DNS_SERVER_2="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq '.data.domain_dns_server_ns2'
+)"
+export DOMAIN_NAME="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq '.data.domain_name'
+)"
+export LOADBALANCER_IP="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq '.data.domain_ingress_server'
+)"
 
 ###########################################################
 #   Check Environment Variables                           #
 ###########################################################
+
+if [ "${DNS_SERVER_1}" == "" ]; then
+    echo 'Skipping installation: "DNS_SERVER_1" not set'
+    exit 0
+fi
+
+if [ "${DNS_SERVER_2}" == "" ]; then
+    echo 'Skipping installation: "DNS_SERVER_2" not set'
+    exit 0
+fi
 
 if [ "${DOMAIN_NAME}" == "" ]; then
     echo 'Skipping installation: "DOMAIN_NAME" not set'
     exit 0
 fi
 
+if [ "${LOADBALANCER_IP}" == "" ]; then
+    echo 'Skipping installation: "LOADBALANCER_IP" not set'
+    exit 0
+fi
+
 ###########################################################
-#   Configure Helm Channel                                #
+#   Install K8S Gateway                                   #
 ###########################################################
 
-echo "- Configuring Helm channel ... "
-
-helm repo add "${NAMESPACE}-ingress-nginx" "${HELM_CHART}"
+echo "- Installing K8S Gateway ... "
+pushd "k8s-gateway" && ./install.sh && popd
 
 ###########################################################
 #   Install NGINX Ingress                                 #
 ###########################################################
 
 echo "- Installing NGINX Ingress ... "
-
-helm upgrade --install "ingress-nginx" \
-    "${NAMESPACE}-ingress-nginx/ingress-nginx" \
-    --create-namespace \
-    --namespace "${NAMESPACE}" \
-    --set controller.ingressClass="${DOMAIN_NAME}" \
-    --set controller.ingressClassResource.name="${DOMAIN_NAME}" \
-    --values "./values.yaml"
+pushd "nginx-ingress" && ./install.sh && popd
 
 # Finished!
 echo "Installed!"

@@ -1,9 +1,14 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vine-public
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: login-shell
-  namespace: vine
+  namespace: vine-public
 spec:
   selector:
     matchLabels:
@@ -24,7 +29,6 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
-                      - Dashboard
                       - Desktop
       containers:
         - name: login-shell
@@ -48,7 +52,7 @@ spec:
             - name: USER
               value: "2000"
             - name: VINE_LOGIN_PORTAL_ENTRYPOINT
-              value: https://$host/bastion/auth
+              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion/auth
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
           workingDir: /home/user
@@ -69,8 +73,6 @@ spec:
               mountPath: /run/dbus
             - name: runtime-user
               mountPath: /run/user/2000
-            - name: scripts
-              mountPath: /opt/scripts
             - name: tmp
               mountPath: /tmp
             - name: vulkan-icd-loader
@@ -78,9 +80,9 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-          resources:
-            limits:
-              nvidia.com/gpu: "1"
+          # resources:
+          #   limits:
+          #     nvidia.com/gpu: "1"
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
@@ -112,10 +114,6 @@ spec:
           hostPath:
             path: /run/user/2000
             type: Directory
-        - name: scripts
-          configMap:
-            defaultMode: 0555
-            name: login-shell-scripts
         - name: tmp
           emptyDir: {}
         - name: vulkan-icd-loader

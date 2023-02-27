@@ -10,7 +10,6 @@ members = [
     "vine/api",
     "vine/bastion",
     "vine/controller",
-    "vine/login",
     "vine/rbac",
 ]
 

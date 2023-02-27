@@ -1,2 +1,2 @@
-/oauth2-proxy.yaml
-/values.yaml
+/oauth2-proxy*.yaml
+/values*.yaml

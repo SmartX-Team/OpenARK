@@ -14,17 +14,11 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://prometheus-community.github.io/helm-charts"
-NAMESPACE_DEFAULT="monitoring"
+NAMESPACE_DEFAULT="vine"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
-
-# Parse from kiss-config
-DOMAIN_NAME="$(
-    kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_name'
-)"
 
 ###########################################################
 #   Check Environment Variables                           #
@@ -53,12 +47,10 @@ helm upgrade --install "kube-prometheus-stack" \
     "${NAMESPACE}-prometheus/kube-prometheus-stack" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
+    --set grafana."grafana\.ini".server.root_url="http://${DOMAIN_NAME}/dashboard/grafana/" \
     --set grafana.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
     --set grafana.ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
     --set grafana.ingress.hosts[0]="${DOMAIN_NAME}" \
-    --set grafana.ingress.tls[0].secretName="${DOMAIN_NAME}-cert" \
-    --set grafana.ingress.tls[0].hosts[0]="${DOMAIN_NAME}" \
-    --set grafana."grafana\.ini".server.root_url="https://${DOMAIN_NAME}/dashboard/grafana/" \
     --values "./values.yaml"
 
 # Finished!

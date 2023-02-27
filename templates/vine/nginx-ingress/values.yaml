@@ -36,15 +36,15 @@ controller:
   ## IngressClass resources are supported since k8s >= 1.18 and required since k8s >= 1.19
   ingressClassResource:
     # -- Name of the ingressClass
-    name: ingress-nginx-controller.vine.svc
+    # name: ingress-nginx-controller.vine.svc.ops.netai-cloud
     # -- Is this ingressClass enabled or not
     enabled: true
     # -- Is this the default ingressClass for the cluster
-    default: true
+    default: false
 
   # -- For backwards compatibility with ingress.class annotation, use ingressClass.
   # Algorithm is as follows, first ingressClassName is considered, if not present, controller looks for ingress.class annotation
-  ingressClass: ingress-nginx-controller.vine.svc
+  # ingressClass: ingress-nginx-controller.vine.svc.ops.netai-cloud
 
   # Limit the scope of the controller to a specific namespace
   scope:

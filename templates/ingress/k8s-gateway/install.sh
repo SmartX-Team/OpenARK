@@ -20,20 +20,6 @@ NAMESPACE_DEFAULT="ingress"
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
-# Parse from kiss-config
-DNS_SERVER_1="$(
-    kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_dns_server_ns1'
-)"
-DNS_SERVER_2="$(
-    kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_dns_server_ns2'
-)"
-DOMAIN_NAME="$(
-    kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_name'
-)"
-
 ###########################################################
 #   Check Environment Variables                           #
 ###########################################################
