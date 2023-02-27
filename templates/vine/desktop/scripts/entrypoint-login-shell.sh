@@ -15,7 +15,7 @@ echo "Executing a login shell..."
 firefox \
     --kiosk \
     --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
-    "${VINE_LOGIN_PORTAL_ENTRYPOINT}" &
+    "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
 
 echo "Waiting until window is ready..."
 while ! xdotool search --classname 'Navigator' >/dev/null; do

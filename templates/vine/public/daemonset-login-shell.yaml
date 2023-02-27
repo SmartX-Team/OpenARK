@@ -45,14 +45,18 @@ spec:
               value: ko_KR.UTF-8
             - name: LOCALE
               value: ko_KR.UTF-8
+            - name: NODENAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: all
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: USER
               value: "2000"
-            - name: VINE_LOGIN_PORTAL_ENTRYPOINT
-              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion/auth
+            - name: VINE_BASTION_ENTRYPOINT
+              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
           workingDir: /home/user

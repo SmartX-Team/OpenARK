@@ -24,7 +24,7 @@ use vine_api::{
 };
 
 pub async fn execute(
-    request: HttpRequest,
+    request: &HttpRequest,
     box_name: &str,
     client: Data<Client>,
 ) -> Result<UserLoginResponse> {

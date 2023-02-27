@@ -22,7 +22,7 @@ use vine_api::{
     user_box_quota_binding::{UserBoxQuotaBindingCrd, UserBoxQuotaBindingSpec},
 };
 
-pub async fn execute(request: HttpRequest, client: Data<Client>) -> Result<UserAuthResponse> {
+pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<UserAuthResponse> {
     // get current time
     let now = Utc::now();
 

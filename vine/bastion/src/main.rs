@@ -3,13 +3,8 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
-use ipis::{core::anyhow::Result, env::infer,  logger};
+use ipis::{core::anyhow::Result, env::infer, logger};
 use vine_api::kube::Client;
-
-#[get("/")]
-async fn index() -> impl Responder {
-    HttpResponse::Ok().json("vine-bastion")
-}
 
 #[get("/health")]
 async fn health() -> impl Responder {
@@ -28,10 +23,10 @@ async fn main() {
         HttpServer::new(move || {
             App::new()
                 .app_data(Data::clone(&client))
-                .service(index)
                 .service(health)
                 .service(crate::routes::auth::get)
                 .service(crate::routes::r#box::login::get)
+                .service(crate::routes::welcome::get)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

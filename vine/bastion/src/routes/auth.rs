@@ -4,7 +4,7 @@ use vine_api::{kube::Client, user_auth::UserAuthResponse};
 
 #[get("/auth")]
 pub async fn get(request: HttpRequest, client: Data<Client>) -> impl Responder {
-    match ::vine_rbac::auth::execute(request, client).await {
+    match ::vine_rbac::auth::execute(&request, client).await {
         Ok(response) if matches!(response, UserAuthResponse::Accept { .. }) => {
             HttpResponse::Ok().json(response)
         }

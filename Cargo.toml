@@ -20,6 +20,7 @@ actix-web = { version = "4.2", default-features = false, features = [
     "macros",
     "rustls",
 ] }
+actix-web-lab = { version = "0.19" }
 base64 = "0.21"
 email_address = "0.2"
 http-cache-reqwest = { version = "0.5", features = ["manager-cacache"] }

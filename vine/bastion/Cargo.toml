@@ -19,3 +19,4 @@ vine-api = { path = "../api" }
 vine-rbac = { path = "../rbac" }
 
 actix-web = { workspace = true }
+actix-web-lab = { workspace = true }
