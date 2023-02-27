@@ -55,5 +55,12 @@ pushd "dex" && ./install.sh && popd
 echo "- Installing Prometheus ... "
 pushd "monitoring/prometheus" && ./install.sh && popd
 
+###########################################################
+#   Install VINE                                          #
+###########################################################
+
+# templates
+./templates/install.sh
+
 # Finished!
 echo "Installed!"

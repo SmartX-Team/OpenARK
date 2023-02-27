@@ -36,18 +36,7 @@ function install_kiss_cluster() {
             -f "ntpd.yaml"
 
         # ansible tasks
-        kubectl apply -f "./tasks/common.yaml"
-        for dir in ./tasks/*; do
-            # playbook directory
-            if [ -d "${dir}" ]; then
-                kubectl create configmap "ansible-task-$(basename ${dir})" \
-                    --namespace=kiss \
-                    --from-file=${dir} \
-                    --output=yaml \
-                    --dry-run=client |
-                    kubectl apply -f -
-            fi
-        done
+        ./tasks/install.sh
 
         # kiss service
         kubectl apply -R -f "./kiss-*.yaml"
