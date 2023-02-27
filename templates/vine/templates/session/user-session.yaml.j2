@@ -15,7 +15,7 @@ spec:
       labels:
         name: desktop
     spec:
-      node.metadata.name: "{{ node.metadata.name }}"
+      nodeName: "{{ node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
