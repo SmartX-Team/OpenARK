@@ -1,5 +1,5 @@
 [package]
-name = "vine-bastion"
+name = "vine-session"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,8 +16,7 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 [dependencies]
 ipis = { workspace = true }
 vine-api = { path = "../api" }
-vine-rbac = { path = "../rbac" }
-vine-session = { path = "../session" }
 
-actix-web = { workspace = true }
-actix-web-lab = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tera = { workspace = true }

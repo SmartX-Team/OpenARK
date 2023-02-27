@@ -40,17 +40,17 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
                     let payload = ::serde_json::from_slice(&payload).unwrap();
                     Ok(payload)
                 }
-                None => bail!("the Authorization token is not a Bearer token"),
+                None => bail!("[{now}] the Authorization token is not a Bearer token"),
             }
         }) {
             Ok(payload) => payload,
             Err(e) => {
-                warn!("failed to parse the token: {token:?}: {e}");
+                warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 return Ok(UserAuthResponse::AuthorizationTokenMalformed);
             }
         },
         None => {
-            warn!("failed to get the token: Authorization");
+            warn!("[{now}] failed to get the token: Authorization");
             return Ok(UserAuthResponse::AuthorizationTokenNotFound);
         }
     };
@@ -59,7 +59,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     let primary_key = match payload.primary_key() {
         Ok(key) => key,
         Err(e) => {
-            warn!("failed to parse the user's primary key: {payload:?}: {e}");
+            warn!("[{now}] failed to parse the user's primary key: {payload:?}: {e}");
             return Ok(UserAuthResponse::PrimaryKeyMalformed);
         }
     };
@@ -69,7 +69,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     let user = match api.get_opt(&primary_key).await? {
         Some(user) => user.spec,
         None => {
-            warn!("failed to find an user: {primary_key:?}");
+            warn!("[{now}] failed to find an user: {primary_key:?}");
             return Ok(UserAuthResponse::UserNotRegistered);
         }
     };
@@ -151,7 +151,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     };
 
     // Login Successed!
-    info!("login accepted: {primary_key:?}");
+    info!("[{now}] login accepted: {primary_key:?}");
     Ok(UserAuthResponse::Accept {
         box_bindings,
         box_quota_bindings,

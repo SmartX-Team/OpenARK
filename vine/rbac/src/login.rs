@@ -22,11 +22,13 @@ use vine_api::{
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::UserBoxQuotaBindingCrd,
 };
+use vine_session::SessionManager;
 
 pub async fn execute(
     request: &HttpRequest,
     box_name: &str,
     client: Data<Client>,
+    session_manager: Data<SessionManager>,
 ) -> Result<UserLoginResponse> {
     // get current time
     let now = Utc::now();
@@ -42,17 +44,17 @@ pub async fn execute(
                     .decode(payload)
                     .map_err(Into::into)
                     .and_then(|payload| ::serde_json::from_slice(&payload).map_err(Into::into)),
-                None => bail!("the Authorization token is not a Bearer token"),
+                None => bail!("[{now}] the Authorization token is not a Bearer token"),
             }
         }) {
             Ok(payload) => payload,
             Err(e) => {
-                warn!("failed to parse the token: {token:?}: {e}");
+                warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 return Ok(UserLoginResponse::AuthorizationTokenMalformed);
             }
         },
         None => {
-            warn!("failed to get the token: Authorization");
+            warn!("[{now}] failed to get the token: Authorization");
             return Ok(UserLoginResponse::AuthorizationTokenNotFound);
         }
     };
@@ -61,7 +63,7 @@ pub async fn execute(
     let primary_key = match payload.primary_key() {
         Ok(key) => key,
         Err(e) => {
-            warn!("failed to parse the user's primary key: {payload:?}: {e}");
+            warn!("[{now}] failed to parse the user's primary key: {payload:?}: {e}");
             return Ok(UserLoginResponse::PrimaryKeyMalformed);
         }
     };
@@ -69,9 +71,9 @@ pub async fn execute(
     // get the user CR
     let api = Api::<UserCrd>::all((**client).clone());
     let user = match api.get_opt(&primary_key).await? {
-        Some(user) => user.spec,
+        Some(user) => user,
         None => {
-            warn!("failed to find an user: {primary_key:?}");
+            warn!("[{now}] failed to find an user: {primary_key:?}");
             return Ok(UserLoginResponse::UserNotRegistered);
         }
     };
@@ -154,12 +156,18 @@ pub async fn execute(
     match box_quota {
         // Login Successed!
         Some(box_quota) => {
-            info!("login accepted: {primary_key:?}");
-            Ok(UserLoginResponse::Accept { box_quota, user })
+            info!("[{now}] login accepted: {primary_key:?}");
+            session_manager
+                .create(&client, &node, &user)
+                .await
+                .map(|()| UserLoginResponse::Accept {
+                    box_quota,
+                    user: user.spec,
+                })
         }
         None => {
-            warn!("login denied: {primary_key:?}");
-            Ok(UserLoginResponse::Deny { user })
+            warn!("[{now}] login denied: {primary_key:?}");
+            Ok(UserLoginResponse::Deny { user: user.spec })
         }
     }
 }

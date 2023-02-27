@@ -6,14 +6,18 @@ pub mod login {
     };
     use ipis::{core::uuid::Uuid, log::error};
     use vine_api::{kube::Client, user_auth::UserLoginResponse};
+    use vine_session::SessionManager;
 
     #[get("/box/{name}/login")]
     pub async fn get(
         request: HttpRequest,
         client: Data<Client>,
+        session_manager: Data<SessionManager>,
         name: Path<Uuid>,
     ) -> impl Responder {
-        match ::vine_rbac::login::execute(&request, &name.to_string(), client).await {
+        match ::vine_rbac::login::execute(&request, &name.to_string(), client, session_manager)
+            .await
+        {
             Ok(response) if matches!(response, UserLoginResponse::Accept { .. }) => {
                 Redirect::to("../../")
                     .temporary()

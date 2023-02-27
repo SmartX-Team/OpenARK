@@ -1,25 +1,21 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: vine-public
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: login-shell
-  namespace: vine-public
+  name: "desktop-{{ node.metadata.name }}"
+  namespace: "vine-session-{{ user.metadata.name }}"
 spec:
   selector:
     matchLabels:
-      name: login-shell
+      name: desktop
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        name: login-shell
+        name: desktop
     spec:
+      node.metadata.name: "{{ node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
@@ -30,37 +26,55 @@ spec:
                     operator: In
                     values:
                       - Desktop
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - "{{ node.metadata.name }}"
       containers:
-        - name: login-shell
+        - name: desktop-environment
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
           imagePullPolicy: Always
           command:
-            - /opt/scripts/entrypoint-login-shell.sh
+            - /opt/scripts/entrypoint-desktop.sh
           env:
             - name: DISPLAY
               value: ":0"
+            - name: KISS_DESKTOP_FONTS_URL
+              value: ""
+            - name: KISS_DESKTOP_ICONS_URL
+              value: ""
+            - name: KISS_DESKTOP_THEMES_URL
+              value: ""
+            - name: KISS_DESKTOP_TEMPLATE_GIT
+              value: https://github.com/ulagbulag-village/netai-cloud-desktop-template.git
+            - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
+              value: master
             - name: LANG
               value: ko_KR.UTF-8
             - name: LC_ALL
               value: ko_KR.UTF-8
             - name: LOCALE
               value: ko_KR.UTF-8
-            - name: NODENAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: all
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: USER
               value: "2000"
-            - name: VINE_BASTION_ENTRYPOINT
-              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion
+            - name: WINEVERSION
+              value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+            privileged: true
           workingDir: /home/user
           volumeMounts:
+            - name: dev
+              mountPath: /dev
             - name: dev-dri
               mountPath: /dev/dri
             - name: egl-icd-loader
@@ -84,14 +98,19 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-          # resources:
-          #   limits:
-          #     nvidia.com/gpu: "1"
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+      hostIPC: true
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
       terminationGracePeriodSeconds: 30
       volumes:
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
         - name: dev-dri
           hostPath:
             path: /dev/dri
@@ -101,7 +120,10 @@ spec:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-          emptyDir: {}
+          # TODO: mount a home directory via CSI
+          hostPath:
+            path: "/opt/vdi/tenants/remote/guest/
+            type: Directory
         - name: machine-id
           hostPath:
             path: /etc/machine-id
