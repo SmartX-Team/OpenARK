@@ -3,6 +3,10 @@
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
+# Catch trap signals
+trap "echo 'Gracefully terminating...'; exit" INT TERM
+trap "echo 'Terminated.'; exit" EXIT
+
 # Disable screen blanking
 xset -dpms
 xset s off
@@ -11,20 +15,40 @@ xset s off
 SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
 SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
 
-echo "Executing a login shell..."
-firefox \
-    --kiosk \
-    --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
-    "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
+# Configure firefox window
+function update_window() {
+    classname="$1"
 
-echo "Waiting until window is ready..."
-while ! xdotool search --classname 'Navigator' >/dev/null; do
-    sleep 0.5
-done
+    xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
+    xdotool search --classname "${classname}" set_window --name 'Welcome'
+}
 
 while :; do
-    # Enforce: Resizing window to fullscreen
-    xdotool search --classname 'Firefox' windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
-    xdotool search --classname 'Navigator' windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
-    sleep 1
+    echo "Waiting until logged out..."
+    while [ -f "/tmp/.vine/.login.lock" ]; do
+        sleep 3
+    done
+
+    echo "Executing a login shell..."
+    firefox \
+        --private \
+        --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
+        --kiosk "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
+    PID=$!
+
+    echo "Waiting until window is ready..."
+    until xdotool search --classname 'Navigator' >/dev/null; do
+        sleep 0.5
+    done
+
+    until [ -f "/tmp/.vine/.login.lock" ]; do
+        # Enforce: Resizing window to fullscreen
+        update_window 'Firefox'
+        update_window 'Navigator'
+
+        sleep 1
+    done
+
+    echo "Stopping firefox..."
+    kill "${PID}" 2>/dev/null || true
 done

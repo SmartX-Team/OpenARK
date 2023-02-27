@@ -8,6 +8,10 @@ set -e
 # Verbose
 set -x
 
+# Catch trap signals
+trap "echo 'Gracefully terminating...'; exit" INT TERM
+trap "echo 'Terminated.'; exit" EXIT
+
 # Initialize desktop environment
 "$(dirname "$0")/init-desktop.sh"
 

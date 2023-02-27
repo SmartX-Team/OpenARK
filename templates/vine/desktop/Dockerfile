@@ -359,6 +359,10 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
 
+# Add firefox preferences
+ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
+ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
+
 # Add scripts
 ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*

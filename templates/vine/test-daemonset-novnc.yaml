@@ -27,12 +27,6 @@ spec:
                       - Dashboard
                       - Desktop
       containers:
-        - name: novnc
-          image: quay.io/ulagbulag-village/netai-cloud-vdi-novnc:latest
-          imagePullPolicy: Always
-          env:
-            - name: DISPLAY
-              value: ":0"
         - name: x11vnc
           image: quay.io/ulagbulag-village/netai-cloud-vdi-x11vnc:latest
           imagePullPolicy: Always
@@ -48,6 +42,12 @@ spec:
           volumeMounts:
             - name: x11
               mountPath: /tmp/.X11-unix
+        - name: novnc
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-novnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
       hostIPC: true
       hostNetwork: true
       securityContext:

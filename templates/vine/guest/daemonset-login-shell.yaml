@@ -79,14 +79,13 @@ spec:
               mountPath: /run/user/2000
             - name: tmp
               mountPath: /tmp
+            - name: vine
+              mountPath: /tmp/.vine
             - name: vulkan-icd-loader
               mountPath: /etc/vulkan/icd.d
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-          # resources:
-          #   limits:
-          #     nvidia.com/gpu: "1"
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
@@ -120,6 +119,10 @@ spec:
             type: Directory
         - name: tmp
           emptyDir: {}
+        - name: vine
+          hostPath:
+            path: /tmp/.vine
+            type: DirectoryOrCreate
         - name: vulkan-icd-loader
           hostPath:
             path: /usr/share/vulkan/icd.d
