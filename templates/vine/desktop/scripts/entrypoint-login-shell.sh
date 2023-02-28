@@ -22,6 +22,7 @@ SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
 function update_window() {
     classname="$1"
 
+    xdotool search --classname "${classname}" windowfocus
     xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
     xdotool search --classname "${classname}" set_window --name 'Welcome'
 }
@@ -46,7 +47,6 @@ while :; do
 
     until [ -d "/tmp/.vine/.login.lock" ]; do
         # Enforce: Resizing window to fullscreen
-        update_window 'Firefox'
         update_window 'Navigator'
 
         sleep 1

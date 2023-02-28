@@ -12,7 +12,7 @@ use ipis::{
 use kiss_api::{
     k8s_openapi::api::core::v1::Node,
     kube::{api::ListParams, ResourceExt},
-    r#box::{BoxCrd, BoxState},
+    r#box::BoxCrd,
 };
 use vine_api::{
     kube::{Api, Client},
@@ -81,9 +81,7 @@ pub async fn execute(
     // check the box state
     let api = Api::<BoxCrd>::all((**client).clone());
     match api.get_opt(box_name).await? {
-        Some(r#box)
-            if r#box.status.as_ref().map(|status| status.state) == Some(BoxState::Running) => {}
-        Some(_) => return Ok(UserLoginResponse::BoxNotRunning),
+        Some(_) => {}
         None => return Ok(UserLoginResponse::BoxNotFound),
     }
 
@@ -158,7 +156,7 @@ pub async fn execute(
         Some(box_quota) => {
             info!("[{now}] login accepted: {primary_key:?}");
             session_manager
-                .create(&client, &node, &user)
+                .create(&client, &node, &user.name_any())
                 .await
                 .map(|()| UserLoginResponse::Accept {
                     box_quota,

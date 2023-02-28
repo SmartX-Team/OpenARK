@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: "desktop-{{ node.metadata.name }}"
-  namespace: "vine-session-{{ user.metadata.name }}"
+  namespace: "vine-session-{{ userName }}"
 spec:
   selector:
     matchLabels:
@@ -109,7 +109,7 @@ spec:
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 1
       volumes:
         - name: dev
           hostPath:

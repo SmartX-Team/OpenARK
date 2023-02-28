@@ -3,11 +3,7 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
-use ipis::{
-    core::anyhow::Result,
-    env::{infer, Infer},
-    logger,
-};
+use ipis::{core::anyhow::Result, env::infer, logger};
 use vine_api::kube::Client;
 use vine_session::SessionManager;
 
@@ -23,7 +19,7 @@ async fn main() {
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
         let client = Data::new(Client::try_default().await?);
-        let session_manager = Data::new(SessionManager::try_infer().await?);
+        let session_manager = Data::new(SessionManager::try_default()?);
 
         // Start web server
         HttpServer::new(move || {

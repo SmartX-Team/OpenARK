@@ -3,14 +3,8 @@ use std::sync::Arc;
 use ipis::{async_trait::async_trait, core::anyhow::Result};
 use kiss_api::{
     k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, CustomResourceExt, Error, ResourceExt,
-    },
+    kube::{runtime::controller::Action, CustomResourceExt, Error},
     manager::Manager,
-    r#box::{BoxCrd, BoxGroupRole, BoxState},
-    serde_json::json,
 };
 use vine_api::user_auth::UserAuthCrd;
 

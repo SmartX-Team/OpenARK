@@ -1,0 +1,44 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "desktop-cleanup-{{ node.metadata.name }}"
+  namespace: "vine-session-{{ userName }}"
+spec:
+  ttlSecondsAfterFinished: 1
+  template:
+    metadata:
+      labels:
+        name: desktop
+    spec:
+      nodeName: "{{ node.metadata.name }}"
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be excluded
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Desktop
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - "{{ node.metadata.name }}"
+      containers:
+        - name: desktop-environment-cleanup
+          image: docker.io/library/alpine:latest
+          command:
+            - /bin/rmdir
+          args:
+            - /tmp/.vine/.login.lock
+          volumeMounts:
+            - name: vine
+              mountPath: /tmp/.vine
+      volumes:
+        - name: vine
+          hostPath:
+            path: /tmp/.vine
+            type: DirectoryOrCreate

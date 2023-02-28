@@ -21,6 +21,8 @@
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
     item in ansible_facts
+    and 'macaddress' in ansible_facts[item]
+    and 'module' in ansible_facts[item]
     and 'type' in ansible_facts[item]
     and ansible_facts[item].type == 'ether'
   set_fact:
@@ -48,6 +50,8 @@
     item in ansible_facts
     and ansible_facts[item].active
     and 'ipv4' in ansible_facts[item]
+    and 'macaddress' in ansible_facts[item]
+    and 'module' in ansible_facts[item]
     and 'netmask' in ansible_facts[item].ipv4
     and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
     and 'network' in ansible_facts[item].ipv4

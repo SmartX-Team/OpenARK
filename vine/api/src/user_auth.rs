@@ -108,7 +108,6 @@ pub enum UserLoginResponse {
     AuthorizationTokenNotFound,
     BoxNotFound,
     BoxNotInCluster,
-    BoxNotRunning,
     Deny {
         user: UserSpec,
     },
