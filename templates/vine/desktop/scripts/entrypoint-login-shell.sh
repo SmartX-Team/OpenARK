@@ -39,6 +39,7 @@ while :; do
         --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
         --kiosk "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
     PID=$!
+    TIMESTAMP=$(date -u +%s)
 
     echo "Waiting until window is ready..."
     until xdotool search --classname 'Navigator' >/dev/null; do
@@ -48,6 +49,13 @@ while :; do
     until [ -d "/tmp/.vine/.login.lock" ]; do
         # Enforce: Resizing window to fullscreen
         update_window 'Navigator'
+
+        # Session Timeout
+        NOW=$(date -u +%s)
+        if ((NOW - TIMESTAMP > 1800)); then
+            echo "Session timeout ($(date))"
+            break
+        fi
 
         sleep 1
     done
