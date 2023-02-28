@@ -74,8 +74,19 @@
       }] }}
 
 - name: Find the most suitable device (>=200Gi)
+  when: kiss_os_default == 'flatcar'
   set_fact:
     device: "{{ devices | selectattr('size', 'ge', 200 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
+
+- name: Find the root device
+  when: kiss_os_default != 'flatcar'
+  set_fact:
+    # [5:] = "/dev/"
+    device: >
+      {{{
+        'name': ( ansible_mounts | json_query('[?mount == `/`].device') | first )[5:],
+        'size': ansible_mounts | json_query('[?mount == `/`].size_total') | first,
+      }}}
 
 - name: Check whether kiss storage is already configured
   # TODO: verify data
