@@ -12,6 +12,9 @@ set -x
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
+# Cleanup screen
+xrandr --size 0
+
 # Initialize desktop environment
 "$(dirname "$0")/init-desktop.sh"
 

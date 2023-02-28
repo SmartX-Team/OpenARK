@@ -7,6 +7,9 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
+# Cleanup screen
+xrandr --size 0
+
 # Disable screen blanking
 xset -dpms
 xset s off
@@ -25,7 +28,7 @@ function update_window() {
 
 while :; do
     echo "Waiting until logged out..."
-    while [ -f "/tmp/.vine/.login.lock" ]; do
+    while [ -d "/tmp/.vine/.login.lock" ]; do
         sleep 3
     done
 
@@ -41,7 +44,7 @@ while :; do
         sleep 0.5
     done
 
-    until [ -f "/tmp/.vine/.login.lock" ]; do
+    until [ -d "/tmp/.vine/.login.lock" ]; do
         # Enforce: Resizing window to fullscreen
         update_window 'Firefox'
         update_window 'Navigator'

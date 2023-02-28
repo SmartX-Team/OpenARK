@@ -93,6 +93,8 @@ spec:
               mountPath: /run/user/2000
             - name: tmp
               mountPath: /tmp
+            - name: vine
+              mountPath: /tmp/.vine
             - name: vine-lock
               mountPath: /tmp/.vine/.login.lock
             - name: vulkan-icd-loader
@@ -144,10 +146,12 @@ spec:
             type: Directory
         - name: tmp
           emptyDir: {}
-        - name: vine-lock
+        - name: vine
           hostPath:
-            path: /tmp/.vine/.login.lock
-            type: FileOrCreate
+            path: /tmp/.vine
+            type: DirectoryOrCreate
+        - name: vine-lock
+          emptyDir: {}
         - name: vulkan-icd-loader
           hostPath:
             path: /usr/share/vulkan/icd.d
