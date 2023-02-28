@@ -30,15 +30,15 @@
       {{ all_interfaces|default([]) + [{
         'name': item,
         'macaddress': ansible_facts[item].macaddress,
-        'module': ansible_facts[item].module,
+        'module': ansible_facts[item]['module'],
         'mtu': kiss_network_interface_mtu_size,
         'priority':
-          ethernet_priority_map[ansible_facts[item].module]
-          if ansible_facts[item].module in ethernet_priority_map
+          ethernet_priority_map[ansible_facts[item]['module']]
+          if ansible_facts[item]['module'] in ethernet_priority_map
           else (ethernet_priority | length),
         'type':
-          ethernet_modules_map[ansible_facts[item].module]
-          if ansible_facts[item].module in ethernet_modules_map
+          ethernet_modules_map[ansible_facts[item]['module']]
+          if ansible_facts[item]['module'] in ethernet_modules_map
           else 'ethernet',
         'uuid': 9999999999999999999999 | random | to_uuid,
       }] }}
@@ -69,18 +69,18 @@
           kiss_network_nameserver_incluster_ipv4,
         ],
         'macaddress': ansible_facts[item].macaddress,
-        'module': ansible_facts[item].module,
+        'module': ansible_facts[item]['module'],
         'mtu': kiss_network_interface_mtu_size,
         'pciid': ansible_facts[item].pciid,
         'priority':
-          ethernet_priority_map[ansible_facts[item].module]
-          if ansible_facts[item].module in ethernet_priority_map
+          ethernet_priority_map[ansible_facts[item]['module']]
+          if ansible_facts[item]['module'] in ethernet_priority_map
           else (ethernet_priority | length),
         'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'type':
-          ethernet_modules_map[ansible_facts[item].module]
-          if ansible_facts[item].module in ethernet_modules_map
+          ethernet_modules_map[ansible_facts[item]['module']]
+          if ansible_facts[item]['module'] in ethernet_modules_map
           else 'ethernet',
         'uuid': 9999999999999999999999 | random | to_uuid,
       }] }}
