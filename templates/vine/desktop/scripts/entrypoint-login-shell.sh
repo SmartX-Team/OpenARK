@@ -7,8 +7,8 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Cleanup screen
-xrandr --size 0
+# Fix screen size
+xrandr --size 800x600
 
 # Disable screen blanking
 xset -dpms
