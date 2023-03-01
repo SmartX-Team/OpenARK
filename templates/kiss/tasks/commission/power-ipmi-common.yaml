@@ -4,22 +4,17 @@
     path: /dev/ipmi0
   register: ipmi
 
-- name: Install ContainerD
-  package:
-    name: containerd.io
-    state: present
-  ignore_errors: true
-
-- name: Start NetworkManager
-  systemd:
-    name: containerd.service
-    state: started
-    daemon_reload: true
-
 - name: Check whether ctr command exists
   stat:
     path: "{{ bin_dir }}/ctr"
   register: ctr_file
+
+- name: Install ContainerD
+  when: not ctr_file.stat.exists
+  package:
+    name: containerd.io
+    state: present
+  ignore_errors: true
 
 - name: Link ctr command to bin_dir
   when: not ctr_file.stat.exists
@@ -27,6 +22,12 @@
     src: /bin/ctr
     dest: "{{ bin_dir }}/ctr"
     state: link
+
+- name: Start ContainerD
+  systemd:
+    name: containerd.service
+    state: started
+    daemon_reload: true
 
 - name: Pull IPMI docker image
   when: ipmi.stat.exists
