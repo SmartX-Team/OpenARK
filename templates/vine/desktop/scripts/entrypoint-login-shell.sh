@@ -52,7 +52,8 @@ while :; do
 
         # Session Timeout
         NOW=$(date -u +%s)
-        if ((NOW - TIMESTAMP > 1800)); then
+        TIMEOUT_SECS="300" # 5 minutes
+        if ((NOW - TIMESTAMP > TIMEOUT_SECS)); then
             echo "Session timeout ($(date))"
             break
         fi
