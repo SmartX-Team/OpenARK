@@ -7,6 +7,13 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
+# Fix screen size
+xrandr --size 800x600
+
+# Disable screen blanking
+xset -dpms
+xset s off
+
 # Get the screen size
 SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
 SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
@@ -40,13 +47,6 @@ while :; do
     done
 
     until [ -d "/tmp/.vine/.login.lock" ]; do
-        # Fix screen size
-        xrandr --size 800x600
-
-        # Disable screen blanking
-        xset -dpms
-        xset s off
-
         # Enforce: Resizing window to fullscreen
         update_window 'Navigator'
 
