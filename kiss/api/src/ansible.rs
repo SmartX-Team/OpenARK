@@ -20,7 +20,7 @@ use kube::{
 use crate::{
     cluster::ClusterState,
     config::KissConfig,
-    r#box::{BoxCrd, BoxGroupSpec, BoxPowerSpec, BoxState},
+    r#box::{BoxCrd, BoxGroupSpec, BoxPowerType, BoxState},
 };
 
 pub struct AnsibleClient {
@@ -351,10 +351,8 @@ impl AnsibleClient {
                                     .spec
                                     .power
                                     .as_ref()
-                                    .and_then(|power| match power {
-                                        BoxPowerSpec::IntelAmt { address } => Some(address),
-                                        _ => None,
-                                    })
+                                    .filter(|power| matches!(power.r#type, BoxPowerType::IntelAMT))
+                                    .and_then(|power| power.address.as_ref())
                                     .map(|address| address.to_string()),
                                 ..Default::default()
                             },
@@ -389,10 +387,8 @@ impl AnsibleClient {
                                     .spec
                                     .power
                                     .as_ref()
-                                    .and_then(|power| match power {
-                                        BoxPowerSpec::Ipmi { address } => Some(address),
-                                        _ => None,
-                                    })
+                                    .filter(|power| matches!(power.r#type, BoxPowerType::Ipmi))
+                                    .and_then(|power| power.address.as_ref())
                                     .map(|address| address.to_string()),
                                 ..Default::default()
                             },

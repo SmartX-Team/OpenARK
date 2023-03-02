@@ -306,12 +306,18 @@ impl BoxMachineSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "type")]
-pub enum BoxPowerSpec {
-    #[serde(rename_all = "camelCase")]
-    IntelAmt { address: IpAddr },
-    #[serde(rename_all = "camelCase")]
-    Ipmi { address: IpAddr },
+#[serde(rename_all = "camelCase")]
+pub struct BoxPowerSpec {
+    pub address: Option<IpAddr>,
+    pub r#type: BoxPowerType,
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub enum BoxPowerType {
+    IntelAMT,
+    Ipmi,
 }
 
 pub mod request {
