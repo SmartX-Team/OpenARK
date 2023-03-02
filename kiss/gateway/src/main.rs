@@ -44,10 +44,10 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
 
         let name = query.machine.uuid.to_string();
 
-        match api.get(&name).await {
-            Ok(r#box) => {
+        match api.get_opt(&name).await? {
+            Some(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Merge(json!({
+                let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -62,7 +62,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                 let pp = PatchParams::apply("kiss-gateway");
                 api.patch_status(&name, &pp, &patch).await?;
             }
-            Err(_) => {
+            None => {
                 let data = BoxCrd {
                     metadata: ObjectMeta {
                         name: Some(name.clone()),
@@ -120,10 +120,10 @@ async fn post_commission(
 
         let name = query.machine.uuid.to_string();
 
-        match api.get(&name).await {
-            Ok(r#box) => {
+        match api.get_opt(&name).await? {
+            Some(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Merge(json!({
+                let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "spec": BoxSpec {
@@ -150,7 +150,7 @@ async fn post_commission(
                 api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }
-            Err(_) => bail!("no such box: {name}"),
+            None => bail!("no such box: {name}"),
         }
         Ok(())
     }
