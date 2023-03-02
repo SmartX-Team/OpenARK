@@ -6,7 +6,7 @@
         <wsa:ReferenceParameters>
             <wsman:ResourceURI>http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_BootSourceSetting</wsman:ResourceURI>
             <wsman:SelectorSet>
-                <wsman:Selector wsman:Name="InstanceID">cds</wsman:Selector>
+                <wsman:Selector wsman:Name="InstanceID">Intel(r) AMT: Force CD/DVD Boot</wsman:Selector>
             </wsman:SelectorSet>
         </wsa:ReferenceParameters>
     </input:Source>

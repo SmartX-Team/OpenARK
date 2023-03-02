@@ -3,3 +3,27 @@
   stat:
     path: /dev/mei0
   register: intel_amt
+
+- name: Check whether Intel AMT is ready
+  set_fact:
+    intel_amt_is_ready: >
+      {{
+          intel_amt.stat.exists
+        and
+          kiss_power_intel_amt_host is defined and kiss_power_intel_amt_host != ''
+      }}
+  register: intel_amt
+
+- name: Download ctr command
+  when: intel_amt_is_ready
+  include: common-ctr.yaml
+
+- name: Pull Intel AMT docker image
+  when: intel_amt_is_ready
+  shell: >
+    {{ bin_dir }}/ctr images pull
+    "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest"
+  register: intel_amt_pull_docker_image
+  until: intel_amt_pull_docker_image.rc == 0
+  retries: 5
+  delay: 5
