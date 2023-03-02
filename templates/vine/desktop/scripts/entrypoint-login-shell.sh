@@ -7,13 +7,6 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Fix screen size
-xrandr --size 800x600
-
-# Disable screen blanking
-xset -dpms
-xset s off
-
 # Get the screen size
 SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
 SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
@@ -28,6 +21,13 @@ function update_window() {
 }
 
 while :; do
+    # Fix screen size
+    xrandr --size 800x600
+
+    # Disable screen blanking
+    xset -dpms
+    xset s off
+
     echo "Waiting until logged out..."
     while [ -d "/tmp/.vine/.login.lock" ]; do
         sleep 3

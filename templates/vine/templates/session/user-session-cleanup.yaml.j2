@@ -32,8 +32,9 @@ spec:
         - name: desktop-environment-cleanup
           image: docker.io/library/alpine:latest
           command:
-            - /bin/rmdir
+            - /bin/rm
           args:
+            - -rf
             - /tmp/.vine/.login.lock
           volumeMounts:
             - name: vine
