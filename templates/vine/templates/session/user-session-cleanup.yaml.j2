@@ -27,6 +27,7 @@ spec:
                     operator: In
                     values:
                       - "{{ node.metadata.name }}"
+      restartPolicy: OnFailure
       containers:
         - name: desktop-environment-cleanup
           image: docker.io/library/alpine:latest

@@ -1,0 +1,96 @@
+---
+- name: Provision Power Planes - Intel AMT Common
+  include: power-intel-amt-common.yaml
+#
+# - name: Get Intel AMT IP Address
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     lan print
+#     | sed -n -e 's/^IP Address *: *\([0-9.]*\)/\1/p'
+#   register: intel_amt_address
+
+# - name: Set Intel AMT IP Address be Static
+#   when: v.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     lan set 1 ipsrc static
+#   ignore_errors: true
+
+# - name: Set Intel AMT IP Address
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     lan set 1 ipaddr '{{ intel_amt_address.stdout }}'
+#   ignore_errors: true
+
+# - name: Set Intel AMT IP Address Netmask
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     lan set 1 netmask '{{ kiss_network_ipv4_subnet_mask }}'
+#   ignore_errors: true
+
+# - name: Set Intel AMT IP Address Default Gateway
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     lan set 1 defgw ipaddr '{{ kiss_network_ipv4_gateway }}'
+#   ignore_errors: true
+
+# - name: Set Intel AMT user 9 name
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     user set name 9 '{{ kiss_power_intel_amt_username }}'
+#   ignore_errors: true
+#   no_log: true
+
+# - name: Set Intel AMT user 9 password
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     user set password 9 '{{ kiss_power_intel_amt_password }}'
+#   ignore_errors: true
+#   no_log: true
+
+# - name: Enable Intel AMT user 9
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     user enable 9
+#   ignore_errors: true
+
+# - name: Link on Intel AMT user 9 as ADMIN
+#   when: intel_amt.stat.exists
+#   shell: >
+#     {{ bin_dir }}/ctr run --rm
+#     --device /dev/mei0
+#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "kiss-mei" mei
+#     channel setaccess 1 9 callin=on ipmi=on link=on privilege=4
+#   ignore_errors: true

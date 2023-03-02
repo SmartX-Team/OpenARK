@@ -345,14 +345,53 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_power_intel_amt_host".into(),
+                                value: job
+                                    .r#box
+                                    .spec
+                                    .power
+                                    .as_ref()
+                                    .and_then(|power| match power {
+                                        BoxPowerSpec::IntelAmt { address } => Some(address),
+                                        _ => None,
+                                    })
+                                    .map(|address| address.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_power_intel_amt_username".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "power_intel_amt_username".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_power_intel_amt_password".into(),
+                                value_from: Some(EnvVarSource {
+                                    secret_key_ref: Some(SecretKeySelector {
+                                        name: Some("kiss-config".into()),
+                                        key: "power_intel_amt_password".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_power_ipmi_host".into(),
                                 value: job
                                     .r#box
                                     .spec
                                     .power
                                     .as_ref()
-                                    .map(|power| match power {
-                                        BoxPowerSpec::Ipmi { address } => address,
+                                    .and_then(|power| match power {
+                                        BoxPowerSpec::Ipmi { address } => Some(address),
+                                        _ => None,
                                     })
                                     .map(|address| address.to_string()),
                                 ..Default::default()

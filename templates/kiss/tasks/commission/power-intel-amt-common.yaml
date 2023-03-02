@@ -1,0 +1,40 @@
+---
+- name: Check whether Intel AMT exists
+  stat:
+    path: /dev/mei0
+  register: intel_amt
+
+- name: Check whether ctr command exists
+  stat:
+    path: "{{ bin_dir }}/ctr"
+  register: ctr_file
+
+- name: Install ContainerD
+  when: not ctr_file.stat.exists
+  package:
+    name: containerd.io
+    state: present
+  ignore_errors: true
+
+- name: Link ctr command to bin_dir
+  when: not ctr_file.stat.exists
+  file:
+    src: /bin/ctr
+    dest: "{{ bin_dir }}/ctr"
+    state: link
+
+- name: Start ContainerD
+  systemd:
+    name: containerd.service
+    state: started
+    daemon_reload: true
+
+- name: Pull Intel AMT docker image
+  when: intel_amt.stat.exists
+  shell: >
+    {{ bin_dir }}/ctr images pull
+    "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+  register: intel_amt_pull_docker_image
+  until: intel_amt_pull_docker_image.rc == 0
+  retries: 5
+  delay: 5

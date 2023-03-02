@@ -309,6 +309,8 @@ impl BoxMachineSpec {
 #[serde(tag = "type")]
 pub enum BoxPowerSpec {
     #[serde(rename_all = "camelCase")]
+    IntelAmt { address: IpAddr },
+    #[serde(rename_all = "camelCase")]
     Ipmi { address: IpAddr },
 }
 
