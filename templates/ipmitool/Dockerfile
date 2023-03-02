@@ -9,7 +9,7 @@ ARG ALPINE_VERSION="latest"
 FROM docker.io/alpine:${ALPINE_VERSION} as server
 
 # Server Configuration
-WORKDIR /ipxe
+WORKDIR /usr/sbin
 ENTRYPOINT [ "/usr/sbin/ipmitool" ]
 CMD [ "" ]
 

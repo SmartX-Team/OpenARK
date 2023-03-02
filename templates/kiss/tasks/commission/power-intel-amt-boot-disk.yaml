@@ -7,7 +7,7 @@
 #   shell: >
 #     {{ bin_dir }}/ctr run --rm
 #     --device /dev/mei0
-#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest"
 #     "kiss-mei" mei
 #     chassis bootparam set bootflag force_disk
 
@@ -16,7 +16,7 @@
 #   shell: >
 #     {{ bin_dir }}/ctr run --rm
 #     --device /dev/ipmi0
-#     "quay.io/ulagbulag-village/netai-cloud-mei:latest"
+#     "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest"
 #     "kiss-mei" mei
 #     chassis bootdev disk options=persistent,efiboot
 #   ignore_errors: true
