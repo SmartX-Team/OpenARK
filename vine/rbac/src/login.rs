@@ -154,7 +154,7 @@ pub async fn execute(
     match box_quota {
         // Login Successed!
         Some(box_quota) => {
-            info!("[{now}] login accepted: {primary_key:?}");
+            info!("[{now}] login accepted: {primary_key:?} => {box_name:?}");
             session_manager
                 .create(&client, &node, &user.name_any())
                 .await
@@ -164,7 +164,7 @@ pub async fn execute(
                 })
         }
         None => {
-            warn!("[{now}] login denied: {primary_key:?}");
+            warn!("[{now}] login denied: {primary_key:?} => {box_name:?}");
             Ok(UserLoginResponse::Deny { user: user.spec })
         }
     }

@@ -21,13 +21,6 @@ function update_window() {
 }
 
 while :; do
-    # Fix screen size
-    xrandr --size 800x600
-
-    # Disable screen blanking
-    xset -dpms
-    xset s off
-
     echo "Waiting until logged out..."
     while [ -d "/tmp/.vine/.login.lock" ]; do
         sleep 3
@@ -47,6 +40,13 @@ while :; do
     done
 
     until [ -d "/tmp/.vine/.login.lock" ]; do
+        # Fix screen size
+        xrandr --size 800x600
+
+        # Disable screen blanking
+        xset -dpms
+        xset s off
+
         # Enforce: Resizing window to fullscreen
         update_window 'Navigator'
 

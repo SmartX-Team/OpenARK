@@ -1,7 +1,10 @@
 use std::{fs, future::Future, path::PathBuf};
 
 use ipis::{
-    core::anyhow::{bail, Error, Result},
+    core::{
+        anyhow::{bail, Error, Result},
+        chrono::{DateTime, Duration, NaiveDateTime, Utc},
+    },
     env,
     futures::TryFutureExt,
     log::info,
@@ -59,6 +62,7 @@ impl SessionManager {
 
     const LABEL_BIND_BY_USER: &'static str = "vine.ulagbulag.io/bind.user";
     const LABEL_BIND_STATUS: &'static str = "vine.ulagbulag.io/bind";
+    const LABEL_BIND_TIMESTAMP: &'static str = "vine.ulagbulag.io/bind.timestamp";
 
     const TEMPLATE_CLEANUP_FILENAME: &'static str = "user-session-cleanup.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
@@ -128,6 +132,25 @@ impl SessionManager {
             return Ok(None);
         }
 
+        let duration_session_start = Duration::seconds(5);
+        match labels
+            .get(Self::LABEL_BIND_TIMESTAMP)
+            .and_then(|timestamp| {
+                let timestamp: i64 = timestamp.parse().ok()?;
+                let naive_date_time = NaiveDateTime::from_timestamp_millis(timestamp)?;
+                Some(DateTime::<Utc>::from_utc(naive_date_time, Utc))
+            }) {
+            Some(timestamp) if Utc::now() - timestamp >= duration_session_start => {}
+            Some(_) => {
+                info!("skipping unbinding node: {name:?}: session is in starting (timeout: {duration_session_start})");
+                return Ok(None);
+            }
+            None => {
+                info!("skipping unbinding node: {name:?}: timestamp is missing");
+                return Ok(None);
+            }
+        }
+
         let user_name = match labels.get(Self::LABEL_BIND_BY_USER) {
             Some(user_name) => user_name,
             None => {
@@ -155,6 +178,7 @@ impl SessionManager {
                 "labels": {
                     Self::LABEL_BIND_BY_USER: user_name,
                     Self::LABEL_BIND_STATUS: user_name.is_some().to_string(),
+                    Self::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
                 },
             },
         }));
