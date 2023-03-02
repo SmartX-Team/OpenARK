@@ -10,15 +10,34 @@
         uuid: "{{ ansible_host_uuid }}"
       reset: "{{ not kiss_storage_exists }}"
 
-- name: Update submit template | Power | IPMI
-  when: ipmi_address.stdout is defined
-  set_fact:
-    kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
-  vars:
-    kiss_submit_data_patch:
-      power:
-        type: Ipmi
-        address: "{{ ipmi_address.stdout }}"
+# NOTE: ordered (priority)!
+- name: Update submit template | Power
+  block:
+    - name: Update submit template | Power | IPMI
+      when:
+        - kiss_submit_data_power is not defined or not kiss_submit_data_power
+        - ipmi_address is defined and ipmi_address.stdout is defined
+      set_fact:
+        kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
+        kiss_submit_data_power: true
+      vars:
+        kiss_submit_data_patch:
+          power:
+            type: Ipmi
+            address: "{{ ipmi_address.stdout }}"
+
+    - name: Update submit template | Power | Intel AMT
+      when:
+        - kiss_submit_data_power is not defined or not kiss_submit_data_power
+        - intel_amt_address is defined and intel_amt_address.stdout is defined
+      set_fact:
+        kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
+        kiss_submit_data_power: true
+      vars:
+        kiss_submit_data_patch:
+          power:
+            type: IntelAMT
+            address: "{{ intel_amt_address.stdout }}"
 
 - name: Submit results to kiss cluster
   uri:

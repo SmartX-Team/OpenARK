@@ -24,6 +24,7 @@
     state: link
 
 - name: Start ContainerD
+  when: not ctr_file.stat.exists
   systemd:
     name: containerd.service
     state: started

@@ -1,4 +1,17 @@
 ---
+- name: Populate service facts
+  service_facts:
+
+- name: Check whether NetworkManager is running
+  when: kiss_network_service == 'NetworkManager'
+  assert:
+    that: ansible_facts.services["NetworkManager.service"].state == "running"
+
+- name: Check whether systemd-networkd is running
+  when: kiss_network_service == 'systemd-networkd'
+  assert:
+    that: ansible_facts.services["systemd-networkd.service"].state == "running"
+
 - name: Define ethernet modules
   set_fact:
     ethernet_modules:
@@ -98,18 +111,30 @@
   set_fact:
     interface_primary: "{{ interfaces[0] }}"
     interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
+    interface_primary_is_current: >
+      {{
+          interfaces[0].address_ipv4 == ansible_ssh_host
+        and
+          kiss_storage_exists
+      }}
     interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
 - name: Configure network interfaces | NetworkManager
-  when: kiss_network_service == 'NetworkManager'
+  when:
+    - not interface_primary_is_current
+    - kiss_network_service == 'NetworkManager'
   include: network-ethernet-conf-network-manager.yaml
 
 - name: Configure network interfaces | systemd-networkd
-  when: kiss_network_service == 'systemd-networkd'
+  when:
+    - not interface_primary_is_current
+    - kiss_network_service == 'systemd-networkd'
   include: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Ping from primary interface to the gateway
-  when: interface_primary_address_ipv4 is defined
+  when:
+    - not interface_primary_is_current
+    - interface_primary_address_ipv4 is defined
   command: >
     ping -4 -c 4
     -I {{ interface_primary_address_ipv4 }}
@@ -120,7 +145,9 @@
   retries: 5
 
 - name: Update SSH access IP
-  when: interface_primary_address_ipv4 is defined
+  when:
+    - not interface_primary_is_current
+    - interface_primary_address_ipv4 is defined
   set_fact:
     ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
 
@@ -130,7 +157,7 @@
     var: interface_primary
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
-  with_items: "{{ interfaces[:1] }}"
+  when: not interface_primary_is_current
   command: >
     ip route del {{ kiss_network_nameserver_incluster_ipv4 }}
     dev {{ item.name }}
@@ -138,6 +165,7 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Subnet Gateway
+  when: not interface_primary_is_current
   with_items: "{{ interfaces[:1] }}"
   command: >
     ip route del {{ item.address_ipv4_gateway }}
@@ -146,6 +174,7 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Default Gateway
+  when: not interface_primary_is_current
   with_items: "{{ interfaces[:1] }}"
   command: >
     ip route del default
@@ -155,6 +184,7 @@
   ignore_errors: true
 
 - name: Modify MTU - {{ item.mtu }} Bytes
+  when: not interface_primary_is_current
   with_items: "{{ interfaces[:1] }}"
   command: ip link set {{ item.name }} mtu {{ item.mtu }}
   ignore_errors: true
@@ -166,11 +196,34 @@
     ping -4 -c 4
     -I {{ interface_primary_address_ipv4 }}
     {{ ansible_default_ipv4.gateway }}
+  changed_when: false
   register: result
   until: result.rc == 0
   delay: 30
   retries: 10
 
 - name: Configure network interfaces now | NetworkManager
-  when: kiss_network_service == 'NetworkManager'
+  when:
+    - not interface_primary_is_current
+    - kiss_network_service == 'NetworkManager'
   include: network-ethernet-conf-network-manager-post.yaml
+
+- name: Restart NetworkManager
+  when:
+    - interface_primary is defined
+    - not interface_primary_is_current
+    - kiss_network_service == 'NetworkManager'
+  systemd:
+    name: NetworkManager.service
+    state: restarted
+    daemon_reload: true
+
+- name: Restart systemd-networkd
+  when:
+    - interface_primary is defined
+    - not interface_primary_is_current
+    - kiss_network_service == 'systemd-networkd'
+  systemd:
+    name: systemd-networkd.service
+    state: restarted
+    daemon_reload: true

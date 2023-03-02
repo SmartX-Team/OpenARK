@@ -1,3 +1,5 @@
 ---
+- name: Provision Boot Orders - Intel AMT
+  include: power-intel-amt-boot-pxe.yaml
 - name: Provision Boot Orders - IPMI
   include: power-ipmi-boot-pxe.yaml

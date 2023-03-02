@@ -117,6 +117,12 @@ stringData:
   auth_ssh_key_id_ed25519: "" # to be filled
 
   ###########################################################################
+  # Bare-metal Box Intel AMT Configuration
+  ###########################################################################
+  power_intel_amt_username: kiss
+  power_intel_amt_password: k1ssC!ou
+
+  ###########################################################################
   # Bare-metal Box IPMI Configuration
   ###########################################################################
   power_ipmi_username: kiss
