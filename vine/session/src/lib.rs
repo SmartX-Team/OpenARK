@@ -63,6 +63,11 @@ impl SessionManager {
     const TEMPLATE_CLEANUP_FILENAME: &'static str = "user-session-cleanup.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
 
+    async fn exists(&self, kube: &Client, node: &Node, user_name: &str) -> Result<bool> {
+        self.execute_any(kube, node, user_name, Self::TEMPLATE_SESSION_FILENAME)
+            .await
+    }
+
     pub async fn create(&self, kube: &Client, node: &Node, user_name: &str) -> Result<()> {
         self.label_user(kube, node, Some(user_name))
             .and_then(|()| self.cleanup(kube, node, user_name, try_delete))
@@ -86,7 +91,35 @@ impl SessionManager {
             .await
     }
 
-    pub async fn unbind(&self, kube: &Client, node: &Node) -> Result<Option<String>> {
+    pub async fn try_unbind(&self, kube: &Client, node: &Node) -> Result<Option<String>> {
+        if let Some(user_name) = self.get_user_name(node)? {
+            if
+            // If the node is not ready
+            !node
+                .status
+                .as_ref()
+                .and_then(|status| status.conditions.as_ref())
+                .and_then(|conditions| {
+                    conditions
+                        .iter()
+                        .find(|condition| condition.type_ == "Ready")
+                })
+                .map(|condition| condition.status == "True")
+                .unwrap_or(false)
+                ||
+                // If the node's managed session has been logged out
+                !self.exists(kube, node, user_name).await?
+            {
+                return self
+                    .delete(kube, node, user_name)
+                    .map_ok(|()| Some(user_name.to_string()))
+                    .await;
+            }
+        }
+        Ok(None)
+    }
+
+    fn get_user_name<'a>(&self, node: &'a Node) -> Result<Option<&'a str>> {
         let name = node.name_any();
 
         let labels = node.labels();
@@ -103,9 +136,7 @@ impl SessionManager {
             }
         };
 
-        self.delete(kube, node, user_name)
-            .map_ok(|()| Some(user_name.clone()))
-            .await
+        Ok(Some(user_name))
     }
 
     async fn label_user(&self, kube: &Client, node: &Node, user_name: Option<&str>) -> Result<()> {
@@ -195,6 +226,55 @@ impl SessionManager {
             }
         }
         Ok(())
+    }
+
+    async fn execute_any(
+        &self,
+        kube: &Client,
+        node: &Node,
+        user_name: &str,
+        template_name: &str,
+    ) -> Result<bool> {
+        let context = Context::from_serialize(&SessionContext { node, user_name })?;
+        let templates = self.tera.render(template_name, &context)?;
+        let templates: Vec<DynamicObject> = ::serde_yaml::Deserializer::from_str(&templates)
+            .map(::serde::Deserialize::deserialize)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // create user session namespace
+
+        for template in templates {
+            let name = template.name_any();
+            let namespace = template.namespace();
+            let types = match template.types.as_ref() {
+                Some(types) => types,
+                None => bail!("untyped document is not supported: {name}"),
+            };
+
+            let api_group = {
+                let mut iter = types.api_version.split('/');
+                match (iter.next(), iter.next()) {
+                    (Some(api_group), Some(_)) => api_group,
+                    (Some(_), None) | (None, _) => "",
+                }
+            };
+
+            // Discover most stable version variant of document
+            let apigroup = discovery::group(kube, api_group).await?;
+            let (ar, _caps) = apigroup.recommended_kind(&types.kind).unwrap();
+
+            // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
+            let api: Api<DynamicObject> = match &namespace {
+                Some(namespace) => Api::namespaced_with(kube.clone(), namespace, &ar),
+                None => Api::all_with(kube.clone(), &ar),
+            };
+
+            // Find documents
+            if api.get_opt(&name).await?.is_some() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
