@@ -168,7 +168,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
             let bind_group = if matches!(new_state, BoxState::Joining) {
                 Some(&data.spec.group)
             } else {
-                None
+                status
+                    .as_ref()
+                    .and_then(|status| status.bind_group.as_ref())
             };
 
             let patch = Patch::Apply(json!({
