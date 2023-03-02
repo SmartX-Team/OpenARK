@@ -8,11 +8,20 @@ ARG ROCKYLINUX_VERSION="latest"
 # Be ready for serving
 FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
 
+# Configure enviroment variables
+ENV TEMPLATES_HOME="/usr/local/share/wsmancli/templates"
+
 # Server Configuration
-WORKDIR /usr/bin
-ENTRYPOINT [ "/usr/bin/wsman" ]
+WORKDIR "${TEMPLATES_HOME}"
+ENTRYPOINT [ "/usr/local/bin/wsmanhelper.sh" ]
 
 # Install dependencies
 RUN dnf install -y wsmancli \
     && dnf remove -y epel-release \
     && rm -rf /var/cache/dnf/*
+
+# Add templates
+ADD ./templates/ "${TEMPLATES_HOME}"
+
+# Add helper script
+ADD ./wsmanhelper.sh /usr/local/bin/
