@@ -13,7 +13,7 @@ docker pull "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest"
 docker run --rm --name netai-cloud-wsmancli \
     --env AMT_HOSTNAME="your machine AMT IP" \
     --env AMT_USERNAME="your machine AMT Username (Default: admin)" \
-    --env AMT_PASSWORD="your machine AMT password" \
+    --env AMT_PASSWORD="your machine AMT Password" \
     "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest" \
     power on
 ```
