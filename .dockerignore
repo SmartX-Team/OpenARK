@@ -20,6 +20,9 @@ Cargo.lock
 **/*.yaml
 **/*.yml
 
+# Dashboard
+/kiss/dashboard/
+
 # Documentation
 **/*.md
 
