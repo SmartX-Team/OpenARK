@@ -28,7 +28,7 @@ AMT_RESOURCE_URI="$(cat "${AMT_INPUT_FILENAME}" | grep -Po 'xmlns\:input\=\"\K[0
 ###########################################################
 
 exec wsman invoke \
-    -a "RequestPowerStateChange" \
+    -a "${AMT_METHOD}" \
     -J "${AMT_INPUT_FILENAME}" \
     -h "${AMT_HOSTNAME}" \
     -P "${AMT_PORT}" \
