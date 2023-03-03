@@ -244,6 +244,9 @@ data:
           "nvidia-driver-NVML.${ARCH_WIN32}"
       fi
 
+      # Enable NVIDIA Persistenced
+      systemctl enable nvidia-persistenced.service
+
       if [ "${_HAS_NVIDIA_VGA}" == "true" ]; then
         cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
     blacklist nouveau
