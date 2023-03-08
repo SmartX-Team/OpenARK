@@ -4,7 +4,7 @@
 # found in the LICENSE file.
 
 # Prehibit errors
-set -e
+set -e -o pipefail
 
 ###########################################################
 #   Benchmark Configuration                               #

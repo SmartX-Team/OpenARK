@@ -1,25 +1,21 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: vine-guest
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: login-shell
+  name: test-multi-gpus
   namespace: vine-guest
 spec:
   selector:
     matchLabels:
-      name: login-shell
+      name: test-multi-gpus
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        name: login-shell
+        name: test-multi-gpus
     spec:
+      nodeName: 05e576df-7d12-1000-a4cc-d8c497a2b87d
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
@@ -29,85 +25,93 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
+                      - Dashboard
                       - Desktop
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - 05e576df-7d12-1000-a4cc-d8c497a2b87d
       containers:
-        - name: login-shell
+        - name: desktop-environment
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
           imagePullPolicy: Always
           command:
-            - /opt/scripts/entrypoint-login-shell.sh
+            - sleep
+          args:
+            - infinity
           env:
             - name: DISPLAY
               value: ":0"
+            - name: KISS_DESKTOP_FONTS_URL
+              value: ""
+            - name: KISS_DESKTOP_ICONS_URL
+              value: ""
+            - name: KISS_DESKTOP_THEMES_URL
+              value: ""
+            - name: KISS_DESKTOP_TEMPLATE_GIT
+              value: https://github.com/ulagbulag-village/netai-cloud-desktop-template.git
+            - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
+              value: master
             - name: LANG
               value: ko_KR.UTF-8
             - name: LC_ALL
               value: ko_KR.UTF-8
             - name: LOCALE
               value: ko_KR.UTF-8
-            - name: NODENAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: all
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: USER
               value: "2000"
-            - name: VINE_BASTION_ENTRYPOINT
-              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion
+            - name: WINEVERSION
+              value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+            privileged: true
           workingDir: /home/user
           volumeMounts:
+            - name: dev
+              mountPath: /dev
+            - name: dev-dri
+              mountPath: /dev/dri
             - name: home
               mountPath: /home/user
             - name: machine-id
               mountPath: /etc/machine-id
               readOnly: true
-            - name: ice
-              mountPath: /tmp/.ICE-unix
-            - name: runtime-dbus
-              mountPath: /run/dbus
-            - name: runtime-user
-              mountPath: /run/user/2000
             - name: tmp
               mountPath: /tmp
-            - name: vine
-              mountPath: /tmp/.vine
-            - name: x11
-              mountPath: /tmp/.X11-unix
+          resources:
+            limits:
+              nvidia.com/gpu: "10"
+      hostIPC: true
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
+        # sysctls:
+        #   - name: fs.file-max
+        #     value: "524288"
       terminationGracePeriodSeconds: 30
       volumes:
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: dev-dri
+          hostPath:
+            path: /dev/dri
+            type: Directory
         - name: home
           emptyDir: {}
         - name: machine-id
           hostPath:
             path: /etc/machine-id
             type: File
-        - name: ice
-          hostPath:
-            path: /tmp/.ICE-unix
-            type: Directory
-        - name: runtime-dbus
-          hostPath:
-            path: /run/dbus
-            type: Directory
-        - name: runtime-user
-          hostPath:
-            path: /run/user/2000
-            type: Directory
         - name: tmp
           emptyDir: {}
-        - name: vine
-          hostPath:
-            path: /tmp/.vine
-            type: DirectoryOrCreate
-        - name: x11
-          hostPath:
-            path: /tmp/.X11-unix
-            type: Directory
