@@ -7,9 +7,6 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Fix screen size
-xrandr --size 800x600
-
 # Disable screen blanking
 xset -dpms
 xset s off
@@ -33,9 +30,11 @@ while :; do
         sleep 3
     done
 
+    echo "Fixing screen size..."
+    xrandr --size 800x600
+
     echo "Executing a login shell..."
     firefox \
-        --private \
         --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
         --kiosk "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
     PID=$!
