@@ -348,6 +348,15 @@ RUN true \
     # Cleanup
     && rm -rf "${LUTRIS_OBJ_FILE}"
 
+# # Install utilities - AI Dev - Training
+# RUN python3 -m pip install --no-cache-dir \
+#     # PyTorch
+#     torch \
+#     torchaudio \
+#     torchvision \
+#     # Cleanup
+#     && find / -type d -name '*__pycache__' -prune -exec rm -rf {} \;
+
 # Install utilities - Custom
 ARG ADDONS_HOME="/opt/netai-cloud/vdi/desktop"
 ADD ./addons "${ADDONS_HOME}"
