@@ -66,8 +66,16 @@ function download_library() {
 #   done
 # popd
 
-# Cleanup templates
+# Cleanup
+
+## Cleanup templates
 rm -rf "${HOME}/.git" ${HOME}/*
+
+## Cleanup ZSH configurations
+rm -rf \
+    "${HOME}/.oh-my-zsh" \
+    "${HOME}/.zshrc" \
+    "${HOME}/.zshrc.pre-oh-my-zsh"
 
 # Download and install templates
 pushd "${HOME}"
@@ -77,12 +85,6 @@ git fetch --all
 git pull "origin" "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
 popd
 
-# Cleanup ZSH configurations
-rm -rf \
-    "${HOME}/.oh-my-zsh" \
-    "${HOME}/.zshrc" \
-    "${HOME}/.zshrc.pre-oh-my-zsh"
-
 # ZSH Theme
 pushd "${HOME}"
 sh -c "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh")"
@@ -91,8 +93,8 @@ git clone --depth=1 \
     "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 popd
 
-# Disable screen blanking`
-xset -dpms`
+# Disable screen blanking
+xset -dpms
 xset s off
 
 # Finished!
