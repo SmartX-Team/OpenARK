@@ -15,6 +15,9 @@ xset s off
 SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
 SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
 
+# Define variables
+IS_REFRESH="0"
+
 # Configure firefox window
 function update_window() {
     classname="$1"
@@ -31,8 +34,10 @@ while :; do
     done
 
     echo "Fixing screen size..."
-    xrandr --size 800x600
-    sleep 3
+    if [ "${IS_REFRESH}" == "0" ]; then
+        xrandr --size 800x600
+        sleep 3
+    fi
 
     echo "Executing a login shell..."
     firefox \
@@ -46,6 +51,7 @@ while :; do
         sleep 0.5
     done
 
+    IS_REFRESH=0
     until [ -d "/tmp/.vine/.login.lock" ]; do
         # Enforce: Resizing window to fullscreen
         update_window 'Navigator'
@@ -55,6 +61,7 @@ while :; do
         TIMEOUT_SECS="300" # 5 minutes
         if ((NOW - TIMESTAMP > TIMEOUT_SECS)); then
             echo "Session timeout ($(date))"
+            IS_REFRESH=1
             break
         fi
 
