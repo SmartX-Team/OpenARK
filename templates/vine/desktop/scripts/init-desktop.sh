@@ -66,30 +66,29 @@ function download_library() {
 #   done
 # popd
 
-## Cleanup ZSH configurations
-rm -rf \
-    "${HOME}/.oh-my-zsh" \
-    "${HOME}/.zshrc" \
-    "${HOME}/.zshrc.pre-oh-my-zsh"
-
-## ZSH Theme
-pushd "${HOME}"
-sh -c "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh")"
-git clone --depth=1 \
-    "https://github.com/romkatv/powerlevel10k.git" \
-    "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
-popd
-
 # Cleanup templates
-rm -rf "${HOME}/.git"
+rm -rf "${HOME}/.git" ${HOME}/*
 
 # Download and install templates
 pushd "${HOME}"
 git init .
 git remote add origin "${KISS_DESKTOP_TEMPLATE_GIT}"
 git fetch --all
-git reset --hard "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
 git pull "origin" "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
+popd
+
+# Cleanup ZSH configurations
+rm -rf \
+    "${HOME}/.oh-my-zsh" \
+    "${HOME}/.zshrc" \
+    "${HOME}/.zshrc.pre-oh-my-zsh"
+
+# ZSH Theme
+pushd "${HOME}"
+sh -c "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh")"
+git clone --depth=1 \
+    "https://github.com/romkatv/powerlevel10k.git" \
+    "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 popd
 
 # Disable screen blanking`
