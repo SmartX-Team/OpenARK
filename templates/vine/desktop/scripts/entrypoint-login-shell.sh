@@ -32,6 +32,7 @@ while :; do
 
     echo "Fixing screen size..."
     xrandr --size 800x600
+    sleep 3
 
     echo "Executing a login shell..."
     firefox \
