@@ -41,19 +41,19 @@ data:
     # Machine Information
     ## EULA Agreement
     eula --agreed
-    ## Firewall configuration
+    ## Firewall Configuration
     firewall --disabled
-    ## Keyboard layouts
+    ## Keyboard Layouts
     keyboard us
     ## Network
     network --activate --bootproto=dhcp
-    ## SELinux configuration
+    ## SELinux Configuration
     selinux --permissive
-    ## System authorization
+    ## System Authorization
     authselect --enablemkhomedir --enablesssd --enablesssdauth --updateall
-    ## System language
+    ## System Language
     lang en_US.UTF-8
-    ## System timezone
+    ## System Timezone
     timezone Asia/Seoul --utc
 
     # Install Packages
@@ -132,7 +132,7 @@ data:
     part /boot --fstype=ext4 --size=512 --ondisk=${ROOTDEV}
     part / --fstype=ext4 --size=$(( ${MINSIZE}*2**10 )) --ondisk=${ROOTDEV}
 
-    # Configure the bootloader.
+    # Bootloader Configuration
     bootloader --boot-drive ${ROOTDEV}
     EOF
 
@@ -142,7 +142,7 @@ data:
     repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/9/extras/$(uname -m)/os/"
     EOF
 
-    # Reboot after installation
+    # Reboot after Installation
     if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); then
       ## Wireless - WIFI => Power Off
       cat <<EOF >>/tmp/kiss-config
@@ -209,7 +209,7 @@ data:
       done
     fi
 
-    # Allow passwordless sudo command
+    # Allow asswordless sudo command
     cat <<EOF >/etc/sudoers.d/10-wheel
     ENV_USERNAME ALL=(ALL) NOPASSWD: ALL
     EOF
@@ -247,9 +247,15 @@ data:
       # Enable NVIDIA Persistenced
       systemctl enable nvidia-persistenced.service
 
-      # Disable nouveau driver
+      # Disable Nouveau Driver
       cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
     blacklist nouveau
+    EOF
+
+      # Disable GSP Firmware
+      # NOTE: https://github.com/NVIDIA/dcgm-exporter/issues/84
+      cat <<EOF >/etc/modprobe.d/disable-nvidia-gsp-firmware.conf
+    options nvidia NVreg_EnableGpuFirmware=0
     EOF
     fi
 
@@ -453,7 +459,7 @@ data:
     EOF
     fi
 
-    ## DKMS build
+    ## DKMS Build
     if which dkms >/dev/null 2>/dev/null; then
       dkms autoinstall -k "$(ls /lib/modules/)"
     fi
