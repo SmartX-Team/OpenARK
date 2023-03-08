@@ -1,6 +1,9 @@
 [workspace]
 members = [
     # "ipwis-binding",
+    "dash/api",
+    "dash/bastion",
+    "dash/controller",
     "kiss/api",
     "kiss/assets",
     "kiss/controller",
