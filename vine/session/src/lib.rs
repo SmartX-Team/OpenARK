@@ -65,33 +65,39 @@ impl SessionManager {
     const LABEL_BIND_TIMESTAMP: &'static str = "vine.ulagbulag.io/bind.timestamp";
 
     const TEMPLATE_CLEANUP_FILENAME: &'static str = "user-session-cleanup.yaml.j2";
+    const TEMPLATE_NAMESPACE_FILENAME: &'static str = "user-session-namespace.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
 
-    async fn exists(&self, kube: &Client, node: &Node, user_name: &str) -> Result<bool> {
-        self.execute_any(kube, node, user_name, Self::TEMPLATE_SESSION_FILENAME)
+    async fn exists(&self, kube: &Client, ctx: &SessionContext<'_>) -> Result<bool> {
+        self.execute_any(kube, ctx, Self::TEMPLATE_SESSION_FILENAME)
             .await
     }
 
     pub async fn create(&self, kube: &Client, node: &Node, user_name: &str) -> Result<()> {
+        let ctx = SessionContext::new(node, user_name);
+
         self.label_user(kube, node, Some(user_name))
-            .and_then(|()| self.cleanup(kube, node, user_name, try_delete))
-            .and_then(|()| self.execute(kube, node, user_name, try_create))
+            .and_then(|()| self.create_namespace(kube, &ctx))
+            .and_then(|()| self.cleanup(kube, &ctx, try_delete))
+            .and_then(|()| self.execute(kube, &ctx, try_create))
             .await
     }
 
     pub async fn delete(&self, kube: &Client, node: &Node, user_name: &str) -> Result<()> {
-        self.execute(kube, node, user_name, try_delete)
-            .and_then(|()| self.cleanup(kube, node, user_name, try_create))
+        let ctx = SessionContext::new(node, user_name);
+
+        self.execute(kube, &ctx, try_delete)
+            .and_then(|()| self.cleanup(kube, &ctx, try_create))
             .and_then(|()| self.label_user(kube, node, None))
             .await
     }
 
-    async fn cleanup<F, Fut>(&self, kube: &Client, node: &Node, user_name: &str, f: F) -> Result<()>
+    async fn cleanup<F, Fut>(&self, kube: &Client, ctx: &SessionContext<'_>, f: F) -> Result<()>
     where
         F: Fn(Api<DynamicObject>, DynamicObject, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        self.execute_with(kube, node, user_name, Self::TEMPLATE_CLEANUP_FILENAME, f)
+        self.execute_with(kube, ctx, Self::TEMPLATE_CLEANUP_FILENAME, f)
             .await
     }
 
@@ -112,7 +118,7 @@ impl SessionManager {
                 .unwrap_or(false)
                 ||
                 // If the node's managed session has been logged out
-                !self.exists(kube, node, user_name).await?
+                !self.exists(kube, &SessionContext::new(node, user_name)).await?
             {
                 return self
                     .delete(kube, node, user_name)
@@ -188,20 +194,24 @@ impl SessionManager {
             .map_err(Into::into)
     }
 
-    async fn execute<F, Fut>(&self, kube: &Client, node: &Node, user_name: &str, f: F) -> Result<()>
+    async fn create_namespace(&self, kube: &Client, ctx: &SessionContext<'_>) -> Result<()> {
+        self.execute_with(kube, ctx, Self::TEMPLATE_NAMESPACE_FILENAME, try_create)
+            .await
+    }
+
+    async fn execute<F, Fut>(&self, kube: &Client, ctx: &SessionContext<'_>, f: F) -> Result<()>
     where
         F: Fn(Api<DynamicObject>, DynamicObject, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        self.execute_with(kube, node, user_name, Self::TEMPLATE_SESSION_FILENAME, f)
+        self.execute_with(kube, ctx, Self::TEMPLATE_SESSION_FILENAME, f)
             .await
     }
 
     async fn execute_with<F, Fut>(
         &self,
         kube: &Client,
-        node: &Node,
-        user_name: &str,
+        ctx: &SessionContext<'_>,
         template_name: &str,
         f: F,
     ) -> Result<()>
@@ -209,7 +219,7 @@ impl SessionManager {
         F: Fn(Api<DynamicObject>, DynamicObject, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        let context = Context::from_serialize(&SessionContext { node, user_name })?;
+        let context = Context::from_serialize(ctx)?;
         let templates = self.tera.render(template_name, &context)?;
         let templates: Vec<DynamicObject> = ::serde_yaml::Deserializer::from_str(&templates)
             .map(::serde::Deserialize::deserialize)
@@ -255,11 +265,10 @@ impl SessionManager {
     async fn execute_any(
         &self,
         kube: &Client,
-        node: &Node,
-        user_name: &str,
+        ctx: &SessionContext<'_>,
         template_name: &str,
     ) -> Result<bool> {
-        let context = Context::from_serialize(&SessionContext { node, user_name })?;
+        let context = Context::from_serialize(ctx)?;
         let templates = self.tera.render(template_name, &context)?;
         let templates: Vec<DynamicObject> = ::serde_yaml::Deserializer::from_str(&templates)
             .map(::serde::Deserialize::deserialize)
@@ -343,6 +352,17 @@ async fn try_delete(api: Api<DynamicObject>, template: DynamicObject, exists: bo
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SessionContext<'a> {
+    namespace: String,
     node: &'a Node,
     user_name: &'a str,
+}
+
+impl<'a> SessionContext<'a> {
+    fn new(node: &'a Node, user_name: &'a str) -> Self {
+        Self {
+            namespace: format!("vine-session-{user_name}"),
+            node,
+            user_name,
+        }
+    }
 }
