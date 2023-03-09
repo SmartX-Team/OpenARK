@@ -22,9 +22,9 @@ IS_REFRESH="0"
 function update_window() {
     classname="$1"
 
-    xdotool search --classname "${classname}" windowfocus
-    xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
     xdotool search --classname "${classname}" set_window --name 'Welcome'
+    xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
+    xdotool search --classname "${classname}" windowfocus
 }
 
 while :; do
@@ -47,15 +47,17 @@ while :; do
     TIMESTAMP=$(date -u +%s)
 
     echo "Waiting until window is ready..."
+    sleep 1
     until xdotool search --classname 'Navigator' >/dev/null; do
         sleep 0.5
     done
 
+    echo "Resizing window to fullscreen..."
+    update_window 'Navigator'
+
+    echo "Waiting until login is succeeded..."
     IS_REFRESH=0
     until [ -d "/tmp/.vine/.login.lock" ]; do
-        # Enforce: Resizing window to fullscreen
-        update_window 'Navigator'
-
         # Session Timeout
         NOW=$(date -u +%s)
         TIMEOUT_SECS="300" # 5 minutes
