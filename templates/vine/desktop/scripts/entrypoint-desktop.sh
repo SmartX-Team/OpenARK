@@ -15,5 +15,8 @@ trap "echo 'Terminated.'; exit" EXIT
 # Initialize desktop environment
 "$(dirname "$0")/init-desktop.sh"
 
+# Initialize desktop PVC
+"$(dirname "$0")/init-desktop-pvc.sh"
+
 # Execute a desktop environment
 "$(dirname "$0")/init-desktop-xfce4.sh"
