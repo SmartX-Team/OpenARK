@@ -134,3 +134,11 @@ stringData:
   network_wireless_wifi_ssid: ""
   network_wireless_wifi_key_mgmt: ""
   network_wireless_wifi_key_psk: ""
+
+  ###########################################################################
+  # Object Storage Configuration
+  ###########################################################################
+  object_storage_class_name: kiss-external-s3
+  object_storage_endpoint: https://storage.yandexcloud.net
+  object_storage_key_access: ""
+  object_storage_key_secret: ""
