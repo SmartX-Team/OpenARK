@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "desktop-cleanup-{{ node.metadata.name }}"
-  namespace: "vine-session-{{ userName }}"
+  namespace: "{{ namespace }}"
 spec:
   ttlSecondsAfterFinished: 1
   template:

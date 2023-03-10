@@ -2,8 +2,9 @@
 members = [
     # "ipwis-binding",
     "dash/api",
-    "dash/bastion",
     "dash/controller",
+    "dash/gateway",
+    "dash/router",
     "kiss/api",
     "kiss/assets",
     "kiss/controller",

@@ -7,6 +7,10 @@ images:
 storageClass:
   # Specifies whether the storage class should be created
   create: true
+  # GeeseFS mount options
+  mountOptions: "--memory-limit 1000 --dir-mode 0777 --file-mode 0777"
+  # Volume reclaim policy
+  reclaimPolicy: Delete
 
 secret:
   # Specifies whether the secret should be created

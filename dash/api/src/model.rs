@@ -33,6 +33,7 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub enum ModelSpec {
+    Fields(ModelFieldsSpec),
     CustomResourceDefinition(ModelCustomResourceDefinitionSpec),
 }
 
@@ -41,6 +42,39 @@ pub enum ModelSpec {
 pub struct ModelStatus {
     pub state: Option<String>,
     pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelFieldsSpec {
+    pub name: String,
+    #[serde(flatten)]
+    pub kind: ModelFieldKindSpec,
+    pub nullable: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelFieldKindSpec {
+    Boolean {
+        default: Option<bool>,
+    },
+    Integer {
+        default: Option<i64>,
+    },
+    Float {
+        default: Option<f64>,
+    },
+    String {
+        default: Option<String>,
+    },
+    OneOfStrings {
+        default: Option<String>,
+        choices: Vec<String>,
+    },
+    Model {
+        name: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

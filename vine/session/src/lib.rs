@@ -337,6 +337,13 @@ async fn try_create(api: Api<DynamicObject>, template: DynamicObject, exists: bo
 }
 
 async fn try_delete(api: Api<DynamicObject>, template: DynamicObject, exists: bool) -> Result<()> {
+    // skip deleting PersistentVolumeClaim
+    if let Some(types) = &template.types {
+        if types.api_version == "v1" && types.kind == "PersistentVolumeClaim" {
+            return Ok(());
+        }
+    }
+
     if exists {
         let dp = DeleteParams::default();
 

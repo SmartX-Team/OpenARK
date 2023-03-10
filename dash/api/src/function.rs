@@ -3,6 +3,8 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::model::ModelFieldsSpec;
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
@@ -20,8 +22,8 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionSpec {
-    pub input: FunctionFieldsSpec,
-    pub output: Option<FunctionFieldsSpec>,
+    pub input: ModelFieldsSpec,
+    pub output: Option<ModelFieldsSpec>,
     pub actor: FunctionActorSpec,
 }
 
@@ -30,37 +32,6 @@ pub struct FunctionSpec {
 pub struct FunctionStatus {
     pub state: Option<String>,
     pub last_updated: DateTime<Utc>,
-}
-
-pub type FunctionFieldsSpec = Vec<FunctionFieldSpec>;
-
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct FunctionFieldSpec {
-    pub name: String,
-    #[serde(flatten)]
-    pub kind: FunctionFieldKindSpec,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum FunctionFieldKindSpec {
-    Model {
-        name: String,
-    },
-    Boolean {
-        default: Option<bool>,
-    },
-    Integer {
-        default: Option<i64>,
-    },
-    Float {
-        default: Option<f64>,
-    },
-    OneOfStrings {
-        default: Option<String>,
-        choices: Vec<String>,
-    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

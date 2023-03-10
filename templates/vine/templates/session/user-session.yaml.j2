@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: "desktop-{{ node.metadata.name }}"
-  namespace: "vine-session-{{ userName }}"
+  namespace: "{{ namespace }}"
 spec:
   selector:
     matchLabels:
@@ -77,6 +77,8 @@ spec:
               mountPath: /dev
             - name: dev-dri
               mountPath: /dev/dri
+            - name: dev-fuse
+              mountPath: /dev/fuse
             - name: egl-icd-loader
               mountPath: /etc/glvnd/egl_vendor.d
               readOnly: true
@@ -107,6 +109,7 @@ spec:
               nvidia.com/gpu: "1"
       hostIPC: true
       securityContext:
+        runAsNonRoot: false
         runAsUser: 2000
         fsGroup: 2000
       terminationGracePeriodSeconds: 1
@@ -119,15 +122,17 @@ spec:
           hostPath:
             path: /dev/dri
             type: Directory
+        - name: dev-fuse
+          hostPath:
+            path: /dev/fuse
+            type: CharDevice
         - name: egl-icd-loader
           hostPath:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-          # TODO: mount a home directory via CSI
-          hostPath:
-            path: /opt/vdi/tenants/remote/guest/
-            type: Directory
+          persistentVolumeClaim:
+            claimName: "desktop-{{ node.metadata.name }}"
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -160,3 +165,16 @@ spec:
           hostPath:
             path: /tmp/.X11-unix
             type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "desktop-{{ node.metadata.name }}"
+  namespace: "{{ namespace }}"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: kiss-external-s3
