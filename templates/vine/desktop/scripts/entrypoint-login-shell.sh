@@ -41,6 +41,7 @@ while :; do
 
     echo "Executing a login shell..."
     firefox \
+        --private \
         --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
         --kiosk "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
     PID=$!

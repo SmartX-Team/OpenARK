@@ -29,8 +29,8 @@ VOLUME [ "/sys/fs/cgroup" ]
 
 # Client Configuration
 WORKDIR /root/
-ENTRYPOINT ["/usr/bin/env"]
-CMD ["/usr/bin/firefox"]
+ENTRYPOINT [ "/usr/bin/env" ]
+CMD [ "/usr/bin/firefox" ]
 
 # Volumes Configuration
 ## home.user
@@ -380,6 +380,7 @@ RUN chmod 0555 /opt/scripts/*
 RUN ldconfig \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pipewire,render,video" \
-    -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}"
+    -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
+    && usermod --add-subuids 100000-165535 --add-subgids 100000-165535 "${USER_NAME}"
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
