@@ -168,6 +168,95 @@ spec:
             path: /tmp/.X11-unix
             type: Directory
 ---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: triton
+  namespace: "{{ namespace }}"
+spec:
+  selector:
+    matchLabels:
+      name: triton
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: triton
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+      initContainers:
+        - name: fetch-models
+          image: nvcr.io/nvidia/triton:23.02-py3
+          command:
+            - bash
+            - -c
+          args:
+            - >
+              git clone -b r23.02 "https://github.com/triton-inference-server/server.git"
+              && cd server/docs/examples
+              && ./fetch_models.sh
+              && mv model_repository/* /models/
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      containers:
+        - name: triton-inference-server
+          image: nvcr.io/nvidia/triton:23.02-py3
+          command:
+            - triton
+          args:
+            - --model-repository=/models
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 8000
+            - name: grpc
+              protocol: TCP
+              containerPort: 8001
+            - name: metrics
+              protocol: TCP
+              containerPort: 8002
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      volumes:
+        - name: models
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton
+  namespace: "{{ namespace }}"
+spec:
+  selector:
+    name: triton
+  ports:
+    - name: http
+      port: 8000
+      protocol: TCP
+      targetPort: 8000
+    - name: grpc
+      port: 8001
+      protocol: TCP
+      targetPort: 8001
+    - name: metrics
+      port: 8002
+      protocol: TCP
+      targetPort: 8002
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
