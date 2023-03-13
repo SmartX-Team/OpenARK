@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "desktop-cleanup-{{ node.metadata.name }}"
+  name: "desktop-cleanup-{{ spec.node.metadata.name }}"
   namespace: "{{ namespace }}"
 spec:
   ttlSecondsAfterFinished: 1
@@ -11,7 +11,7 @@ spec:
       labels:
         name: desktop
     spec:
-      nodeName: "{{ node.metadata.name }}"
+      nodeName: "{{ spec.node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
@@ -26,7 +26,7 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: In
                     values:
-                      - "{{ node.metadata.name }}"
+                      - "{{ spec.node.metadata.name }}"
       restartPolicy: OnFailure
       containers:
         - name: desktop-environment-cleanup

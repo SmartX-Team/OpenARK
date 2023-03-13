@@ -21,8 +21,10 @@ use vine_api::{
     user_box_binding::UserBoxBindingCrd,
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::UserBoxQuotaBindingCrd,
+    user_role::UserRoleCrd,
+    user_role_binding::UserRoleBindingCrd,
 };
-use vine_session::SessionManager;
+use vine_session::{SessionContextSpec, SessionManager};
 
 pub async fn execute(
     request: &HttpRequest,
@@ -96,6 +98,7 @@ pub async fn execute(
         .as_ref()
         .and_then(|status| status.capacity.as_ref());
 
+    // parse box quota
     let box_quota = {
         let api = Api::<UserBoxBindingCrd>::all((**client).clone());
         let lp = ListParams::default();
@@ -151,12 +154,52 @@ pub async fn execute(
         }
     };
 
+    // parse user role
+    let role = {
+        // get available quotas
+        let roles = {
+            let api = Api::<UserRoleCrd>::all((**client).clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await?
+                .items
+                .into_iter()
+                .map(|item| (item.name_any(), item.spec))
+                .collect::<BTreeMap<_, _>>()
+        };
+
+        let api = Api::<UserRoleBindingCrd>::all((**client).clone());
+        let lp = ListParams::default();
+        api.list(&lp)
+            .await?
+            .items
+            .into_iter()
+            .filter(|item| {
+                item.spec
+                    .expired_timestamp
+                    .as_ref()
+                    .map(|timestamp| timestamp < &now)
+                    .unwrap_or(true)
+            })
+            .filter(|item| item.spec.user == primary_key)
+            .filter_map(|item| roles.get(&item.spec.role).cloned())
+            .sum()
+    };
+
     match box_quota {
         // Login Successed!
         Some(box_quota) => {
             info!("[{now}] login accepted: {primary_key:?} => {box_name:?}");
+
+            let spec = SessionContextSpec {
+                box_quota: box_quota.as_ref(),
+                node: &node,
+                role: Some(&role),
+                user_name: &user.name_any(),
+            };
+
             session_manager
-                .create(&client, &node, &user.name_any())
+                .create(&client, &spec)
                 .await
                 .map(|()| UserLoginResponse::Accept {
                     box_quota,

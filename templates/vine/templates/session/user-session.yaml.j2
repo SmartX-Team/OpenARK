@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: "desktop-{{ node.metadata.name }}"
+  name: "desktop-{{ spec.node.metadata.name }}"
   namespace: "{{ namespace }}"
 spec:
   selector:
@@ -15,7 +15,7 @@ spec:
       labels:
         name: desktop
     spec:
-      nodeName: "{{ node.metadata.name }}"
+      nodeName: "{{ spec.node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
@@ -30,7 +30,7 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: In
                     values:
-                      - "{{ node.metadata.name }}"
+                      - "{{ spec.node.metadata.name }}"
       containers:
         - name: desktop-environment
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
@@ -107,8 +107,7 @@ spec:
             - name: x11
               mountPath: /tmp/.X11-unix
           resources:
-            limits:
-              nvidia.com/gpu: "1"
+            {{ spec.box_quota.resources | to_nice_yaml(indent = 2) | trim | indent(prefix = 12) }}
       hostIPC: true
       securityContext:
         runAsNonRoot: false
@@ -134,7 +133,7 @@ spec:
             type: Directory
         - name: home
           persistentVolumeClaim:
-            claimName: "desktop-{{ node.metadata.name }}"
+            claimName: "desktop-{{ spec.node.metadata.name }}"
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -171,12 +170,11 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: "desktop-{{ node.metadata.name }}"
+  name: "desktop-{{ spec.node.metadata.name }}"
   namespace: "{{ namespace }}"
 spec:
   accessModes:
     - ReadWriteMany
   resources:
-    requests:
-      storage: 1Ti
+    {{ spec.box_quota.resources | to_nice_yaml(indent = 2) | trim | indent(prefix = 4) }}
   storageClassName: kiss-external-s3

@@ -19,6 +19,8 @@ use vine_api::{
         discovery, Api, Client, ResourceExt,
     },
     serde_json::json,
+    user_box_quota::UserBoxQuotaSpec,
+    user_role::UserRoleSpec,
 };
 
 pub struct SessionManager {
@@ -73,22 +75,22 @@ impl SessionManager {
             .await
     }
 
-    pub async fn create(&self, kube: &Client, node: &Node, user_name: &str) -> Result<()> {
-        let ctx = SessionContext::new(node, user_name);
+    pub async fn create(&self, kube: &Client, spec: &SessionContextSpec<'_>) -> Result<()> {
+        let ctx: SessionContext = spec.into();
 
-        self.label_user(kube, node, Some(user_name))
+        self.label_user(kube, ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.create_namespace(kube, &ctx))
             .and_then(|()| self.cleanup(kube, &ctx, try_delete))
             .and_then(|()| self.execute(kube, &ctx, try_create))
             .await
     }
 
-    pub async fn delete(&self, kube: &Client, node: &Node, user_name: &str) -> Result<()> {
-        let ctx = SessionContext::new(node, user_name);
+    pub async fn delete(&self, kube: &Client, spec: &SessionContextSpec<'_>) -> Result<()> {
+        let ctx: SessionContext = spec.into();
 
         self.execute(kube, &ctx, try_delete)
             .and_then(|()| self.cleanup(kube, &ctx, try_create))
-            .and_then(|()| self.label_user(kube, node, None))
+            .and_then(|()| self.label_user(kube, ctx.spec.node, None))
             .await
     }
 
@@ -103,6 +105,14 @@ impl SessionManager {
 
     pub async fn try_unbind(&self, kube: &Client, node: &Node) -> Result<Option<String>> {
         if let Some(user_name) = self.get_user_name(node)? {
+            let spec = SessionContextSpec {
+                box_quota: None,
+                node,
+                role: None,
+                user_name,
+            };
+            let ctx: SessionContext = (&spec).into();
+
             if
             // If the node is not ready
             !node
@@ -118,11 +128,11 @@ impl SessionManager {
                 .unwrap_or(false)
                 ||
                 // If the node's managed session has been logged out
-                !self.exists(kube, &SessionContext::new(node, user_name)).await?
+                !self.exists(kube, &ctx).await?
             {
                 return self
-                    .delete(kube, node, user_name)
-                    .map_ok(|()| Some(user_name.to_string()))
+                    .delete(kube, ctx.spec)
+                    .map_ok(|()| Some(ctx.spec.user_name.to_string()))
                     .await;
             }
         }
@@ -360,16 +370,23 @@ async fn try_delete(api: Api<DynamicObject>, template: DynamicObject, exists: bo
 #[serde(rename_all = "camelCase")]
 struct SessionContext<'a> {
     namespace: String,
-    node: &'a Node,
-    user_name: &'a str,
+    spec: &'a SessionContextSpec<'a>,
 }
 
-impl<'a> SessionContext<'a> {
-    fn new(node: &'a Node, user_name: &'a str) -> Self {
+impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
+    fn from(spec: &'a SessionContextSpec<'a>) -> Self {
         Self {
-            namespace: format!("vine-session-{user_name}"),
-            node,
-            user_name,
+            namespace: format!("vine-session-{}", &spec.user_name),
+            spec,
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionContextSpec<'a> {
+    pub box_quota: Option<&'a UserBoxQuotaSpec>,
+    pub node: &'a Node,
+    pub role: Option<&'a UserRoleSpec>,
+    pub user_name: &'a str,
 }
