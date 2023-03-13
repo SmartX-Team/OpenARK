@@ -31,6 +31,26 @@ spec:
                     operator: In
                     values:
                       - "{{ spec.node.metadata.name }}"
+      initContainers:
+        - name: init-check-permissions
+          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          imagePullPolicy: Always
+          command:
+            - sudo
+            - bash
+            - -c
+          args:
+            - |
+              set -e -x -o pipefail
+              chown user:user /home/user
+              chmod 700 /home/user
+              exec true
+          securityContext:
+            privileged: true
+          workingDir: /home/user
+          volumeMounts:
+            - name: home
+              mountPath: /home/user
       containers:
         - name: desktop-environment
           image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
@@ -133,8 +153,12 @@ spec:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-          persistentVolumeClaim:
-            claimName: "desktop-{{ spec.node.metadata.name }}"
+          # emptyDir: {}
+          hostPath:
+            path: "/opt/vdi/tenants/remote/{{ namespace }}/desktop-{{ spec.node.metadata.name }}"
+            type: DirectoryOrCreate
+          # persistentVolumeClaim:
+          #   claimName: "desktop-{{ spec.node.metadata.name }}"
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -169,16 +193,18 @@ spec:
             type: Directory
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: triton
   namespace: "{{ namespace }}"
 spec:
+  replicas: 1
   selector:
     matchLabels:
       name: triton
-  updateStrategy:
-    type: RollingUpdate
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -195,7 +221,7 @@ spec:
                       - Compute
       initContainers:
         - name: fetch-models
-          image: nvcr.io/nvidia/triton:23.02-py3
+          image: nvcr.io/nvidia/tritonserver:23.02-py3
           command:
             - bash
             - -c
@@ -210,9 +236,9 @@ spec:
               mountPath: /models
       containers:
         - name: triton-inference-server
-          image: nvcr.io/nvidia/triton:23.02-py3
+          image: nvcr.io/nvidia/tritonserver:23.02-py3
           command:
-            - triton
+            - tritonserver
           args:
             - --model-repository=/models
           ports:
