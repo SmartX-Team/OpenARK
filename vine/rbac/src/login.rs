@@ -148,7 +148,7 @@ pub async fn execute(
                 })
                 .filter(|item| item.spec.user == primary_key)
                 .filter_map(|item| quotas.get(&item.spec.quota).cloned())
-                .filter(|item| crate::node_selector::is_affordable(node_capacity, &item.resources))
+                .filter(|item| crate::node_selector::is_affordable(node_capacity, &item.compute))
                 .map(Some)
                 .next()
         }

@@ -106,8 +106,9 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-          resources:
-            {{ spec.box_quota.resources | to_nice_yaml(indent = 2) | trim | indent(prefix = 12) }}
+          {% if spec.boxQuota.compute is object %}
+          resources: {{ spec.boxQuota.compute | json_encode() | safe }}
+          {% endif %}
       hostIPC: true
       securityContext:
         runAsNonRoot: false
@@ -175,6 +176,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  resources:
-    {{ spec.box_quota.resources | to_nice_yaml(indent = 2) | trim | indent(prefix = 4) }}
-  storageClassName: kiss-external-s3
+  {% if spec.boxQuota.storage is object %}
+  resources: {{ spec.boxQuota.storage | json_encode() | safe }}
+  {% endif %}
+  {% if spec.boxQuota.storageClassName is string %}
+  storageClassName: "{{ spec.boxQuota.storageClassName }}"
+  {% endif %}
