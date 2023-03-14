@@ -25,6 +25,7 @@ function update_window() {
     xdotool search --classname "${classname}" set_window --name 'Welcome'
     xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
     xdotool search --classname "${classname}" windowfocus
+    xrandr --size 800x600
 }
 
 while :; do

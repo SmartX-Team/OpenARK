@@ -81,8 +81,13 @@ rm -rf \
 pushd "${HOME}"
 git init .
 git remote add origin "${KISS_DESKTOP_TEMPLATE_GIT}"
-git fetch --all
+# git fetch --all
 git pull "origin" "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
+popd
+
+# Backup .zshrc
+pushd "${HOME}"
+mv .zshrc .zshrc-bak
 popd
 
 # ZSH Theme
@@ -91,6 +96,12 @@ sh -c "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/to
 git clone --depth=1 \
     "https://github.com/romkatv/powerlevel10k.git" \
     "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+popd
+
+# Restore .zshrc
+pushd "${HOME}"
+rm -f .zshrc
+mv .zshrc-bak .zshrc
 popd
 
 # Disable screen blanking

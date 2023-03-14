@@ -8,5 +8,6 @@ set -e -o pipefail
 # Verbose
 set -x
 
-# Change ownerships
-exec chown -R user:user .
+# Copy podman containers configuration file
+mkdir -p "${HOME}/.config/containers"
+cp /etc/containers/podman-containers.conf "${HOME}/.config/containers/containers.conf"

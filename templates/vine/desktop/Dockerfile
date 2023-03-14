@@ -25,7 +25,6 @@ ARG USER_UID
 # SystemD Configuration
 ENV container docker
 STOPSIGNAL SIGRTMIN+3
-VOLUME [ "/sys/fs/cgroup" ]
 
 # Client Configuration
 WORKDIR /root/
@@ -115,10 +114,14 @@ RUN yum check-update -y \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install development environment dependencies
-RUN dnf install -y \
+RUN rpm --setcaps shadow-utils 2>/dev/null \
+    && dnf install -y \
     "@Development Tools" \
+    crun \
+    fuse-overlayfs \
     git \
     nano \
+    openssh-clients \
     pciutils \
     podman-docker \
     python3 \
@@ -128,6 +131,7 @@ RUN dnf install -y \
     vim \
     wget \
     zip \
+    --exclude container-selinux \
     # Allow passwordless sudo command
     && if [ "${USER_SUDO}" == "true" ]; then \
     echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
@@ -135,6 +139,21 @@ RUN dnf install -y \
     ; fi \
     # Docker (Podman) Configuration
     && systemctl enable podman \
+    ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
+    && sed -i \
+    -e 's|^#mount_program|mount_program|g' \
+    -e '/additionalimage.*/a "/var/lib/shared",' \
+    -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
+    /etc/containers/storage.conf \
+    && mkdir -p \
+    /var/lib/shared/overlay-images \
+    /var/lib/shared/overlay-layers \
+    /var/lib/shared/vfs-images \
+    /var/lib/shared/vfs-layers \
+    && touch /var/lib/shared/overlay-images/images.lock \
+    && touch /var/lib/shared/overlay-layers/layers.lock \
+    && touch /var/lib/shared/vfs-images/images.lock \
+    && touch /var/lib/shared/vfs-layers/layers.lock \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
     && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
@@ -368,6 +387,15 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
 
+# Install utilities - Podman
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/libpod/master/contrib/podmanimage/stable"
+ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
+ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+RUN chmod 644 \
+    /etc/containers/containers.conf \
+    /etc/containers/podman-containers.conf
+
 # Add firefox preferences
 ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
 ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
@@ -381,6 +409,7 @@ RUN ldconfig \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pipewire,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
-    && usermod --add-subuids 100000-165535 --add-subgids 100000-165535 "${USER_NAME}"
+    && echo -e "${USER_NAME}:2001:63535" > /etc/subuid \
+    && echo -e "${USER_NAME}:2001:63535" > /etc/subgid
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
