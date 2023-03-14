@@ -139,6 +139,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     ; fi \
     # Docker (Podman) Configuration
     && systemctl enable podman \
+    && touch /etc/containers/nodocker \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
     && sed -i \
     -e 's|^#mount_program|mount_program|g' \
