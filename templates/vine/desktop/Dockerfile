@@ -158,6 +158,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     && touch /var/lib/shared/vfs-images/images.lock \
     && touch /var/lib/shared/vfs-layers/layers.lock \
     ## generate a CDI specification that refers to all NVIDIA devices
+    && mkdir -p /etc/cdi/ \
     && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
