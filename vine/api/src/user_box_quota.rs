@@ -25,7 +25,10 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserBoxQuotaSpec {
+    #[serde(default)]
     pub compute: ResourceRequirements,
+    #[serde(default)]
     pub storage: ResourceRequirements,
+    #[serde(default)]
     pub storage_class_name: Option<String>,
 }

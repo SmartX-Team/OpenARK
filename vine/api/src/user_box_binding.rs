@@ -45,6 +45,8 @@ use serde::{Deserialize, Serialize};
 pub struct UserBoxBindingSpec<Box = String> {
     pub user: String,
     pub r#box: Box,
+    #[serde(default)]
     pub autologin: bool,
+    #[serde(default)]
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

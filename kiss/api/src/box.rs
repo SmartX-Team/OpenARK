@@ -77,8 +77,10 @@ impl BoxCrd {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BoxSpec {
+    #[serde(default)]
     pub group: BoxGroupSpec,
     pub machine: BoxMachineSpec,
+    #[serde(default)]
     pub power: Option<BoxPowerSpec>,
 }
 
@@ -204,6 +206,7 @@ impl BoxAccessSpec {
 pub struct BoxAccessInterfaceSpec {
     pub address: IpAddr,
     // Speed (Mb/s)
+    #[serde(default)]
     pub speed_mbps: Option<u64>,
 }
 
@@ -308,6 +311,7 @@ impl BoxMachineSpec {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxPowerSpec {
+    #[serde(default)]
     pub address: Option<IpAddr>,
     pub r#type: BoxPowerType,
 }

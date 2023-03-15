@@ -20,9 +20,13 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserRoleSpec {
+    #[serde(default)]
     pub is_admin: bool,
+    #[serde(default)]
     pub is_ops: bool,
+    #[serde(default)]
     pub is_dev: bool,
+    #[serde(default)]
     pub is_ai_dev: bool,
 }
 

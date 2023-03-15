@@ -39,5 +39,6 @@ use serde::{Deserialize, Serialize};
 pub struct UserRoleBindingSpec {
     pub user: String,
     pub role: String,
+    #[serde(default)]
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

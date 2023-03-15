@@ -39,5 +39,6 @@ use serde::{Deserialize, Serialize};
 pub struct UserBoxQuotaBindingSpec<Quota = String> {
     pub user: String,
     pub quota: Quota,
+    #[serde(default)]
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

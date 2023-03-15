@@ -57,8 +57,11 @@ pub struct UserStatus {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserContact {
+    #[serde(default)]
     pub email: Option<EmailAddress>,
+    #[serde(default)]
     pub tel_phone: Option<String>,
+    #[serde(default)]
     pub tel_office: Option<String>,
 }
 

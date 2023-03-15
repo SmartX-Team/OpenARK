@@ -40,5 +40,6 @@ pub struct UserAuthBindingSpec {
     pub user: String,
     pub auth: String,
     pub user_id: String,
+    #[serde(default)]
     pub expired_timestamp: Option<DateTime<Utc>>,
 }
