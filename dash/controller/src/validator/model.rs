@@ -81,7 +81,7 @@ impl ModelFieldsParser {
             .as_ref()
             .and_then(|schema| schema.open_api_v3_schema.as_ref())
         {
-            Some(prop) => self.parse_json_property(None, "", prop),
+            Some(prop) => self.parse_json_property(None, "", prop).map(|_| ()),
             None => Ok(()),
         }
     }
@@ -91,18 +91,23 @@ impl ModelFieldsParser {
         parent: Option<&str>,
         name: &str,
         prop: &JSONSchemaProps,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let (name, name_raw) = (convert_name(parent, name)?, name);
         if self.map.contains_key(&name) {
             bail!("conflicted field name: {name} ({name_raw})");
         }
 
         let kind = match prop.type_.as_ref().map(AsRef::as_ref) {
+            // BEGIN primitive types
+            Some("boolean") => {
+                let default = prop.default.as_ref().and_then(|e| e.0.as_bool());
+
+                Some(ModelFieldKindSpec::Boolean { default })
+            }
             Some("integer") => {
+                let default = prop.default.as_ref().and_then(|e| e.0.as_i64());
                 let minimum = prop.minimum.as_ref().copied().map(|e| e.round() as i64);
                 let maximum = prop.maximum.as_ref().copied().map(|e| e.round() as i64);
-
-                let default = prop.default.as_ref().and_then(|e| e.0.as_i64()).or(minimum);
 
                 Some(ModelFieldKindSpec::Integer {
                     default,
@@ -111,10 +116,9 @@ impl ModelFieldsParser {
                 })
             }
             Some("number") => {
+                let default = prop.default.as_ref().and_then(|e| e.0.as_f64());
                 let minimum = prop.minimum;
                 let maximum = prop.maximum;
-
-                let default = prop.default.as_ref().and_then(|e| e.0.as_f64()).or(minimum);
 
                 Some(ModelFieldKindSpec::Number {
                     default,
@@ -123,9 +127,11 @@ impl ModelFieldsParser {
                 })
             }
             Some("string") => match prop.format.as_ref().map(AsRef::as_ref) {
+                // BEGIN string format
                 Some("date-time") => Some(ModelFieldKindSpec::DateTime { default: None }),
                 Some("ip") => Some(ModelFieldKindSpec::Ip {}),
                 Some("uuid") => Some(ModelFieldKindSpec::Uuid {}),
+                // END string format
                 None => match &prop.enum_ {
                     Some(enum_) => {
                         let default = prop
@@ -153,14 +159,21 @@ impl ModelFieldsParser {
                 },
                 Some(format) => bail!("unknown string format of {name:?}: {format:?}"),
             },
+            // BEGIN aggregation types
+            Some("array") => {
+                let children =
+                    self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
+
+                Some(ModelFieldKindSpec::Array { children })
+            }
             Some("object") => {
-                if let Some(children_props) = &prop.properties {
-                    let parent = Some(name.as_ref());
-                    for (name, prop) in children_props {
-                        self.parse_json_property(parent, name, prop)?;
-                    }
-                }
-                None
+                let children =
+                    self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
+
+                Some(ModelFieldKindSpec::Object {
+                    children,
+                    dynamic: false,
+                })
             }
             type_ => bail!("unknown type of {name:?}: {type_:?}"),
         };
@@ -173,11 +186,27 @@ impl ModelFieldsParser {
                     nullable: prop.nullable.unwrap_or_default(),
                 };
 
-                self.map.insert(name, spec);
-                Ok(())
+                self.map.insert(name.clone(), spec);
+                Ok(name)
             }
-            None => Ok(()),
+            None => Ok(name),
         }
+    }
+
+    fn parse_json_property_aggregation(
+        &mut self,
+        parent: &str,
+        props: Option<&BTreeMap<String, JSONSchemaProps>>,
+    ) -> Result<Vec<String>> {
+        props
+            .map(|children_props| {
+                children_props
+                    .iter()
+                    .map(|(name, prop)| self.parse_json_property(Some(parent), name, prop))
+                    .collect::<Result<_>>()
+            })
+            .transpose()
+            .map(Option::unwrap_or_default)
     }
 
     fn finalize(self) -> ModelFieldsSpec {

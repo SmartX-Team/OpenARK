@@ -60,6 +60,7 @@ pub struct ModelFieldSpec {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindSpec {
+    // BEGIN primitive types
     Boolean {
         #[serde(default)]
         default: Option<bool>,
@@ -89,14 +90,22 @@ pub enum ModelFieldKindSpec {
         default: Option<String>,
         choices: Vec<String>,
     },
-    // BEGIN string format
+    // BEGIN string formats
     DateTime {
         #[serde(default)]
         default: Option<ModelFieldDateTimeDefaultType>,
     },
     Ip {},
     Uuid {},
-    // END string format
+    // BEGIN aggregation types
+    Array {
+        children: Vec<String>,
+    },
+    Object {
+        children: Vec<String>,
+        dynamic: bool,
+    },
+    // BEGIN reference types
     Model {
         name: String,
     },
@@ -105,16 +114,20 @@ pub enum ModelFieldKindSpec {
 impl ModelFieldKindSpec {
     pub fn to_type(&self) -> ModelFieldKindType {
         match self {
+            // BEGIN primitive types
             Self::Boolean { .. } => ModelFieldKindType::Boolean,
             Self::Integer { .. } => ModelFieldKindType::Integer,
             Self::Number { .. } => ModelFieldKindType::Number,
             Self::String { .. } => ModelFieldKindType::String,
             Self::OneOfStrings { .. } => ModelFieldKindType::OneOfStrings,
-            // BEGIN string format
+            // BEGIN string formats
             Self::DateTime { .. } => ModelFieldKindType::DateTime,
             Self::Ip { .. } => ModelFieldKindType::Ip,
             Self::Uuid { .. } => ModelFieldKindType::Uuid,
-            // END string format
+            // BEGIN aggregation types
+            Self::Array { .. } => ModelFieldKindType::Array,
+            Self::Object { .. } => ModelFieldKindType::Object,
+            // BEGIN reference types
             Self::Model { .. } => ModelFieldKindType::Model,
         }
     }
@@ -136,16 +149,20 @@ impl ModelFieldKindSpec {
     JsonSchema,
 )]
 pub enum ModelFieldKindType {
+    // BEGIN primitive types
     Boolean,
     Integer,
     Number,
     String,
     OneOfStrings,
-    // BEGIN string format
+    // BEGIN string formats
     DateTime,
     Ip,
     Uuid,
-    // END string format
+    // BEGIN aggregation types
+    Array,
+    Object,
+    // BEGIN reference types
     Model,
 }
 
