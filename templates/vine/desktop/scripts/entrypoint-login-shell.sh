@@ -12,8 +12,10 @@ xset -dpms
 xset s off
 
 # Get the screen size
-SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
-SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
+# SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
+# SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
+SCREEN_WIDTH="800"
+SCREEN_HEIGHT="600"
 
 # Define variables
 IS_REFRESH="0"
@@ -25,7 +27,7 @@ function update_window() {
     xdotool search --classname "${classname}" set_window --name 'Welcome'
     xdotool search --classname "${classname}" windowsize "${SCREEN_WIDTH}" "${SCREEN_HEIGHT}"
     xdotool search --classname "${classname}" windowfocus
-    xrandr --size 800x600
+    xrandr --size "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
 }
 
 while :; do
