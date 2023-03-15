@@ -227,10 +227,9 @@ spec:
             - -c
           args:
             - >
-              git clone -b r23.02 "https://github.com/triton-inference-server/server.git"
-              && cd server/docs/examples
-              && ./fetch_models.sh
-              && mv model_repository/* /models/
+              cd samples
+              && ./prepare_ds_triton_model_repo.sh
+              && mv triton_model_repo/* /models/
           volumeMounts:
             - name: models
               mountPath: /models
