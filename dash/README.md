@@ -1,1 +1,1 @@
-# Data Analytics and Supply-chain Heuristic
+# Data Analytics and Supply-chain Heuristics
