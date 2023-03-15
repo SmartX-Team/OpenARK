@@ -1,4 +1,5 @@
 mod ctx;
+mod validator;
 
 use ipis::tokio::{self, join};
 use kiss_api::manager::Ctx;
