@@ -46,6 +46,7 @@ RUN dnf install -y \
     "https://pkgs.dyn.su/el$(rpm -E %rhel)/base/x86_64/raven-release.el$(rpm -E %rhel).noarch.rpm" \
     && dnf config-manager --set-enabled powertools \
     && dnf config-manager --set-disabled raven raven-extras raven-modular raven-multimedia raven-testing \
+    && curl "https://nvidia.github.io/nvidia-docker/centos$(rpm -E %rhel)/nvidia-docker.repo" > /etc/yum.repos.d/nvidia-docker.repo \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -121,6 +122,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     fuse-overlayfs \
     git \
     nano \
+    nvidia-container-toolkit-base \
     openssh-clients \
     pciutils \
     podman-docker \
@@ -155,6 +157,9 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     && touch /var/lib/shared/overlay-layers/layers.lock \
     && touch /var/lib/shared/vfs-images/images.lock \
     && touch /var/lib/shared/vfs-layers/layers.lock \
+    ## generate a CDI specification that refers to all NVIDIA devices
+    && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
+    && nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
     && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \

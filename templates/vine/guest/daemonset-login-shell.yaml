@@ -32,7 +32,7 @@ spec:
                       - Desktop
       containers:
         - name: login-shell
-          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          image: quay.io/ulagbulag-village/netai-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - /opt/scripts/entrypoint-login-shell.sh

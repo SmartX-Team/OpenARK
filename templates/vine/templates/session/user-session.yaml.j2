@@ -33,7 +33,7 @@ spec:
                       - "{{ spec.node.metadata.name }}"
       initContainers:
         - name: init-check-permissions
-          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          image: quay.io/ulagbulag-village/netai-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - sudo
@@ -53,7 +53,7 @@ spec:
               mountPath: /home/user
       containers:
         - name: desktop-environment
-          image: quay.io/ulagbulag-village/netai-cloud-vdi-desktop:latest
+          image: quay.io/ulagbulag-village/netai-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - /opt/scripts/entrypoint-desktop.sh
@@ -221,7 +221,7 @@ spec:
                       - Compute
       initContainers:
         - name: fetch-models
-          image: nvcr.io/nvidia/tritonserver:23.02-py3
+          image: nvcr.io/nvidia/deepstream:6.2-triton
           command:
             - bash
             - -c
@@ -236,7 +236,7 @@ spec:
               mountPath: /models
       containers:
         - name: triton-inference-server
-          image: nvcr.io/nvidia/tritonserver:23.02-py3
+          image: nvcr.io/nvidia/deepstream:6.2-triton
           command:
             - tritonserver
           args:
