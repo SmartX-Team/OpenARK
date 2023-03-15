@@ -10,6 +10,7 @@ set -x
 
 # Copy podman containers configuration file
 mkdir -p "${HOME}/.config/containers"
+rm -rf "${HOME}/.config/containers/containers.conf"
 cp /etc/containers/podman-containers.conf "${HOME}/.config/containers/containers.conf"
 
 # Initialize rootless podman
