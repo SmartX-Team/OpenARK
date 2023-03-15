@@ -410,7 +410,7 @@ RUN ldconfig \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pipewire,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
-    && echo -e "${USER_NAME}:2001:63535" > /etc/subuid \
-    && echo -e "${USER_NAME}:2001:63535" > /etc/subgid
+    && echo -e "${USER_UID}:2001:63535" > /etc/subuid \
+    && echo -e "${USER_GID}:2001:63535" > /etc/subgid
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
