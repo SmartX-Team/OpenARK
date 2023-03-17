@@ -74,11 +74,12 @@ RUN dnf install -y \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install AI dev core dependencies
-ARG DEEPSTREAM_DOCKERFILE_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/x86_64/Makefile"
+ARG DEEPSTREAM_DOCKERFILE_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/x86_64/Makefile_x86_triton"
+ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN yum check-update -y \
     ; CUDA_VERSION="$( \
     curl -s "${DEEPSTREAM_DOCKERFILE_URL}" \
-    | grep -Po 'TENSORRT_VERSION="[0-9\.\-]+\+cuda\K[0-9\.]+' \
+    | grep -Po 'TENSORRT_VERSION\=\"[0-9\.\-]+\+cuda\K[0-9\.]+' \
     | sed 's/\./\-/g' \
     )" \
     && dnf install -y --enablerepo rpmfusion-free-updates \
@@ -251,19 +252,17 @@ RUN true \
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
-ARG DEEPSTREAM_URL_HOME="https://developer.nvidia.com/deepstream-getting-started"
 RUN true \
     # Get the latest version
     && DEEPSTREAM_VERSION=$( \
-    curl -s "${DEEPSTREAM_URL_HOME}" \
-    | grep -Po '/downloads/deepstream\-sdk\-v\K[0-9]+' \
-    | head -n 1 \
+    curl -s "${DEEPSTREAM_VERSION_URL}" \
+    | grep -Po '^version\=\K[0-9\.]+$' \
     ) \
     # Parse the version information
     && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
-    && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION:0:1}" \
-    && DEEPSTREAM_VERSION_MINOR="${DEEPSTREAM_VERSION:1:1}" \
-    && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION:2:1}" \
+    && DEEPSTREAM_VERSION_MAJOR="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')" \
+    && DEEPSTREAM_VERSION_MINOR="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $2}')" \
+    && DEEPSTREAM_VERSION_PATCH="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')" \
     && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
     && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
     # Download
