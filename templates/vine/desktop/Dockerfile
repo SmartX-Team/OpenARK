@@ -74,11 +74,11 @@ RUN dnf install -y \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install AI dev core dependencies
+ARG DEEPSTREAM_DOCKERFILE_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/x86_64/Makefile"
 RUN yum check-update -y \
     ; CUDA_VERSION="$( \
-    repoquery --requires --recursive --resolve 'tensorrt' \
-    | grep -Po 'cuda-cudart-devel-\K[0-9]+\-[0-9]+' \
-    | tail -n 1 \
+    curl -s "${DEEPSTREAM_DOCKERFILE_URL}" \
+    | grep -Po 'TENSORRT_VERSION="[0-9\.\-]+\+cuda\K[0-9\.]+' \
     )" \
     && dnf install -y --enablerepo rpmfusion-free-updates \
     "cuda-cudart-devel-${CUDA_VERSION}" \
