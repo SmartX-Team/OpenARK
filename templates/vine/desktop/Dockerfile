@@ -79,6 +79,7 @@ RUN yum check-update -y \
     ; CUDA_VERSION="$( \
     curl -s "${DEEPSTREAM_DOCKERFILE_URL}" \
     | grep -Po 'TENSORRT_VERSION="[0-9\.\-]+\+cuda\K[0-9\.]+' \
+    | sed 's/\./\-/g' \
     )" \
     && dnf install -y --enablerepo rpmfusion-free-updates \
     "cuda-cudart-devel-${CUDA_VERSION}" \
