@@ -1,6 +1,7 @@
 [workspace]
 members = [
     # "ipwis-binding",
+    "dash/actor",
     "dash/api",
     "dash/controller",
     "dash/gateway",

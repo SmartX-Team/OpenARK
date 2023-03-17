@@ -4,7 +4,6 @@ use dash_api::function::{FunctionCrd, FunctionSpec, FunctionState, FunctionStatu
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
-    futures::TryFutureExt,
     log::{info, warn},
 };
 use kiss_api::{
@@ -18,7 +17,7 @@ use kiss_api::{
     serde_json::json,
 };
 
-use crate::validator::model::ModelValidator;
+use crate::validator::function::FunctionValidator;
 
 #[derive(Default)]
 pub struct Ctx {}
@@ -50,41 +49,22 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .unwrap_or(&FunctionState::Pending)
         {
             FunctionState::Pending => {
-                let validator = ModelValidator {
+                let validator = FunctionValidator {
                     kube: &manager.kube,
                 };
-                match validator
-                    .validate_fields(data.spec.input.clone())
-                    .and_then(|input| async {
-                        let output = match data.spec.output.clone() {
-                            Some(output) => validator.validate_fields(output).map_ok(Some).await?,
-                            None => None,
-                        };
-
-                        Ok((input, output))
-                    })
-                    .await
-                {
-                    Ok((input, output)) => {
-                        let spec = FunctionSpec {
-                            input,
-                            output,
-                            actor: data.spec.actor.clone(),
-                        };
-
-                        match Self::update_spec(&manager.kube, &name, spec).await {
-                            Ok(()) => {
-                                info!("function is ready: {name}");
-                                Ok(Action::await_change())
-                            }
-                            Err(e) => {
-                                warn!("failed to update function state {name:?}: {e}");
-                                Ok(Action::requeue(
-                                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
-                                ))
-                            }
+                match validator.validate_function(data.spec.clone()).await {
+                    Ok(spec) => match Self::update_spec(&manager.kube, &name, spec).await {
+                        Ok(()) => {
+                            info!("function is ready: {name}");
+                            Ok(Action::await_change())
                         }
-                    }
+                        Err(e) => {
+                            warn!("failed to update function state {name:?}: {e}");
+                            Ok(Action::requeue(
+                                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                            ))
+                        }
+                    },
                     Err(e) => {
                         warn!("failed to validate function: {name:?}: {e}");
                         Ok(Action::requeue(
