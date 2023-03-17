@@ -3,10 +3,10 @@ use std::{sync::Arc, time::Duration};
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
-    log::info,
+    log::{info, warn},
 };
 use kiss_api::{
-    ansible::AnsibleJob,
+    ansible::{AnsibleClient, AnsibleJob},
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
@@ -91,9 +91,20 @@ impl ::kiss_api::manager::Ctx for Ctx {
             new_state = BoxState::Disconnected;
         }
 
+        // load kiss config
+        let ansible = match AnsibleClient::try_default(&manager.kube).await {
+            Ok(ansible) => ansible,
+            Err(e) => {
+                warn!("failed to create AnsibleClient: {e}");
+                return Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ));
+            }
+        };
+
         if !matches!(old_state, BoxState::Joining) && matches!(new_state, BoxState::Joining) {
             // skip joining to default cluster as worker nodes when disabled
-            if !manager.ansible.kiss.group_enable_default_cluster
+            if !ansible.kiss.group_enable_default_cluster
                 && data.spec.group.is_default()
                 && matches!(data.spec.group.role, BoxGroupRole::GenericWorker)
             {
@@ -134,8 +145,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         // spawn an Ansible job
         if old_state != new_state || new_state.cron().is_some() {
             if let Some(task) = new_state.as_task() {
-                let is_spawned = manager
-                    .ansible
+                let is_spawned = ansible
                     .spawn(
                         &manager.kube,
                         AnsibleJob {

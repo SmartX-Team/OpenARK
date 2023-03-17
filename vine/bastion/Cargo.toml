@@ -17,7 +17,6 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 ipis = { workspace = true }
 vine-api = { path = "../api" }
 vine-rbac = { path = "../rbac" }
-vine-session = { path = "../session" }
 
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }

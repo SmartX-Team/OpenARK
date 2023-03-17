@@ -17,10 +17,7 @@ use kube::{
 };
 use serde::de::DeserializeOwned;
 
-use crate::ansible::AnsibleClient;
-
 pub struct Manager<C> {
-    pub ansible: AnsibleClient,
     pub kube: Client,
     pub ctx: Arc<RwLock<C>>,
 }
@@ -102,7 +99,6 @@ where
         let client = Client::try_default().await?;
         let ctx = Arc::new(RwLock::new(Self::default()));
         let manager = Arc::new(Manager {
-            ansible: AnsibleClient::try_default(&client).await?,
             kube: client.clone(),
             ctx: ctx.clone(),
         });

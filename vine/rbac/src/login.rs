@@ -30,7 +30,6 @@ pub async fn execute(
     request: &HttpRequest,
     box_name: &str,
     client: Data<Client>,
-    session_manager: Data<SessionManager>,
 ) -> Result<UserLoginResponse> {
     // get current time
     let now = Utc::now();
@@ -198,6 +197,7 @@ pub async fn execute(
                 user_name: &user.name_any(),
             };
 
+            let session_manager = SessionManager::try_default()?;
             session_manager
                 .create(&client, &spec)
                 .await
