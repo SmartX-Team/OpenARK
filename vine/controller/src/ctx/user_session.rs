@@ -13,9 +13,7 @@ use kiss_api::{
 use vine_session::SessionManager;
 
 #[derive(Default)]
-pub struct Ctx {
-    session_manager: SessionManager,
-}
+pub struct Ctx {}
 
 #[async_trait]
 impl ::kiss_api::manager::Ctx for Ctx {
@@ -30,16 +28,19 @@ impl ::kiss_api::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
+        let session_manager = match SessionManager::try_new(manager.kube.clone()).await {
+            Ok(session_manager) => session_manager,
+            Err(e) => {
+                warn!("failed to creata a SessionManager: {e}");
+                return Ok(Action::requeue(
+                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                ));
+            }
+        };
+
         let name = data.name_any();
 
-        match manager
-            .ctx
-            .read()
-            .await
-            .session_manager
-            .try_unbind(&manager.kube, &data)
-            .await
-        {
+        match session_manager.try_unbind(&data).await {
             Ok(Some(user_name)) => {
                 info!("unbinded node: {name:?} => {user_name:?}");
             }

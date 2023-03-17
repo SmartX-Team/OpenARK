@@ -197,9 +197,9 @@ pub async fn execute(
                 user_name: &user.name_any(),
             };
 
-            let session_manager = SessionManager::try_default()?;
+            let session_manager = SessionManager::try_new(client.as_ref().clone()).await?;
             session_manager
-                .create(&client, &spec)
+                .create(&spec)
                 .await
                 .map(|()| UserLoginResponse::Accept {
                     box_quota,

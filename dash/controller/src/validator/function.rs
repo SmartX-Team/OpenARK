@@ -1,4 +1,4 @@
-use dash_actor::FunctionActor;
+use dash_actor::client::FunctionActorClient;
 use dash_api::function::FunctionSpec;
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::kube::Client;
@@ -19,7 +19,7 @@ impl<'a> FunctionValidator<'a> {
         };
 
         let actor = spec.actor;
-        if let Err(e) = FunctionActor::try_new(actor.clone()).await {
+        if let Err(e) = FunctionActorClient::try_new(self.kube, actor.clone()).await {
             bail!("failed to validate function actor: {e}");
         }
 
