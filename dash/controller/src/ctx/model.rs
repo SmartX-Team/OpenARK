@@ -47,7 +47,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 let validator = ModelValidator {
                     kube: &manager.kube,
                 };
-                match validator.validate_model(&data.spec).await {
+                match validator.validate_model(data.spec.clone()).await {
                     Ok(fields) => match Self::update_fields(&manager.kube, &name, fields).await {
                         Ok(()) => {
                             info!("model is ready: {name}");

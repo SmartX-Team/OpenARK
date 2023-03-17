@@ -54,9 +54,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     kube: &manager.kube,
                 };
                 match validator
-                    .validate_fields(&data.spec.input)
+                    .validate_fields(data.spec.input.clone())
                     .and_then(|input| async {
-                        let output = match data.spec.output.as_ref() {
+                        let output = match data.spec.output.clone() {
                             Some(output) => validator.validate_fields(output).map_ok(Some).await?,
                             None => None,
                         };
