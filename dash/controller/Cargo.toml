@@ -17,3 +17,6 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 dash-api = { path = "../api" }
 ipis = { workspace = true }
 kiss-api = { path = "../../kiss/api" }
+
+inflector = { workspace = true }
+regex = { workspace = true }

@@ -41,6 +41,7 @@ k8s-openapi = { version = "0.15", features = ["schemars", "v1_24"] }
 octocrab = { git = "https://github.com/ulagbulag-village/octocrab", default-features = false, features = [
     "rustls-tls",
 ] }
+regex = "1.7"
 reqwest = { version = "0.11", default-features = false, features = [
     "rustls-tls",
     "stream",

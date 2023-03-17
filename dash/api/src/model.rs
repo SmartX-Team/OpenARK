@@ -99,10 +99,13 @@ pub enum ModelFieldKindSpec {
     Uuid {},
     // BEGIN aggregation types
     Array {
+        #[serde(default)]
         children: Vec<String>,
     },
     Object {
+        #[serde(default)]
         children: Vec<String>,
+        #[serde(default)]
         dynamic: bool,
     },
     // BEGIN reference types

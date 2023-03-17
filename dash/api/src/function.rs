@@ -39,6 +39,7 @@ pub struct FunctionSpec {
 #[serde(rename_all = "camelCase")]
 pub struct FunctionStatus {
     pub state: Option<FunctionState>,
+    pub spec: Option<FunctionSpec>,
     pub last_updated: DateTime<Utc>,
 }
 

@@ -7,7 +7,6 @@ use ipis::{
     log::{info, warn},
 };
 use kiss_api::{
-    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
@@ -29,10 +28,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
     const NAME: &'static str = "dash-controller";
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
 
-    fn get_subcrds() -> Vec<CustomResourceDefinition> {
-        vec![::dash_api::function::FunctionCrd::crd()]
-    }
-
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
@@ -52,7 +47,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 let validator = ModelValidator {
                     kube: &manager.kube,
                 };
-                match validator.validate(&data.spec).await {
+                match validator.validate_model(&data.spec).await {
                     Ok(fields) => match Self::update_fields(&manager.kube, &name, fields).await {
                         Ok(()) => {
                             info!("model is ready: {name}");
