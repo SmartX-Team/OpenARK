@@ -46,6 +46,29 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-dash
+  namespace: kiss
+spec:
+  podSelector:
+    matchLabels:
+      serviceType: dash
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.32.0.0/12
+        - ipBlock:
+            cidr: 0.0.0.0/0 # TODO: disable it when kiss is deployed
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: allow-internal
   namespace: kiss
 spec:

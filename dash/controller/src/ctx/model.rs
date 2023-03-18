@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use dash_actor_api::source::SourceClient;
 use dash_api::model::{ModelCrd, ModelFieldsNativeSpec, ModelState, ModelStatus};
 use ipis::{
     async_trait::async_trait,
@@ -45,7 +46,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
         {
             ModelState::Pending => {
                 let validator = ModelValidator {
-                    kube: &manager.kube,
+                    client: SourceClient {
+                        kube: &manager.kube,
+                    },
                 };
                 match validator.validate_model(data.spec.clone()).await {
                     Ok(fields) => match Self::update_fields(&manager.kube, &name, fields).await {

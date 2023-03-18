@@ -27,7 +27,7 @@ impl FunctionActorJobClient {
     pub async fn try_new(kube: &Client, spec: FunctionActorJobSpec) -> Result<Self> {
         let client = SourceClient { kube };
         let (name, content) = match spec {
-            FunctionActorJobSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
+            FunctionActorJobSpec::ConfigMapRef(spec) => client.load_kube_config_map(spec).await?,
         };
 
         Self::from_raw_content(kube.clone(), name, &content)

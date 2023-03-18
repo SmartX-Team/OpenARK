@@ -3,11 +3,11 @@ use std::{
     fmt,
 };
 
-use dash_actor_api::{imp::assert_contains, name};
+use dash_actor_api::{imp::assert_contains, name, source::SourceClient};
 use dash_api::model::{
-    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec,
-    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec,
-    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec, ModelState,
+    ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec,
+    ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
+    ModelFieldsSpec, ModelSpec,
 };
 use inflector::Inflector;
 use ipis::{
@@ -15,16 +15,13 @@ use ipis::{
     itertools::Itertools,
     log::warn,
 };
-use kiss_api::{
-    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
-        CustomResourceDefinition, CustomResourceDefinitionVersion, JSONSchemaProps,
-    },
-    kube::{Api, Client},
+use kiss_api::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
+    CustomResourceDefinitionVersion, JSONSchemaProps,
 };
 use regex::Regex;
 
 pub struct ModelValidator<'a> {
-    pub kube: &'a Client,
+    pub client: SourceClient<'a>,
 }
 
 impl<'a> ModelValidator<'a> {
@@ -45,9 +42,10 @@ impl<'a> ModelValidator<'a> {
                 ModelFieldKindSpec::Extended(kind) => match kind {
                     // BEGIN reference types
                     ModelFieldKindExtendedSpec::Model { name } => self
-                        .validate_field_model(&name)
+                        .client
+                        .load_model(&name)
                         .await
-                        .and_then(|fields| parser.merge_fields(&field.name, fields))?,
+                        .and_then(|(_, fields)| parser.merge_fields(&field.name, fields))?,
                 },
             }
         }
@@ -67,58 +65,15 @@ impl<'a> ModelValidator<'a> {
         parser.finalize()
     }
 
-    async fn validate_field_model(&self, model_name: &str) -> Result<ModelFieldsNativeSpec> {
-        let api = Api::<ModelCrd>::all(self.kube.clone());
-        let model = api.get(model_name).await?;
-        let status = model.status;
-
-        if !status
-            .as_ref()
-            .and_then(|status| status.state)
-            .map(|state| state == ModelState::Ready)
-            .unwrap_or_default()
-        {
-            bail!("model is not ready: {model_name:?}")
-        }
-
-        match status.and_then(|status| status.fields) {
-            Some(fields) => Ok(fields),
-            None => bail!("model has no fields status: {model_name:?}"),
-        }
-    }
-
     async fn validate_custom_resource_definition_ref(
         &self,
         spec: ModelCustomResourceDefinitionRefSpec,
     ) -> Result<ModelFieldsNativeSpec> {
-        let (crd_name, version) = {
-            let mut attrs: Vec<_> = spec.name.split('/').collect();
-            if attrs.len() != 2 {
-                let crd_name = &spec.name;
-                bail!(
-                    "CRD name is invalid; expected name/version, but given {crd_name} {crd_name:?}",
-                );
-            }
+        let (_, def) = self.client.load_custom_resource_definition(&spec).await?;
 
-            let version = attrs.pop().unwrap();
-            let crd_name = attrs.pop().unwrap();
-            (crd_name, version)
-        };
-
-        let api = Api::<CustomResourceDefinition>::all(self.kube.clone());
-        let crd = api.get(crd_name).await?;
-
-        match crd.spec.versions.iter().find(|def| def.name == version) {
-            Some(def) => {
-                let mut parser = ModelFieldsParser::default();
-                parser.parse_custom_resource_definition(def)?;
-                self.validate_native_fields(parser.finalize()?)
-            }
-            None => bail!(
-                "CRD version is invalid; expected one of {:?}, but given {version}",
-                crd.spec.versions.iter().map(|def| &def.name).join(","),
-            ),
-        }
+        let mut parser = ModelFieldsParser::default();
+        parser.parse_custom_resource_definition(&def)?;
+        self.validate_native_fields(parser.finalize()?)
     }
 }
 
@@ -323,15 +278,8 @@ impl ModelFieldsParser {
             ModelFieldKindNativeSpec::Object {
                 children,
                 dynamic: _,
-            } => {
-                *children = children
-                    .iter()
-                    .cloned()
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect::<Vec<_>>();
             }
-            ModelFieldKindNativeSpec::ObjectArray { children } => {
+            | ModelFieldKindNativeSpec::ObjectArray { children } => {
                 *children = children
                     .iter()
                     .cloned()

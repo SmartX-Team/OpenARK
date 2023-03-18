@@ -1,6 +1,6 @@
 pub mod client;
 pub mod input;
-mod source;
+pub mod source;
 
 pub mod imp {
     use ipis::{
@@ -9,16 +9,16 @@ pub mod imp {
     };
     use std::{fmt, str::FromStr};
 
-    pub fn assert_contains<'a, List, ListItem, Item>(
+    pub fn assert_contains<'a, List, Item>(
         name: &str,
         list_label: &str,
         list: &'a List,
         item_label: &str,
-        item: Option<&Item>,
+        item: Option<Item>,
     ) -> Result<()>
     where
-        &'a List: IntoIterator<Item = &'a ListItem>,
-        ListItem: 'a + fmt::Debug + PartialEq<Item>,
+        &'a List: IntoIterator,
+        <&'a List as IntoIterator>::Item: 'a + fmt::Debug + PartialEq<Item>,
         Item: fmt::Debug,
     {
         match item {
@@ -65,6 +65,18 @@ pub mod imp {
                     .map(ToString::to_string)
             })
             .collect()
+    }
+
+    pub fn parse_api_version(api_version: &str) -> Result<(&str, &str)> {
+        let mut attrs: Vec<_> = api_version.split('/').collect();
+        if attrs.len() != 2 {
+            let crd_name = api_version;
+            bail!("CRD name is invalid; expected name/version, but given {crd_name} {crd_name:?}",);
+        }
+
+        let version = attrs.pop().unwrap();
+        let crd_name = attrs.pop().unwrap();
+        Ok((crd_name, version))
     }
 }
 

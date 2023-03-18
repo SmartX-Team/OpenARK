@@ -18,6 +18,7 @@ dash-api = { path = "../../api" }
 ipis = { workspace = true }
 kiss-api = { path = "../../../kiss/api" }
 
+inflector = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 tera = { workspace = true }

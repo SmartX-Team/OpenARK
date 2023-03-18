@@ -2,14 +2,20 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "dash-power-{{ spec.box.metadata.name }}-{{ spec.power }}"
-  namespace: "{{ namespace }}"
+  name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
+  namespace: kiss
+  labels:
+    name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
+    kissService: "false"
+    serviceType: dash
 spec:
   ttlSecondsAfterFinished: 1
   template:
     metadata:
       labels:
-        name: "dash-power-{{ spec.box.metadata.name }}-{{ spec.power }}"
+        name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
+        kissService: "false"
+        serviceType: dash
     spec:
       affinity:
         nodeAffinity:
@@ -28,6 +34,10 @@ spec:
                     values:
                       - ControlPlane
       restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: kiss-system
       containers:
 {% if spec.box.spec.power.type == 'IntelAMT' %}
         - name: power-management-wsmancli
@@ -35,6 +45,19 @@ spec:
           args:
             - power
             - {{ spec.power }}
+          env:
+            - name: AMT_HOSTNAME
+              value: "{{ spec.box.spec.power.address }}"
+            - name: AMT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: power_intel_amt_username
+            - name: AMT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kiss-config
+                  key: power_intel_amt_password
 {% elif spec.box.spec.power.type == 'Ipmi' %}
         - name: power-management-ipmitool
           image: quay.io/ulagbulag-village/netai-cloud-ipmitool:latest
@@ -42,3 +65,10 @@ spec:
             - power
             - {{ spec.power }}
 {% endif %}
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi

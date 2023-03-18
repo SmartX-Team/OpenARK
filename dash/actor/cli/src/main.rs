@@ -1,8 +1,11 @@
 use std::env;
 
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_actor_api::{client::FunctionSession, input::InputField};
-use ipis::{core::anyhow::Result, logger, tokio};
+use dash_actor_api::{client::FunctionSession, input::InputFieldString};
+use ipis::{
+    core::anyhow::{anyhow, Result},
+    logger, tokio,
+};
 use kiss_api::kube::Client;
 
 #[derive(Parser)]
@@ -76,14 +79,20 @@ struct CommandCreate {
 
     /// Set values by manual
     #[arg(short = 'v', long = "value")]
-    inputs: Vec<InputField>,
+    inputs: Vec<InputFieldString>,
 }
 
 impl CommandCreate {
     async fn run(self, kube: Client) -> Result<()> {
         let mut session = FunctionSession::load(kube, &self.function).await?;
-        session.input.update_fields(self.inputs)?;
-        session.create_raw().await
+        session
+            .update_fields_string(self.inputs)
+            .await
+            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.function))?;
+        session
+            .create_raw()
+            .await
+            .map_err(|e| anyhow!("failed to create function {:?}: {e}", &self.function))
     }
 }
 

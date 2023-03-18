@@ -253,8 +253,7 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
-            Self::Object { children, .. } => Some(children),
-            Self::ObjectArray { children, .. } => Some(children),
+            Self::Object { children, .. } | Self::ObjectArray { children, .. } => Some(children),
         }
     }
 
@@ -272,8 +271,7 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
-            Self::Object { children, .. } => Some(children),
-            Self::ObjectArray { children, .. } => Some(children),
+            Self::Object { children, .. } | Self::ObjectArray { children, .. } => Some(children),
         }
     }
 
