@@ -6,7 +6,10 @@ use std::{
     str::{FromStr, Split},
 };
 
-use dash_api::model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec};
+use dash_api::model::{
+    ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
+    ModelFieldsNativeSpec,
+};
 use ipis::core::{
     anyhow::{anyhow, bail, Error, Result},
     chrono::{DateTime, Utc},
@@ -41,73 +44,9 @@ impl InputTemplate {
     }
 
     pub fn update_field(&mut self, input: InputField) -> Result<()> {
-        let name = &input.name;
+        let InputField { name, value } = input;
 
-        let (base_field, field) = {
-            let mut base_field = match self.basemap.get("/") {
-                Some(field) => field,
-                None => bail!("no root field"),
-            };
-            let mut field = &mut self.map;
-
-            for entry in input.cursor() {
-                field = match entry {
-                    CursorEntry::EnterArray { basename, index } => {
-                        base_field = match self.basemap.get(&basename) {
-                            Some(field) => field,
-                            None => bail!("no such Array field: {name:?}"),
-                        };
-
-                        match field {
-                            Value::Null => {
-                                *field = Value::Array(vec![Default::default(); index]);
-                                &mut field[index]
-                            }
-                            Value::Array(children) => {
-                                if children.len() <= index {
-                                    children.resize(index + 1, Default::default());
-                                }
-                                &mut children[index]
-                            }
-                            _ => {
-                                let type_ = base_field.kind.to_type();
-                                bail!("cannot access to {type_} by Array index {index:?}: {name:?}")
-                            }
-                        }
-                    }
-                    CursorEntry::EnterObject { basename, child } => {
-                        if child.is_empty() {
-                            field
-                        } else {
-                            base_field = match self.basemap.get(&basename) {
-                                Some(field) => field,
-                                None => bail!("no such Object field: {name:?}"),
-                            };
-
-                            match field {
-                                Value::Null => {
-                                    let mut children: Map<_, _> = Default::default();
-                                    children.insert(child.to_string(), Default::default());
-
-                                    *field = Value::Object(children);
-                                    &mut field[child]
-                                }
-                                Value::Object(children) => {
-                                    children.entry(child).or_insert(Default::default())
-                                }
-                                _ => {
-                                    let type_ = base_field.kind.to_type();
-                                    bail!(
-                                        "cannot access to {type_} by Object field {child:?}: {name:?}"
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            (base_field, field)
-        };
+        let (base_field, field) = self.get_field(&name)?;
 
         match &base_field.kind {
             // BEGIN primitive types
@@ -116,7 +55,7 @@ impl InputTemplate {
                 Ok(())
             }
             ModelFieldKindNativeSpec::Boolean { default: _ } => {
-                *field = Value::Bool(input.value.parse()?);
+                *field = Value::Bool(value.parse()?);
                 Ok(())
             }
             ModelFieldKindNativeSpec::Integer {
@@ -124,18 +63,25 @@ impl InputTemplate {
                 minimum,
                 maximum,
             } => {
-                let value: i64 = input.value.parse()?;
+                let value_i64: i64 = value.parse()?;
                 assert_cmp(
-                    name,
-                    &value,
+                    &name,
+                    &value_i64,
                     "minimum",
                     minimum,
                     "greater",
                     Ordering::Greater,
                 )?;
-                assert_cmp(name, &value, "maximum", maximum, "less", Ordering::Less)?;
+                assert_cmp(
+                    &name,
+                    &value_i64,
+                    "maximum",
+                    maximum,
+                    "less",
+                    Ordering::Less,
+                )?;
 
-                *field = Value::Number(value.into());
+                *field = Value::Number(value_i64.into());
                 Ok(())
             }
             ModelFieldKindNativeSpec::Number {
@@ -143,59 +89,290 @@ impl InputTemplate {
                 minimum,
                 maximum,
             } => {
-                let value: f64 = input.value.parse()?;
+                let value_f64: f64 = value.parse()?;
                 assert_cmp(
-                    name,
-                    &value,
+                    &name,
+                    &value_f64,
                     "minimum",
                     minimum,
                     "greater",
                     Ordering::Greater,
                 )?;
-                assert_cmp(name, &value, "maximum", maximum, "less", Ordering::Less)?;
+                assert_cmp(
+                    &name,
+                    &value_f64,
+                    "maximum",
+                    maximum,
+                    "less",
+                    Ordering::Less,
+                )?;
 
-                *field = Value::Number(input.value.parse()?);
+                *field = Value::Number(value.parse()?);
                 Ok(())
             }
             ModelFieldKindNativeSpec::String { default: _ } => {
-                *field = Value::String(input.value);
+                *field = Value::String(value);
                 Ok(())
             }
             ModelFieldKindNativeSpec::OneOfStrings {
                 default: _,
                 choices,
             } => {
-                crate::imp::assert_contains(name, "choices", choices, "value", Some(&input.value))?;
-                *field = Value::String(input.value);
+                crate::imp::assert_contains(&name, "choices", choices, "value", Some(&value))?;
+                *field = Value::String(value);
                 Ok(())
             }
             // BEGIN string formats
             ModelFieldKindNativeSpec::DateTime { default: _ } => {
-                let _: DateTime<Utc> = crate::imp::assert_type(name, &input.value)?;
-                *field = Value::String(input.value);
+                let _: DateTime<Utc> = crate::imp::assert_type(&name, &value)?;
+                *field = Value::String(value);
                 Ok(())
             }
             ModelFieldKindNativeSpec::Ip {} => {
-                let _: IpAddr = crate::imp::assert_type(name, &input.value)?;
-                *field = Value::String(input.value);
+                let _: IpAddr = crate::imp::assert_type(&name, &value)?;
+                *field = Value::String(value);
                 Ok(())
             }
             ModelFieldKindNativeSpec::Uuid {} => {
-                let _: Uuid = crate::imp::assert_type(name, &input.value)?;
-                *field = Value::String(input.value);
+                let _: Uuid = crate::imp::assert_type(&name, &value)?;
+                *field = Value::String(value);
                 Ok(())
             }
             // BEGIN aggregation types
-            ModelFieldKindNativeSpec::Array { .. } | ModelFieldKindNativeSpec::Object { .. } => {
+            ModelFieldKindNativeSpec::Object { .. }
+            | ModelFieldKindNativeSpec::ObjectArray { .. } => {
                 let type_ = base_field.kind.to_type();
-                let value = &input.value;
-                bail!("cannot set {type_} type to value {value:?}: {name:?}")
+                let value = &value;
+                bail!("cannot set {type_} type to {value:?}: {name:?}")
             }
         }
     }
 
-    pub fn finalize(self) -> Result<Value> {
-        todo!()
+    fn get_field(&mut self, name: &str) -> Result<(&ModelFieldNativeSpec, &mut Value)> {
+        let mut base_field = match self.basemap.get("/") {
+            Some(field) => field,
+            None => bail!("no root field"),
+        };
+        let mut field = &mut self.map;
+
+        for entry in CursorIterator::from_name(name) {
+            field = match entry {
+                CursorEntry::EnterArray { basename, index } => {
+                    base_field = match self.basemap.get(&basename) {
+                        Some(field) => field,
+                        None => bail!("no such Array field: {name:?}"),
+                    };
+
+                    match field {
+                        Value::Null => {
+                            *field = Value::Array(vec![Default::default(); index]);
+                            &mut field[index]
+                        }
+                        Value::Array(children) => {
+                            if children.len() <= index {
+                                children.resize(index + 1, Default::default());
+                            }
+                            &mut children[index]
+                        }
+                        _ => {
+                            let type_ = base_field.kind.to_type();
+                            bail!("cannot access to {type_} by Array index {index:?}: {name:?}")
+                        }
+                    }
+                }
+                CursorEntry::EnterObject { basename, child } => {
+                    if child.is_empty() {
+                        field
+                    } else {
+                        base_field = match self.basemap.get(&basename) {
+                            Some(field) => field,
+                            None => bail!("no such Object field: {name:?}"),
+                        };
+
+                        match field {
+                            Value::Null => {
+                                let mut children: Map<_, _> = Default::default();
+                                children.insert(child.to_string(), Default::default());
+
+                                *field = Value::Object(children);
+                                &mut field[child]
+                            }
+                            Value::Object(children) => {
+                                children.entry(child).or_insert(Default::default())
+                            }
+                            _ => {
+                                let type_ = base_field.kind.to_type();
+                                bail!(
+                                    "cannot access to {type_} by Object field {child:?}: {name:?}"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok((base_field, field))
+    }
+
+    fn fill_default_value(&mut self, name: &str, is_atom: bool) -> Result<()> {
+        let (base_field, field) = self.get_field(name)?;
+
+        fn assert_optional(name: &str, base_field: &ModelFieldNativeSpec) -> Result<()> {
+            if base_field.optional {
+                Ok(())
+            } else {
+                let type_ = base_field.kind.to_type();
+                bail!("missing {type_} value: {name:?}")
+            }
+        }
+
+        match &base_field.kind {
+            // BEGIN primitive types
+            ModelFieldKindNativeSpec::None {} => {
+                *field = Value::Null;
+                Ok(())
+            }
+            ModelFieldKindNativeSpec::Boolean { default } => {
+                if field.is_null() {
+                    match default {
+                        Some(default) => {
+                            *field = Value::Bool(*default);
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::Integer {
+                default,
+                minimum: _,
+                maximum: _,
+            } => {
+                if field.is_null() {
+                    match default {
+                        Some(default) => {
+                            *field = Value::Number((*default).into());
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::Number {
+                default,
+                minimum: _,
+                maximum: _,
+            } => {
+                if field.is_null() {
+                    match default {
+                        Some(default) => {
+                            *field = Value::Number(default.to_string().parse()?);
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::String { default } => {
+                if field.is_null() {
+                    match default {
+                        Some(default) => {
+                            *field = Value::String(default.clone());
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::OneOfStrings {
+                default,
+                choices: _,
+            } => {
+                if field.is_null() {
+                    match default {
+                        Some(default) => {
+                            *field = Value::String(default.clone());
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            // BEGIN string formats
+            ModelFieldKindNativeSpec::DateTime { default } => {
+                if field.is_null() {
+                    match default {
+                        Some(ModelFieldDateTimeDefaultType::Now) => {
+                            *field = Value::String(Utc::now().to_rfc3339());
+                            Ok(())
+                        }
+                        None => assert_optional(name, base_field),
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::Ip {} => {
+                if field.is_null() {
+                    assert_optional(name, base_field)
+                } else {
+                    Ok(())
+                }
+            }
+            ModelFieldKindNativeSpec::Uuid {} => {
+                if field.is_null() {
+                    assert_optional(name, base_field)
+                } else {
+                    Ok(())
+                }
+            }
+            // BEGIN aggregation types
+            ModelFieldKindNativeSpec::Object {
+                children,
+                dynamic: _,
+            } => {
+                *field = Value::Object(Default::default());
+
+                for child in crate::imp::get_children_names(children) {
+                    self.fill_default_value(&format!("{name}{child}/"), true)?;
+                }
+                Ok(())
+            }
+            ModelFieldKindNativeSpec::ObjectArray { children } => {
+                if is_atom {
+                    *field = Value::Array(Default::default());
+
+                    if let Some(children) = field.as_array() {
+                        let children = 0..children.len();
+                        for child in children {
+                            self.fill_default_value(&format!("{name}{child}/"), false)?;
+                        }
+                    }
+                    Ok(())
+                } else {
+                    *field = Value::Object(Default::default());
+
+                    for child in crate::imp::get_children_names(children) {
+                        self.fill_default_value(&format!("{name}{child}/"), true)?;
+                    }
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    pub fn finalize(mut self) -> Result<Value> {
+        self.fill_default_value("/", true).map(|()| self.map)
     }
 }
 
@@ -235,24 +412,24 @@ impl FromStr for InputField {
             .and_then(|captures| captures.iter().flatten().last())
             .map(|m| Self {
                 name: s[..m.start()].to_string(),
-                value: s[m.start()..m.end() - 1].to_string(),
+                value: s[m.start()..m.end()].to_string(),
             })
             .ok_or_else(|| anyhow!("field name is invalid: {s} {s:?}"))
-    }
-}
-
-impl InputField {
-    fn cursor(&self) -> CursorIterator {
-        CursorIterator {
-            basename: '/'.to_string(),
-            split: self.name.split('/'),
-        }
     }
 }
 
 struct CursorIterator<'a> {
     basename: String,
     split: Split<'a, char>,
+}
+
+impl<'a> CursorIterator<'a> {
+    fn from_name(name: &'a str) -> Self {
+        CursorIterator {
+            basename: '/'.to_string(),
+            split: name.split('/'),
+        }
+    }
 }
 
 impl<'a> Iterator for CursorIterator<'a> {

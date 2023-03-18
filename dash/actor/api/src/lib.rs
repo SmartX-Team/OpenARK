@@ -49,12 +49,29 @@ pub mod imp {
         item.parse::<Type>()
             .map_err(|e| anyhow!("cannot parse value {item:?}: {name:?}: {e}"))
     }
+
+    pub fn get_children_names<I>(names: I) -> Vec<String>
+    where
+        I: IntoIterator,
+        <I as IntoIterator>::Item: AsRef<str>,
+    {
+        names
+            .into_iter()
+            .filter_map(|name| {
+                name.as_ref()
+                    .split('/')
+                    .rev()
+                    .nth(1)
+                    .map(ToString::to_string)
+            })
+            .collect()
+    }
 }
 
 pub mod name {
     pub const RE: &str = r"^/([a-z_-][a-z0-9_-]*[a-z0-9]?/)*$";
     pub const RE_CHILD: &str = r"^[a-z_-][a-z0-9_-]*[a-z0-9]?$";
-    pub const RE_SET: &str = r"^/([a-z_-][a-z0-9_-]*[a-z0-9]?/)+$";
+    pub const RE_SET: &str = r"^(/[a-z_-][a-z0-9_-]*[a-z0-9]?)*/([A-Za-z0-9._-]*)$";
 }
 
 pub(crate) const NAME: &str = "dash-actor";

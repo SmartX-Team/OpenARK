@@ -13,6 +13,7 @@ use inflector::Inflector;
 use ipis::{
     core::anyhow::{bail, Result},
     itertools::Itertools,
+    log::warn,
 };
 use kiss_api::{
     k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
@@ -217,14 +218,6 @@ impl ModelFieldsParser {
                 Some(format) => bail!("unknown string format of {name:?}: {format:?}"),
             },
             // BEGIN aggregation types
-            Some("array") => {
-                let children =
-                    self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
-
-                Some(ModelFieldKindNativeSpec::Array {
-                    children: children.into_iter().collect(),
-                })
-            }
             Some("object") => {
                 let children =
                     self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
@@ -232,6 +225,16 @@ impl ModelFieldsParser {
                 Some(ModelFieldKindNativeSpec::Object {
                     children: children.into_iter().collect(),
                     dynamic: false,
+                })
+            }
+            Some("array") => {
+                // TODO: parse other primitive types
+                warn!("Array type only supports for ObjectArray: {name:?}");
+                let children =
+                    self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
+
+                Some(ModelFieldKindNativeSpec::ObjectArray {
+                    children: children.into_iter().collect(),
                 })
             }
             type_ => bail!("unknown type of {name:?}: {type_:?}"),
@@ -242,7 +245,7 @@ impl ModelFieldsParser {
                 let spec = ModelFieldSpec {
                     name: name.clone(),
                     kind,
-                    nullable: prop.nullable.unwrap_or_default(),
+                    optional: prop.nullable.unwrap_or_default(),
                 };
 
                 self.insert_field(name.clone(), name_raw, spec)
@@ -317,7 +320,10 @@ impl ModelFieldsParser {
             ModelFieldKindNativeSpec::Ip {} => {}
             ModelFieldKindNativeSpec::Uuid {} => {}
             // BEGIN aggregation types
-            ModelFieldKindNativeSpec::Array { children } => {
+            ModelFieldKindNativeSpec::Object {
+                children,
+                dynamic: _,
+            } => {
                 *children = children
                     .iter()
                     .cloned()
@@ -325,10 +331,7 @@ impl ModelFieldsParser {
                     .into_iter()
                     .collect::<Vec<_>>();
             }
-            ModelFieldKindNativeSpec::Object {
-                children,
-                dynamic: _,
-            } => {
+            ModelFieldKindNativeSpec::ObjectArray { children } => {
                 *children = children
                     .iter()
                     .cloned()
@@ -406,7 +409,7 @@ impl ModelFieldsParser {
                                     children: children.into_iter().collect(),
                                     dynamic: false,
                                 },
-                                nullable: false,
+                                optional: false,
                             };
                             map.insert(name.to_string(), field);
 

@@ -216,21 +216,7 @@ impl SessionManager {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SessionContext<'a> {
-    namespace: String,
-    spec: &'a SessionContextSpec<'a>,
-}
-
-impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
-    fn from(spec: &'a SessionContextSpec<'a>) -> Self {
-        Self {
-            namespace: format!("vine-session-{}", &spec.user_name),
-            spec,
-        }
-    }
-}
+pub type SessionContext<'a> = ::dash_actor_api::client::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -239,4 +225,13 @@ pub struct SessionContextSpec<'a> {
     pub node: &'a Node,
     pub role: Option<&'a UserRoleSpec>,
     pub user_name: &'a str,
+}
+
+impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
+    fn from(spec: &'a SessionContextSpec<'a>) -> Self {
+        SessionContext {
+            namespace: format!("vine-session-{}", &spec.user_name),
+            spec,
+        }
+    }
 }

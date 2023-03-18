@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "dash-power-{{ spec.box.metadata.name }}-{{ spec.power }}"
-  namespace: kiss
+  namespace: "{{ namespace }}"
 spec:
   ttlSecondsAfterFinished: 1
   template:

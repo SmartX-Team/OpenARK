@@ -61,7 +61,7 @@ pub struct ModelFieldSpec<Kind = ModelFieldKindSpec> {
     #[serde(flatten)]
     pub kind: Kind,
     #[serde(default)]
-    pub nullable: bool,
+    pub optional: bool,
 }
 
 impl ModelFieldSpec {
@@ -70,7 +70,7 @@ impl ModelFieldSpec {
             ModelFieldKindSpec::Native(kind) => Ok(ModelFieldSpec {
                 name: self.name,
                 kind,
-                nullable: self.nullable,
+                optional: self.optional,
             }),
             kind => {
                 let name = &self.name;
@@ -87,7 +87,7 @@ impl ModelFieldSpec {
             ModelFieldKindSpec::Extended(kind) => Ok(ModelFieldSpec {
                 name: self.name,
                 kind,
-                nullable: self.nullable,
+                optional: self.optional,
             }),
             kind => {
                 let name = &self.name;
@@ -220,15 +220,15 @@ pub enum ModelFieldKindNativeSpec {
     Ip {},
     Uuid {},
     // BEGIN aggregation types
-    Array {
-        #[serde(default)]
-        children: Vec<String>,
-    },
     Object {
         #[serde(default)]
         children: Vec<String>,
         #[serde(default)]
         dynamic: bool,
+    },
+    ObjectArray {
+        #[serde(default)]
+        children: Vec<String>,
     },
 }
 
@@ -253,8 +253,8 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
-            Self::Array { children, .. } => Some(children),
             Self::Object { children, .. } => Some(children),
+            Self::ObjectArray { children, .. } => Some(children),
         }
     }
 
@@ -272,8 +272,8 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
-            Self::Array { children, .. } => Some(children),
             Self::Object { children, .. } => Some(children),
+            Self::ObjectArray { children, .. } => Some(children),
         }
     }
 
@@ -291,8 +291,8 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => ModelFieldKindNativeType::Ip,
             Self::Uuid { .. } => ModelFieldKindNativeType::Uuid,
             // BEGIN aggregation types
-            Self::Array { .. } => ModelFieldKindNativeType::Array,
             Self::Object { .. } => ModelFieldKindNativeType::Object,
+            Self::ObjectArray { .. } => ModelFieldKindNativeType::ObjectArray,
         }
     }
 }
@@ -361,8 +361,8 @@ pub enum ModelFieldKindNativeType {
     Ip,
     Uuid,
     // BEGIN aggregation types
-    Array,
     Object,
+    ObjectArray,
 }
 
 #[derive(

@@ -15,6 +15,8 @@ use tera::{Context, Tera};
 
 use crate::source::SourceClient;
 
+use super::SessionContext;
+
 pub struct FunctionActorJobClient {
     pub kube: Client,
     name: String,
@@ -61,51 +63,68 @@ impl FunctionActorJobClient {
         &self.kube
     }
 
-    pub async fn exists_raw<Input>(&self, input: Input) -> Result<bool>
+    pub async fn exists_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.exists_raw_named(&self.name, input).await
     }
 
-    pub async fn exists_raw_named<Input>(&self, name: &str, input: Input) -> Result<bool>
+    pub async fn exists_raw_named<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<bool>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.execute_raw_any_with(name, input).await
     }
 
-    pub async fn create_raw<Input>(&self, input: Input) -> Result<()>
+    pub async fn create_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<()>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.create_raw_named(&self.name, input).await
     }
 
-    pub async fn create_raw_named<Input>(&self, name: &str, input: Input) -> Result<()>
+    pub async fn create_raw_named<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<()>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.execute_raw_with(name, input, try_create).await
     }
 
-    pub async fn delete_raw<Input>(&self, input: Input) -> Result<()>
+    pub async fn delete_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<()>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.delete_raw_named(&self.name, input).await
     }
 
-    pub async fn delete_raw_named<Input>(&self, name: &str, input: Input) -> Result<()>
+    pub async fn delete_raw_named<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<()>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         self.execute_raw_with(name, input, try_delete).await
     }
 
-    async fn execute_raw_with<Input, F, Fut>(&self, name: &str, input: Input, f: F) -> Result<()>
+    async fn execute_raw_with<Spec, F, Fut>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+        f: F,
+    ) -> Result<()>
     where
-        Input: Serialize,
+        Spec: Serialize,
         F: Fn(Template, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
@@ -119,9 +138,13 @@ impl FunctionActorJobClient {
         Ok(())
     }
 
-    async fn execute_raw_any_with<Input>(&self, name: &str, input: Input) -> Result<bool>
+    async fn execute_raw_any_with<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<bool>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         for template in self.load_template(name, input).await? {
             // Find documents
@@ -132,9 +155,13 @@ impl FunctionActorJobClient {
         Ok(false)
     }
 
-    async fn load_template<Input>(&self, name: &str, input: Input) -> Result<Vec<Template>>
+    async fn load_template<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<Vec<Template>>
     where
-        Input: Serialize,
+        Spec: Serialize,
     {
         let context = Context::from_serialize(input)?;
         let templates = self.tera.render(name, &context)?;
@@ -178,13 +205,6 @@ impl FunctionActorJobClient {
         }
         Ok(apis)
     }
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionContext<'a, Spec> {
-    pub namespace: String,
-    spec: &'a Spec,
 }
 
 struct Template {

@@ -1,6 +1,7 @@
 use dash_api::function::{FunctionActorSpec, FunctionCrd, FunctionState};
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::kube::{Api, Client};
+use serde::{Deserialize, Serialize};
 
 use crate::input::InputTemplate;
 
@@ -31,6 +32,16 @@ impl FunctionSession {
             input: InputTemplate::new_empty(spec.input),
         })
     }
+
+    pub async fn create_raw(self) -> Result<()> {
+        let input = SessionContext {
+            // TODO: to be implemented
+            namespace: "dash".to_string(),
+            spec: self.input.finalize()?,
+        };
+
+        self.client.create_raw(&input).await
+    }
 }
 
 pub enum FunctionActorClient {
@@ -52,4 +63,20 @@ impl FunctionActorClient {
             Self::Job(client) => client.kube(),
         }
     }
+
+    pub async fn create_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<()>
+    where
+        Spec: Serialize,
+    {
+        match self {
+            Self::Job(client) => client.create_raw(input).await,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionContext<Spec> {
+    pub namespace: String,
+    pub spec: Spec,
 }

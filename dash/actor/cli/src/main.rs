@@ -59,8 +59,10 @@ enum Commands {
 
 impl Commands {
     async fn run(self) -> Result<()> {
+        let kube = Client::try_default().await?;
+
         match self {
-            Self::Create(command) => command.run().await,
+            Self::Create(command) => command.run(kube).await,
         }
     }
 }
@@ -78,16 +80,10 @@ struct CommandCreate {
 }
 
 impl CommandCreate {
-    async fn run(self) -> Result<()> {
-        let kube = Client::try_default().await?;
-
+    async fn run(self, kube: Client) -> Result<()> {
         let mut session = FunctionSession::load(kube, &self.function).await?;
         session.input.update_fields(self.inputs)?;
-
-        let input = session.input.finalize()?;
-
-        dbg!(&input);
-        todo!()
+        session.create_raw().await
     }
 }
 
