@@ -1,8 +1,9 @@
 use std::env;
 
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_actor_api::input::{InputTemplate, SetField};
+use dash_actor_api::{client::FunctionSession, input::InputField};
 use ipis::{core::anyhow::Result, logger, tokio};
+use kiss_api::kube::Client;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -67,15 +68,23 @@ impl Commands {
 /// Create a resource from a file or from stdin.
 #[derive(Parser)]
 struct CommandCreate {
-    /// Set fields by manual
-    #[arg(long)]
-    set: Vec<SetField>,
+    /// Set a function name
+    #[arg(short, long, env = "DASH_FUNCTION", value_name = "NAME")]
+    function: String,
+
+    /// Set values by manual
+    #[arg(short = 'v', long = "value")]
+    inputs: Vec<InputField>,
 }
 
 impl CommandCreate {
     async fn run(self) -> Result<()> {
-        let mut input = InputTemplate::default();
-        input.update_fields(self.set)?;
+        let kube = Client::try_default().await?;
+
+        let mut session = FunctionSession::load(kube, &self.function).await?;
+        session.input.update_fields(self.inputs)?;
+
+        let input = session.input.finalize()?;
 
         dbg!(&input);
         todo!()

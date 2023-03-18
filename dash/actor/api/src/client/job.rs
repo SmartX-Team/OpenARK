@@ -57,6 +57,10 @@ impl FunctionActorJobClient {
 }
 
 impl FunctionActorJobClient {
+    pub const fn kube(&self) -> &Client {
+        &self.kube
+    }
+
     pub async fn exists_raw<Input>(&self, input: Input) -> Result<bool>
     where
         Input: Serialize,

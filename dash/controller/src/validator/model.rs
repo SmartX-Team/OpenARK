@@ -3,7 +3,7 @@ use std::{
     fmt,
 };
 
-use dash_actor_api::name;
+use dash_actor_api::{imp::assert_contains, name};
 use dash_api::model::{
     ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec,
     ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec,
@@ -539,36 +539,6 @@ where
                 Ok(())
             } else {
                 bail!("{a_label} value {a:?} should be less than {b_label} value {b:?}: {name:?}")
-            }
-        }
-        _ => Ok(()),
-    }
-}
-
-fn assert_contains<'a, List, ListItem, Item>(
-    name: &str,
-    list_label: &str,
-    list: &'a List,
-    item_label: &str,
-    item: Option<&Item>,
-) -> Result<()>
-where
-    &'a List: IntoIterator<Item = &'a ListItem>,
-    ListItem: 'a + fmt::Debug + PartialEq<Item>,
-    Item: fmt::Debug,
-{
-    match item {
-        Some(item) => {
-            if list.into_iter().any(|list_item| list_item == item) {
-                Ok(())
-            } else {
-                let items = list
-                    .into_iter()
-                    .map(|list_item| format!("{list_item:?}"))
-                    .join(", ");
-                bail!(
-                    "{item_label} value {item:?} should be one of {list_label} ({items}): {name:?}",
-                )
             }
         }
         _ => Ok(()),
