@@ -1,0 +1,44 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "dash-power-{{ spec.box.metadata.name }}-{{ spec.power }}"
+  namespace: kiss
+spec:
+  ttlSecondsAfterFinished: 1
+  template:
+    metadata:
+      labels:
+        name: "dash-power-{{ spec.box.metadata.name }}-{{ spec.power }}"
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
+      restartPolicy: OnFailure
+      containers:
+{% if spec.box.spec.power.type == 'IntelAMT' %}
+        - name: power-management-wsmancli
+          image: quay.io/ulagbulag-village/netai-cloud-wsmancli:latest
+          args:
+            - power
+            - {{ spec.power }}
+{% elif spec.box.spec.power.type == 'Ipmi' %}
+        - name: power-management-ipmitool
+          image: quay.io/ulagbulag-village/netai-cloud-ipmitool:latest
+          args:
+            - power
+            - {{ spec.power }}
+{% endif %}

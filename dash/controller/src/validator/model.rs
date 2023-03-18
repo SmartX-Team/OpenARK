@@ -3,9 +3,11 @@ use std::{
     fmt,
 };
 
+use dash_actor_api::name;
 use dash_api::model::{
-    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindSpec, ModelFieldSpec,
-    ModelFieldsSpec, ModelSpec, ModelState,
+    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec,
+    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec,
+    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec, ModelState,
 };
 use inflector::Inflector;
 use ipis::{
@@ -25,7 +27,7 @@ pub struct ModelValidator<'a> {
 }
 
 impl<'a> ModelValidator<'a> {
-    pub async fn validate_model(&self, spec: ModelSpec) -> Result<ModelFieldsSpec> {
+    pub async fn validate_model(&self, spec: ModelSpec) -> Result<ModelFieldsNativeSpec> {
         match spec {
             ModelSpec::Fields(spec) => self.validate_fields(spec).await,
             ModelSpec::CustomResourceDefinitionRef(spec) => {
@@ -34,37 +36,37 @@ impl<'a> ModelValidator<'a> {
         }
     }
 
-    pub async fn validate_fields(&self, spec: ModelFieldsSpec) -> Result<ModelFieldsSpec> {
+    pub async fn validate_fields(&self, spec: ModelFieldsSpec) -> Result<ModelFieldsNativeSpec> {
         let mut parser = ModelFieldsParser::default();
         for field in spec {
             match field.kind {
-                // BEGIN primitive types
-                ModelFieldKindSpec::Boolean { .. }
-                | ModelFieldKindSpec::Integer { .. }
-                | ModelFieldKindSpec::Number { .. }
-                | ModelFieldKindSpec::String { .. }
-                | ModelFieldKindSpec::OneOfStrings { .. }
-                // BEGIN string formats
-                | ModelFieldKindSpec::DateTime { .. }
-                | ModelFieldKindSpec::Ip { .. }
-                | ModelFieldKindSpec::Uuid { .. }
-                // BEGIN aggregation types
-                | ModelFieldKindSpec::Array { .. }
-                | ModelFieldKindSpec::Object { .. }
-                // END aggregation types
-                    => parser.parse_field(field)?,
-                // BEGIN reference types
-                ModelFieldKindSpec::Model { name } => self
-                    .validate_field_model(&name)
-                    .await
-                    .and_then(|fields| parser.merge_fields(&field.name, fields))?,
+                ModelFieldKindSpec::Native(_) => parser.parse_field(field.try_into_native()?)?,
+                ModelFieldKindSpec::Extended(kind) => match kind {
+                    // BEGIN reference types
+                    ModelFieldKindExtendedSpec::Model { name } => self
+                        .validate_field_model(&name)
+                        .await
+                        .and_then(|fields| parser.merge_fields(&field.name, fields))?,
+                },
             }
         }
 
         parser.finalize()
     }
 
-    async fn validate_field_model(&self, model_name: &str) -> Result<ModelFieldsSpec> {
+    pub fn validate_native_fields(
+        &self,
+        spec: ModelFieldsNativeSpec,
+    ) -> Result<ModelFieldsNativeSpec> {
+        let mut parser = ModelFieldsParser::default();
+        for field in spec {
+            parser.parse_field(field)?;
+        }
+
+        parser.finalize()
+    }
+
+    async fn validate_field_model(&self, model_name: &str) -> Result<ModelFieldsNativeSpec> {
         let api = Api::<ModelCrd>::all(self.kube.clone());
         let model = api.get(model_name).await?;
         let status = model.status;
@@ -87,7 +89,7 @@ impl<'a> ModelValidator<'a> {
     async fn validate_custom_resource_definition_ref(
         &self,
         spec: ModelCustomResourceDefinitionRefSpec,
-    ) -> Result<ModelFieldsSpec> {
+    ) -> Result<ModelFieldsNativeSpec> {
         let (crd_name, version) = {
             let mut attrs: Vec<_> = spec.name.split('/').collect();
             if attrs.len() != 2 {
@@ -109,7 +111,7 @@ impl<'a> ModelValidator<'a> {
             Some(def) => {
                 let mut parser = ModelFieldsParser::default();
                 parser.parse_custom_resource_definition(def)?;
-                self.validate_fields(parser.finalize()?).await
+                self.validate_native_fields(parser.finalize()?)
             }
             None => bail!(
                 "CRD version is invalid; expected one of {:?}, but given {version}",
@@ -119,11 +121,11 @@ impl<'a> ModelValidator<'a> {
     }
 }
 
-type ModelFieldsMap = BTreeMap<String, ModelFieldSpec>;
+type ModelFieldsNativeMap = BTreeMap<String, ModelFieldNativeSpec>;
 
 #[derive(Debug, Default)]
 struct ModelFieldsParser {
-    map: ModelFieldsMap,
+    map: ModelFieldsNativeMap,
 }
 
 impl ModelFieldsParser {
@@ -154,14 +156,14 @@ impl ModelFieldsParser {
             Some("boolean") => {
                 let default = prop.default.as_ref().and_then(|e| e.0.as_bool());
 
-                Some(ModelFieldKindSpec::Boolean { default })
+                Some(ModelFieldKindNativeSpec::Boolean { default })
             }
             Some("integer") => {
                 let default = prop.default.as_ref().and_then(|e| e.0.as_i64());
                 let minimum = prop.minimum.as_ref().copied().map(|e| e.round() as i64);
                 let maximum = prop.maximum.as_ref().copied().map(|e| e.round() as i64);
 
-                Some(ModelFieldKindSpec::Integer {
+                Some(ModelFieldKindNativeSpec::Integer {
                     default,
                     minimum,
                     maximum,
@@ -172,7 +174,7 @@ impl ModelFieldsParser {
                 let minimum = prop.minimum;
                 let maximum = prop.maximum;
 
-                Some(ModelFieldKindSpec::Number {
+                Some(ModelFieldKindNativeSpec::Number {
                     default,
                     minimum,
                     maximum,
@@ -180,9 +182,9 @@ impl ModelFieldsParser {
             }
             Some("string") => match prop.format.as_ref().map(AsRef::as_ref) {
                 // BEGIN string format
-                Some("date-time") => Some(ModelFieldKindSpec::DateTime { default: None }),
-                Some("ip") => Some(ModelFieldKindSpec::Ip {}),
-                Some("uuid") => Some(ModelFieldKindSpec::Uuid {}),
+                Some("date-time") => Some(ModelFieldKindNativeSpec::DateTime { default: None }),
+                Some("ip") => Some(ModelFieldKindNativeSpec::Ip {}),
+                Some("uuid") => Some(ModelFieldKindNativeSpec::Uuid {}),
                 // END string format
                 None => match &prop.enum_ {
                     Some(enum_) => {
@@ -197,7 +199,7 @@ impl ModelFieldsParser {
                             .map(ToString::to_string)
                             .collect();
 
-                        Some(ModelFieldKindSpec::OneOfStrings {
+                        Some(ModelFieldKindNativeSpec::OneOfStrings {
                             default,
                             choices: choices.into_iter().collect(),
                         })
@@ -209,7 +211,7 @@ impl ModelFieldsParser {
                             .and_then(|e| e.0.as_str())
                             .map(ToString::to_string);
 
-                        Some(ModelFieldKindSpec::String { default })
+                        Some(ModelFieldKindNativeSpec::String { default })
                     }
                 },
                 Some(format) => bail!("unknown string format of {name:?}: {format:?}"),
@@ -219,7 +221,7 @@ impl ModelFieldsParser {
                 let children =
                     self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
 
-                Some(ModelFieldKindSpec::Array {
+                Some(ModelFieldKindNativeSpec::Array {
                     children: children.into_iter().collect(),
                 })
             }
@@ -227,7 +229,7 @@ impl ModelFieldsParser {
                 let children =
                     self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
 
-                Some(ModelFieldKindSpec::Object {
+                Some(ModelFieldKindNativeSpec::Object {
                     children: children.into_iter().collect(),
                     dynamic: false,
                 })
@@ -250,7 +252,12 @@ impl ModelFieldsParser {
         }
     }
 
-    fn insert_field(&mut self, name: String, name_raw: &str, spec: ModelFieldSpec) -> Result<()> {
+    fn insert_field(
+        &mut self,
+        name: String,
+        name_raw: &str,
+        spec: ModelFieldNativeSpec,
+    ) -> Result<()> {
         match self.map.insert(name.clone(), spec) {
             None => Ok(()),
             Some(_) => bail!("conflicted field name: {name} ({name_raw})"),
@@ -273,7 +280,7 @@ impl ModelFieldsParser {
             .map(Option::unwrap_or_default)
     }
 
-    fn parse_field(&mut self, mut field: ModelFieldSpec) -> Result<()> {
+    fn parse_field(&mut self, mut field: ModelFieldNativeSpec) -> Result<()> {
         // validate name
         let name = field.name.clone();
         assert_name(&name)?;
@@ -281,8 +288,9 @@ impl ModelFieldsParser {
         // validate kind
         match &mut field.kind {
             // BEGIN primitive types
-            ModelFieldKindSpec::Boolean { default: _ } => {}
-            ModelFieldKindSpec::Integer {
+            ModelFieldKindNativeSpec::None {} => {}
+            ModelFieldKindNativeSpec::Boolean { default: _ } => {}
+            ModelFieldKindNativeSpec::Integer {
                 default,
                 minimum,
                 maximum,
@@ -291,7 +299,7 @@ impl ModelFieldsParser {
                 assert_cmp(&name, "minimum", minimum, "default", default)?;
                 assert_cmp(&name, "minimum", minimum, "maximum", maximum)?;
             }
-            ModelFieldKindSpec::Number {
+            ModelFieldKindNativeSpec::Number {
                 default,
                 minimum,
                 maximum,
@@ -300,16 +308,16 @@ impl ModelFieldsParser {
                 assert_cmp(&name, "minimum", minimum, "default", default)?;
                 assert_cmp(&name, "minimum", minimum, "maximum", maximum)?;
             }
-            ModelFieldKindSpec::String { default: _ } => {}
-            ModelFieldKindSpec::OneOfStrings { default, choices } => {
+            ModelFieldKindNativeSpec::String { default: _ } => {}
+            ModelFieldKindNativeSpec::OneOfStrings { default, choices } => {
                 assert_contains(&name, "choices", choices, "default", default.as_ref())?;
             }
             // BEGIN string formats
-            ModelFieldKindSpec::DateTime { default: _ } => {}
-            ModelFieldKindSpec::Ip {} => {}
-            ModelFieldKindSpec::Uuid {} => {}
+            ModelFieldKindNativeSpec::DateTime { default: _ } => {}
+            ModelFieldKindNativeSpec::Ip {} => {}
+            ModelFieldKindNativeSpec::Uuid {} => {}
             // BEGIN aggregation types
-            ModelFieldKindSpec::Array { children } => {
+            ModelFieldKindNativeSpec::Array { children } => {
                 *children = children
                     .iter()
                     .cloned()
@@ -317,7 +325,7 @@ impl ModelFieldsParser {
                     .into_iter()
                     .collect::<Vec<_>>();
             }
-            ModelFieldKindSpec::Object {
+            ModelFieldKindNativeSpec::Object {
                 children,
                 dynamic: _,
             } => {
@@ -328,62 +336,36 @@ impl ModelFieldsParser {
                     .into_iter()
                     .collect::<Vec<_>>();
             }
-            // BEGIN reference types
-            ModelFieldKindSpec::Model { .. } => {}
         }
 
         self.insert_field(name.clone(), &name, field)
     }
 
-    fn merge_fields(&mut self, parent: &str, fields: ModelFieldsSpec) -> Result<()> {
+    fn merge_fields(&mut self, parent: &str, fields: ModelFieldsNativeSpec) -> Result<()> {
         for field in fields {
             self.merge_field(parent, field)?;
         }
         Ok(())
     }
 
-    fn merge_field(&mut self, parent: &str, mut field: ModelFieldSpec) -> Result<()> {
+    fn merge_field(&mut self, parent: &str, mut field: ModelFieldNativeSpec) -> Result<()> {
         // merge name
         field.name = merge_name(parent, &field.name)?;
 
         // merge kind
-        match &mut field.kind {
-            // BEGIN primitive types
-            ModelFieldKindSpec::Boolean { .. }
-            | ModelFieldKindSpec::Integer { .. }
-            | ModelFieldKindSpec::Number { .. }
-            | ModelFieldKindSpec::String { .. }
-            | ModelFieldKindSpec::OneOfStrings { .. } => {}
-            // BEGIN string formats
-            ModelFieldKindSpec::DateTime { .. }
-            | ModelFieldKindSpec::Ip {}
-            | ModelFieldKindSpec::Uuid {} => {}
-            // BEGIN aggregation types
-            ModelFieldKindSpec::Array { children } => {
-                *children = children
-                    .iter()
-                    .map(|child| merge_name(parent, child))
-                    .collect::<Result<_>>()?;
-            }
-            ModelFieldKindSpec::Object {
-                children,
-                dynamic: _,
-            } => {
-                *children = children
-                    .iter()
-                    .map(|child| merge_name(parent, child))
-                    .collect::<Result<_>>()?;
-            }
-            // BEGIN reference types
-            ModelFieldKindSpec::Model { .. } => {}
+        if let Some(children) = field.kind.get_children_mut() {
+            *children = children
+                .iter()
+                .map(|child| merge_name(parent, child))
+                .collect::<Result<_>>()?;
         }
 
         self.parse_field(field)
     }
 
-    fn finalize(mut self) -> Result<ModelFieldsSpec> {
+    fn finalize(mut self) -> Result<ModelFieldsNativeSpec> {
         fn finalize_aggregation_type<'k, 'c, Keys, Key, Children, Child>(
-            map: &mut ModelFieldsMap,
+            map: &mut ModelFieldsNativeMap,
             keys: &'k Keys,
             name: &str,
             children: &'c Children,
@@ -403,7 +385,7 @@ impl ModelFieldsParser {
             create_parent_object(map, parent)
         }
 
-        fn create_parent_object(map: &mut ModelFieldsMap, name: Option<&str>) -> Result<()> {
+        fn create_parent_object(map: &mut ModelFieldsNativeMap, name: Option<&str>) -> Result<()> {
             match name {
                 Some(name) => {
                     let children: BTreeSet<_> = map
@@ -413,35 +395,14 @@ impl ModelFieldsParser {
                         .collect();
 
                     match map.get(name) {
-                        Some(field) => match &field.kind {
-                            // BEGIN aggregation types
-                            ModelFieldKindSpec::Array { children: given } => {
-                                assert_children(name, &children, given)
-                            }
-                            ModelFieldKindSpec::Object {
-                                children: given,
-                                dynamic: _,
-                            } => assert_children(name, &children, given),
-                            // BEGIN primitive types
-                            ModelFieldKindSpec::Boolean { .. }
-                            | ModelFieldKindSpec::Integer { .. }
-                            | ModelFieldKindSpec::Number { .. }
-                            | ModelFieldKindSpec::String { .. }
-                            | ModelFieldKindSpec::OneOfStrings { .. }
-                            // BEGIN string formats
-                            |  ModelFieldKindSpec::DateTime { .. }
-                            | ModelFieldKindSpec::Ip {}
-                            | ModelFieldKindSpec::Uuid {}
-                            // BEGIN reference types
-                            | ModelFieldKindSpec::Model { .. } => {
-                                let type_ = field.kind.to_type();
-                                bail!("parent field should be either Array or Object: {name:?} as {type_:?}")
-                            }
+                        Some(field) => match field.kind.get_children() {
+                            Some(given) => assert_children(name, &children, given),
+                            None => Ok(()),
                         },
                         None => {
-                            let field = ModelFieldSpec {
+                            let field = ModelFieldNativeSpec {
                                 name: name.to_string(),
-                                kind: ModelFieldKindSpec::Object {
+                                kind: ModelFieldKindNativeSpec::Object {
                                     children: children.into_iter().collect(),
                                     dynamic: false,
                                 },
@@ -501,30 +462,8 @@ impl ModelFieldsParser {
 
         // parse aggregation types
         for (name, field) in self.map.clone() {
-            match &field.kind {
-                // BEGIN primitive types
-                ModelFieldKindSpec::Boolean { .. }
-                | ModelFieldKindSpec::Integer { .. }
-                | ModelFieldKindSpec::Number { .. }
-                | ModelFieldKindSpec::String { .. }
-                | ModelFieldKindSpec::OneOfStrings { .. } => {}
-                // BEGIN string formats
-                ModelFieldKindSpec::DateTime { .. }
-                | ModelFieldKindSpec::Ip {}
-                | ModelFieldKindSpec::Uuid {} => {}
-                // BEGIN aggregation types
-                ModelFieldKindSpec::Array { children } => {
-                    finalize_aggregation_type(&mut self.map, &keys, &name, children)?
-                }
-                ModelFieldKindSpec::Object {
-                    children,
-                    dynamic: _,
-                } => finalize_aggregation_type(&mut self.map, &keys, &name, children)?,
-                // BEGIN reference types
-                ModelFieldKindSpec::Model { .. } => {
-                    let type_ = field.kind.to_type();
-                    bail!("cannot finalize reference type: {name:?} as {type_:?}")
-                }
+            if let Some(children) = field.kind.get_children() {
+                finalize_aggregation_type(&mut self.map, &keys, &name, children)?;
             }
         }
 
@@ -550,7 +489,7 @@ fn convert_name(parent: Option<&str>, name: &str) -> Result<String> {
     let converted = name.to_snake_case();
 
     if parent.is_some() || !name.is_empty() {
-        let re = Regex::new(NAME_CHILD_RE)?;
+        let re = Regex::new(name::RE_CHILD)?;
         if !re.is_match(&converted) {
             bail!("property name is invalid: {name} {converted:?}");
         }
@@ -563,7 +502,7 @@ fn convert_name(parent: Option<&str>, name: &str) -> Result<String> {
 }
 
 fn assert_name(name: &str) -> Result<()> {
-    let re = Regex::new(NAME_RE)?;
+    let re = Regex::new(name::RE)?;
     if re.is_match(name) {
         Ok(())
     } else {
@@ -635,6 +574,3 @@ where
         _ => Ok(()),
     }
 }
-
-const NAME_CHILD_RE: &str = r"^[a-z_-][a-z0-9_-]*[a-z0-9]?$";
-const NAME_RE: &str = r"^/([a-z_-][a-z0-9_-]*[a-z0-9]?/)*$";

@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use dash_actor::client::job::FunctionActorJobClient;
+use dash_actor_api::client::job::FunctionActorJobClient;
 use ipis::{
     core::{
         anyhow::{bail, Error, Result},

@@ -3,7 +3,6 @@ use std::future::Future;
 use dash_api::function::FunctionActorJobSpec;
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::{
-    k8s_openapi::serde,
     kube::{
         api::{DeleteParams, Patch, PatchParams, PostParams},
         core::DynamicObject,
@@ -11,6 +10,7 @@ use kiss_api::{
     },
     serde_yaml,
 };
+use serde::Serialize;
 use tera::{Context, Tera};
 
 use crate::source::SourceClient;
@@ -59,49 +59,49 @@ impl FunctionActorJobClient {
 impl FunctionActorJobClient {
     pub async fn exists_raw<Input>(&self, input: Input) -> Result<bool>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.exists_raw_named(&self.name, input).await
     }
 
     pub async fn exists_raw_named<Input>(&self, name: &str, input: Input) -> Result<bool>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.execute_raw_any_with(name, input).await
     }
 
     pub async fn create_raw<Input>(&self, input: Input) -> Result<()>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.create_raw_named(&self.name, input).await
     }
 
     pub async fn create_raw_named<Input>(&self, name: &str, input: Input) -> Result<()>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.execute_raw_with(name, input, try_create).await
     }
 
     pub async fn delete_raw<Input>(&self, input: Input) -> Result<()>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.delete_raw_named(&self.name, input).await
     }
 
     pub async fn delete_raw_named<Input>(&self, name: &str, input: Input) -> Result<()>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         self.execute_raw_with(name, input, try_delete).await
     }
 
     async fn execute_raw_with<Input, F, Fut>(&self, name: &str, input: Input, f: F) -> Result<()>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
         F: Fn(Template, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
@@ -117,7 +117,7 @@ impl FunctionActorJobClient {
 
     async fn execute_raw_any_with<Input>(&self, name: &str, input: Input) -> Result<bool>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         for template in self.load_template(name, input).await? {
             // Find documents
@@ -130,12 +130,12 @@ impl FunctionActorJobClient {
 
     async fn load_template<Input>(&self, name: &str, input: Input) -> Result<Vec<Template>>
     where
-        Input: serde::Serialize,
+        Input: Serialize,
     {
         let context = Context::from_serialize(input)?;
         let templates = self.tera.render(name, &context)?;
         let templates: Vec<DynamicObject> = serde_yaml::Deserializer::from_str(&templates)
-            .map(serde::Deserialize::deserialize)
+            .map(::serde::Deserialize::deserialize)
             .collect::<Result<_, _>>()?;
 
         // create templates
@@ -174,6 +174,13 @@ impl FunctionActorJobClient {
         }
         Ok(apis)
     }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionContext<'a, Spec> {
+    pub namespace: String,
+    spec: &'a Spec,
 }
 
 struct Template {

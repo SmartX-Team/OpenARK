@@ -1,7 +1,9 @@
 [workspace]
+default-members = ["dash/actor/api"]
 members = [
     # "ipwis-binding",
-    "dash/actor",
+    "dash/actor/api",
+    "dash/actor/cli",
     "dash/api",
     "dash/controller",
     "dash/gateway",
@@ -28,6 +30,7 @@ actix-web = { version = "4.2", default-features = false, features = [
 ] }
 actix-web-lab = { version = "0.19" }
 base64 = "0.21"
+clap = { version = "4.1", features = ["env", "derive"] }
 email_address = "0.2"
 http-cache-reqwest = { version = "0.5", features = ["manager-cacache"] }
 inflector = { package = "Inflector", version = "0.11" }

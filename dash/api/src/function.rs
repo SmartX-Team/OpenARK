@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use crate::model::ModelFieldsSpec;
+use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -28,10 +28,10 @@ use crate::model::ModelFieldsSpec;
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionSpec {
-    pub input: ModelFieldsSpec,
+pub struct FunctionSpec<Kind = ModelFieldKindSpec> {
+    pub input: ModelFieldsSpec<Kind>,
     #[serde(default)]
-    pub output: Option<ModelFieldsSpec>,
+    pub output: Option<ModelFieldsSpec<Kind>>,
     pub actor: FunctionActorSpec,
 }
 
@@ -39,7 +39,7 @@ pub struct FunctionSpec {
 #[serde(rename_all = "camelCase")]
 pub struct FunctionStatus {
     pub state: Option<FunctionState>,
-    pub spec: Option<FunctionSpec>,
+    pub spec: Option<FunctionSpec<ModelFieldKindNativeSpec>>,
     pub last_updated: DateTime<Utc>,
 }
 

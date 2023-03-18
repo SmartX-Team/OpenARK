@@ -1,13 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
-use dash_api::function::{FunctionCrd, FunctionSpec, FunctionState, FunctionStatus};
+use dash_api::{
+    function::{FunctionCrd, FunctionSpec, FunctionState, FunctionStatus},
+    model::ModelFieldKindNativeSpec,
+};
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
     log::{info, warn},
 };
 use kiss_api::{
-    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
     kube::{
         api::{Patch, PatchParams},
         runtime::controller::Action,
@@ -28,10 +30,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     const NAME: &'static str = "dash-controller";
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
-
-    fn get_subcrds() -> Vec<CustomResourceDefinition> {
-        vec![::dash_api::function::FunctionCrd::crd()]
-    }
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
@@ -82,7 +80,11 @@ impl ::kiss_api::manager::Ctx for Ctx {
 }
 
 impl Ctx {
-    async fn update_spec(kube: &Client, name: &str, spec: FunctionSpec) -> Result<()> {
+    async fn update_spec(
+        kube: &Client,
+        name: &str,
+        spec: FunctionSpec<ModelFieldKindNativeSpec>,
+    ) -> Result<()> {
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(kube.clone());
         let crd = <Self as ::kiss_api::manager::Ctx>::Data::api_resource();
 

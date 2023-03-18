@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use dash_api::model::{ModelCrd, ModelFieldsSpec, ModelState, ModelStatus};
+use dash_api::model::{ModelCrd, ModelFieldsNativeSpec, ModelState, ModelStatus};
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
@@ -77,7 +77,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 }
 
 impl Ctx {
-    async fn update_fields(kube: &Client, name: &str, fields: ModelFieldsSpec) -> Result<()> {
+    async fn update_fields(kube: &Client, name: &str, fields: ModelFieldsNativeSpec) -> Result<()> {
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(kube.clone());
         let crd = <Self as ::kiss_api::manager::Ctx>::Data::api_resource();
 

@@ -1,5 +1,5 @@
-use dash_actor::client::FunctionActorClient;
-use dash_api::function::FunctionSpec;
+use dash_actor_api::client::FunctionActorClient;
+use dash_api::{function::FunctionSpec, model::ModelFieldKindNativeSpec};
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::kube::Client;
 
@@ -10,7 +10,10 @@ pub struct FunctionValidator<'a> {
 }
 
 impl<'a> FunctionValidator<'a> {
-    pub async fn validate_function(&self, spec: FunctionSpec) -> Result<FunctionSpec> {
+    pub async fn validate_function(
+        &self,
+        spec: FunctionSpec,
+    ) -> Result<FunctionSpec<ModelFieldKindNativeSpec>> {
         let model_validator = ModelValidator { kube: self.kube };
         let input = model_validator.validate_fields(spec.input).await?;
         let output = match spec.output {
