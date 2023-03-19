@@ -11,6 +11,9 @@ FROM "ghcr.io/dexidp/dex:${DEX_VERSION}" as server
 # Set environment variables
 ENV DEX_FRONTEND_DIR=/srv/dex/web
 
+# Enter root mode
+USER 0:0
+
 # Download logo file
 ADD "https://raw.githubusercontent.com/ulagbulag-village/netai-cloud/master/templates/vine/templates/assets/logo.png" "${DEX_FRONTEND_DIR}/logo"
 
@@ -19,3 +22,6 @@ RUN for filename in ${DEX_FRONTEND_DIR}/themes/**/*.png; do true \
     && rm -r "${filename}" \
     && ln -sf "${DEX_FRONTEND_DIR}/logo" "${filename}" \
     ; done
+
+# Exit root mode
+USER 1001:1001
