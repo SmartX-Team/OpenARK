@@ -23,5 +23,12 @@ RUN for filename in ${DEX_FRONTEND_DIR}/themes/**/*.png; do true \
     && ln -sf "${DEX_FRONTEND_DIR}/logo" "${filename}" \
     ; done
 
+# Patch templates
+RUN true \
+    # header
+    && sed -i 's/^\(.\+"theme-navbar__logo"\)\(.\+\)$/\1 style="float:left;" \2\n        <h2 class="theme-heading" style="float:left; margin-top:4.5px;">VINE<\/h2>/g' "${DEX_FRONTEND_DIR}/templates/header.html" \
+    # themes CSS
+    && sed -i 's/^\(\.theme-body .\+\)$/\1\n  user-select: none;/g' ${DEX_FRONTEND_DIR}/themes/**/*.css
+
 # Exit root mode
 USER 1001:1001
