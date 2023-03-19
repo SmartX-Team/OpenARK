@@ -52,7 +52,6 @@ helm upgrade --install "dex" \
     --set ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
     --set ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
     --set ingress.hosts[0].host="${DOMAIN_NAME}" \
-    --set ingress.hosts[0].host="${DOMAIN_NAME}" \
     --values "./values.yaml"
 
 ###########################################################

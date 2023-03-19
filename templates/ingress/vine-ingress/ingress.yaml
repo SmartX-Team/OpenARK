@@ -1,0 +1,37 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vine
+  namespace: ingress
+  annotations:
+    cert-manager.io/cluster-issuer: example.com
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/secure-backends: "true"
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+    kubernetes.io/ingress.class: example.com
+    nginx.ingress.kubernetes.io/proxy-redirect-from: http://ingress-nginx-controller.vine.svc.ops.netai-cloud
+    nginx.ingress.kubernetes.io/proxy-redirect-to: https://$host
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/upstream-vhost: ingress-nginx-controller.vine.svc.ops.netai-cloud
+    vine.ulagbulag.io/is-service: "false"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "true"
+    vine.ulagbulag.io/service-kind: VINE Proxy
+spec:
+  tls:
+    - secretName: example.com
+      hosts:
+        - example.com
+  rules:
+    - host: example.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: vine
+              port:
+                number: 80

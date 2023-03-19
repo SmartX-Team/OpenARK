@@ -68,5 +68,12 @@ pushd "k8s-gateway" && ./install.sh && popd
 echo "- Installing NGINX Ingress ... "
 pushd "nginx-ingress" && ./install.sh && popd
 
+###########################################################
+#   Install VINE Ingress                                  #
+###########################################################
+
+echo "- Installing VINE Ingress ... "
+pushd "vine-ingress" && ./install.sh && popd
+
 # Finished!
 echo "Installed!"

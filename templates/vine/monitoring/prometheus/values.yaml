@@ -46,8 +46,8 @@ grafana:
     ## Annotations for Grafana Ingress
     ##
     annotations:
-      nginx.ingress.kubernetes.io/auth-url: https://$host/oauth2/auth
-      nginx.ingress.kubernetes.io/auth-signin: https://$host/oauth2/start?rd=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/rewrite-target: /$1

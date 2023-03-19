@@ -1,5 +1,8 @@
 ---
 controller:
+  admissionWebhooks:
+    enabled: false
+
   # -- Affinity and anti-affinity rules for server scheduling to nodes
   ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##
@@ -28,3 +31,27 @@ controller:
                 values:
                   - ControlPlane
                   - Gateway
+
+  ## This section refers to the creation of the IngressClass resource
+  ## IngressClass resources are supported since k8s >= 1.18 and required since k8s >= 1.19
+  ingressClassResource:
+    # -- Name of the ingressClass
+    # name: ingress-nginx-controller.vine.svc.ops.netai-cloud
+    # -- Is this ingressClass enabled or not
+    enabled: true
+    # -- Is this the default ingressClass for the cluster
+    default: false
+
+  # -- For backwards compatibility with ingress.class annotation, use ingressClass.
+  # Algorithm is as follows, first ingressClassName is considered, if not present, controller looks for ingress.class annotation
+  # ingressClass: ingress-nginx-controller.vine.svc.ops.netai-cloud
+
+  # Limit the scope of the controller to a specific namespace
+  scope:
+    # -- Enable 'scope' or not
+    enabled: true
+
+## Enable RBAC as per https://github.com/kubernetes/ingress-nginx/blob/main/docs/deploy/rbac.md and https://github.com/kubernetes/ingress-nginx/issues/266
+rbac:
+  create: true
+  scope: true
