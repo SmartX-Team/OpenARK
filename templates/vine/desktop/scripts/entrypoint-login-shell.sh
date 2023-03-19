@@ -17,6 +17,9 @@ xset s off
 SCREEN_WIDTH="800"
 SCREEN_HEIGHT="600"
 
+# Resize the screen now
+xrandr --size "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
+
 # Define variables
 IS_REFRESH="0"
 

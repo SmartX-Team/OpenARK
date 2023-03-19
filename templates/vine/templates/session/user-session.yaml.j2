@@ -126,9 +126,9 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-          {% if spec.boxQuota.compute is object %}
+{% if spec.boxQuota.compute is object %}
           resources: {{ spec.boxQuota.compute | json_encode() | safe }}
-          {% endif %}
+{% endif %}
       hostIPC: true
       securityContext:
         runAsNonRoot: false
@@ -290,9 +290,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  {% if spec.boxQuota.storage is object %}
+{% if spec.boxQuota.storage is object %}
   resources: {{ spec.boxQuota.storage | json_encode() | safe }}
-  {% endif %}
-  {% if spec.boxQuota.storageClassName is string %}
+{% endif %}
+{% if spec.boxQuota.storageClassName is string %}
   storageClassName: "{{ spec.boxQuota.storageClassName }}"
-  {% endif %}
+{% endif %}
