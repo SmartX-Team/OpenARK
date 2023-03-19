@@ -9,16 +9,6 @@ set -e -o pipefail
 set -x
 
 ###########################################################
-#   Configuration                                         #
-###########################################################
-
-# Configure default environment variables
-HELM_CHART_DEFAULT="https://kubernetes.github.io/ingress-nginx"
-
-# Set environment variables
-HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
-
-###########################################################
 #   Check Environment Variables                           #
 ###########################################################
 
