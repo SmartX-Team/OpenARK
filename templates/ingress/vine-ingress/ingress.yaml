@@ -28,10 +28,10 @@ spec:
     - host: example.com
       http:
         paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: vine
-              port:
-                number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vine
+                port:
+                  number: 80
