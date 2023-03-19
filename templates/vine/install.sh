@@ -60,7 +60,7 @@ pushd "monitoring/prometheus" && ./install.sh && popd
 ###########################################################
 
 # templates
-./templates/install.sh
+pushd "templates" && ./install.sh && popd
 
 # Finished!
 echo "Installed!"

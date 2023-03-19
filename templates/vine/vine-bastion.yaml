@@ -1,0 +1,120 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bastion
+  namespace: vine
+  labels:
+    name: bastion
+    vineService: "true"
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: bastion
+  template:
+    metadata:
+      labels:
+        name: bastion
+        vineService: "true"
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # vine normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: vine-system
+      containers:
+        - name: bastion
+          image: quay.io/ulagbulag-village/netai-cloud:latest
+          imagePullPolicy: Always
+          command:
+            - vine-bastion
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: VINE_SESSION_TEMPLATES_HOME
+              value: /opt/vine/bastion/templates
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - name: templates
+              mountPath: /opt/vine/bastion/templates
+      volumes:
+        - name: templates
+          configMap:
+            name: vine-template-session
+            defaultMode: 0444
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bastion
+  namespace: vine
+spec:
+  selector:
+    name: bastion
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bastion
+  namespace: vine
+  annotations:
+    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.netai-cloud
+    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.netai-cloud
+    nginx.ingress.kubernetes.io/auth-response-headers: Authorization
+    nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "false"
+    vine.ulagbulag.io/is-service-system: "true"
+    vine.ulagbulag.io/service-kind: Bastion
+spec:
+  # tls:
+  #   - hosts:
+  #       - ingress-nginx-controller.vine.svc.ops.netai-cloud
+  #     secretName: ingress-nginx-controller.vine.svc.ops.netai-cloud-certs
+  rules:
+    - host: ingress-nginx-controller.vine.svc.ops.netai-cloud
+      http:
+        paths:
+          - path: /bastion(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: bastion
+                port:
+                  number: 80
