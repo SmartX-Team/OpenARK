@@ -1,4 +1,4 @@
-use dash_actor_api::{client::FunctionActorClient, storage::kubernetes::KubernetesStorageClient};
+use dash_actor_api::{client::FunctionActorClient, storage::KubernetesStorageClient};
 use dash_api::{function::FunctionSpec, model::ModelFieldKindNativeSpec};
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::kube::Client;

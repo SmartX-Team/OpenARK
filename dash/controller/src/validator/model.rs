@@ -3,11 +3,11 @@ use std::{
     fmt,
 };
 
-use dash_actor_api::{imp::assert_contains, name, storage::kubernetes::KubernetesStorageClient};
+use dash_actor_api::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use dash_api::model::{
-    ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec,
-    ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec,
-    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+    ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
+    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,
+    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
 };
 use inflector::Inflector;
 use ipis::{
@@ -206,7 +206,9 @@ impl ModelFieldsParser {
                 let spec = ModelFieldSpec {
                     name: name.clone(),
                     kind,
-                    optional: prop.nullable.unwrap_or_default(),
+                    attribute: ModelFieldAttributeSpec {
+                        optional: prop.nullable.unwrap_or_default(),
+                    },
                 };
 
                 self.insert_field(name.clone(), name_raw, spec)
@@ -272,10 +274,21 @@ impl ModelFieldsParser {
                 assert_cmp(&name, "minimum", minimum, "default", default)?;
                 assert_cmp(&name, "minimum", minimum, "maximum", maximum)?;
             }
-            ModelFieldKindNativeSpec::String { default: _, kind } => match kind {
+            ModelFieldKindNativeSpec::String { default, kind } => match kind {
                 ModelFieldKindStringSpec::Dynamic {} => {}
-                ModelFieldKindStringSpec::Static { length: _ } => {}
+                ModelFieldKindStringSpec::Static { length } => {
+                    if let Some(default) = default.as_ref().map(|default| default.len()) {
+                        let default = default.try_into()?;
+                        assert_cmp(&name, "default", &Some(default), "length", &Some(*length))?;
+                        assert_cmp(&name, "length", &Some(*length), "default", &Some(default))?;
+                    }
+                }
                 ModelFieldKindStringSpec::Range { minimum, maximum } => {
+                    if let Some(default) = default.as_ref().map(|default| default.len()) {
+                        let default = default.try_into()?;
+                        assert_cmp(&name, "default", &Some(default), "maximum", &Some(*maximum))?;
+                        assert_cmp(&name, "minimum", minimum, "default", &Some(default))?;
+                    }
                     assert_cmp(&name, "minimum", minimum, "maximum", &Some(*maximum))?;
                 }
             },
@@ -369,7 +382,7 @@ impl ModelFieldsParser {
                                     children: children.into_iter().collect(),
                                     dynamic: false,
                                 },
-                                optional: false,
+                                attribute: ModelFieldAttributeSpec { optional: false },
                             };
                             map.insert(name.to_string(), field);
 

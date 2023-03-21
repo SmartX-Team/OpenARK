@@ -1,17 +1,30 @@
+# Configure environment variables
+export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
+export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag-village/netai-cloud')
+export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
+
+export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-actor-cli')
+
 default:
   @just run
-
-build:
-  cargo build --all
-
-clippy:
-  cargo clippy --all
 
 fmt:
   cargo fmt --all
 
-test: fmt clippy
-  cargo test --all
+build: fmt
+  cargo build --all --workspace
+
+clippy: fmt
+  cargo clippy --all --workspace
+
+test: clippy
+  cargo test --all --workspace
 
 run:
-  cargo run --package 'dash-actor-cli' --release
+  cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release
+
+oci-build:
+  podman build \
+    --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
+    --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    .

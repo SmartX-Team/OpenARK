@@ -16,7 +16,7 @@ use crate::{
     user_box_quota_binding::UserBoxQuotaBindingSpec,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
@@ -39,20 +39,20 @@ pub enum UserAuthSpec {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserAuthLoginQuery {
     pub box_uuid: Uuid,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserAuthOAuth2Common {
     pub client_id: String,
     pub client_secret: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct UserAuthPayload {
     /// User e-mail address
     email: String,
@@ -83,7 +83,7 @@ impl UserAuthPayload {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserAuthResponse {
     Accept {
@@ -97,7 +97,7 @@ pub enum UserAuthResponse {
     UserNotRegistered,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserLoginResponse {
     Accept {

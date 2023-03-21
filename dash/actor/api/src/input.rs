@@ -21,7 +21,7 @@ use kiss_api::serde_json::{Map, Value};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::kubernetes::KubernetesStorageClient;
+use crate::storage::KubernetesStorageClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -433,7 +433,7 @@ impl InputTemplate {
 
     fn fill_default_value(&mut self, name: &str, optional: bool, is_atom: bool) -> Result<()> {
         let (base_field, field) = self.get_field(name)?;
-        let optional = optional || base_field.parsed.optional;
+        let optional = optional || base_field.parsed.attribute.optional;
 
         fn assert_optional(name: &str, optional: bool, spec: &ModelFieldNativeSpec) -> Result<()> {
             if optional {

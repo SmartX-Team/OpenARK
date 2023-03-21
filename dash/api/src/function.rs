@@ -6,7 +6,7 @@ use strum::{Display, EnumString};
 
 use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec};
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
@@ -35,7 +35,7 @@ pub struct FunctionSpec<Kind = ModelFieldKindSpec> {
     pub actor: FunctionActorSpec,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionStatus {
     pub state: Option<FunctionState>,
@@ -43,19 +43,19 @@ pub struct FunctionStatus {
     pub last_updated: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum FunctionActorSpec {
     Job(FunctionActorJobSpec),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum FunctionActorJobSpec {
     ConfigMapRef(FunctionActorSourceConfigMapRefSpec),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionActorSourceConfigMapRefSpec {
     pub name: String,

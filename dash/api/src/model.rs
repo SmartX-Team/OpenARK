@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
@@ -32,6 +32,12 @@ use strum::{Display, EnumString};
         "type": "date",
         "description":"updated time",
         "jsonPath":".status.lastUpdated"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "date",
+        "description":"model version",
+        "jsonPath":".status.version"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -40,7 +46,7 @@ pub enum ModelSpec {
     CustomResourceDefinitionRef(ModelCustomResourceDefinitionRefSpec),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatus {
     pub state: Option<ModelState>,
@@ -54,14 +60,14 @@ pub type ModelFieldsNativeSpec = ModelFieldsSpec<ModelFieldKindNativeSpec>;
 pub type ModelFieldNativeSpec = ModelFieldSpec<ModelFieldKindNativeSpec>;
 pub type ModelFieldExtendedSpec = ModelFieldSpec<ModelFieldKindExtendedSpec>;
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFieldSpec<Kind = ModelFieldKindSpec> {
     pub name: String,
     #[serde(flatten)]
     pub kind: Kind,
-    #[serde(default)]
-    pub optional: bool,
+    #[serde(flatten)]
+    pub attribute: ModelFieldAttributeSpec,
 }
 
 impl ModelFieldSpec {
@@ -70,7 +76,7 @@ impl ModelFieldSpec {
             ModelFieldKindSpec::Native(kind) => Ok(ModelFieldSpec {
                 name: self.name,
                 kind,
-                optional: self.optional,
+                attribute: self.attribute,
             }),
             kind => {
                 let name = &self.name;
@@ -87,7 +93,7 @@ impl ModelFieldSpec {
             ModelFieldKindSpec::Extended(kind) => Ok(ModelFieldSpec {
                 name: self.name,
                 kind,
-                optional: self.optional,
+                attribute: self.attribute,
             }),
             kind => {
                 let name = &self.name;
@@ -100,7 +106,14 @@ impl ModelFieldSpec {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelFieldAttributeSpec {
+    #[serde(default)]
+    pub optional: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum ModelFieldKindSpec {
     Native(ModelFieldKindNativeSpec),
@@ -178,7 +191,7 @@ impl ModelFieldKindSpec {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindNativeSpec {
     // BEGIN primitive types
@@ -297,7 +310,7 @@ impl ModelFieldKindNativeSpec {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindStringSpec {
     Dynamic {},
@@ -317,7 +330,7 @@ impl Default for ModelFieldKindStringSpec {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindExtendedSpec {
     // BEGIN reference types
@@ -424,7 +437,7 @@ pub enum ModelFieldDateTimeDefaultType {
     Now,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelCustomResourceDefinitionRefSpec {
     pub name: String,

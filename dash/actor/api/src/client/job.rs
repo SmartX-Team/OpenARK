@@ -13,7 +13,7 @@ use kiss_api::{
 use serde::Serialize;
 use tera::{Context, Tera};
 
-use crate::storage::kubernetes::KubernetesStorageClient;
+use crate::storage::KubernetesStorageClient;
 
 use super::SessionContext;
 

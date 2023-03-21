@@ -18,7 +18,7 @@ impl BoxCrd {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, CustomResource)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "kiss.ulagbulag.io",
     version = "v1alpha1",
@@ -84,7 +84,7 @@ pub struct BoxSpec {
     pub power: Option<BoxPowerSpec>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
     pub state: BoxState,
@@ -181,7 +181,7 @@ impl BoxState {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxAccessSpec<Interface = BoxAccessInterfaceSpec> {
     pub primary: Option<Interface>,
@@ -201,7 +201,7 @@ impl BoxAccessSpec {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxAccessInterfaceSpec {
     pub address: IpAddr,
@@ -296,7 +296,7 @@ impl BoxGroupRole {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxMachineSpec {
     pub uuid: Uuid,
@@ -308,7 +308,7 @@ impl BoxMachineSpec {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxPowerSpec {
     #[serde(default)]
@@ -327,7 +327,7 @@ pub enum BoxPowerType {
 pub mod request {
     use super::*;
 
-    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(rename_all = "camelCase")]
     pub struct BoxAccessInterfaceQuery {
         pub address: IpAddr,
@@ -356,7 +356,7 @@ pub mod request {
         }
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub struct BoxNewQuery {
         #[serde(flatten)]
         pub access_primary: BoxAccessInterfaceQuery,
@@ -364,7 +364,7 @@ pub mod request {
         pub machine: BoxMachineSpec,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub struct BoxCommissionQuery {
         pub access: BoxAccessSpec<BoxAccessInterfaceQuery>,
         pub machine: BoxMachineSpec,
