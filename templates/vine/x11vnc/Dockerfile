@@ -22,3 +22,4 @@ RUN dnf install -y epel-release \
 
 # Copy executable files
 ADD ./entrypoint.sh /usr/local/bin/
+RUN chmod 555 /usr/local/bin/*.sh
