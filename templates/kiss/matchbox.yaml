@@ -244,6 +244,9 @@ data:
           "nvidia-driver-NVML.${ARCH_WIN32}"
       fi
 
+      # Enable NVIDIA FabricManager
+      systemctl enable nvidia-fabricmanager.service
+
       # Enable NVIDIA Persistenced
       systemctl enable nvidia-persistenced.service
 
