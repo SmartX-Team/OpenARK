@@ -20,12 +20,12 @@ use kiss_api::{
     serde_json::Value,
 };
 
-pub struct SourceClient<'a> {
+pub struct KubernetesStorageClient<'a> {
     pub kube: &'a Client,
 }
 
-impl<'a> SourceClient<'a> {
-    pub async fn load_kube_config_map(
+impl<'a> KubernetesStorageClient<'a> {
+    pub async fn load_config_map(
         &self,
         spec: FunctionActorSourceConfigMapRefSpec,
     ) -> Result<(String, String)> {
@@ -44,7 +44,7 @@ impl<'a> SourceClient<'a> {
         }
     }
 
-    pub async fn load_kube_custom_resource(
+    pub async fn load_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
         namespace: Option<&str>,

@@ -1,8 +1,9 @@
 pub mod client;
 pub mod input;
-pub mod source;
+pub mod storage;
 
 pub mod imp {
+    use dash_api::model::ModelFieldKindStringSpec;
     use ipis::{
         core::anyhow::{anyhow, bail, Result},
         itertools::Itertools,
@@ -36,6 +37,36 @@ pub mod imp {
                 }
             }
             _ => Ok(()),
+        }
+    }
+
+    pub fn assert_string(name: &str, value: &str, spec: &ModelFieldKindStringSpec) -> Result<()> {
+        let value_len: u32 = match value.len().try_into() {
+            Ok(len) => len,
+            Err(_) => bail!("too long string value: {name:?}"),
+        };
+
+        match spec {
+            ModelFieldKindStringSpec::Dynamic {} => Ok(()),
+            ModelFieldKindStringSpec::Static { length } => {
+                if value_len == *length {
+                    Ok(())
+                } else {
+                    bail!("string value {value:?} should be fixed length: expected length {length:?}, but given {value_len:?}: {name:?}")
+                }
+            }
+            ModelFieldKindStringSpec::Range { minimum, maximum } => {
+                if let Some(minimum) = minimum {
+                    if value_len < *minimum {
+                        bail!("string value {value:?} should be more longer: expected at least {minimum:?}, but given {value_len:?}: {name:?}");
+                    }
+                }
+
+                if value_len > *maximum {
+                    bail!("string value {value:?} should be more shorter: expected at most {maximum:?}, but given {value_len:?}: {name:?}");
+                }
+                Ok(())
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use dash_actor_api::source::SourceClient;
+use dash_actor_api::storage::kubernetes::KubernetesStorageClient;
 use dash_api::model::{ModelCrd, ModelFieldsNativeSpec, ModelState, ModelStatus};
 use ipis::{
     async_trait::async_trait,
@@ -27,6 +27,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
     type Data = ModelCrd;
 
     const NAME: &'static str = "dash-controller";
+    const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
 
     async fn reconcile(
@@ -46,7 +47,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         {
             ModelState::Pending => {
                 let validator = ModelValidator {
-                    client: SourceClient {
+                    kubernetes_storage: KubernetesStorageClient {
                         kube: &manager.kube,
                     },
                 };

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     input::{InputFieldString, InputTemplate},
-    source::SourceClient,
+    storage::kubernetes::KubernetesStorageClient,
 };
 
 use self::job::FunctionActorJobClient;
@@ -19,7 +19,8 @@ pub struct FunctionSession {
 
 impl FunctionSession {
     pub async fn load(kube: Client, name: &str) -> Result<Self> {
-        let (original, parsed) = SourceClient { kube: &kube }.load_function(name).await?;
+        let storage = KubernetesStorageClient { kube: &kube };
+        let (original, parsed) = storage.load_function(name).await?;
 
         Ok(Self {
             client: FunctionActorClient::try_new(&kube, original.actor).await?,
@@ -28,17 +29,19 @@ impl FunctionSession {
     }
 
     pub async fn update_fields_string(&mut self, inputs: Vec<InputFieldString>) -> Result<()> {
-        let source = SourceClient {
+        let storage = KubernetesStorageClient {
             kube: self.client.kube(),
         };
 
-        self.input.update_fields_string(&source, inputs).await
+        self.input.update_fields_string(&storage, inputs).await
     }
 
     pub async fn create_raw(self) -> Result<()> {
         let input = SessionContext {
             // TODO: to be implemented
-            namespace: "dash".to_string(),
+            metadata: SessionContextMetadata {
+                namespace: "vine".to_string(),
+            },
             spec: self.input.finalize()?,
         };
 
@@ -79,6 +82,12 @@ impl FunctionActorClient {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionContext<Spec> {
-    pub namespace: String,
+    pub metadata: SessionContextMetadata,
     pub spec: Spec,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionContextMetadata {
+    pub namespace: String,
 }

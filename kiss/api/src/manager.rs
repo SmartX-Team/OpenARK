@@ -9,7 +9,10 @@ use ipis::{
     logger,
     tokio::sync::RwLock,
 };
-use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+use k8s_openapi::{
+    apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
+    ClusterResourceScope, NamespaceResourceScope,
+};
 use kube::{
     api::{ListParams, Patch, PatchParams, PostParams},
     runtime::{controller::Action, Controller},
@@ -26,28 +29,113 @@ pub struct Manager<C> {
 pub trait Ctx
 where
     Self: 'static + Send + Sync + Default,
-    <Self as Ctx>::Data: Send + Sync + Clone + ::core::fmt::Debug + DeserializeOwned + Resource,
+    <Self as Ctx>::Data:
+        Send + Sync + Clone + ::core::fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
     <<Self as Ctx>::Data as Resource>::DynamicType:
         Clone + ::core::fmt::Debug + Default + Eq + Unpin + ::core::hash::Hash,
 {
     type Data;
 
     const NAME: &'static str;
-    const NAMESPACE: Option<&'static str> = None;
+    const NAMESPACE: &'static str;
     const FALLBACK: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
     fn get_subcrds() -> Vec<CustomResourceDefinition> {
         Default::default()
     }
 
-    async fn spawn() {
-        logger::init_once();
-        <Self as Ctx>::try_spawn(|_, _| async move { Ok(()) })
+    async fn spawn()
+    where
+        <Self as Ctx>::Data: Resource<Scope = ClusterResourceScope>,
+    {
+        <Self as Ctx>::try_spawn(|client| async move { Ok(Self::init_resource(client)) })
             .await
-            .expect("spawning a manager")
+            .expect("spawning a manager with resource")
+    }
+
+    async fn spawn_namespaced()
+    where
+        <Self as Ctx>::Data: Resource<Scope = NamespaceResourceScope>,
+    {
+        <Self as Ctx>::try_spawn(|client| async move { Ok(Self::init_resource_namespaced(client)) })
+            .await
+            .expect("spawning a manager with namespaced resource")
     }
 
     async fn spawn_crd()
+    where
+        <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = ClusterResourceScope>,
+    {
+        <Self as Ctx>::try_spawn(|client| async move {
+            Self::init_crd(client.clone())
+                .await
+                .map(|()| Self::init_resource(client))
+        })
+        .await
+        .expect("spawning a manager with CRD")
+    }
+
+    async fn spawn_crd_namespaced()
+    where
+        <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = NamespaceResourceScope>,
+    {
+        <Self as Ctx>::try_spawn(|client| async move {
+            Self::init_crd(client.clone())
+                .await
+                .map(|()| Self::init_resource_namespaced(client))
+        })
+        .await
+        .expect("spawning a manager with namespaced CRD")
+    }
+
+    async fn try_spawn<F, Fut>(f_init: F) -> Result<()>
+    where
+        F: FnOnce(Client) -> Fut + Send,
+        Fut: Future<Output = Result<Api<<Self as Ctx>::Data>>> + Send,
+    {
+        logger::init_once();
+
+        let client = Client::try_default().await?;
+        let ctx = Arc::new(RwLock::new(Self::default()));
+        let manager = Arc::new(Manager {
+            kube: client.clone(),
+            ctx: ctx.clone(),
+        });
+
+        let api = f_init(client).await?;
+
+        // All good. Start controller and return its future.
+        Controller::new(api, ListParams::default())
+            .run(
+                |data, manager| Self::reconcile(manager, data),
+                |data, error, manager| {
+                    let kind = <<Self as Ctx>::Data>::kind(&());
+                    let name = data.name_any();
+                    warn!("failed to reconcile {kind} {name:?}: {error:?}");
+                    Self::error_policy(manager, error)
+                },
+                manager,
+            )
+            .for_each(|_| futures::future::ready(()))
+            .await;
+        Ok(())
+    }
+
+    fn init_resource(client: Client) -> Api<<Self as Ctx>::Data>
+    where
+        <Self as Ctx>::Data: Resource<Scope = ClusterResourceScope>,
+    {
+        Api::<<Self as Ctx>::Data>::all(client)
+    }
+
+    fn init_resource_namespaced(client: Client) -> Api<<Self as Ctx>::Data>
+    where
+        <Self as Ctx>::Data: Resource<Scope = NamespaceResourceScope>,
+    {
+        Api::<<Self as Ctx>::Data>::namespaced(client, <Self as Ctx>::NAMESPACE)
+    }
+
+    async fn init_crd(client: Client) -> Result<()>
     where
         <Self as Ctx>::Data: CustomResourceExt,
     {
@@ -76,51 +164,13 @@ where
             }
         };
 
-        logger::init_once();
-        <Self as Ctx>::try_spawn(|_, client| async move {
-            // Ensure CRD is installed before loop-watching
-            let api = Api::<CustomResourceDefinition>::all(client);
+        // Ensure CRD is installed before loop-watching
+        let api = Api::<CustomResourceDefinition>::all(client);
 
-            for crd in <Self as Ctx>::get_subcrds() {
-                create_crd(api.clone(), crd).await?;
-            }
-            create_crd(api, <Self as Ctx>::Data::crd()).await?;
-            Ok(())
-        })
-        .await
-        .expect("spawning a manager with CRD")
-    }
-
-    async fn try_spawn<F, Fut>(f_init: F) -> Result<()>
-    where
-        F: FnOnce(Api<<Self as Ctx>::Data>, Client) -> Fut + Send,
-        Fut: Future<Output = Result<()>> + Send,
-    {
-        let client = Client::try_default().await?;
-        let ctx = Arc::new(RwLock::new(Self::default()));
-        let manager = Arc::new(Manager {
-            kube: client.clone(),
-            ctx: ctx.clone(),
-        });
-
-        let api = match Self::NAMESPACE {
-            Some(ns) => Api::<<Self as Ctx>::Data>::namespaced(client.clone(), ns),
-            None => Api::<<Self as Ctx>::Data>::all(client.clone()),
-        };
-        f_init(api.clone(), client).await?;
-
-        // All good. Start controller and return its future.
-        Controller::new(api, ListParams::default())
-            .run(
-                |data, manager| Self::reconcile(manager, data),
-                |error, manager| {
-                    warn!("failed to reconcile: {:?}", error);
-                    Self::error_policy(manager, error)
-                },
-                manager,
-            )
-            .for_each(|_| futures::future::ready(()))
-            .await;
+        for crd in <Self as Ctx>::get_subcrds() {
+            create_crd(api.clone(), crd).await?;
+        }
+        create_crd(api, <Self as Ctx>::Data::crd()).await?;
         Ok(())
     }
 

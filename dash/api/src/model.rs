@@ -206,6 +206,8 @@ pub enum ModelFieldKindNativeSpec {
     String {
         #[serde(default)]
         default: Option<String>,
+        #[serde(default, flatten)]
+        kind: ModelFieldKindStringSpec,
     },
     OneOfStrings {
         #[serde(default)]
@@ -292,6 +294,26 @@ impl ModelFieldKindNativeSpec {
             Self::Object { .. } => ModelFieldKindNativeType::Object,
             Self::ObjectArray { .. } => ModelFieldKindNativeType::ObjectArray,
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelFieldKindStringSpec {
+    Dynamic {},
+    Static {
+        length: u32,
+    },
+    Range {
+        #[serde(default)]
+        minimum: Option<u32>,
+        maximum: u32,
+    },
+}
+
+impl Default for ModelFieldKindStringSpec {
+    fn default() -> Self {
+        Self::Dynamic {}
     }
 }
 

@@ -15,6 +15,7 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 
 [dependencies]
 ipis = { workspace = true }
+vine-api = { path = "../../vine/api" }
 
 kube = { workspace = true }
 k8s-openapi = { workspace = true }

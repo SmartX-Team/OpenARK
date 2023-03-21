@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: "desktop-{{ spec.node.metadata.name }}"
-  namespace: "{{ namespace }}"
+  namespace: "{{ metadata.namespace }}"
 spec:
   selector:
     matchLabels:
@@ -155,7 +155,7 @@ spec:
         - name: home
           # emptyDir: {}
           hostPath:
-            path: "/opt/vdi/tenants/remote/{{ namespace }}/desktop-{{ spec.node.metadata.name }}"
+            path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
             type: DirectoryOrCreate
           # persistentVolumeClaim:
           #   claimName: "desktop-{{ spec.node.metadata.name }}"
@@ -196,7 +196,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: triton
-  namespace: "{{ namespace }}"
+  namespace: "{{ metadata.namespace }}"
 spec:
   replicas: 1
   selector:
@@ -264,7 +264,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: triton
-  namespace: "{{ namespace }}"
+  namespace: "{{ metadata.namespace }}"
 spec:
   selector:
     name: triton
@@ -286,7 +286,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: "desktop-{{ spec.node.metadata.name }}"
-  namespace: "{{ namespace }}"
+  namespace: "{{ metadata.namespace }}"
 spec:
   accessModes:
     - ReadWriteMany

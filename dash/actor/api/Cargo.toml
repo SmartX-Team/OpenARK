@@ -20,5 +20,6 @@ kiss-api = { path = "../../../kiss/api" }
 
 inflector = { workspace = true }
 regex = { workspace = true }
+sea-orm = { workspace = true }
 serde = { workspace = true }
 tera = { workspace = true }

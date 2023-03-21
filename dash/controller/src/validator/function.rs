@@ -1,4 +1,4 @@
-use dash_actor_api::{client::FunctionActorClient, source::SourceClient};
+use dash_actor_api::{client::FunctionActorClient, storage::kubernetes::KubernetesStorageClient};
 use dash_api::{function::FunctionSpec, model::ModelFieldKindNativeSpec};
 use ipis::core::anyhow::{bail, Result};
 use kiss_api::kube::Client;
@@ -15,7 +15,7 @@ impl<'a> FunctionValidator<'a> {
         spec: FunctionSpec,
     ) -> Result<FunctionSpec<ModelFieldKindNativeSpec>> {
         let model_validator = ModelValidator {
-            client: SourceClient { kube: self.kube },
+            kubernetes_storage: KubernetesStorageClient { kube: self.kube },
         };
         let input = model_validator.validate_fields(spec.input).await?;
         let output = match spec.output {

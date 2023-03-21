@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use dash_actor_api::client::job::FunctionActorJobClient;
+use dash_actor_api::client::{job::FunctionActorJobClient, SessionContextMetadata};
 use ipis::{
     core::{
         anyhow::{bail, Error, Result},
@@ -230,7 +230,9 @@ pub struct SessionContextSpec<'a> {
 impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
     fn from(spec: &'a SessionContextSpec<'a>) -> Self {
         SessionContext {
-            namespace: format!("vine-session-{}", &spec.user_name),
+            metadata: SessionContextMetadata {
+                namespace: format!("vine-session-{}", &spec.user_name),
+            },
             spec,
         }
     }

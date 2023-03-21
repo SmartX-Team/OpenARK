@@ -13,7 +13,7 @@ use kiss_api::{
 use serde::Serialize;
 use tera::{Context, Tera};
 
-use crate::source::SourceClient;
+use crate::storage::kubernetes::KubernetesStorageClient;
 
 use super::SessionContext;
 
@@ -25,9 +25,9 @@ pub struct FunctionActorJobClient {
 
 impl FunctionActorJobClient {
     pub async fn try_new(kube: &Client, spec: FunctionActorJobSpec) -> Result<Self> {
-        let client = SourceClient { kube };
+        let client = KubernetesStorageClient { kube };
         let (name, content) = match spec {
-            FunctionActorJobSpec::ConfigMapRef(spec) => client.load_kube_config_map(spec).await?,
+            FunctionActorJobSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
         };
 
         Self::from_raw_content(kube.clone(), name, &content)

@@ -549,6 +549,7 @@ impl AnsibleClient {
 
     pub fn default_resources() -> ResourceRequirements {
         ResourceRequirements {
+            claims: None,
             requests: Some(
                 vec![
                     ("cpu".into(), Quantity("1000m".into())),

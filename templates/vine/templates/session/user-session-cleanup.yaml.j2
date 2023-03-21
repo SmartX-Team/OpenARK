@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "desktop-cleanup-{{ spec.node.metadata.name }}"
-  namespace: "{{ namespace }}"
+  namespace: "{{ metadata.namespace }}"
 spec:
   ttlSecondsAfterFinished: 1
   template:

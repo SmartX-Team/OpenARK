@@ -25,6 +25,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
     type Data = BoxCrd;
 
     const NAME: &'static str = "kiss-controller";
+    const NAMESPACE: &'static str = ::kiss_api::consts::NAMESPACE;
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,

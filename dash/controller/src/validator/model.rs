@@ -3,11 +3,11 @@ use std::{
     fmt,
 };
 
-use dash_actor_api::{imp::assert_contains, name, source::SourceClient};
+use dash_actor_api::{imp::assert_contains, name, storage::kubernetes::KubernetesStorageClient};
 use dash_api::model::{
     ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec,
-    ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
-    ModelFieldsSpec, ModelSpec,
+    ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec,
+    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
 };
 use inflector::Inflector;
 use ipis::{
@@ -21,7 +21,7 @@ use kiss_api::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1
 use regex::Regex;
 
 pub struct ModelValidator<'a> {
-    pub client: SourceClient<'a>,
+    pub kubernetes_storage: KubernetesStorageClient<'a>,
 }
 
 impl<'a> ModelValidator<'a> {
@@ -42,7 +42,7 @@ impl<'a> ModelValidator<'a> {
                 ModelFieldKindSpec::Extended(kind) => match kind {
                     // BEGIN reference types
                     ModelFieldKindExtendedSpec::Model { name } => self
-                        .client
+                        .kubernetes_storage
                         .load_model(&name)
                         .await
                         .and_then(|(_, fields)| parser.merge_fields(&field.name, fields))?,
@@ -69,7 +69,10 @@ impl<'a> ModelValidator<'a> {
         &self,
         spec: ModelCustomResourceDefinitionRefSpec,
     ) -> Result<ModelFieldsNativeSpec> {
-        let (_, def) = self.client.load_custom_resource_definition(&spec).await?;
+        let (_, def) = self
+            .kubernetes_storage
+            .load_custom_resource_definition(&spec)
+            .await?;
 
         let mut parser = ModelFieldsParser::default();
         parser.parse_custom_resource_definition(&def)?;
@@ -167,7 +170,10 @@ impl ModelFieldsParser {
                             .and_then(|e| e.0.as_str())
                             .map(ToString::to_string);
 
-                        Some(ModelFieldKindNativeSpec::String { default })
+                        // TODO: to be implemented
+                        let kind = Default::default();
+
+                        Some(ModelFieldKindNativeSpec::String { default, kind })
                     }
                 },
                 Some(format) => bail!("unknown string format of {name:?}: {format:?}"),
@@ -266,7 +272,13 @@ impl ModelFieldsParser {
                 assert_cmp(&name, "minimum", minimum, "default", default)?;
                 assert_cmp(&name, "minimum", minimum, "maximum", maximum)?;
             }
-            ModelFieldKindNativeSpec::String { default: _ } => {}
+            ModelFieldKindNativeSpec::String { default: _, kind } => match kind {
+                ModelFieldKindStringSpec::Dynamic {} => {}
+                ModelFieldKindStringSpec::Static { length: _ } => {}
+                ModelFieldKindStringSpec::Range { minimum, maximum } => {
+                    assert_cmp(&name, "minimum", minimum, "maximum", &Some(*maximum))?;
+                }
+            },
             ModelFieldKindNativeSpec::OneOfStrings { default, choices } => {
                 assert_contains(&name, "choices", choices, "default", default.as_ref())?;
             }

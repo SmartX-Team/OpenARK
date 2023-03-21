@@ -21,7 +21,7 @@ use kiss_api::serde_json::{Map, Value};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::source::SourceClient;
+use crate::storage::kubernetes::KubernetesStorageClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,18 +54,18 @@ impl InputTemplate {
 
     pub async fn update_fields_string(
         &mut self,
-        source: &SourceClient<'_>,
+        storage: &KubernetesStorageClient<'_>,
         inputs: Vec<InputFieldString>,
     ) -> Result<()> {
         for input in inputs {
-            self.update_field_string(source, input).await?;
+            self.update_field_string(storage, input).await?;
         }
         Ok(())
     }
 
     pub async fn update_field_string(
         &mut self,
-        source: &SourceClient<'_>,
+        storage: &KubernetesStorageClient<'_>,
         input: InputFieldString,
     ) -> Result<()> {
         let (base_field, _) = self.get_field(&input.name)?;
@@ -75,15 +75,15 @@ impl InputTemplate {
             Some(ModelFieldKindSpec::Extended(kind)) => match kind {
                 // BEGIN reference types
                 ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    let (spec, _) = source.load_model(model_name).await?;
+                    let (spec, _) = storage.load_model(model_name).await?;
                     match spec {
                         ModelSpec::Fields(_) => self.update_field_string_native(input),
                         ModelSpec::CustomResourceDefinitionRef(spec) => {
                             let namespace = None; // TODO: to be implemented
                             let resource_name = &input.value;
 
-                            let value = source
-                                .load_kube_custom_resource(&spec, namespace, resource_name)
+                            let value = storage
+                                .load_custom_resource(&spec, namespace, resource_name)
                                 .await?;
 
                             let input = InputFieldValue {
@@ -165,7 +165,8 @@ impl InputTemplate {
                 *field = Value::Number(value.parse()?);
                 Ok(())
             }
-            ModelFieldKindNativeSpec::String { default: _ } => {
+            ModelFieldKindNativeSpec::String { default: _, kind } => {
+                crate::imp::assert_string(&name, &value, kind)?;
                 *field = Value::String(value);
                 Ok(())
             }
@@ -287,14 +288,14 @@ impl InputTemplate {
                 }
                 None => error_type_mismatch(&name, &value, &base_field.parsed),
             },
-            ModelFieldKindNativeSpec::String { default: _ } => {
-                if value.is_string() {
+            ModelFieldKindNativeSpec::String { default: _, kind } => match value.as_str() {
+                Some(value_str) => {
+                    crate::imp::assert_string(&name, value_str, kind)?;
                     *field = value;
                     Ok(())
-                } else {
-                    error_type_mismatch(&name, &value, &base_field.parsed)
                 }
-            }
+                None => error_type_mismatch(&name, &value, &base_field.parsed),
+            },
             ModelFieldKindNativeSpec::OneOfStrings {
                 default: _,
                 choices,
@@ -496,7 +497,7 @@ impl InputTemplate {
                     Ok(())
                 }
             }
-            ModelFieldKindNativeSpec::String { default } => {
+            ModelFieldKindNativeSpec::String { default, kind: _ } => {
                 if field.is_null() {
                     match default {
                         Some(default) => {
@@ -599,27 +600,6 @@ impl InputTemplate {
     }
 }
 
-fn assert_cmp<T>(
-    name: &str,
-    subject: &T,
-    object_label: &str,
-    object: &Option<T>,
-    ordering_label: &str,
-    ordering: Ordering,
-) -> Result<()>
-where
-    T: Copy + fmt::Debug + PartialOrd,
-{
-    match object {
-        Some(object) =>  match subject.partial_cmp(object) {
-            Some(Ordering::Equal) => Ok(()),
-            Some(result) if result == ordering => Ok(()),
-            _ => bail!("value {subject:?} should be {ordering_label} than {object_label} value {object:?}: {name:?}"),
-        }
-        _ => Ok(()),
-    }
-}
-
 pub type InputFieldString = InputField<String>;
 pub type InputFieldValue = InputField<Value>;
 
@@ -706,4 +686,25 @@ impl<'a> Iterator for CursorIterator<'a> {
 enum CursorEntry<'a> {
     EnterArray { basename: String, index: usize },
     EnterObject { basename: String, child: &'a str },
+}
+
+fn assert_cmp<T>(
+    name: &str,
+    subject: &T,
+    object_label: &str,
+    object: &Option<T>,
+    ordering_label: &str,
+    ordering: Ordering,
+) -> Result<()>
+where
+    T: Copy + fmt::Debug + PartialOrd,
+{
+    match object {
+        Some(object) =>  match subject.partial_cmp(object) {
+            Some(Ordering::Equal) => Ok(()),
+            Some(result) if result == ordering => Ok(()),
+            _ => bail!("value {subject:?} should be {ordering_label} than {object_label} value {object:?}: {name:?}"),
+        }
+        _ => Ok(()),
+    }
 }

@@ -14,5 +14,5 @@ pub mod user_role;
 pub mod user_role_binding;
 
 pub mod consts {
-    pub const NAMESPACE: &str = "vdi";
+    pub const NAMESPACE: &str = "vine";
 }
