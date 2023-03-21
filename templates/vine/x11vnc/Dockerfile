@@ -16,7 +16,7 @@ ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]
 
 # Install dependencies
 RUN dnf install -y epel-release \
-    && dnf install -y x11vnc \
+    && dnf install -y net-tools x11vnc \
     && dnf remove -y epel-release \
     && rm -rf /var/cache/dnf/*
 
