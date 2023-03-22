@@ -37,7 +37,7 @@ use strum::{Display, EnumString};
         "name": "version",
         "type": "date",
         "description":"model version",
-        "jsonPath":".status.version"
+        "jsonPath":".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -128,8 +128,7 @@ pub struct ModelFieldAttributeSpec {
     pub optional: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", untagged)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ModelFieldKindSpec {
     Native(ModelFieldKindNativeSpec),
     Extended(ModelFieldKindExtendedSpec),
@@ -143,56 +142,296 @@ impl Default for ModelFieldKindSpec {
 
 // NOTE: JsonSchema has no support for merging two enums
 mod _impl_jsonschema_for_model_field_kind_spec {
-    #[allow(dead_code)]
-    #[derive(super::JsonSchema)]
-    enum ModelFieldKindSpec {
-        Native(super::ModelFieldKindNativeSpec),
-        Extended(super::ModelFieldKindExtendedSpec),
-    }
+    use super::*;
 
-    impl super::JsonSchema for super::ModelFieldKindSpec {
-        fn is_referenceable() -> bool {
-            <ModelFieldKindSpec as super::JsonSchema>::is_referenceable()
+    mod serialize {
+        #[allow(dead_code)]
+        #[derive(super::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        enum ModelFieldKindSpec<'a> {
+            // BEGIN primitive types
+            None {},
+            Boolean {
+                #[serde(default)]
+                default: &'a Option<bool>,
+            },
+            Integer {
+                #[serde(default)]
+                default: &'a Option<i64>,
+                #[serde(default)]
+                minimum: &'a Option<i64>,
+                #[serde(default)]
+                maximum: &'a Option<i64>,
+            },
+            Number {
+                #[serde(default)]
+                default: &'a Option<f64>,
+                #[serde(default)]
+                minimum: &'a Option<f64>,
+                #[serde(default)]
+                maximum: &'a Option<f64>,
+            },
+            String {
+                #[serde(default)]
+                default: &'a Option<String>,
+                #[serde(default, flatten)]
+                kind: &'a super::ModelFieldKindStringSpec,
+            },
+            OneOfStrings {
+                #[serde(default)]
+                default: &'a Option<String>,
+                choices: &'a Vec<String>,
+            },
+            // BEGIN string formats
+            DateTime {
+                #[serde(default)]
+                default: &'a Option<super::ModelFieldDateTimeDefaultType>,
+            },
+            Ip {},
+            Uuid {},
+            // BEGIN aggregation types
+            Object {
+                #[serde(default)]
+                children: &'a Vec<String>,
+                #[serde(default)]
+                dynamic: &'a bool,
+            },
+            ObjectArray {
+                #[serde(default)]
+                children: &'a Vec<String>,
+            },
+            // BEGIN reference types
+            Model {
+                name: &'a String,
+            },
         }
 
-        fn schema_name() -> String {
-            <ModelFieldKindSpec as super::JsonSchema>::schema_name()
-        }
-
-        fn json_schema(gen: &mut ::schemars::gen::SchemaGenerator) -> ::schemars::schema::Schema {
-            fn merge_schema_object(
-                subject: &mut ::schemars::schema::SchemaObject,
-                object: ::schemars::schema::Schema,
-            ) {
-                let object = match object {
-                    ::schemars::schema::Schema::Object(object) => object,
-                    _ => unreachable!("should be typed"),
+        impl super::Serialize for super::ModelFieldKindSpec {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: ::serde::Serializer,
+            {
+                let spec = match self {
+                    Self::Native(spec) => match spec {
+                        // BEGIN primitive types
+                        super::ModelFieldKindNativeSpec::None {} => ModelFieldKindSpec::None {},
+                        super::ModelFieldKindNativeSpec::Boolean { default } => {
+                            ModelFieldKindSpec::Boolean { default }
+                        }
+                        super::ModelFieldKindNativeSpec::Integer {
+                            default,
+                            minimum,
+                            maximum,
+                        } => ModelFieldKindSpec::Integer {
+                            default,
+                            minimum,
+                            maximum,
+                        },
+                        super::ModelFieldKindNativeSpec::Number {
+                            default,
+                            minimum,
+                            maximum,
+                        } => ModelFieldKindSpec::Number {
+                            default,
+                            minimum,
+                            maximum,
+                        },
+                        super::ModelFieldKindNativeSpec::String { default, kind } => {
+                            ModelFieldKindSpec::String { default, kind }
+                        }
+                        super::ModelFieldKindNativeSpec::OneOfStrings { default, choices } => {
+                            ModelFieldKindSpec::OneOfStrings { default, choices }
+                        }
+                        // BEGIN string formats
+                        super::ModelFieldKindNativeSpec::DateTime { default } => {
+                            ModelFieldKindSpec::DateTime { default }
+                        }
+                        super::ModelFieldKindNativeSpec::Ip {} => ModelFieldKindSpec::Ip {},
+                        super::ModelFieldKindNativeSpec::Uuid {} => ModelFieldKindSpec::Uuid {},
+                        // BEGIN aggregation types
+                        super::ModelFieldKindNativeSpec::Object { children, dynamic } => {
+                            ModelFieldKindSpec::Object { children, dynamic }
+                        }
+                        super::ModelFieldKindNativeSpec::ObjectArray { children } => {
+                            ModelFieldKindSpec::ObjectArray { children }
+                        }
+                    },
+                    Self::Extended(spec) => match spec {
+                        // BEGIN reference types
+                        super::ModelFieldKindExtendedSpec::Model { name } => {
+                            ModelFieldKindSpec::Model { name }
+                        }
+                    },
                 };
 
-                match &mut subject.subschemas {
-                    Some(subject) => {
-                        let subject = subject.one_of.as_mut().unwrap();
-                        let mut object = object.subschemas.unwrap().one_of.unwrap();
-                        subject.append(&mut object);
-                    }
-                    subject => *subject = object.subschemas,
-                }
+                spec.serialize(serializer)
             }
+        }
+    }
 
-            let mut schema = ::schemars::schema::SchemaObject::default();
-            merge_schema_object(
-                &mut schema,
-                super::ModelFieldKindNativeSpec::json_schema(gen),
-            );
-            merge_schema_object(
-                &mut schema,
-                super::ModelFieldKindExtendedSpec::json_schema(gen),
-            );
-            ::schemars::schema::Schema::Object(schema)
+    mod deserialize {
+        #[allow(dead_code)]
+        #[derive(super::Deserialize, super::JsonSchema)]
+        #[serde(rename_all = "camelCase")]
+        enum ModelFieldKindSpec {
+            // BEGIN primitive types
+            None {},
+            Boolean {
+                #[serde(default)]
+                default: Option<bool>,
+            },
+            Integer {
+                #[serde(default)]
+                default: Option<i64>,
+                #[serde(default)]
+                minimum: Option<i64>,
+                #[serde(default)]
+                maximum: Option<i64>,
+            },
+            Number {
+                #[serde(default)]
+                default: Option<f64>,
+                #[serde(default)]
+                minimum: Option<f64>,
+                #[serde(default)]
+                maximum: Option<f64>,
+            },
+            String {
+                #[serde(default)]
+                default: Option<String>,
+                #[serde(default, flatten)]
+                kind: super::ModelFieldKindStringSpec,
+            },
+            OneOfStrings {
+                #[serde(default)]
+                default: Option<String>,
+                choices: Vec<String>,
+            },
+            // BEGIN string formats
+            DateTime {
+                #[serde(default)]
+                default: Option<super::ModelFieldDateTimeDefaultType>,
+            },
+            Ip {},
+            Uuid {},
+            // BEGIN aggregation types
+            Object {
+                #[serde(default)]
+                children: Vec<String>,
+                #[serde(default)]
+                dynamic: bool,
+            },
+            ObjectArray {
+                #[serde(default)]
+                children: Vec<String>,
+            },
+            // BEGIN reference types
+            Model {
+                name: String,
+            },
         }
 
-        fn _schemars_private_is_option() -> bool {
-            <ModelFieldKindSpec as super::JsonSchema>::_schemars_private_is_option()
+        impl<'de> super::Deserialize<'de> for super::ModelFieldKindSpec {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                <ModelFieldKindSpec as super::Deserialize<'de>>::deserialize(deserializer).map(
+                    |spec| {
+                        match spec {
+                            // BEGIN primitive types
+                            ModelFieldKindSpec::None {} => {
+                                Self::Native(super::ModelFieldKindNativeSpec::None {})
+                            }
+                            ModelFieldKindSpec::Boolean { default } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::Boolean { default })
+                            }
+                            ModelFieldKindSpec::Integer {
+                                default,
+                                minimum,
+                                maximum,
+                            } => Self::Native(super::ModelFieldKindNativeSpec::Integer {
+                                default,
+                                minimum,
+                                maximum,
+                            }),
+                            ModelFieldKindSpec::Number {
+                                default,
+                                minimum,
+                                maximum,
+                            } => Self::Native(super::ModelFieldKindNativeSpec::Number {
+                                default,
+                                minimum,
+                                maximum,
+                            }),
+                            ModelFieldKindSpec::String { default, kind } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::String {
+                                    default,
+                                    kind,
+                                })
+                            }
+                            ModelFieldKindSpec::OneOfStrings { default, choices } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::OneOfStrings {
+                                    default,
+                                    choices,
+                                })
+                            }
+                            // BEGIN string formats
+                            ModelFieldKindSpec::DateTime { default } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::DateTime { default })
+                            }
+                            ModelFieldKindSpec::Ip {} => {
+                                Self::Native(super::ModelFieldKindNativeSpec::Ip {})
+                            }
+                            ModelFieldKindSpec::Uuid {} => {
+                                Self::Native(super::ModelFieldKindNativeSpec::Uuid {})
+                            }
+                            // BEGIN aggregation types
+                            ModelFieldKindSpec::Object { children, dynamic } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::Object {
+                                    children,
+                                    dynamic,
+                                })
+                            }
+                            ModelFieldKindSpec::ObjectArray { children } => {
+                                Self::Native(super::ModelFieldKindNativeSpec::ObjectArray {
+                                    children,
+                                })
+                            }
+                            // BEGIN reference types
+                            ModelFieldKindSpec::Model { name } => {
+                                Self::Extended(super::ModelFieldKindExtendedSpec::Model { name })
+                            }
+                        }
+                    },
+                )
+            }
+        }
+
+        impl super::JsonSchema for super::ModelFieldKindSpec {
+            fn is_referenceable() -> bool {
+                <ModelFieldKindSpec as super::JsonSchema>::is_referenceable()
+            }
+
+            fn schema_name() -> String {
+                <ModelFieldKindSpec as super::JsonSchema>::schema_name()
+            }
+
+            fn json_schema(
+                gen: &mut ::schemars::gen::SchemaGenerator,
+            ) -> ::schemars::schema::Schema {
+                <ModelFieldKindSpec as super::JsonSchema>::json_schema(gen)
+            }
+
+            fn _schemars_private_non_optional_json_schema(
+                gen: &mut ::schemars::gen::SchemaGenerator,
+            ) -> ::schemars::schema::Schema {
+                <ModelFieldKindSpec as super::JsonSchema>::_schemars_private_non_optional_json_schema(gen)
+            }
+
+            fn _schemars_private_is_option() -> bool {
+                <ModelFieldKindSpec as super::JsonSchema>::_schemars_private_is_option()
+            }
         }
     }
 }

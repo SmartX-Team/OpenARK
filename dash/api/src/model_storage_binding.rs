@@ -29,12 +29,6 @@ use strum::{Display, EnumString};
         "type": "date",
         "description":"updated time",
         "jsonPath":".status.lastUpdated"
-    }"#,
-    printcolumn = r#"{
-        "name": "version",
-        "type": "date",
-        "description":"model version",
-        "jsonPath":".status.version"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
