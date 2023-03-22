@@ -13,10 +13,10 @@ use strum::{Display, EnumString};
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
-    kind = "Model",
+    kind = "ModelStorage",
     struct = "ModelStorageCrd",
     status = "ModelStorageStatus",
-    shortname = "m",
+    shortname = "ms",
     printcolumn = r#"{
         "name": "state",
         "type": "string",
@@ -38,6 +38,7 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageSpec {
+    #[serde(flatten)]
     pub kind: ModelStorageKindSpec,
     #[serde(default)]
     pub default: bool,

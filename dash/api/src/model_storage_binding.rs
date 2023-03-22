@@ -11,7 +11,7 @@ use strum::{Display, EnumString};
     kind = "ModelStorageBinding",
     struct = "ModelStorageBindingCrd",
     status = "ModelStorageBindingStatus",
-    shortname = "m",
+    shortname = "msb",
     printcolumn = r#"{
         "name": "state",
         "type": "string",

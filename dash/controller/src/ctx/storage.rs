@@ -54,18 +54,18 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 match validator.validate_model_storage(&data.spec).await {
                     Ok(()) => match Self::update_state(&manager.kube, &name).await {
                         Ok(()) => {
-                            info!("model is ready: {name}");
+                            info!("model storage is ready: {name}");
                             Ok(Action::await_change())
                         }
                         Err(e) => {
-                            warn!("failed to update model state {name:?}: {e}");
+                            warn!("failed to update model storage state {name:?}: {e}");
                             Ok(Action::requeue(
                                 <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                             ))
                         }
                     },
                     Err(e) => {
-                        warn!("failed to validate model: {name:?}: {e}");
+                        warn!("failed to validate model storage: {name:?}: {e}");
                         Ok(Action::requeue(
                             <Self as ::kiss_api::manager::Ctx>::FALLBACK,
                         ))
