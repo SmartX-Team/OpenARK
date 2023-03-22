@@ -15,7 +15,7 @@ pub struct ClusterState<'a> {
 }
 
 impl<'a> ClusterState<'a> {
-    const MAX_ETCD_NODES: Option<usize> = Some(1);
+    const MAX_ETCD_NODES: Option<usize> = Some(5);
 
     pub async fn load(kube: &'a Client, owner: &'a BoxSpec) -> Result<ClusterState<'a>, Error> {
         Ok(Self {
