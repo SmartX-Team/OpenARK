@@ -35,6 +35,15 @@ pub struct FunctionSpec<Kind = ModelFieldKindSpec> {
     pub actor: FunctionActorSpec,
 }
 
+impl FunctionCrd {
+    pub fn get_native_spec(&self) -> &FunctionSpec<ModelFieldKindNativeSpec> {
+        self.status
+            .as_ref()
+            .and_then(|status| status.spec.as_ref())
+            .expect("native spec should not be empty")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionStatus {

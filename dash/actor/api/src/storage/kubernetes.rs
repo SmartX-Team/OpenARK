@@ -1,9 +1,7 @@
 use dash_api::{
-    function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionSpec, FunctionState},
-    model::{
-        ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindNativeSpec,
-        ModelFieldKindSpec, ModelFieldsNativeSpec, ModelSpec, ModelState,
-    },
+    function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
+    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
+    storage::{ModelStorageCrd, ModelStorageState},
 };
 use ipis::{
     core::anyhow::{bail, Result},
@@ -20,25 +18,26 @@ use kiss_api::{
     serde_json::Value,
 };
 
+#[derive(Copy, Clone)]
 pub struct KubernetesStorageClient<'a> {
     pub kube: &'a Client,
 }
 
 impl<'a> KubernetesStorageClient<'a> {
-    pub async fn load_config_map(
+    pub async fn load_config_map<'f>(
         &self,
-        spec: FunctionActorSourceConfigMapRefSpec,
-    ) -> Result<(String, String)> {
+        spec: &'f FunctionActorSourceConfigMapRefSpec,
+    ) -> Result<(&'f str, String)> {
         let FunctionActorSourceConfigMapRefSpec {
             name,
             namespace,
             path,
         } = spec;
 
-        let api = Api::<ConfigMap>::namespaced(self.kube.clone(), &namespace);
-        let config_map = api.get(&name).await?;
+        let api = Api::<ConfigMap>::namespaced(self.kube.clone(), namespace);
+        let config_map = api.get(name).await?;
 
-        match config_map.data.and_then(|mut data| data.remove(&path)) {
+        match config_map.data.and_then(|mut data| data.remove(path)) {
             Some(content) => Ok((path, content)),
             None => bail!("no such file in ConfigMap: {path:?} in {namespace}::{name}"),
         }
@@ -88,35 +87,39 @@ impl<'a> KubernetesStorageClient<'a> {
         }
     }
 
-    pub async fn load_function(
-        &self,
-        name: &str,
-    ) -> Result<(
-        FunctionSpec<ModelFieldKindSpec>,
-        FunctionSpec<ModelFieldKindNativeSpec>,
-    )> {
-        let api = Api::<FunctionCrd>::all(self.kube.clone());
-        let function = api.get(name).await?;
-
-        match function.status {
-            Some(status) if status.state == Some(FunctionState::Ready) => match status.spec {
-                Some(spec) => Ok((function.spec, spec)),
-                None => bail!("function has no spec status: {name:?}"),
-            },
-            Some(_) | None => bail!("function is not ready: {name:?}"),
-        }
-    }
-
-    pub async fn load_model(&self, name: &str) -> Result<(ModelSpec, ModelFieldsNativeSpec)> {
+    pub async fn load_model(&self, name: &str) -> Result<ModelCrd> {
         let api = Api::<ModelCrd>::all(self.kube.clone());
         let model = api.get(name).await?;
 
-        match model.status {
-            Some(status) if status.state == Some(ModelState::Ready) => match status.fields {
-                Some(parsed) => Ok((model.spec, parsed)),
+        match &model.status {
+            Some(status) if status.state == Some(ModelState::Ready) => match &status.fields {
+                Some(_) => Ok(model),
                 None => bail!("model has no fields status: {name:?}"),
             },
             Some(_) | None => bail!("model is not ready: {name:?}"),
+        }
+    }
+
+    pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
+        let api = Api::<ModelStorageCrd>::all(self.kube.clone());
+        let storage = api.get(name).await?;
+
+        match &storage.status {
+            Some(status) if status.state == Some(ModelStorageState::Ready) => Ok(storage),
+            Some(_) | None => bail!("model storage is not ready: {name:?}"),
+        }
+    }
+
+    pub async fn load_function(&self, name: &str) -> Result<FunctionCrd> {
+        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let function = api.get(name).await?;
+
+        match &function.status {
+            Some(status) if status.state == Some(FunctionState::Ready) => match &status.spec {
+                Some(_) => Ok(function),
+                None => bail!("function has no spec status: {name:?}"),
+            },
+            Some(_) | None => bail!("function is not ready: {name:?}"),
         }
     }
 }

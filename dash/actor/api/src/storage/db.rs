@@ -1,8 +1,13 @@
 use std::{borrow::Borrow, collections::BTreeMap, fmt};
 
-use dash_api::model::{
-    ModelCrd, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldKindStringSpec,
-    ModelFieldNativeSpec, ModelFieldsNativeSpec, ModelState,
+use dash_api::{
+    model::{
+        ModelCrd, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec,
+        ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec, ModelState,
+    },
+    storage::db::{
+        ModelStorageDatabaseExternalSpec, ModelStorageDatabaseNativeSpec, ModelStorageDatabaseSpec,
+    },
 };
 use ipis::core::{
     anyhow::{anyhow, bail, Result},
@@ -14,7 +19,7 @@ use kiss_api::{
 };
 use sea_orm::{
     sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
-    ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
+    ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
     EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, Schema, Statement,
 };
@@ -22,8 +27,52 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub struct DatabaseStorageClient<'model> {
-    pub db: DatabaseConnection,
-    pub model: &'model ModelCrd,
+    db: DatabaseConnection,
+    model: &'model ModelCrd,
+}
+
+impl<'model> DatabaseStorageClient<'model> {
+    const NATIVE_URL: &'static str = "postgres://dash-postgres/dash";
+
+    pub async fn try_new(
+        storage: &ModelStorageDatabaseSpec,
+        model: &'model ModelCrd,
+    ) -> Result<DatabaseStorageClient<'model>> {
+        Ok(Self {
+            db: Self::load_storage(storage).await?,
+            model,
+        })
+    }
+
+    pub async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
+        match storage {
+            ModelStorageDatabaseSpec::Native(storage) => {
+                Self::load_storage_by_native(storage).await
+            }
+            ModelStorageDatabaseSpec::External(storage) => {
+                Self::load_storage_by_external(storage).await
+            }
+        }
+    }
+
+    async fn load_storage_by_native(
+        storage: &ModelStorageDatabaseNativeSpec,
+    ) -> Result<DatabaseConnection> {
+        let ModelStorageDatabaseNativeSpec {} = storage;
+        let storage = ModelStorageDatabaseExternalSpec {
+            url: Self::NATIVE_URL.parse()?,
+        };
+
+        Self::load_storage_by_external(&storage).await
+    }
+
+    async fn load_storage_by_external(
+        storage: &ModelStorageDatabaseExternalSpec,
+    ) -> Result<DatabaseConnection> {
+        Database::connect(storage.url.as_str())
+            .await
+            .map_err(Into::into)
+    }
 }
 
 impl<'model> DatabaseStorageClient<'model> {

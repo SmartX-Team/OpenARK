@@ -75,15 +75,15 @@ impl InputTemplate {
             Some(ModelFieldKindSpec::Extended(kind)) => match kind {
                 // BEGIN reference types
                 ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    let (spec, _) = storage.load_model(model_name).await?;
-                    match spec {
+                    let model = storage.load_model(model_name).await?;
+                    match &model.spec {
                         ModelSpec::Fields(_) => self.update_field_string_native(input),
                         ModelSpec::CustomResourceDefinitionRef(spec) => {
                             let namespace = None; // TODO: to be implemented
                             let resource_name = &input.value;
 
                             let value = storage
-                                .load_custom_resource(&spec, namespace, resource_name)
+                                .load_custom_resource(spec, namespace, resource_name)
                                 .await?;
 
                             let input = InputFieldValue {

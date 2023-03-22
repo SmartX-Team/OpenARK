@@ -52,7 +52,15 @@ reqwest = { version = "0.11", default-features = false, features = [
 ] }
 reqwest-middleware = "0.2"
 schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
-sea-orm = { version = "0.11", features = ["macros", "runtime-tokio-rustls"] }
+sea-orm = { version = "0.11", features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+    "with-chrono",
+    "with-json",
+    "with-time",
+    "with-uuid",
+] }
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

@@ -24,7 +24,7 @@ pub struct FunctionActorJobClient {
 }
 
 impl FunctionActorJobClient {
-    pub async fn try_new(kube: &Client, spec: FunctionActorJobSpec) -> Result<Self> {
+    pub async fn try_new(kube: &Client, spec: &FunctionActorJobSpec) -> Result<Self> {
         let client = KubernetesStorageClient { kube };
         let (name, content) = match spec {
             FunctionActorJobSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
@@ -50,11 +50,15 @@ impl FunctionActorJobClient {
         })
     }
 
-    fn from_raw_content(kube: Client, name: String, content: &str) -> Result<Self> {
+    fn from_raw_content(kube: Client, name: &str, content: &str) -> Result<Self> {
         let mut tera = Tera::default();
-        tera.add_raw_template(&name, content)?;
+        tera.add_raw_template(name, content)?;
 
-        Ok(Self { kube, name, tera })
+        Ok(Self {
+            kube,
+            name: name.to_string(),
+            tera,
+        })
     }
 }
 

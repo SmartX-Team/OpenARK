@@ -46,6 +46,21 @@ pub enum ModelSpec {
     CustomResourceDefinitionRef(ModelCustomResourceDefinitionRefSpec),
 }
 
+impl ModelCrd {
+    pub fn get_fields_unchecked(&self) -> &ModelFieldsNativeSpec {
+        self.status
+            .as_ref()
+            .and_then(|status| status.fields.as_ref())
+            .expect("fields should not be empty")
+    }
+
+    pub fn into_fields_unchecked(self) -> ModelFieldsNativeSpec {
+        self.status
+            .and_then(|status| status.fields)
+            .expect("fields should not be empty")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatus {

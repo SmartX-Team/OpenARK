@@ -24,7 +24,7 @@ impl<'a> FunctionValidator<'a> {
         };
 
         let actor = spec.actor;
-        if let Err(e) = FunctionActorClient::try_new(self.kube, actor.clone()).await {
+        if let Err(e) = FunctionActorClient::try_new(self.kube, &actor).await {
             bail!("failed to validate function actor: {e}");
         }
 

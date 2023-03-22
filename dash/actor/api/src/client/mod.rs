@@ -20,11 +20,14 @@ pub struct FunctionSession {
 impl FunctionSession {
     pub async fn load(kube: Client, name: &str) -> Result<Self> {
         let storage = KubernetesStorageClient { kube: &kube };
-        let (original, parsed) = storage.load_function(name).await?;
+        let function = storage.load_function(name).await?;
+
+        let origin = &function.spec.input;
+        let parsed = &function.get_native_spec().input;
 
         Ok(Self {
-            client: FunctionActorClient::try_new(&kube, original.actor).await?,
-            input: InputTemplate::new_empty(&original.input, parsed.input),
+            client: FunctionActorClient::try_new(&kube, &function.spec.actor).await?,
+            input: InputTemplate::new_empty(origin, parsed.clone()),
         })
     }
 
@@ -54,7 +57,7 @@ pub enum FunctionActorClient {
 }
 
 impl FunctionActorClient {
-    pub async fn try_new(kube: &Client, spec: FunctionActorSpec) -> Result<Self> {
+    pub async fn try_new(kube: &Client, spec: &FunctionActorSpec) -> Result<Self> {
         match spec {
             FunctionActorSpec::Job(spec) => FunctionActorJobClient::try_new(kube, spec)
                 .await

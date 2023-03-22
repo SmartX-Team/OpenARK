@@ -1,8 +1,3 @@
-pub mod db;
-pub mod kubernetes;
-pub mod lake;
-pub mod warehouse;
-
 use ipis::core::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -13,14 +8,14 @@ use strum::{Display, EnumString};
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
-    kind = "Model",
-    struct = "ModelStorageCrd",
-    status = "ModelStorageStatus",
+    kind = "ModelStorageBinding",
+    struct = "ModelStorageBindingCrd",
+    status = "ModelStorageBindingStatus",
     shortname = "m",
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the model storage",
+        "description":"state of the binding",
         "jsonPath":".status.state"
     }"#,
     printcolumn = r#"{
@@ -34,26 +29,24 @@ use strum::{Display, EnumString};
         "type": "date",
         "description":"updated time",
         "jsonPath":".status.lastUpdated"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "date",
+        "description":"model version",
+        "jsonPath":".status.version"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct ModelStorageSpec {
-    pub kind: ModelStorageKindSpec,
-    #[serde(default)]
-    pub default: bool,
+pub struct ModelStorageBindingSpec {
+    pub model: String,
+    pub storage: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum ModelStorageKindSpec {
-    Database(self::db::ModelStorageDatabaseSpec),
-    Kubernetes(self::kubernetes::ModelStorageKubernetesSpec),
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelStorageStatus {
-    pub state: Option<ModelStorageState>,
+pub struct ModelStorageBindingStatus {
+    pub state: Option<ModelStorageBindingState>,
     pub last_updated: DateTime<Utc>,
 }
 
@@ -72,7 +65,7 @@ pub struct ModelStorageStatus {
     Deserialize,
     JsonSchema,
 )]
-pub enum ModelStorageState {
+pub enum ModelStorageBindingState {
     Pending,
     Ready,
 }

@@ -45,7 +45,9 @@ impl<'a> ModelValidator<'a> {
                         .kubernetes_storage
                         .load_model(&name)
                         .await
-                        .and_then(|(_, fields)| parser.merge_fields(&field.name, fields))?,
+                        .and_then(|model| {
+                            parser.merge_fields(&field.name, model.into_fields_unchecked())
+                        })?,
                 },
             }
         }
