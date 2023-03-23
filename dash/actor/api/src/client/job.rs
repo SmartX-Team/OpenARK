@@ -152,11 +152,11 @@ impl FunctionActorJobClient {
     {
         for template in self.load_template(name, input).await? {
             // Find documents
-            if template.api.get_opt(&template.name).await?.is_some() {
-                return Ok(true);
+            if template.api.get_opt(&template.name).await?.is_none() {
+                return Ok(false);
             }
         }
-        Ok(false)
+        Ok(true)
     }
 
     async fn load_template<Spec>(

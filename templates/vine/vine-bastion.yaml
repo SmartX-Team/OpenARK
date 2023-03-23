@@ -54,6 +54,10 @@ spec:
               value: INFO
             - name: VINE_SESSION_TEMPLATES_HOME
               value: /opt/vine/bastion/templates
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 80
           resources:
             requests:
               cpu: 30m

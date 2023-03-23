@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "desktop-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  accessModes:
+    - ReadWriteMany
+{% if spec.boxQuota is object %}
+{% if spec.boxQuota.storage is object %}
+  resources: {{ spec.boxQuota.storage | json_encode() | safe }}
+{% endif %}
+{% if spec.boxQuota.storageClassName is string %}
+  storageClassName: "{{ spec.boxQuota.storageClassName }}"
+{% endif %}
+{% endif %}
