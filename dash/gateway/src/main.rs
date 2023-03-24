@@ -34,6 +34,8 @@ async fn main() {
                 .service(crate::routes::function::get_list)
                 .service(crate::routes::function::post)
                 .service(crate::routes::model::get)
+                .service(crate::routes::model::get_item)
+                .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list)
         })
         .bind(addr)

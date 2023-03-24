@@ -13,7 +13,7 @@ use dash_api::{
     },
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
-    serde_json::Value,
+    serde_json::{self, Value},
     storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
 };
 use ipis::{
@@ -71,6 +71,38 @@ impl<'a> KubernetesStorageClient<'a> {
             scope => bail!("cannot infer CRD scope {scope:?}: {resource_name:?}"),
         };
         Ok(api.get_opt(resource_name).await?.map(|object| object.data))
+    }
+
+    pub async fn load_custom_resource_all(
+        &self,
+        spec: &ModelCustomResourceDefinitionRefSpec,
+        namespace: &str,
+    ) -> Result<Vec<Value>> {
+        let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
+
+        // Discover most stable version variant of document
+        let apigroup = discovery::group(self.kube, &api_group).await?;
+        let ar = match apigroup.versioned_resources(&def.name).pop() {
+            Some((ar, _)) => ar,
+            None => {
+                let model_name = &spec.name;
+                bail!("no such CRD: {model_name:?}")
+            }
+        };
+
+        // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
+        let api: Api<DynamicObject> = match scope.as_str() {
+            "Namespaced" => Api::namespaced_with(self.kube.clone(), namespace, &ar),
+            "Cluster" => Api::all_with(self.kube.clone(), &ar),
+            scope => bail!("cannot infer CRD scope {scope:?}"),
+        };
+        let lp = ListParams::default();
+        api.list(&lp).await.map_err(Into::into).and_then(|list| {
+            list.items
+                .into_iter()
+                .map(|item| serde_json::to_value(item).map_err(Into::into))
+                .collect()
+        })
     }
 
     pub async fn load_custom_resource_definition(
