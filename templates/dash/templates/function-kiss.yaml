@@ -1,0 +1,56 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: box # 모델 이름
+spec:
+  customResourceDefinitionRef: # 모델 종류
+    name: boxes.kiss.ulagbulag.io/v1alpha1 # K8S CRD 이름 (예제에서는, Bare-metal Box)
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: kubernetes # 스토리지 이름
+spec:
+  kubernetes: {} # 스토리지 종류 (예제에서는, 쿠버네티스 CRD)
+# ---
+# apiVersion: dash.ulagbulag.io/v1alpha1
+# kind: ModelStorage
+# metadata:
+#   name: native # 스토리지 이름
+# spec:
+#   database: # 스토리지 종류 (예제에서는, 데이터베이스)
+#     native: {} # 데이터베이스 스토리지 종류 (예제에서는, 내장 데이터베이스)
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: box-from-kubernetes # 스토리지 이름
+spec:
+  model: box
+  storage: kubernetes
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Function
+metadata:
+  name: box-power # 함수 이름
+  annotations:
+    dash.ulagbulag.io/title: power-management # 활성화하면, 검색 엔진 등을 통해 기능 검색이 가능합니다.
+    dash.ulagbulag.io/subject: box # 활성화하면, box 모델에 해당 기능이 적용되어 클라이언트에서 편리하게 호출이 가능합니다.
+spec:
+  input: # 함수 입력값
+    - name: /box/ # Key 값
+      model: # Value 종류 (예제에서는, 모델 정보 연동하기)
+        name: box # 연동할 모델 이름
+    - name: /power/ # Key 값
+      oneOfStrings: # Value 종류 (예제에서는, 다음의 문자열 중 하나를 선택하기)
+        default: "on" # 기본값
+        choices: # 선택지
+          - "on"
+          - "off"
+  actor: # 함수 구현체 정보
+    job: # 함수 구현체 종류 (예제에서는, 쿠버네티스 Job)
+      configMapRef: # 함수 구현체 출처 종류 (예제에서는, 쿠버네티스 ConfigMap)
+        name: dash-template # 함수 스크립트가 저장된 ConfigMap 이름
+        namespace: kiss # 함수 스크립트가 저장된 ConfigMap 네임스페이스
+        path: power.yaml.j2 # 함수 스크립트가 저장된 ConfigMap 내 파일명
