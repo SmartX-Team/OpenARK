@@ -17,3 +17,6 @@ repository = "https://github.com/ulagbulag-village/netai-cloud"
 dash-actor = { path = "../actor" }
 dash-api = { path = "../api" }
 ipis = { workspace = true }
+
+actix-web = { workspace = true }
+actix-web-lab = { workspace = true }

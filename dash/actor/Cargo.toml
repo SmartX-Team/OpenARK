@@ -21,6 +21,7 @@ i-want-to-cleanup-all-before-running-for-my-testing = []
 dash-api = { path = "../api" }
 ipis = { workspace = true }
 
+actix-web = { workspace = true, default-features = false }
 inflector = { workspace = true }
 regex = { workspace = true }
 sea-orm = { workspace = true }

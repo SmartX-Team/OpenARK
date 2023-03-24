@@ -104,6 +104,24 @@ impl<'a> KubernetesStorageClient<'a> {
         }
     }
 
+    pub async fn load_model_all(&self) -> Result<Vec<ModelCrd>> {
+        let api = Api::<ModelCrd>::all(self.kube.clone());
+        let lp = ListParams::default();
+        let models = api.list(&lp).await?;
+
+        Ok(models
+            .into_iter()
+            .filter(|function| {
+                function
+                    .status()
+                    .map(|status| {
+                        matches!(status.state, Some(ModelState::Ready)) && status.fields.is_some()
+                    })
+                    .unwrap_or_default()
+            })
+            .collect())
+    }
+
     pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
         let api = Api::<ModelStorageCrd>::all(self.kube.clone());
         let storage = api.get(name).await?;
@@ -148,5 +166,23 @@ impl<'a> KubernetesStorageClient<'a> {
             },
             Some(_) | None => bail!("function is not ready: {name:?}"),
         }
+    }
+
+    pub async fn load_function_all(&self) -> Result<Vec<FunctionCrd>> {
+        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let lp = ListParams::default();
+        let functions = api.list(&lp).await?;
+
+        Ok(functions
+            .into_iter()
+            .filter(|function| {
+                function
+                    .status()
+                    .map(|status| {
+                        matches!(status.state, Some(FunctionState::Ready)) && status.spec.is_some()
+                    })
+                    .unwrap_or_default()
+            })
+            .collect())
     }
 }

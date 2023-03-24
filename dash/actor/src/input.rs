@@ -14,10 +14,13 @@ use dash_api::{
     serde_json::{Map, Value},
 };
 use inflector::Inflector;
-use ipis::core::{
-    anyhow::{anyhow, bail, Error, Result},
-    chrono::{DateTime, Utc},
-    uuid::Uuid,
+use ipis::{
+    async_recursion::async_recursion,
+    core::{
+        anyhow::{anyhow, bail, Error, Result},
+        chrono::{DateTime, Utc},
+        uuid::Uuid,
+    },
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -51,17 +54,6 @@ impl InputTemplate {
                 .collect(),
             map: Default::default(),
         }
-    }
-
-    pub async fn update_fields_string(
-        &mut self,
-        storage: &StorageClient<'_, '_>,
-        inputs: Vec<InputFieldString>,
-    ) -> Result<()> {
-        for input in inputs {
-            self.update_field_string(storage, input).await?;
-        }
-        Ok(())
     }
 
     pub async fn update_field_string(
@@ -170,29 +162,23 @@ impl InputTemplate {
                     name,
                     value: storage.get(base_field.original.as_ref(), &value).await?,
                 };
-                self.update_field_value_native(input)
+                self.update_field_value(storage, input).await
             }
             ModelFieldKindNativeSpec::ObjectArray { .. } => {
-                let type_ = base_field.parsed.kind.to_type();
-                let value = &value;
-                bail!("cannot set {type_} type to {value:?}: {name:?}")
+                error_type_mismatch(&name, &value, &base_field.parsed)
             }
         }
     }
 
-    fn update_field_value_native(&mut self, input: InputFieldValue) -> Result<()> {
+    #[async_recursion]
+    pub async fn update_field_value(
+        &mut self,
+        storage: &StorageClient<'_, '_>,
+        input: InputFieldValue,
+    ) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = self.get_field(&name)?;
-
-        fn error_type_mismatch(
-            name: &str,
-            value: &Value,
-            spec: &ModelFieldNativeSpec,
-        ) -> Result<()> {
-            let type_ = spec.kind.to_type();
-            bail!("type mismatch; expected {type_}, but given {value:?}: {name:?}")
-        }
 
         match &base_field.parsed.kind {
             // BEGIN primitive types
@@ -319,10 +305,17 @@ impl InputTemplate {
                 children: _,
                 dynamic: _,
             } => match value {
+                Value::String(ref_name) => {
+                    let input = InputFieldValue {
+                        name,
+                        value: storage.get(base_field.original.as_ref(), &ref_name).await?,
+                    };
+                    self.update_field_value(storage, input).await
+                }
                 Value::Object(children) => {
                     for (child, value) in children.into_iter() {
                         let child = InputField::sub_object(&name, &child, value);
-                        self.update_field_value_native(child)?;
+                        self.update_field_value(storage, child).await?;
                     }
                     Ok(())
                 }
@@ -332,7 +325,7 @@ impl InputTemplate {
                 Value::Array(children) => {
                     for (index, value) in children.into_iter().enumerate() {
                         let child = InputField::sub_array(&name, index, value);
-                        self.update_field_value_native(child)?;
+                        self.update_field_value(storage, child).await?;
                     }
                     Ok(())
                 }
@@ -683,4 +676,12 @@ where
         }
         _ => Ok(()),
     }
+}
+
+fn error_type_mismatch<Value>(name: &str, value: Value, spec: &ModelFieldNativeSpec) -> Result<()>
+where
+    Value: fmt::Debug,
+{
+    let type_ = spec.kind.to_type();
+    bail!("type mismatch; expected {type_}, but given {value:?}: {name:?}")
 }

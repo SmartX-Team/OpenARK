@@ -1,12 +1,14 @@
-use dash_api::{function::FunctionActorSpec, kube::Client};
+use actix_web::HttpResponse;
+use dash_api::{function::FunctionActorSpec, kube::Client, serde_json::Value};
 use ipis::{
+    async_trait::async_trait,
     core::anyhow::{anyhow, Result},
     futures::TryFutureExt,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    input::{InputFieldString, InputTemplate},
+    input::{InputField, InputTemplate},
     storage::{KubernetesStorageClient, StorageClient},
 };
 
@@ -18,6 +20,43 @@ pub struct FunctionSession<'a> {
     client: FunctionActorClient,
     input: InputTemplate,
     metadata: &'a SessionContextMetadata,
+}
+
+#[async_trait]
+pub trait FunctionSessionUpdateFields<Value> {
+    async fn update_field(
+        &mut self,
+        storage: &StorageClient,
+        inputs: InputField<Value>,
+    ) -> Result<()>;
+}
+
+#[async_trait]
+impl<'a> FunctionSessionUpdateFields<String> for FunctionSession<'a> {
+    async fn update_field(
+        &mut self,
+        storage: &StorageClient,
+        inputs: InputField<String>,
+    ) -> Result<()> {
+        self.input
+            .update_field_string(storage, inputs)
+            .await
+            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.metadata.name))
+    }
+}
+
+#[async_trait]
+impl<'a> FunctionSessionUpdateFields<Value> for FunctionSession<'a> {
+    async fn update_field(
+        &mut self,
+        storage: &StorageClient,
+        inputs: InputField<Value>,
+    ) -> Result<()> {
+        self.input
+            .update_field_value(storage, inputs)
+            .await
+            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.metadata.name))
+    }
 }
 
 impl<'a> FunctionSession<'a> {
@@ -38,34 +77,48 @@ impl<'a> FunctionSession<'a> {
         })
     }
 
-    async fn update_fields_string(&mut self, inputs: Vec<InputFieldString>) -> Result<()> {
+    async fn update_fields<Value>(&mut self, inputs: Vec<InputField<Value>>) -> Result<()>
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
+        let namespace = self.metadata.namespace.clone();
+        let kube = self.client.kube().clone();
         let storage = StorageClient {
-            namespace: &self.metadata.namespace,
-            kube: self.client.kube(),
+            namespace: &namespace,
+            kube: &kube,
         };
 
-        self.input
-            .update_fields_string(&storage, inputs)
-            .await
-            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.metadata.name))
+        for input in inputs {
+            self.update_field(&storage, input).await?;
+        }
+        Ok(())
     }
 
-    pub async fn create_raw(
+    pub async fn create_raw<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
-        inputs: Vec<InputFieldString>,
-    ) -> SessionResult {
+        inputs: Vec<InputField<Value>>,
+    ) -> SessionResult
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
         Self::load(kube, metadata)
             .and_then(|session| session.try_create_raw(inputs))
             .await
             .into()
     }
 
-    async fn try_create_raw(mut self, inputs: Vec<InputFieldString>) -> Result<FunctionChannel> {
+    async fn try_create_raw<Value>(
+        mut self,
+        inputs: Vec<InputField<Value>>,
+    ) -> Result<FunctionChannel>
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
         let input = SessionContext {
             metadata: self.metadata.clone(),
             spec: {
-                self.update_fields_string(inputs).await?;
+                self.update_fields(inputs).await?;
                 self.input.finalize()?
             },
         };
@@ -128,6 +181,18 @@ where
         match value {
             Ok(value) => Self::Ok(value),
             Err(error) => Self::Err(error.to_string()),
+        }
+    }
+}
+
+impl<T> From<SessionResult<T>> for HttpResponse
+where
+    T: Serialize,
+{
+    fn from(value: SessionResult<T>) -> Self {
+        match value {
+            SessionResult::Ok(_) => HttpResponse::Ok().json(value),
+            SessionResult::Err(_) => HttpResponse::Forbidden().json(value),
         }
     }
 }
