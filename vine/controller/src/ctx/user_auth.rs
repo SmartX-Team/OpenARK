@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use ipis::{async_trait::async_trait, core::anyhow::Result};
-use kiss_api::{
+use kiss_api::manager::Manager;
+use vine_api::{
     k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
     kube::{runtime::controller::Action, CustomResourceExt, Error},
-    manager::Manager,
+    user_auth::UserAuthCrd,
 };
-use vine_api::user_auth::UserAuthCrd;
 
 #[derive(Default)]
 pub struct Ctx {}

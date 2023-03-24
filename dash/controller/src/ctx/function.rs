@@ -2,22 +2,20 @@ use std::{sync::Arc, time::Duration};
 
 use dash_api::{
     function::{FunctionCrd, FunctionSpec, FunctionState, FunctionStatus},
+    kube::{
+        api::{Patch, PatchParams},
+        runtime::controller::Action,
+        Api, Client, CustomResourceExt, Error, ResourceExt,
+    },
     model::ModelFieldKindNativeSpec,
+    serde_json::json,
 };
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
     log::{info, warn},
 };
-use kiss_api::{
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, Client, CustomResourceExt, Error, ResourceExt,
-    },
-    manager::Manager,
-    serde_json::json,
-};
+use kiss_api::manager::Manager;
 
 use crate::validator::function::FunctionValidator;
 

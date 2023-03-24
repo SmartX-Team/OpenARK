@@ -1,13 +1,16 @@
 mod db;
 mod kubernetes;
 
-use dash_api::model::{
-    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindSpec,
-    ModelFieldSpec, ModelSpec,
-};
 use dash_api::storage::ModelStorageSpec;
+use dash_api::{
+    kube::Client,
+    model::{
+        ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec,
+        ModelFieldKindSpec, ModelFieldSpec, ModelSpec,
+    },
+    serde_json::Value,
+};
 use ipis::core::anyhow::{bail, Result};
-use kiss_api::{kube::Client, serde_json::Value};
 
 pub use self::db::DatabaseStorageClient;
 pub use self::kubernetes::KubernetesStorageClient;

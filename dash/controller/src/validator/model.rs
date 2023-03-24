@@ -4,19 +4,21 @@ use std::{
 };
 
 use dash_actor::{imp::assert_contains, name, storage::KubernetesStorageClient};
-use dash_api::model::{
-    ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
-    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,
-    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+use dash_api::{
+    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
+        CustomResourceDefinitionVersion, JSONSchemaProps,
+    },
+    model::{
+        ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
+        ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec,
+        ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+    },
 };
 use inflector::Inflector;
 use ipis::{
     core::anyhow::{bail, Result},
     itertools::Itertools,
     log::warn,
-};
-use kiss_api::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
-    CustomResourceDefinitionVersion, JSONSchemaProps,
 };
 use regex::Regex;
 

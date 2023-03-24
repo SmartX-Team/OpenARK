@@ -1,9 +1,8 @@
-use dash_api::function::FunctionActorSpec;
+use dash_api::{function::FunctionActorSpec, kube::Client};
 use ipis::{
     core::anyhow::{anyhow, Result},
     futures::TryFutureExt,
 };
-use kiss_api::kube::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{

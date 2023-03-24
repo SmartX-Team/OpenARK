@@ -6,9 +6,12 @@ use std::{
     str::{FromStr, Split},
 };
 
-use dash_api::model::{
-    ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec, ModelFieldSpec,
-    ModelFieldsNativeSpec, ModelFieldsSpec,
+use dash_api::{
+    model::{
+        ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
+        ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec,
+    },
+    serde_json::{Map, Value},
 };
 use inflector::Inflector;
 use ipis::core::{
@@ -16,7 +19,6 @@ use ipis::core::{
     chrono::{DateTime, Utc},
     uuid::Uuid,
 };
-use kiss_api::serde_json::{Map, Value};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 

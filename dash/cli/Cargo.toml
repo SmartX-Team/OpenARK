@@ -19,9 +19,8 @@ path = "./src/main.rs"
 
 [dependencies]
 dash-actor = { path = "../actor" }
+dash-api = { path = "../api" }
 ipis = { workspace = true }
-kiss-api = { path = "../../kiss/api" }
 
 clap = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }

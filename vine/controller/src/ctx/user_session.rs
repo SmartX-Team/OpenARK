@@ -5,10 +5,10 @@ use ipis::{
     core::anyhow::Result,
     log::{info, warn},
 };
-use kiss_api::{
+use kiss_api::manager::Manager;
+use vine_api::{
     k8s_openapi::api::core::v1::Node,
     kube::{runtime::controller::Action, Error, ResourceExt},
-    manager::Manager,
 };
 use vine_session::SessionManager;
 

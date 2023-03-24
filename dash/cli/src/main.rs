@@ -5,8 +5,8 @@ use dash_actor::{
     client::{FunctionSession, SessionContextMetadata, SessionResult},
     input::InputFieldString,
 };
+use dash_api::{kube::Client, serde_json};
 use ipis::{core::anyhow::Result, logger, tokio};
-use kiss_api::kube::Client;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -99,7 +99,7 @@ impl CommandCreate {
 #[tokio::main]
 async fn main() {
     let result = Args::parse().run().await;
-    match ::serde_json::to_string_pretty(&result) {
+    match serde_json::to_string_pretty(&result) {
         Ok(result) => println!("{result}"),
         Err(_) => println!("{result:#?}"),
     }

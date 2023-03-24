@@ -20,7 +20,6 @@ i-want-to-cleanup-all-before-running-for-my-testing = []
 [dependencies]
 dash-api = { path = "../api" }
 ipis = { workspace = true }
-kiss-api = { path = "../../kiss/api" }
 
 inflector = { workspace = true }
 regex = { workspace = true }

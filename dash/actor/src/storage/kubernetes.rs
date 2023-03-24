@@ -1,14 +1,5 @@
 use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
-    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
-    model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
-    storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
-};
-use ipis::{
-    core::anyhow::{bail, Result},
-    itertools::Itertools,
-};
-use kiss_api::{
     k8s_openapi::{
         api::core::v1::ConfigMap,
         apiextensions_apiserver::pkg::apis::apiextensions::v1::{
@@ -20,7 +11,14 @@ use kiss_api::{
         core::{object::HasStatus, DynamicObject},
         discovery, Api, Client,
     },
+    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
+    model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
     serde_json::Value,
+    storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
+};
+use ipis::{
+    core::anyhow::{bail, Result},
+    itertools::Itertools,
 };
 
 #[derive(Copy, Clone)]

@@ -1,8 +1,7 @@
 use std::future::Future;
 
-use dash_api::function::FunctionActorJobSpec;
-use ipis::core::anyhow::{bail, Result};
-use kiss_api::{
+use dash_api::{
+    function::FunctionActorJobSpec,
     kube::{
         api::{DeleteParams, Patch, PatchParams, PostParams},
         core::DynamicObject,
@@ -10,6 +9,7 @@ use kiss_api::{
     },
     serde_yaml,
 };
+use ipis::core::anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 

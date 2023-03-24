@@ -2,10 +2,16 @@ use std::{sync::Arc, time::Duration};
 
 use dash_actor::storage::KubernetesStorageClient;
 use dash_api::{
+    kube::{
+        api::{Patch, PatchParams},
+        runtime::controller::Action,
+        Api, Client, CustomResourceExt, Error, ResourceExt,
+    },
     model::ModelSpec,
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStatus,
     },
+    serde_json::json,
     storage::ModelStorageSpec,
 };
 use ipis::{
@@ -13,15 +19,7 @@ use ipis::{
     core::{anyhow::Result, chrono::Utc},
     log::{info, warn},
 };
-use kiss_api::{
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, Client, CustomResourceExt, Error, ResourceExt,
-    },
-    manager::Manager,
-    serde_json::json,
-};
+use kiss_api::manager::Manager;
 
 use crate::validator::{
     model::ModelValidator, model_storage_binding::ModelStorageBindingValidator,
