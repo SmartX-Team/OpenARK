@@ -1,4 +1,4 @@
-use dash_actor_api::storage::{DatabaseStorageClient, KubernetesStorageClient};
+use dash_actor::storage::{DatabaseStorageClient, KubernetesStorageClient};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
     storage::{

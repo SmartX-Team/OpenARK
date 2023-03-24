@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use dash_actor_api::storage::KubernetesStorageClient;
+use dash_actor::storage::KubernetesStorageClient;
 use dash_api::storage::{
     ModelStorageCrd, ModelStorageKindSpec, ModelStorageState, ModelStorageStatus,
 };

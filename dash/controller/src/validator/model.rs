@@ -3,7 +3,7 @@ use std::{
     fmt,
 };
 
-use dash_actor_api::{imp::assert_contains, name, storage::KubernetesStorageClient};
+use dash_actor::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use dash_api::model::{
     ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
     ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,

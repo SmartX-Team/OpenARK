@@ -1,7 +1,7 @@
 use std::env;
 
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_actor_api::{
+use dash_actor::{
     client::{FunctionSession, SessionContextMetadata, SessionResult},
     input::InputFieldString,
 };

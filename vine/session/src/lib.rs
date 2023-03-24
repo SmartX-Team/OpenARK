@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use dash_actor_api::client::{job::FunctionActorJobClient, SessionContextMetadata};
+use dash_actor::client::{job::FunctionActorJobClient, SessionContextMetadata};
 use ipis::{
     core::{
         anyhow::{bail, Error, Result},
@@ -221,7 +221,7 @@ impl SessionManager {
     }
 }
 
-pub type SessionContext<'a> = ::dash_actor_api::client::SessionContext<&'a SessionContextSpec<'a>>;
+pub type SessionContext<'a> = ::dash_actor::client::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
