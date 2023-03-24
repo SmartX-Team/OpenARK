@@ -22,7 +22,7 @@
   when: intel_amt_is_ready
   shell: >
     {{ bin_dir }}/ctr images pull
-    "quay.io/ulagbulag-village/netai-cloud-wsmancli:latest"
+    "quay.io/ulagbulag-village/noa-cloud-wsmancli:latest"
   register: intel_amt_pull_docker_image
   until: intel_amt_pull_docker_image.rc == 0
   retries: 5

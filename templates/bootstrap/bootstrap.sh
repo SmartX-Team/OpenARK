@@ -13,7 +13,7 @@ set -e
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
 KISS_CONFIG_PATH_DEFAULT="$(pwd)/config/kiss-config.yaml"
-KISS_CONFIG_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag-village/netai-cloud/master/templates/bootstrap/kiss-config.yaml"
+KISS_CONFIG_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag-village/noa-cloud/master/templates/bootstrap/kiss-config.yaml"
 YQ_IMAGE_DEFAULT="docker.io/mikefarah/yq:latest"
 
 # Configure environment variables

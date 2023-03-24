@@ -20,7 +20,7 @@ data:
     kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/images/pxeboot/vmlinuz
     initrd=initrd.img
     inst.repo=http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/
-    inst.ks=http://matchbox.kiss.svc.ops.netai-cloud/assets/boot/rocky9.ks
+    inst.ks=http://matchbox.kiss.svc.ops.noa-cloud/assets/boot/rocky9.ks
     || goto kernel
 
 
@@ -275,7 +275,7 @@ data:
     cat <<EOF >/etc/docker/daemon.json
     {
       "insecure-registries": [
-        "registry.kiss.svc.ops.netai-cloud"
+        "registry.kiss.svc.ops.noa-cloud"
       ]
     }
     EOF
@@ -312,7 +312,7 @@ data:
     ExecStart=/bin/bash -c " \
       ADDRESS=\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1) ;\
       UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
-      curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.netai-cloud/new?address=\$ADDRESS&uuid=\$UUID\" ;\
+      curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.noa-cloud/new?address=\$ADDRESS&uuid=\$UUID\" ;\
     "
     Restart=on-failure
     RestartSec=30
@@ -517,7 +517,7 @@ data:
             inline: |
               {
                 "insecure-registries": [
-                  "registry.kiss.svc.ops.netai-cloud"
+                  "registry.kiss.svc.ops.noa-cloud"
                 ]
               }
         - path: /etc/flatcar/update.conf
@@ -567,7 +567,7 @@ data:
               ExecStart=/bin/bash -c " \
                   ADDRESS=$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1) ;\
                   UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
-                  curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.netai-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
+                  curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.noa-cloud/new?address=$ADDRESS&uuid=$UUID\" ;\
               "
               Restart=on-failure
               RestartSec=30
@@ -581,7 +581,7 @@ data:
           contents:
             inline: |
               [Time]
-              #NTP=ntp.kiss.svc.ops.netai-cloud
+              #NTP=ntp.kiss.svc.ops.noa-cloud
         - path: /opt/bin/python
           filesystem: root
           overwrite: true
@@ -660,15 +660,15 @@ data:
   kiss.json: |
     {
       "id": "kiss",
-      "name": "NetAI Cloud KISS Linux (Flatcar Container Linux)",
+      "name": "NoA Cloud KISS Linux (Flatcar Container Linux)",
       "boot": {
-        "kernel": "http://assets.kiss.svc.ops.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
+        "kernel": "http://assets.kiss.svc.ops.noa-cloud/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
         "initrd": [
-          "http://assets.kiss.svc.ops.netai-cloud/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
+          "http://assets.kiss.svc.ops.noa-cloud/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
         ],
         "args": [
           "initrd=flatcar_production_pxe_image.cpio.gz",
-          "flatcar.config.url=http://matchbox.kiss.svc.ops.netai-cloud/ignition",
+          "flatcar.config.url=http://matchbox.kiss.svc.ops.noa-cloud/ignition",
           "flatcar.first_boot=yes"
         ]
       },

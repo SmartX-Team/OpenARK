@@ -10,11 +10,11 @@ metadata:
     ingress.kubernetes.io/secure-backends: "true"
     ingress.kubernetes.io/force-ssl-redirect: "true"
     kubernetes.io/ingress.class: example.com
-    nginx.ingress.kubernetes.io/proxy-redirect-from: http://ingress-nginx-controller.vine.svc.ops.netai-cloud
+    nginx.ingress.kubernetes.io/proxy-redirect-from: http://ingress-nginx-controller.vine.svc.ops.noa-cloud
     nginx.ingress.kubernetes.io/proxy-redirect-to: https://$host
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/upstream-vhost: ingress-nginx-controller.vine.svc.ops.netai-cloud
+    nginx.ingress.kubernetes.io/upstream-vhost: ingress-nginx-controller.vine.svc.ops.noa-cloud
     vine.ulagbulag.io/is-service: "false"
     vine.ulagbulag.io/is-service-public: "true"
     vine.ulagbulag.io/is-service-system: "true"

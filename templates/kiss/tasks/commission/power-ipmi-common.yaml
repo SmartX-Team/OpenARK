@@ -12,7 +12,7 @@
   when: ipmi.stat.exists
   shell: >
     {{ bin_dir }}/ctr images pull
-    "quay.io/ulagbulag-village/netai-cloud-ipmitool:latest"
+    "quay.io/ulagbulag-village/noa-cloud-ipmitool:latest"
   register: ipmi_pull_docker_image
   until: ipmi_pull_docker_image.rc == 0
   retries: 5

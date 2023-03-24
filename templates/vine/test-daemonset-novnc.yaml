@@ -28,7 +28,7 @@ spec:
                       - Desktop
       containers:
         - name: x11vnc
-          image: quay.io/ulagbulag-village/netai-cloud-vine-x11vnc:latest
+          image: quay.io/ulagbulag-village/noa-cloud-vine-x11vnc:latest
           imagePullPolicy: Always
           env:
             - name: DISPLAY
@@ -43,7 +43,7 @@ spec:
             - name: x11
               mountPath: /tmp/.X11-unix
         - name: novnc
-          image: quay.io/ulagbulag-village/netai-cloud-vine-novnc:latest
+          image: quay.io/ulagbulag-village/noa-cloud-vine-novnc:latest
           imagePullPolicy: Always
           env:
             - name: DISPLAY

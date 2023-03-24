@@ -32,7 +32,7 @@ spec:
                       - Desktop
       containers:
         - name: login-shell
-          image: quay.io/ulagbulag-village/netai-cloud-vine-desktop:latest
+          image: quay.io/ulagbulag-village/noa-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - /opt/scripts/entrypoint-login-shell.sh
@@ -56,7 +56,7 @@ spec:
             - name: USER
               value: "2000"
             - name: VINE_BASTION_ENTRYPOINT
-              value: http://ingress-nginx-controller.vine.svc.ops.netai-cloud/bastion
+              value: http://ingress-nginx-controller.vine.svc.ops.noa-cloud/bastion
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
           workingDir: /home/user

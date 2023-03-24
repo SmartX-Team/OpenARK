@@ -45,7 +45,7 @@ spec:
       serviceAccount: kiss-system
       containers:
         - name: monitor
-          image: quay.io/ulagbulag-village/netai-cloud:latest
+          image: quay.io/ulagbulag-village/noa-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-monitor

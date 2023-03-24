@@ -16,8 +16,8 @@ env:
   REGISTRY_USER: kerryeon
   REGISTRY_REPOSITORY: ulagbulag-village
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-  RELEASE_NAME: NetAI Cloud
-  IMAGE_NAME: netai-cloud
+  RELEASE_NAME: NoA Cloud
+  IMAGE_NAME: noa-cloud
 
   ALPINE_VERSION: "3.17"
   DEX_VERSION: "latest"

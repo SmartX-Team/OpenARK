@@ -25,7 +25,7 @@ impl Default for Handler {
 }
 
 impl Handler {
-    const REPOSITORY_NAME: &'static str = "netai-cloud";
+    const REPOSITORY_NAME: &'static str = "noa-cloud";
     const REPOSITORY_OWNER: &'static str = "ulagbulag-village";
 
     const MAX_RETRY: usize = 5;

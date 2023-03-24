@@ -1,4 +1,4 @@
-# NetAI Cloud K8S Configuration Snapshot Managing Job
+# NoA Cloud K8S Configuration Snapshot Managing Job
 
 ## Dependencies
 
@@ -7,5 +7,5 @@
 ## Build
 
 ```bash
-docker build --tag quay.io/ulagbulag-village/netai-cloud-snapshot-git:latest .
+docker build --tag quay.io/ulagbulag-village/noa-cloud-snapshot-git:latest .
 ```
