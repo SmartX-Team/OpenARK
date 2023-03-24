@@ -7,14 +7,14 @@ a command helper tool similar in usage to `IPMITOOL` .
 
 ```bash
 # Download the helper image
-docker pull "quay.io/ulagbulag-village/noa-cloud-wsmancli:latest"
+docker pull "quay.io/ulagbulag-village/noah-cloud-wsmancli:latest"
 
 # Execute your own query
-docker run --rm --name noa-cloud-wsmancli \
+docker run --rm --name noah-cloud-wsmancli \
     --env AMT_HOSTNAME="your machine AMT IP" \
     --env AMT_USERNAME="your machine AMT Username (Default: admin)" \
     --env AMT_PASSWORD="your machine AMT Password" \
-    "quay.io/ulagbulag-village/noa-cloud-wsmancli:latest" \
+    "quay.io/ulagbulag-village/noah-cloud-wsmancli:latest" \
     power on
 ```
 

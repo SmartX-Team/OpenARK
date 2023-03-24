@@ -50,7 +50,7 @@ spec:
       serviceAccount: kiss-system
       containers:
         - name: manager
-          image: quay.io/ulagbulag-village/noa-cloud:latest
+          image: quay.io/ulagbulag-village/noah-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-manager

@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
-description = "Kubernetes Is Simple, Stupid which a part of NetAI Cloud"
+description = "Kubernetes Is Simple, Stupid which a part of Noah Cloud"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 readme = "../README.md"
-homepage = "https://github.com/ulagbulag-village/noa-cloud"
-repository = "https://github.com/ulagbulag-village/noa-cloud"
+homepage = "https://github.com/ulagbulag-village/noah-cloud"
+repository = "https://github.com/ulagbulag-village/noah-cloud"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

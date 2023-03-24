@@ -33,7 +33,7 @@ spec:
                       - "{{ spec.node.metadata.name }}"
       initContainers:
         - name: init-check-permissions
-          image: quay.io/ulagbulag-village/noa-cloud-vine-desktop:latest
+          image: quay.io/ulagbulag-village/noah-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - sudo
@@ -53,7 +53,7 @@ spec:
               mountPath: /home/user
       containers:
         - name: desktop-environment
-          image: quay.io/ulagbulag-village/noa-cloud-vine-desktop:latest
+          image: quay.io/ulagbulag-village/noah-cloud-vine-desktop:latest
           imagePullPolicy: Always
           command:
             - /opt/scripts/entrypoint-desktop.sh
@@ -69,7 +69,7 @@ spec:
             - name: KISS_DESKTOP_THEMES_URL
               value: ""
             - name: KISS_DESKTOP_TEMPLATE_GIT
-              value: https://github.com/ulagbulag-village/noa-cloud-desktop-template.git
+              value: https://github.com/ulagbulag-village/noah-cloud-desktop-template.git
             - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
               value: master
             - name: LANG

@@ -72,7 +72,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: assets
-          image: quay.io/ulagbulag-village/noa-cloud:latest
+          image: quay.io/ulagbulag-village/noah-cloud:latest
           imagePullPolicy: Always
           command:
             - kiss-assets
@@ -84,7 +84,7 @@ spec:
             - name: KISS_ASSETS_CACHE_DIR
               value: /var/lib/kiss/assets/cache
             - name: KISS_ASSETS_CONFIG_PATH
-              value: /etc/noa-cloud/kiss/assets/config.yaml
+              value: /etc/noah-cloud/kiss/assets/config.yaml
             - name: KISS_ASSETS_USE_CACHE
               value: "false"
           ports:
@@ -100,7 +100,7 @@ spec:
               memory: 2000Mi
           volumeMounts:
             - name: config
-              mountPath: /etc/noa-cloud/kiss/assets
+              mountPath: /etc/noah-cloud/kiss/assets
             - name: data
               mountPath: /var/lib/kiss/assets/cache
       volumes:

@@ -15,7 +15,7 @@ ENV DEX_FRONTEND_DIR=/srv/dex/web
 USER 0:0
 
 # Download logo file
-ADD "https://raw.githubusercontent.com/ulagbulag-village/noa-cloud/master/templates/vine/templates/assets/logo.png" "${DEX_FRONTEND_DIR}/logo"
+ADD "https://raw.githubusercontent.com/ulagbulag-village/noah-cloud/master/templates/vine/templates/assets/logo.png" "${DEX_FRONTEND_DIR}/logo"
 RUN chmod 666 "${DEX_FRONTEND_DIR}/logo" \
     && chown 1001:1001 "${DEX_FRONTEND_DIR}/logo"
 

@@ -7,7 +7,7 @@
   shell: >
     {{ bin_dir }}/ctr run --rm
     --device /dev/ipmi0
-    "quay.io/ulagbulag-village/noa-cloud-ipmitool:latest"
+    "quay.io/ulagbulag-village/noah-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     chassis bootparam set bootflag force_disk
 
@@ -16,7 +16,7 @@
   shell: >
     {{ bin_dir }}/ctr run --rm
     --device /dev/ipmi0
-    "quay.io/ulagbulag-village/noa-cloud-ipmitool:latest"
+    "quay.io/ulagbulag-village/noah-cloud-ipmitool:latest"
     "kiss-ipmitool" ipmitool
     chassis bootdev disk options=persistent,efiboot
   ignore_errors: true

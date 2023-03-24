@@ -4,11 +4,11 @@ Kubernetes makes it easy and efficient to manage resources in your clusters. Of 
 
 For automated multi-site deployment of cloud-native on-premise (edge) clusters, you can run high-performance, real-time operations called `D.N.A` (aka. Data, Network, AI). However, in order for `D.N.A` to be managed automatically, easily and efficiently, you need to do extra work on Kubernetes directly. Are you capable of professional cluster fine-tuning?
 
-[KISS](https://github.com/SmartX-Team/noa-cloud/tree/master/kiss) has appeared to solve these concerns. **Simply deploy and enjoy a self-managed edge clusters!** Also, join the [IPI Ecosystem](https://github.com/ulagbulag-village/ipis) to share and utilize the world's computing resources. The SaaS you create can be realized and accelerated anywhere, from embedded to KISS-based HPC, including mobile, depending on its resource requirements.
+[KISS](https://github.com/SmartX-Team/noah-cloud/tree/master/kiss) has appeared to solve these concerns. **Simply deploy and enjoy a self-managed edge clusters!** Also, join the [IPI Ecosystem](https://github.com/ulagbulag-village/ipis) to share and utilize the world's computing resources. The SaaS you create can be realized and accelerated anywhere, from embedded to KISS-based HPC, including mobile, depending on its resource requirements.
 
 ## Note
 
-`KISS` is a part of `NoA Cloud` , which was designed to be used for research of [GIST's `NetAI` Laboratory](https://netai.smartx.kr/), led by [**Ho Kim**](https://github.com/kerryeon) under professor [**JongWon Kim**](https://netai.smartx.kr/people/professor). That is, this repository is operated for academic purposes, and there is **No commercial support in this repository**.
+`KISS` is a part of `Noah Cloud` , which was designed to be used for research of [GIST's `NetAI` Laboratory](https://netai.smartx.kr/), led by [**Ho Kim**](https://github.com/kerryeon) under professor [**JongWon Kim**](https://netai.smartx.kr/people/professor). That is, this repository is operated for academic purposes, and there is **No commercial support in this repository**.
 
 ## References
 

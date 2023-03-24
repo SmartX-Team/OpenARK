@@ -9,7 +9,7 @@
 
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
-IPMITOOL_IMAGE_DEFAULT="quay.io/ulagbulag-village/noa-cloud-ipmitool:latest"
+IPMITOOL_IMAGE_DEFAULT="quay.io/ulagbulag-village/noah-cloud-ipmitool:latest"
 
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
@@ -27,13 +27,13 @@ for address in $(kubectl get box -o jsonpath='{.items[*].spec.power.address}'); 
     then
         # Assert PxE Boot
         "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-            -H "${address}" -U "kiss" -P "kiss.noaCloud" chassis bootparam set bootflag force_pxe >/dev/null
+            -H "${address}" -U "kiss" -P "kiss.noahCloud" chassis bootparam set bootflag force_pxe >/dev/null
         "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-            -H "${address}" -U "kiss" -P "kiss.noaCloud" chassis bootdev pxe options=persistent,efiboot >/dev/null
+            -H "${address}" -U "kiss" -P "kiss.noahCloud" chassis bootdev pxe options=persistent,efiboot >/dev/null
 
         # Reboot now anyway
         "${CONTAINER_RUNTIME}" run --rm --net "host" "${IPMITOOL_IMAGE}" \
-            -H "${address}" -U "kiss" -P "kiss.noaCloud" power cycle >/dev/null
+            -H "${address}" -U "kiss" -P "kiss.noahCloud" power cycle >/dev/null
         echo "OK"
     else
         echo "Skipped"

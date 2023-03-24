@@ -100,7 +100,7 @@ impl Handler {
 }
 
 impl Handler {
-    const UPGRADE_SERVICE_TYPE: &'static str = "noa-cloud-upgrade-kiss";
+    const UPGRADE_SERVICE_TYPE: &'static str = "noah-cloud-upgrade-kiss";
 
     async fn update_job_status(&self) -> Result<bool> {
         // load the previous jobs
@@ -194,7 +194,7 @@ impl Handler {
                         containers: vec![Container {
                             name: "kubectl".into(),
                             image: Some(
-                                "quay.io/ulagbulag-village/noa-cloud-upgrade-kiss:latest".into(),
+                                "quay.io/ulagbulag-village/noah-cloud-upgrade-kiss:latest".into(),
                             ),
                             image_pull_policy: Some("Always".into()),
                             env: Some(vec![

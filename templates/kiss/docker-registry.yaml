@@ -6,7 +6,7 @@ metadata:
   namespace: kiss
 spec:
   type: ExternalName
-  externalName: docker-registry.kube-system.svc.ops.noa-cloud
+  externalName: docker-registry.kube-system.svc.ops.noah-cloud
   ports:
     - name: http
       protocol: TCP

@@ -1,6 +1,6 @@
 # Development Environment
 
-The following describes the recommended specifications used to build a `NoA Cloud` development environment.
+The following describes the recommended specifications used to build a `Noah Cloud` development environment.
 
 ## Rust
 

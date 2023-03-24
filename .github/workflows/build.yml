@@ -16,8 +16,8 @@ env:
   REGISTRY_USER: kerryeon
   REGISTRY_REPOSITORY: ulagbulag-village
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-  RELEASE_NAME: NoA Cloud
-  IMAGE_NAME: noa-cloud
+  RELEASE_NAME: Noah Cloud
+  IMAGE_NAME: noah-cloud
 
   ALPINE_VERSION: "3.17"
   DEX_VERSION: "latest"

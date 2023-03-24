@@ -1,6 +1,6 @@
-# NoA Cloud Contrib
+# Noah Cloud Contrib
 
-This is a space for developing and verifying add-ons for NoA Cloud.
+This is a space for developing and verifying add-ons for Noah Cloud.
 
 Unlike other templates, subprojects in this directory are managed passively.
 

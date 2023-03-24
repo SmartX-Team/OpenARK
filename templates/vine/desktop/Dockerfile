@@ -42,8 +42,8 @@ RUN echo 'override_install_langs=en_US' >>/etc/yum.conf
 ADD ./repos/*.repo /etc/yum.repos.d/
 RUN dnf install -y \
     epel-release \
-    "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
-    "https://pkgs.dyn.su/el$(rpm -E %rhel)/base/x86_64/raven-release.el$(rpm -E %rhel).noarch.rpm" \
+    "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noahrch.rpm" \
+    "https://pkgs.dyn.su/el$(rpm -E %rhel)/base/x86_64/raven-release.el$(rpm -E %rhel).noahrch.rpm" \
     && dnf config-manager --set-enabled powertools \
     && dnf config-manager --set-disabled raven raven-extras raven-modular raven-multimedia raven-testing \
     && curl "https://nvidia.github.io/nvidia-docker/centos$(rpm -E %rhel)/nvidia-docker.repo" > /etc/yum.repos.d/nvidia-docker.repo \
@@ -383,7 +383,7 @@ RUN true \
 #     && find / -type d -name '*__pycache__' -prune -exec rm -rf {} \;
 
 # Install utilities - Custom
-ARG ADDONS_HOME="/opt/noa-cloud/vdi/desktop"
+ARG ADDONS_HOME="/opt/noah-cloud/vdi/desktop"
 ADD ./addons "${ADDONS_HOME}"
 RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \

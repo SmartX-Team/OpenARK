@@ -92,7 +92,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-noa-cloud-service-installer
+  name: allow-noah-cloud-service-installer
   namespace: kiss
 spec:
   podSelector:
@@ -115,12 +115,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-noa-cloud-upgrade-kiss
+  name: allow-noah-cloud-upgrade-kiss
   namespace: kiss
 spec:
   podSelector:
     matchLabels:
-      serviceType: noa-cloud-upgrade-kiss
+      serviceType: noah-cloud-upgrade-kiss
   policyTypes:
     - Egress
   egress:

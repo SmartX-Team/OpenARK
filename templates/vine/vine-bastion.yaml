@@ -45,7 +45,7 @@ spec:
       serviceAccount: vine-system
       containers:
         - name: bastion
-          image: quay.io/ulagbulag-village/noa-cloud:latest
+          image: quay.io/ulagbulag-village/noah-cloud:latest
           imagePullPolicy: Always
           command:
             - vine-bastion
@@ -94,8 +94,8 @@ metadata:
   name: bastion
   namespace: vine
   annotations:
-    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.noa-cloud
-    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.noa-cloud
+    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.noah-cloud
+    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.noah-cloud
     nginx.ingress.kubernetes.io/auth-response-headers: Authorization
     nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
     nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
@@ -109,10 +109,10 @@ metadata:
 spec:
   # tls:
   #   - hosts:
-  #       - ingress-nginx-controller.vine.svc.ops.noa-cloud
-  #     secretName: ingress-nginx-controller.vine.svc.ops.noa-cloud-certs
+  #       - ingress-nginx-controller.vine.svc.ops.noah-cloud
+  #     secretName: ingress-nginx-controller.vine.svc.ops.noah-cloud-certs
   rules:
-    - host: ingress-nginx-controller.vine.svc.ops.noa-cloud
+    - host: ingress-nginx-controller.vine.svc.ops.noah-cloud
       http:
         paths:
           - path: /bastion(/|$)(.*)
