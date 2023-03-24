@@ -1,11 +1,11 @@
 use std::env;
 
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_actor_api::{client::FunctionSession, input::InputFieldString};
-use ipis::{
-    core::anyhow::{anyhow, Result},
-    logger, tokio,
+use dash_actor_api::{
+    client::{FunctionSession, SessionContextMetadata, SessionResult},
+    input::InputFieldString,
 };
+use ipis::{core::anyhow::Result, logger, tokio};
 use kiss_api::kube::Client;
 
 #[derive(Parser)]
@@ -19,10 +19,11 @@ struct Args {
 }
 
 impl Args {
-    async fn run(self) -> Result<()> {
-        self.common.run()?;
-        self.command.run().await?;
-        Ok(())
+    async fn run(self) -> SessionResult {
+        match self.common.run() {
+            Ok(()) => self.command.run().await,
+            Err(e) => Err(e).into(),
+        }
     }
 }
 
@@ -61,8 +62,11 @@ enum Commands {
 }
 
 impl Commands {
-    async fn run(self) -> Result<()> {
-        let kube = Client::try_default().await?;
+    async fn run(self) -> SessionResult {
+        let kube = match Client::try_default().await {
+            Ok(kube) => kube,
+            Err(e) => return Err(e).into(),
+        };
 
         match self {
             Self::Create(command) => command.run(kube).await,
@@ -83,20 +87,20 @@ struct CommandCreate {
 }
 
 impl CommandCreate {
-    async fn run(self, kube: Client) -> Result<()> {
-        let mut session = FunctionSession::load(kube, &self.function).await?;
-        session
-            .update_fields_string(self.inputs)
-            .await
-            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.function))?;
-        session
-            .create_raw()
-            .await
-            .map_err(|e| anyhow!("failed to create function {:?}: {e}", &self.function))
+    async fn run(self, kube: Client) -> SessionResult {
+        let metadata = SessionContextMetadata {
+            name: self.function,
+            namespace: kube.default_namespace().to_string(),
+        };
+        FunctionSession::create_raw(kube, &metadata, self.inputs).await
     }
 }
 
 #[tokio::main]
 async fn main() {
-    Args::parse().run().await.expect("running a command")
+    let result = Args::parse().run().await;
+    match ::serde_json::to_string_pretty(&result) {
+        Ok(result) => println!("{result}"),
+        Err(_) => println!("{result:#?}"),
+    }
 }

@@ -55,6 +55,7 @@ pub enum ModelStorageKindSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageStatus {
     pub state: Option<ModelStorageState>,
+    pub kind: Option<ModelStorageKindSpec>,
     pub last_updated: DateTime<Utc>,
 }
 

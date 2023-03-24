@@ -1,7 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use dash_actor_api::storage::KubernetesStorageClient;
-use dash_api::storage::{ModelStorageCrd, ModelStorageState, ModelStorageStatus};
+use dash_api::storage::{
+    ModelStorageCrd, ModelStorageKindSpec, ModelStorageState, ModelStorageStatus,
+};
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
@@ -52,18 +54,21 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     },
                 };
                 match validator.validate_model_storage(&data.spec).await {
-                    Ok(()) => match Self::update_state(&manager.kube, &name).await {
-                        Ok(()) => {
-                            info!("model storage is ready: {name}");
-                            Ok(Action::await_change())
+                    Ok(()) => {
+                        match Self::update_state(&manager.kube, &name, data.spec.kind.clone()).await
+                        {
+                            Ok(()) => {
+                                info!("model storage is ready: {name}");
+                                Ok(Action::await_change())
+                            }
+                            Err(e) => {
+                                warn!("failed to update model storage state {name:?}: {e}");
+                                Ok(Action::requeue(
+                                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                                ))
+                            }
                         }
-                        Err(e) => {
-                            warn!("failed to update model storage state {name:?}: {e}");
-                            Ok(Action::requeue(
-                                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
-                            ))
-                        }
-                    },
+                    }
                     Err(e) => {
                         warn!("failed to validate model storage: {name:?}: {e}");
                         Ok(Action::requeue(
@@ -81,7 +86,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 }
 
 impl Ctx {
-    async fn update_state(kube: &Client, name: &str) -> Result<()> {
+    async fn update_state(kube: &Client, name: &str, kind: ModelStorageKindSpec) -> Result<()> {
         let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(kube.clone());
         let crd = <Self as ::kiss_api::manager::Ctx>::Data::api_resource();
 
@@ -90,6 +95,7 @@ impl Ctx {
             "kind": crd.kind,
             "status": ModelStorageStatus {
                 state: Some(ModelStorageState::Ready),
+                kind: Some(kind),
                 last_updated: Utc::now(),
             },
         }));

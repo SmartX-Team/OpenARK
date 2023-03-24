@@ -31,8 +31,12 @@ impl<'a> ModelStorageValidator<'a> {
         Ok(())
     }
 
-    pub(crate) async fn bind_model(&self, storage: ModelStorageCrd, model: ModelCrd) -> Result<()> {
-        match storage.spec.kind {
+    pub(crate) async fn bind_model(
+        &self,
+        storage: &ModelStorageCrd,
+        model: &ModelCrd,
+    ) -> Result<()> {
+        match &storage.spec.kind {
             ModelStorageKindSpec::Database(storage) => {
                 self.bind_model_to_database(storage, model).await
             }
@@ -44,17 +48,17 @@ impl<'a> ModelStorageValidator<'a> {
 
     async fn bind_model_to_database(
         &self,
-        storage: ModelStorageDatabaseSpec,
-        model: ModelCrd,
+        storage: &ModelStorageDatabaseSpec,
+        model: &ModelCrd,
     ) -> Result<()> {
-        let database_storage = DatabaseStorageClient::try_new(&storage, &model).await?;
+        let database_storage = DatabaseStorageClient::try_new(storage, model).await?;
         database_storage.create_table().await
     }
 
     fn bind_model_to_kubernetes(
         &self,
-        storage: ModelStorageKubernetesSpec,
-        model: ModelCrd,
+        storage: &ModelStorageKubernetesSpec,
+        model: &ModelCrd,
     ) -> Result<()> {
         let ModelStorageKubernetesSpec {} = storage;
         match model.spec {

@@ -20,8 +20,8 @@ clippy: fmt
 test: clippy
   cargo test --all --workspace
 
-run:
-  cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release
+run *ARGS:
+  cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release -- {{ ARGS }}
 
 oci-build:
   podman build \

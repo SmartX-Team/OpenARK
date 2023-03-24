@@ -10,7 +10,7 @@ use kiss_api::{
     },
     serde_yaml,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
 use crate::storage::KubernetesStorageClient;
@@ -85,7 +85,10 @@ impl FunctionActorJobClient {
         self.execute_raw_any_with(name, input).await
     }
 
-    pub async fn create_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<()>
+    pub async fn create_raw<Spec>(
+        &self,
+        input: &SessionContext<Spec>,
+    ) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -96,14 +99,17 @@ impl FunctionActorJobClient {
         &self,
         name: &str,
         input: &SessionContext<Spec>,
-    ) -> Result<()>
+    ) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
     {
         self.execute_raw_with(name, input, try_create).await
     }
 
-    pub async fn delete_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<()>
+    pub async fn delete_raw<Spec>(
+        &self,
+        input: &SessionContext<Spec>,
+    ) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -114,7 +120,7 @@ impl FunctionActorJobClient {
         &self,
         name: &str,
         input: &SessionContext<Spec>,
-    ) -> Result<()>
+    ) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -126,20 +132,25 @@ impl FunctionActorJobClient {
         name: &str,
         input: &SessionContext<Spec>,
         f: F,
-    ) -> Result<()>
+    ) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
         F: Fn(Template, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        for template in self.load_template(name, input).await? {
+        let templates = self.load_template(name, input).await?;
+        let result = FunctionChannelKindJob {
+            templates: templates.iter().map(Into::into).collect(),
+        };
+
+        for template in templates {
             // Update documents
             match template.api.get_opt(&template.name).await? {
                 Some(_) => f(template, true).await?,
                 None => f(template, false).await?,
             }
         }
-        Ok(())
+        Ok(result)
     }
 
     async fn execute_raw_any_with<Spec>(
@@ -211,10 +222,29 @@ impl FunctionActorJobClient {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionChannelKindJob {
+    pub templates: Vec<TemplateRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TemplateRef {
+    pub name: String,
+}
+
 struct Template {
     api: Api<DynamicObject>,
     name: String,
     template: DynamicObject,
+}
+
+impl From<&Template> for TemplateRef {
+    fn from(value: &Template) -> Self {
+        Self {
+            name: value.name.clone(),
+        }
+    }
 }
 
 async fn try_create(template: Template, exists: bool) -> Result<()> {
@@ -227,7 +257,7 @@ async fn try_create(template: Template, exists: bool) -> Result<()> {
 
         template
             .api
-            .patch(&template.name, &pp, &Patch::Apply(template.template))
+            .patch(&template.name, &pp, &Patch::Apply(&template.template))
             .await
             .map(|_| ())
             .map_err(Into::into)

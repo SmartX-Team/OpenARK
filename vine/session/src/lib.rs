@@ -124,30 +124,35 @@ impl SessionManager {
         self.client
             .create_raw_named(Self::TEMPLATE_NAMESPACE_FILENAME, ctx)
             .await
+            .map(|_| ())
     }
 
     async fn create_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .create_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
+            .map(|_| ())
     }
 
     async fn delete_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .delete_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
+            .map(|_| ())
     }
 
     async fn create_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .create_raw_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
             .await
+            .map(|_| ())
     }
 
     async fn delete_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .delete_raw_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
             .await
+            .map(|_| ())
     }
 
     fn get_user_name<'a>(&self, node: &'a Node) -> Result<Option<&'a str>> {
@@ -231,6 +236,7 @@ impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
     fn from(spec: &'a SessionContextSpec<'a>) -> Self {
         SessionContext {
             metadata: SessionContextMetadata {
+                name: "".to_string(), // not used
                 namespace: format!("vine-session-{}", &spec.user_name),
             },
             spec,

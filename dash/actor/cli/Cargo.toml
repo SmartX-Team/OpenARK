@@ -24,3 +24,4 @@ kiss-api = { path = "../../../kiss/api" }
 
 clap = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }

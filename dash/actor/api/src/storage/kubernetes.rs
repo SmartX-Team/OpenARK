@@ -1,7 +1,8 @@
 use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
-    storage::{ModelStorageCrd, ModelStorageState},
+    model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
+    storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
 };
 use ipis::{
     core::anyhow::{bail, Result},
@@ -14,7 +15,11 @@ use kiss_api::{
             CustomResourceDefinition, CustomResourceDefinitionVersion,
         },
     },
-    kube::{core::DynamicObject, discovery, Api, Client},
+    kube::{
+        api::ListParams,
+        core::{object::HasStatus, DynamicObject},
+        discovery, Api, Client,
+    },
     serde_json::Value,
 };
 
@@ -46,10 +51,10 @@ impl<'a> KubernetesStorageClient<'a> {
     pub async fn load_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
-        namespace: Option<&str>,
+        namespace: &str,
         resource_name: &str,
-    ) -> Result<Value> {
-        let (api_group, def) = self.load_custom_resource_definition(spec).await?;
+    ) -> Result<Option<Value>> {
+        let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
 
         // Discover most stable version variant of document
         let apigroup = discovery::group(self.kube, &api_group).await?;
@@ -62,24 +67,25 @@ impl<'a> KubernetesStorageClient<'a> {
         };
 
         // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
-        let api: Api<DynamicObject> = match namespace {
-            Some(namespace) => Api::namespaced_with(self.kube.clone(), namespace, &ar),
-            None => Api::all_with(self.kube.clone(), &ar),
+        let api: Api<DynamicObject> = match scope.as_str() {
+            "Namespaced" => Api::namespaced_with(self.kube.clone(), namespace, &ar),
+            "Cluster" => Api::all_with(self.kube.clone(), &ar),
+            scope => bail!("cannot infer CRD scope {scope:?}: {resource_name:?}"),
         };
-        Ok(api.get(resource_name).await?.data)
+        Ok(api.get_opt(resource_name).await?.map(|object| object.data))
     }
 
     pub async fn load_custom_resource_definition(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
-    ) -> Result<(String, CustomResourceDefinitionVersion)> {
+    ) -> Result<(String, String, CustomResourceDefinitionVersion)> {
         let (api_group, version) = crate::imp::parse_api_version(&spec.name)?;
 
         let api = Api::<CustomResourceDefinition>::all(self.kube.clone());
         let crd = api.get(api_group).await?;
 
         match crd.spec.versions.iter().find(|def| def.name == version) {
-            Some(def) => Ok((crd.spec.group, def.clone())),
+            Some(def) => Ok((crd.spec.group, crd.spec.scope, def.clone())),
             None => bail!(
                 "CRD version is invalid; expected one of {:?}, but given {version}",
                 crd.spec.versions.iter().map(|def| &def.name).join(","),
@@ -108,6 +114,29 @@ impl<'a> KubernetesStorageClient<'a> {
             Some(status) if status.state == Some(ModelStorageState::Ready) => Ok(storage),
             Some(_) | None => bail!("model storage is not ready: {name:?}"),
         }
+    }
+
+    pub async fn load_model_storage_bindings(
+        &self,
+        model_name: &str,
+    ) -> Result<Vec<ModelStorageSpec>> {
+        let api = Api::<ModelStorageBindingCrd>::all(self.kube.clone());
+        let lp = ListParams::default();
+        let bindings = api.list(&lp).await?;
+
+        Ok(bindings
+            .items
+            .into_iter()
+            .filter(|binding| {
+                binding
+                    .status()
+                    .and_then(|status| status.state)
+                    .map(|state| matches!(state, ModelStorageBindingState::Ready))
+                    .unwrap_or_default()
+            })
+            .filter(|binding| binding.spec.model == model_name)
+            .filter_map(|binding| binding.status.unwrap().storage)
+            .collect())
     }
 
     pub async fn load_function(&self, name: &str) -> Result<FunctionCrd> {

@@ -7,9 +7,8 @@ use std::{
 };
 
 use dash_api::model::{
-    ModelFieldDateTimeDefaultType, ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec,
-    ModelFieldKindSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
-    ModelFieldsSpec, ModelSpec,
+    ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec, ModelFieldSpec,
+    ModelFieldsNativeSpec, ModelFieldsSpec,
 };
 use inflector::Inflector;
 use ipis::core::{
@@ -21,7 +20,7 @@ use kiss_api::serde_json::{Map, Value};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::KubernetesStorageClient;
+use crate::storage::StorageClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,7 +53,7 @@ impl InputTemplate {
 
     pub async fn update_fields_string(
         &mut self,
-        storage: &KubernetesStorageClient<'_>,
+        storage: &StorageClient<'_, '_>,
         inputs: Vec<InputFieldString>,
     ) -> Result<()> {
         for input in inputs {
@@ -65,40 +64,9 @@ impl InputTemplate {
 
     pub async fn update_field_string(
         &mut self,
-        storage: &KubernetesStorageClient<'_>,
+        storage: &StorageClient<'_, '_>,
         input: InputFieldString,
     ) -> Result<()> {
-        let (base_field, _) = self.get_field(&input.name)?;
-
-        match base_field.original.as_ref().map(|original| &original.kind) {
-            None | Some(ModelFieldKindSpec::Native(_)) => self.update_field_string_native(input),
-            Some(ModelFieldKindSpec::Extended(kind)) => match kind {
-                // BEGIN reference types
-                ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    let model = storage.load_model(model_name).await?;
-                    match &model.spec {
-                        ModelSpec::Fields(_) => self.update_field_string_native(input),
-                        ModelSpec::CustomResourceDefinitionRef(spec) => {
-                            let namespace = None; // TODO: to be implemented
-                            let resource_name = &input.value;
-
-                            let value = storage
-                                .load_custom_resource(spec, namespace, resource_name)
-                                .await?;
-
-                            let input = InputFieldValue {
-                                name: input.name,
-                                value,
-                            };
-                            self.update_field_value_native(input)
-                        }
-                    }
-                }
-            },
-        }
-    }
-
-    fn update_field_string_native(&mut self, input: InputFieldString) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = self.get_field(&name)?;
@@ -195,8 +163,14 @@ impl InputTemplate {
                 Ok(())
             }
             // BEGIN aggregation types
-            ModelFieldKindNativeSpec::Object { .. }
-            | ModelFieldKindNativeSpec::ObjectArray { .. } => {
+            ModelFieldKindNativeSpec::Object { .. } => {
+                let input = InputFieldValue {
+                    name,
+                    value: storage.get(base_field.original.as_ref(), &value).await?,
+                };
+                self.update_field_value_native(input)
+            }
+            ModelFieldKindNativeSpec::ObjectArray { .. } => {
                 let type_ = base_field.parsed.kind.to_type();
                 let value = &value;
                 bail!("cannot set {type_} type to {value:?}: {name:?}")
@@ -204,7 +178,7 @@ impl InputTemplate {
         }
     }
 
-    pub fn update_field_value_native(&mut self, input: InputFieldValue) -> Result<()> {
+    fn update_field_value_native(&mut self, input: InputFieldValue) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = self.get_field(&name)?;

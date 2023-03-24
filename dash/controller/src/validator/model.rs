@@ -71,7 +71,7 @@ impl<'a> ModelValidator<'a> {
         &self,
         spec: ModelCustomResourceDefinitionRefSpec,
     ) -> Result<ModelFieldsNativeSpec> {
-        let (_, def) = self
+        let (_, _, def) = self
             .kubernetes_storage
             .load_custom_resource_definition(&spec)
             .await?;

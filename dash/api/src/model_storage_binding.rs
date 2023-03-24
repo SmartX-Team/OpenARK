@@ -4,6 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
+use crate::{model::ModelSpec, storage::ModelStorageSpec};
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
@@ -41,6 +43,8 @@ pub struct ModelStorageBindingSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingStatus {
     pub state: Option<ModelStorageBindingState>,
+    pub model: Option<ModelSpec>,
+    pub storage: Option<ModelStorageSpec>,
     pub last_updated: DateTime<Utc>,
 }
 
