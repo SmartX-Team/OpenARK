@@ -1,10 +1,10 @@
 [workspace]
-default-members = ["dash/actor/api"]
+default-members = ["dash/cli"]
 members = [
     # "ipwis-binding",
-    "dash/actor/api",
-    "dash/actor/cli",
+    "dash/actor",
     "dash/api",
+    "dash/cli",
     "dash/controller",
     "dash/gateway",
     "dash/router",
