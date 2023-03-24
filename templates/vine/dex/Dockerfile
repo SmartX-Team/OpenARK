@@ -16,6 +16,8 @@ USER 0:0
 
 # Download logo file
 ADD "https://raw.githubusercontent.com/ulagbulag-village/netai-cloud/master/templates/vine/templates/assets/logo.png" "${DEX_FRONTEND_DIR}/logo"
+RUN chmod 666 "${DEX_FRONTEND_DIR}/logo" \
+    && chown 1001:1001 "${DEX_FRONTEND_DIR}/logo"
 
 # Apply on all image files
 RUN for filename in ${DEX_FRONTEND_DIR}/themes/**/*.png; do true \
