@@ -33,7 +33,7 @@ pub struct Ctx {}
 impl ::kiss_api::manager::Ctx for Ctx {
     type Data = ModelStorageBindingCrd;
 
-    const NAME: &'static str = "dash-controller";
+    const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
 

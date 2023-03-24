@@ -4,6 +4,10 @@ mod validator;
 use ipis::tokio::{self, join};
 use kiss_api::manager::Ctx;
 
+pub(crate) mod consts {
+    pub const NAME: &str = "dash-controller";
+}
+
 #[tokio::main]
 async fn main() {
     join!(

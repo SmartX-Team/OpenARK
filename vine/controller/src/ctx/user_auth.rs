@@ -15,7 +15,7 @@ pub struct Ctx {}
 impl ::kiss_api::manager::Ctx for Ctx {
     type Data = UserAuthCrd;
 
-    const NAME: &'static str = "vine-controller";
+    const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::vine_api::consts::NAMESPACE;
 
     fn get_subcrds() -> Vec<CustomResourceDefinition> {

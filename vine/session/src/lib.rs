@@ -22,6 +22,10 @@ use vine_api::{
     user_role::UserRoleSpec,
 };
 
+pub(crate) mod consts {
+    pub const NAME: &str = "vine-session";
+}
+
 pub struct SessionManager {
     client: FunctionActorJobClient,
 }
@@ -48,8 +52,6 @@ impl SessionManager {
 }
 
 impl SessionManager {
-    pub const NAME: &'static str = "vine-session";
-
     const LABEL_BIND_BY_USER: &'static str = "vine.ulagbulag.io/bind.user";
     const LABEL_BIND_STATUS: &'static str = "vine.ulagbulag.io/bind";
     const LABEL_BIND_TIMESTAMP: &'static str = "vine.ulagbulag.io/bind.timestamp";
@@ -198,7 +200,7 @@ impl SessionManager {
         let api = Api::<Node>::all(self.client.kube.clone());
         let name = node.name_any();
         let pp = PatchParams {
-            field_manager: Some(SessionManager::NAME.into()),
+            field_manager: Some(self::consts::NAME.into()),
             force: true,
             ..Default::default()
         };

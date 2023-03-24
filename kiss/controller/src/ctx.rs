@@ -24,7 +24,7 @@ pub struct Ctx {}
 impl ::kiss_api::manager::Ctx for Ctx {
     type Data = BoxCrd;
 
-    const NAME: &'static str = "kiss-controller";
+    const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::kiss_api::consts::NAMESPACE;
 
     async fn reconcile(
