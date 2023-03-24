@@ -6,6 +6,7 @@ use std::{
     str::{FromStr, Split},
 };
 
+use actix_web::dev::ResourcePath;
 use dash_api::{
     model::{
         ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
@@ -649,6 +650,55 @@ impl<'a> Iterator for CursorIterator<'a> {
                 }
             }
         })
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(transparent)]
+pub struct Name(pub String);
+
+impl FromStr for Name {
+    type Err = Error;
+
+    fn from_str(name: &str) -> std::result::Result<Self, Self::Err> {
+        let re = Regex::new(crate::name::RE_CHILD)?;
+        if re.is_match(name) {
+            Ok(Self(name.to_string()))
+        } else {
+            bail!("name is invalid: {name} {name:?}")
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer)
+            .and_then(|name| name.parse().map_err(::serde::de::Error::custom))
+    }
+}
+
+// impl FromRequest for ModelName {
+//     type Error = ::actix_web::Error;
+//     type Future = LocalBoxFuture<'static, Result<Self, Self::Error>>;
+
+//     fn from_request(
+//         req: &actix_web::HttpRequest,
+//         payload: &mut actix_web::dev::Payload,
+//     ) -> Self::Future {
+//         let req = req.clone();
+//         Box::pin(async move {
+//             let name = String::from_request(&req, payload).await?;
+//             todo!()
+//         })
+//     }
+// }
+
+impl ResourcePath for Name {
+    fn path(&self) -> &str {
+        &self.0
     }
 }
 

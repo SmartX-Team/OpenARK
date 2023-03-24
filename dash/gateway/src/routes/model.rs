@@ -1,11 +1,15 @@
-use actix_web::{get, web::Data, HttpResponse, Responder};
-use dash_actor::{client::SessionResult, storage::KubernetesStorageClient};
+use actix_web::{
+    get,
+    web::{Data, Path},
+    HttpResponse, Responder,
+};
+use dash_actor::{client::SessionResult, input::Name, storage::KubernetesStorageClient};
 use dash_api::kube::Client;
 
-#[get("/model/{name}")]
-pub async fn get(kube: Data<Client>, name: String) -> impl Responder {
+#[get("/model/{name}/")]
+pub async fn get(kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let client = KubernetesStorageClient { kube: &kube };
-    let result = client.load_model(&name).await;
+    let result = client.load_model(&name.0).await;
     HttpResponse::from(SessionResult::from(result))
 }
 

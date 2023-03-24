@@ -9,7 +9,7 @@ use dash_api::{
     kube::{
         api::ListParams,
         core::{object::HasStatus, DynamicObject},
-        discovery, Api, Client,
+        discovery, Api, Client, ResourceExt,
     },
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
@@ -104,21 +104,22 @@ impl<'a> KubernetesStorageClient<'a> {
         }
     }
 
-    pub async fn load_model_all(&self) -> Result<Vec<ModelCrd>> {
+    pub async fn load_model_all(&self) -> Result<Vec<String>> {
         let api = Api::<ModelCrd>::all(self.kube.clone());
         let lp = ListParams::default();
         let models = api.list(&lp).await?;
 
         Ok(models
             .into_iter()
-            .filter(|function| {
-                function
+            .filter(|model| {
+                model
                     .status()
                     .map(|status| {
                         matches!(status.state, Some(ModelState::Ready)) && status.fields.is_some()
                     })
                     .unwrap_or_default()
             })
+            .map(|model| model.name_any())
             .collect())
     }
 
@@ -168,7 +169,7 @@ impl<'a> KubernetesStorageClient<'a> {
         }
     }
 
-    pub async fn load_function_all(&self) -> Result<Vec<FunctionCrd>> {
+    pub async fn load_function_all(&self) -> Result<Vec<String>> {
         let api = Api::<FunctionCrd>::all(self.kube.clone());
         let lp = ListParams::default();
         let functions = api.list(&lp).await?;
@@ -183,6 +184,7 @@ impl<'a> KubernetesStorageClient<'a> {
                     })
                     .unwrap_or_default()
             })
+            .map(|function| function.name_any())
             .collect())
     }
 }

@@ -32,6 +32,7 @@ async fn main() {
                 .service(health)
                 .service(crate::routes::function::get)
                 .service(crate::routes::function::get_list)
+                .service(crate::routes::function::post)
                 .service(crate::routes::model::get)
                 .service(crate::routes::model::get_list)
         })
