@@ -29,6 +29,8 @@ pub struct KubernetesStorageClient<'a> {
 }
 
 impl<'a> KubernetesStorageClient<'a> {
+    const ANNOTATION_SUBJECT: &'static str = "dash.ulagbulag.io/subject";
+
     pub async fn load_config_map<'f>(
         &self,
         spec: &'f FunctionActorSourceConfigMapRefSpec,
@@ -224,6 +226,31 @@ impl<'a> KubernetesStorageClient<'a> {
                     .unwrap_or_default()
             })
             .map(|function| function.name_any())
+            .collect())
+    }
+
+    pub async fn load_function_all_by_model(&self, model_name: &str) -> Result<Vec<FunctionCrd>> {
+        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let lp = ListParams::default();
+        let functions = api.list(&lp).await?;
+
+        Ok(functions
+            .into_iter()
+            .filter(|function| {
+                function
+                    .status()
+                    .map(|status| {
+                        matches!(status.state, Some(FunctionState::Ready)) && status.spec.is_some()
+                    })
+                    .unwrap_or_default()
+            })
+            .filter(|function| {
+                function
+                    .annotations()
+                    .get(Self::ANNOTATION_SUBJECT)
+                    .map(|name| name == model_name)
+                    .unwrap_or_default()
+            })
             .collect())
     }
 }

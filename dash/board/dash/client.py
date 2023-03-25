@@ -50,6 +50,12 @@ class DashClient:
             path=f'/model/{model_name}/item/',
         )
 
+    def list_function_items(self, *, model_name: str) -> list[object]:
+        return self._call_raw(
+            method='GET',
+            path=f'/model/{model_name}/function/',
+        )
+
     def create_function(self, *, name: str, data: object):
         self._call_raw(
             method='POST',

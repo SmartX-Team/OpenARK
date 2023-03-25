@@ -17,6 +17,13 @@ pub async fn get(kube: Data<Client>, name: Path<Name>) -> impl Responder {
     HttpResponse::from(SessionResult::from(result))
 }
 
+#[get("/model/{name}/function/")]
+pub async fn get_function_list(kube: Data<Client>, name: Path<Name>) -> impl Responder {
+    let client = KubernetesStorageClient { kube: &kube };
+    let result = client.load_function_all_by_model(&name.0).await;
+    HttpResponse::from(SessionResult::from(result))
+}
+
 #[get("/model/")]
 pub async fn get_list(kube: Data<Client>) -> impl Responder {
     let client = KubernetesStorageClient { kube: &kube };
