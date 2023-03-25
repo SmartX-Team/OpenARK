@@ -1,0 +1,5 @@
+inflect
+jinja2
+numpy
+streamlit
+pandas

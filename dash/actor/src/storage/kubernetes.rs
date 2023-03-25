@@ -11,7 +11,7 @@ use dash_api::{
         core::{object::HasStatus, DynamicObject},
         discovery, Api, Client, ResourceExt,
     },
-    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelState},
+    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
     serde_json::{self, Value},
     storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
@@ -20,6 +20,8 @@ use ipis::{
     core::anyhow::{bail, Result},
     itertools::Itertools,
 };
+
+use crate::input::{InputFieldValue, ItemTemplate};
 
 #[derive(Copy, Clone)]
 pub struct KubernetesStorageClient<'a> {
@@ -49,6 +51,7 @@ impl<'a> KubernetesStorageClient<'a> {
     pub async fn load_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
+        parsed: &ModelFieldsNativeSpec,
         namespace: &str,
         resource_name: &str,
     ) -> Result<Option<Value>> {
@@ -70,12 +73,16 @@ impl<'a> KubernetesStorageClient<'a> {
             "Cluster" => Api::all_with(self.kube.clone(), &ar),
             scope => bail!("cannot infer CRD scope {scope:?}: {resource_name:?}"),
         };
-        Ok(api.get_opt(resource_name).await?.map(|object| object.data))
+        api.get_opt(resource_name)
+            .await?
+            .map(|item| convert_model_item(item, parsed))
+            .transpose()
     }
 
     pub async fn load_custom_resource_all(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
+        parsed: &ModelFieldsNativeSpec,
         namespace: &str,
     ) -> Result<Vec<Value>> {
         let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
@@ -100,7 +107,7 @@ impl<'a> KubernetesStorageClient<'a> {
         api.list(&lp).await.map_err(Into::into).and_then(|list| {
             list.items
                 .into_iter()
-                .map(|item| serde_json::to_value(item).map_err(Into::into))
+                .map(|item| convert_model_item(item, parsed))
                 .collect()
         })
     }
@@ -219,4 +226,13 @@ impl<'a> KubernetesStorageClient<'a> {
             .map(|function| function.name_any())
             .collect())
     }
+}
+
+fn convert_model_item(item: DynamicObject, parsed: &ModelFieldsNativeSpec) -> Result<Value> {
+    let mut template = ItemTemplate::new_empty(parsed);
+    template.update_field_value(InputFieldValue {
+        name: "/".to_string(),
+        value: serde_json::to_value(item)?,
+    })?;
+    template.finalize()
 }

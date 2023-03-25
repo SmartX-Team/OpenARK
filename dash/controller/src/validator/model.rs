@@ -101,7 +101,9 @@ impl ModelFieldsParser {
             .as_ref()
             .and_then(|schema| schema.open_api_v3_schema.as_ref())
         {
-            Some(prop) => self.parse_json_property(None, "", prop).map(|_| ()),
+            Some(prop) => self
+                .parse_json_property(None, "", prop)
+                .and_then(|_| self.insert_custom_resource_metadata_fields()),
             None => Ok(()),
         }
     }
@@ -222,6 +224,35 @@ impl ModelFieldsParser {
         }
     }
 
+    fn insert_custom_resource_metadata_fields(&mut self) -> Result<()> {
+        self.delete_field("/");
+        self.delete_field("/metadata/");
+
+        let name = "/metadata/";
+        let spec = ModelFieldNativeSpec {
+            name: name.to_string(),
+            kind: ModelFieldKindNativeSpec::Object {
+                children: vec!["/metadata/name/".into()],
+                dynamic: false,
+            },
+            attribute: ModelFieldAttributeSpec { optional: false },
+        };
+        self.insert_field(name.to_string(), name, spec)?;
+
+        let name = "/metadata/name/";
+        let spec = ModelFieldNativeSpec {
+            name: name.to_string(),
+            kind: ModelFieldKindNativeSpec::String {
+                default: None,
+                kind: ModelFieldKindStringSpec::Dynamic {},
+            },
+            attribute: ModelFieldAttributeSpec { optional: false },
+        };
+        self.insert_field(name.to_string(), name, spec)?;
+
+        Ok(())
+    }
+
     fn insert_field(
         &mut self,
         name: String,
@@ -232,6 +263,10 @@ impl ModelFieldsParser {
             None => Ok(()),
             Some(_) => bail!("conflicted field name: {name} ({name_raw})"),
         }
+    }
+
+    fn delete_field(&mut self, name: &str) {
+        self.map.remove(name);
     }
 
     fn parse_json_property_aggregation(

@@ -1,6 +1,8 @@
 mod db;
 mod kubernetes;
 
+use dash_api::kube::core::object::HasStatus;
+use dash_api::model::ModelFieldsNativeSpec;
 use dash_api::storage::ModelStorageSpec;
 use dash_api::{
     kube::Client,
@@ -38,10 +40,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     pub async fn get_by_model(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
         for storage in self.get_model_storage_bindings(model_name).await? {
-            if let Some(value) = self
-                .get_by_storage_with(&storage, &model.spec, ref_name)
-                .await?
-            {
+            if let Some(value) = self.get_by_storage_with(&storage, &model, ref_name).await? {
                 return Ok(value);
             }
         }
@@ -51,26 +50,29 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_by_storage_with(
         &self,
         _storage: &ModelStorageSpec,
-        model: &ModelSpec,
+        model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
-        match model {
+        match &model.spec {
             // TODO: to be implemented (i.g. Access to Database)
             ModelSpec::Fields(_spec) => todo!(),
             ModelSpec::CustomResourceDefinitionRef(spec) => {
-                self.get_custom_resource(spec, ref_name).await
+                self.get_custom_resource(model, spec, ref_name).await
             }
         }
     }
 
     async fn get_custom_resource(
         &self,
+        model: &ModelCrd,
         spec: &ModelCustomResourceDefinitionRefSpec,
         ref_name: &str,
     ) -> Result<Option<Value>> {
+        let parsed = get_model_fields_parsed(model);
+
         let storage = KubernetesStorageClient { kube: self.kube };
         storage
-            .load_custom_resource(spec, self.namespace, ref_name)
+            .load_custom_resource(spec, parsed, self.namespace, ref_name)
             .await
     }
 
@@ -109,7 +111,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
         for storage in self.get_model_storage_bindings(model_name).await? {
-            items.append(&mut self.list_by_storage_with(&storage, &model.spec).await?);
+            items.append(&mut self.list_by_storage_with(&storage, &model).await?);
         }
         Ok(items)
     }
@@ -117,20 +119,31 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn list_by_storage_with(
         &self,
         _storage: &ModelStorageSpec,
-        model: &ModelSpec,
+        model: &ModelCrd,
     ) -> Result<Vec<Value>> {
-        match model {
+        match &model.spec {
             // TODO: to be implemented (i.g. Access to Database)
             ModelSpec::Fields(_spec) => todo!(),
-            ModelSpec::CustomResourceDefinitionRef(spec) => self.list_custom_resource(spec).await,
+            ModelSpec::CustomResourceDefinitionRef(spec) => {
+                self.list_custom_resource(model, spec).await
+            }
         }
     }
 
     async fn list_custom_resource(
         &self,
+        model: &ModelCrd,
         spec: &ModelCustomResourceDefinitionRefSpec,
     ) -> Result<Vec<Value>> {
+        let parsed = get_model_fields_parsed(model);
+
         let storage = KubernetesStorageClient { kube: self.kube };
-        storage.load_custom_resource_all(spec, self.namespace).await
+        storage
+            .load_custom_resource_all(spec, parsed, self.namespace)
+            .await
     }
+}
+
+fn get_model_fields_parsed(model: &ModelCrd) -> &ModelFieldsNativeSpec {
+    model.status().unwrap().fields.as_ref().unwrap()
 }
