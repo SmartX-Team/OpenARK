@@ -587,7 +587,10 @@ impl<'a> ItemTemplate<'a> {
     pub fn update_field_value(&mut self, input: InputFieldValue) -> Result<()> {
         let InputField { name, value } = input;
 
-        let (base_field, field) = self.get_field(&name)?;
+        let (base_field, field) = match self.try_get_field(&name)? {
+            Some((base_field, field)) => (base_field, field),
+            None => return Ok(()),
+        };
 
         match &base_field.kind {
             // BEGIN primitive types
@@ -737,6 +740,11 @@ impl<'a> ItemTemplate<'a> {
     }
 
     fn get_field(&mut self, name: &str) -> Result<(&ModelFieldNativeSpec, &mut Value)> {
+        self.try_get_field(name)
+            .and_then(|result| result.ok_or_else(|| anyhow!("no such field: {name:?}")))
+    }
+
+    fn try_get_field(&mut self, name: &str) -> Result<Option<(&ModelFieldNativeSpec, &mut Value)>> {
         let mut base_field = match self.basemap.get("/") {
             Some(field) => field,
             None => bail!("no root field"),
@@ -774,7 +782,7 @@ impl<'a> ItemTemplate<'a> {
                     } else {
                         base_field = match self.basemap.get(basename.as_str()) {
                             Some(field) => field,
-                            None => bail!("no such Object field: {name:?}"),
+                            None => return Ok(None),
                         };
 
                         match field {
@@ -799,7 +807,7 @@ impl<'a> ItemTemplate<'a> {
                 }
             }
         }
-        Ok((base_field, field))
+        Ok(Some((base_field, field)))
     }
 
     fn fill_default_value(&mut self, name: &str, optional: bool, is_atom: bool) -> Result<()> {
