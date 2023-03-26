@@ -111,6 +111,7 @@ impl AnsibleClient {
             ..Default::default()
         };
         let spec = JobSpec {
+            ttl_seconds_after_finished: Some(0),
             template: PodTemplateSpec {
                 metadata: Some(ObjectMeta {
                     labels: metadata.labels.clone(),
