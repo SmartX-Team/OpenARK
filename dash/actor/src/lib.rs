@@ -1,5 +1,6 @@
 pub mod client;
 pub mod input;
+pub mod package;
 pub mod storage;
 
 pub mod imp {

@@ -6,6 +6,7 @@ pub extern crate serde_yaml;
 pub mod function;
 pub mod model;
 pub mod model_storage_binding;
+pub mod package;
 pub mod pipe;
 pub mod storage;
 
