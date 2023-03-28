@@ -68,12 +68,12 @@ RUN apk add --no-cache \
     xdg-dbus-proxy \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
     xfce4-session xfce4-settings xfce4-terminal \
-    xfconf xfdesktop xfwm4
+    xfconf xfdesktop xfwm4 \
+    xinit xorg-server
 
 # Install desktop environment dependencies - plank
 ARG PLANK_REPO="https://github.com/ricotz/plank.git"
 RUN ALPINE_TESTING_REPO='https://dl-cdn.alpinelinux.org/alpine/edge/testing' \
-    && echo "@testing ${ALPINE_TESTING_REPO}" >> /etc/apk/repositories \
     && BUILD_DEPENDENCIES='.build-dependencies' \
     && BUILD_DEPENDENCIES_TESTING='.build-dependencies-testing' \
     && apk add --no-cache \
@@ -82,13 +82,14 @@ RUN ALPINE_TESTING_REPO='https://dl-cdn.alpinelinux.org/alpine/edge/testing' \
     glib \
     gnome-menus \
     gtk+3.0 \
-    libbamf@testing \
     libgee \
     libwnck3 \
     libx11 \
     libxfixes \
     libxi \
     pango \
+    && apk add --no-cache --repository "${ALPINE_TESTING_REPO}" \
+    libbamf \
     # install build dependencies
     && apk add --no-cache --virtual "${BUILD_DEPENDENCIES}" \
     autoconf \
@@ -118,8 +119,7 @@ RUN ALPINE_TESTING_REPO='https://dl-cdn.alpinelinux.org/alpine/edge/testing' \
     # Cleanup
     && cd - && rm -rf plank \
     && apk del "${BUILD_DEPENDENCIES}" \
-    && apk del "${BUILD_DEPENDENCIES_TESTING}" \
-    && sed -i 's/^\(@testing\)/#\1/g' /etc/apk/repositories
+    && apk del "${BUILD_DEPENDENCIES_TESTING}"
 
 # Install locale dependencies
 RUN apk add --no-cache \
@@ -145,9 +145,12 @@ ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*
 
 # Add a user
-RUN ldconfig \
-    && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
-    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pipewire,render,video" \
-    -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}"
+RUN adduser -u "${USER_UID}" -g "${USER_GID}" -s "/bin/${USER_SHELL}" \
+    --disabled-password --gecos '' "${USER_NAME}" "${USER_NAME}" \
+    && addgroup "${USER_NAME}" 'audio' \
+    && addgroup "${USER_NAME}" 'cdrom' \
+    && addgroup "${USER_NAME}" 'input' \
+    && addgroup "${USER_NAME}" 'pipewire' \
+    && addgroup "${USER_NAME}" 'video'
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
