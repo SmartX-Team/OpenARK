@@ -28,17 +28,7 @@ def draw_page(*, model_name: str):
     )
 
     # Get boxes summary
-    summary = converter.to_dataframe(
-        items=items,
-        map=[
-            ('name', '/metadata/name/'),
-            ('address', '/status/access/primary/address/'),
-            ('power', '/spec/power/address/'),
-            ('cluster', '/spec/group/cluster_name/'),
-            ('role', '/spec/group/role/'),
-            ('state', '/status/state/'),
-        ],
-    )
+    summary = converter.to_dataframe(items)
 
     # Apply filter
     summary = filter.dataframe(summary)

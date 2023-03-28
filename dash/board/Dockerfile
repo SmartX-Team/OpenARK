@@ -44,6 +44,7 @@ RUN apk add --no-cache \
     # py3-pympler \
     py3-requests \
     py3-rich \
+    py3-scikit-learn \
     py3-semver \
     py3-setuptools \
     py3-setuptools_scm \
