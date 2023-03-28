@@ -49,7 +49,7 @@ helm upgrade --install "dex" \
     --namespace "${NAMESPACE}" \
     --set config.issuer="http://${DOMAIN_NAME}/dex/" \
     --set config.staticClients[0].redirectURIs[0]="http://${DOMAIN_NAME}/oauth2/callback" \
-    --set image.repository="quay.io/ulagbulag-village/noah-cloud-vine-dex" \
+    --set image.repository="quay.io/ulagbulag/openark-vine-dex" \
     --set image.pullPolicy="Always" \
     --set image.tag="latest" \
     --set ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \

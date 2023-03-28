@@ -237,9 +237,9 @@ impl BoxGroupSpec {
 
     pub fn cluster_domain(&self) -> String {
         if self.is_default() {
-            "noah-cloud".into()
+            "openark".into()
         } else {
-            format!("{}.noah-cloud", &self.cluster_name)
+            format!("{}.openark", &self.cluster_name)
         }
     }
 }

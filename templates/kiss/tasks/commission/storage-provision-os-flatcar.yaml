@@ -41,6 +41,6 @@
     efibootmgr
     --create
     --disk "/dev/{{ device.name }}"
-    --label "Noah Cloud KISS Linux (Flatcar Container Linux {{ flatcar_linux_channel }})"
+    --label "OpenARK KISS Linux (Flatcar Container Linux {{ flatcar_linux_channel }})"
     --loader "\\efi\\boot\\{{ flatcar_linux_architectures_efi[ansible_architecture] }}"
   ignore_errors: true

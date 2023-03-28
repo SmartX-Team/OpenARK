@@ -46,7 +46,7 @@ spec:
           type: RuntimeDefault
       # initContainers:
       #   - name: ipiis-register-as-primary
-      #     image: quay.io/ulagbulag-village/ipiis:latest-tcp
+      #     image: quay.io/ulagbulag/ipiis:latest-tcp
       #     imagePullPolicy: Always
       #     command:
       #       - ipiis-modules-cli
@@ -80,7 +80,7 @@ spec:
       #         value: "true"
       containers:
         - name: ipiis
-          image: quay.io/ulagbulag-village/ipsis:latest-local
+          image: quay.io/ulagbulag/ipsis:latest-local
           imagePullPolicy: Always
           env:
             - name: RUST_LOG

@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ipiis
-          image: quay.io/ulagbulag-village/ipsis:latest-local
+          image: quay.io/ulagbulag/ipsis:latest-local
           imagePullPolicy: Always
           command:
             - ipsis-modules-bench

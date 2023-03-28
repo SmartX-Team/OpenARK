@@ -44,7 +44,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ipiis
-          image: quay.io/ulagbulag-village/ipiis:latest-tcp
+          image: quay.io/ulagbulag/ipiis:latest-tcp
           imagePullPolicy: Always
           env:
             - name: RUST_LOG

@@ -45,7 +45,7 @@ spec:
       serviceAccount: kiss-system
       containers:
         - name: gateway
-          image: quay.io/ulagbulag-village/noah-cloud:latest
+          image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:
             - kiss-gateway

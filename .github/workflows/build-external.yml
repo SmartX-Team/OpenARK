@@ -13,10 +13,10 @@ env:
 
   REGISTRY: quay.io
   REGISTRY_USER: kerryeon
-  REGISTRY_REPOSITORY: ulagbulag-village
+  REGISTRY_REPOSITORY: ulagbulag
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-  REPOSITORY_NAME: noah-cloud
-  IMAGE_NAME: noah-cloud
+  REPOSITORY_NAME: openark
+  IMAGE_NAME: openark
 
   PACKAGE_YQ_URL: https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
@@ -29,12 +29,12 @@ env:
   UBUNTU_VERSION: "20.04"
 
   # GPU => NVIDIA => Driver
-  GIT_GPU_NVIDIA_DRIVER_REPO: https://github.com/ulagbulag-village/noah-cloud-gpu-nvidia-driver-container-images.git
+  GIT_GPU_NVIDIA_DRIVER_REPO: https://github.com/ulagbulag/openark-gpu-nvidia-driver-container-images.git
   HELM_GPU_NVIDIA_OPERATOR_VALUE_URL: https://raw.githubusercontent.com/NVIDIA/gpu-operator/master/deployments/gpu-operator/values.yaml
 
 jobs:
   build-and-push-image-gpu-nvidia-driver:
-    if: ${{ github.repository }} == 'ulagbulag-village/noah-cloud'
+    if: ${{ github.repository }} == 'ulagbulag/OpenARK'
     runs-on: ubuntu-latest
     permissions:
       contents: read

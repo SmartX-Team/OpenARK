@@ -41,7 +41,7 @@ spec:
       containers:
 {% if spec.box.spec.power.type == 'IntelAMT' %}
         - name: power-management-wsmancli
-          image: quay.io/ulagbulag-village/noah-cloud-wsmancli:latest
+          image: quay.io/ulagbulag/openark-wsmancli:latest
           args:
             - power
             - {{ spec.power }}
@@ -60,7 +60,7 @@ spec:
                   key: power_intel_amt_password
 {% elif spec.box.spec.power.type == 'Ipmi' %}
         - name: power-management-ipmitool
-          image: quay.io/ulagbulag-village/noah-cloud-ipmitool:latest
+          image: quay.io/ulagbulag/openark-ipmitool:latest
           args:
             - power
             - {{ spec.power }}

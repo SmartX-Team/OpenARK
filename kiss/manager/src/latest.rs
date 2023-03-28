@@ -25,8 +25,8 @@ impl Default for Handler {
 }
 
 impl Handler {
-    const REPOSITORY_NAME: &'static str = "noah-cloud";
-    const REPOSITORY_OWNER: &'static str = "ulagbulag-village";
+    const REPOSITORY_NAME: &'static str = "OpenARK";
+    const REPOSITORY_OWNER: &'static str = "ulagbulag";
 
     const MAX_RETRY: usize = 5;
 

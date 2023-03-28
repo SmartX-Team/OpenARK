@@ -33,7 +33,7 @@ data:
   bootstrapper_kubespray_config_all_path: ./config/bootstrap/defaults/all.yaml
   bootstrapper_kubespray_config_template_path: ./config/
   bootstrapper_node_data_kubernetes_path: /opt/kiss/
-  bootstrapper_node_image: quay.io/ulagbulag-village/noah-cloud-bootstrap-node:latest
+  bootstrapper_node_image: quay.io/ulagbulag/openark-bootstrap-node:latest
   bootstrapper_node_name: node1.master
   bootstrapper_node_reuse_container: "true"
   bootstrapper_node_reuse_data_kubernetes: "false"
@@ -50,12 +50,12 @@ data:
   # KISS Configuration
   ###########################################################################
   kiss_cluster_name: "" # note: DO NOT FIX IT!
-  kiss_installer_image: quay.io/ulagbulag-village/noah-cloud-upgrade-kiss:latest
+  kiss_installer_image: quay.io/ulagbulag/openark-upgrade-kiss:latest
 
   ###########################################################################
   # Kubespray Configuration
   ###########################################################################
-  kubespray_image: quay.io/ulagbulag-village/kubespray:latest
+  kubespray_image: quay.io/ulagbulag/kubespray:latest
 
   ###########################################################################
   # Network Configuration
@@ -77,32 +77,32 @@ data:
   # Service/CSI Configuration
   ###########################################################################
   service_csi_enable_rook_ceph: "true"
-  service_csi_installer_image_template: quay.io/ulagbulag-village/noah-cloud-upgrade-csi-__NAME__:latest
+  service_csi_installer_image_template: quay.io/ulagbulag/openark-upgrade-csi-__NAME__:latest
 
   ###########################################################################
   # Service/Fabric Configuration
   ###########################################################################
   service_fabric_enable_mellanox: "true"
-  service_fabric_installer_image_template: quay.io/ulagbulag-village/noah-cloud-upgrade-fabric-__NAME__:latest
+  service_fabric_installer_image_template: quay.io/ulagbulag/openark-upgrade-fabric-__NAME__:latest
 
   ###########################################################################
   # Service/GPU Configuration
   ###########################################################################
   service_gpu_enable_nvidia: "true"
-  service_gpu_installer_image_template: quay.io/ulagbulag-village/noah-cloud-upgrade-gpu-__NAME__:latest
+  service_gpu_installer_image_template: quay.io/ulagbulag/openark-upgrade-gpu-__NAME__:latest
 
   ###########################################################################
   # Service/IPIS Configuration
   ###########################################################################
   service_ipis_enable: "true"
-  service_ipis_installer_image: quay.io/ulagbulag-village/noah-cloud-upgrade-ipis:latest
+  service_ipis_installer_image: quay.io/ulagbulag/openark-upgrade-ipis:latest
 
   ###########################################################################
   # Snapshot Configuration
   ###########################################################################
   snapshot_git_repository: ""
   snapshot_git_user_email: "kiss.bot@ulagbulag.io"
-  snapshot_git_user_name: "Noah Cloud KISS BOT"
+  snapshot_git_user_name: "OpenARK KISS BOT"
 
 ---
 apiVersion: v1
@@ -126,7 +126,7 @@ stringData:
   # Bare-metal Box IPMI Configuration
   ###########################################################################
   power_ipmi_username: kiss
-  power_ipmi_password: kiss.noahCloud
+  power_ipmi_password: kiss.OpenARK
 
   ###########################################################################
   # Network Configuration

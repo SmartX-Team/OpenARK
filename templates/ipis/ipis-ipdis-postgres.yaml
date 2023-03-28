@@ -127,7 +127,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-db
-          image: quay.io/ulagbulag-village/ipdis:latest-postgres
+          image: quay.io/ulagbulag/ipdis:latest-postgres
           imagePullPolicy: Always
           command:
             - diesel
@@ -152,7 +152,7 @@ spec:
               memory: 50Mi
       containers:
         - name: ipiis
-          image: quay.io/ulagbulag-village/ipdis:latest-postgres
+          image: quay.io/ulagbulag/ipdis:latest-postgres
           imagePullPolicy: Always
           env:
             - name: RUST_LOG

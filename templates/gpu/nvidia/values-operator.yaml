@@ -1,8 +1,8 @@
 ---
 driver:
   # Flatcar Container Linux should need some patches for driver installer
-  repository: quay.io/ulagbulag-village
-  image: noah-cloud-gpu-nvidia-driver
+  repository: quay.io/ulagbulag
+  image: openark-gpu-nvidia-driver
   enabled: false
 
 operator:

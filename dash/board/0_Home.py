@@ -34,6 +34,6 @@ def load_pages():
 
 
 # Page Information
-st.title('Welcome to Noah Cloud Dashboard')
+st.title('Welcome to OpenARK Dashboard')
 
 load_pages()

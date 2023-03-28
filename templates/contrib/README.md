@@ -1,6 +1,6 @@
-# Noah Cloud Contrib
+# OpenARK Contrib
 
-This is a space for developing and verifying add-ons for Noah Cloud.
+This is a space for developing and verifying add-ons for OpenARK.
 
 Unlike other templates, subprojects in this directory are managed passively.
 

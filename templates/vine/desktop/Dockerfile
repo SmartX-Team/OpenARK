@@ -384,7 +384,7 @@ RUN true \
 #     && find / -type d -name '*__pycache__' -prune -exec rm -rf {} \;
 
 # Install utilities - Custom
-ARG ADDONS_HOME="/opt/noah-cloud/vdi/desktop"
+ARG ADDONS_HOME="/opt/openark/vdi/desktop"
 ADD ./addons "${ADDONS_HOME}"
 RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \

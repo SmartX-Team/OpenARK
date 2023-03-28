@@ -100,7 +100,7 @@ impl Handler {
 }
 
 impl Handler {
-    const UPGRADE_SERVICE_TYPE: &'static str = "noah-cloud-upgrade-kiss";
+    const UPGRADE_SERVICE_TYPE: &'static str = "openark-upgrade-kiss";
 
     async fn update_job_status(&self) -> Result<bool> {
         // load the previous jobs
@@ -193,9 +193,7 @@ impl Handler {
                         service_account: Some("kiss-system".into()),
                         containers: vec![Container {
                             name: "kubectl".into(),
-                            image: Some(
-                                "quay.io/ulagbulag-village/noah-cloud-upgrade-kiss:latest".into(),
-                            ),
+                            image: Some("quay.io/ulagbulag/openark-upgrade-kiss:latest".into()),
                             image_pull_policy: Some("Always".into()),
                             env: Some(vec![
                                 EnvVar {

@@ -2,7 +2,7 @@
 images:
   # Main image
   # FIXME: Waiting for PR merged: https://github.com/yandex-cloud/k8s-csi-s3/pull/44
-  csi: quay.io/ulagbulag-village/csi-s3-driver:latest
+  csi: quay.io/ulagbulag/csi-s3-driver:latest
 
 storageClass:
   # Specifies whether the storage class should be created

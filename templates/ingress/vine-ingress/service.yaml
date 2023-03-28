@@ -6,7 +6,7 @@ metadata:
   namespace: ingress
 spec:
   type: ExternalName
-  externalName: ingress-nginx-controller.vine.svc.ops.noah-cloud
+  externalName: ingress-nginx-controller.vine.svc.ops.openark
   ports:
     - name: http
       protocol: TCP

@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-tftpboot
-          image: quay.io/ulagbulag-village/noah-cloud-ipxe:latest
+          image: quay.io/ulagbulag/openark-ipxe:latest
           imagePullPolicy: Always
           resources:
             requests:
@@ -76,7 +76,7 @@ spec:
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             ## iPXE END
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.noah-cloud/assets/boot/boot-$(OS_DEFAULT).ipxe
+            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.openark/assets/boot/boot-$(OS_DEFAULT).ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
             - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
             - --dhcp-option=26,$(NETWORK_INTERFACE_MTU_SIZE)

@@ -33,7 +33,7 @@ controller:
   ## IngressClass resources are supported since k8s >= 1.18 and required since k8s >= 1.19
   ingressClassResource:
     # -- Name of the ingressClass
-    # name: ingress-nginx-controller.vine.svc.ops.noah-cloud
+    # name: ingress-nginx-controller.vine.svc.ops.openark
     # -- Is this ingressClass enabled or not
     enabled: true
     # -- Is this the default ingressClass for the cluster

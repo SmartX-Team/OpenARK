@@ -9,7 +9,7 @@
     --env AMT_HOSTNAME='{{ kiss_power_intel_amt_host }}'
     --env AMT_USERNAME='{{ kiss_power_intel_amt_username }}'
     --env AMT_PASSWORD='{{ kiss_power_intel_amt_password }}'
-    "quay.io/ulagbulag-village/noah-cloud-wsmancli:latest"
+    "quay.io/ulagbulag/openark-wsmancli:latest"
     "kiss-wsmancli" /usr/local/bin/wsmanhelper.sh
     boot pxe
   ignore_errors: true

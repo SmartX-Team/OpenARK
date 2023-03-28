@@ -14,10 +14,10 @@ env:
 
   REGISTRY: quay.io
   REGISTRY_USER: kerryeon
-  REGISTRY_REPOSITORY: ulagbulag-village
+  REGISTRY_REPOSITORY: ulagbulag
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-  RELEASE_NAME: Noah Cloud
-  IMAGE_NAME: noah-cloud
+  RELEASE_NAME: OpenARK
+  IMAGE_NAME: openark
 
   ALPINE_VERSION: "3.17"
   DEX_VERSION: "latest"

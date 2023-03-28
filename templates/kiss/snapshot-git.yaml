@@ -38,7 +38,7 @@ spec:
           serviceAccount: kiss-system
           containers:
             - name: snapshot
-              image: quay.io/ulagbulag-village/noah-cloud-snapshot-git:latest
+              image: quay.io/ulagbulag/openark-snapshot-git:latest
               imagePullPolicy: Always
               env:
                 - name: GIT_BRANCH

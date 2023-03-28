@@ -41,7 +41,7 @@
 
 - name: Submit results to kiss cluster
   uri:
-    url: http://gateway.kiss.svc.ops.noah-cloud/commission
+    url: http://gateway.kiss.svc.ops.openark/commission
     method: POST
     return_content: false
     body_format: json

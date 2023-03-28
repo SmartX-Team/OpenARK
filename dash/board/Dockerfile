@@ -4,7 +4,7 @@
 
 # Configure environment variables
 ARG ALPINE_VERSION="latest"
-ARG PACKAGE="noah-cloud"
+ARG PACKAGE="openark"
 
 # Be ready for serving
 FROM "docker.io/library/alpine:${ALPINE_VERSION}"

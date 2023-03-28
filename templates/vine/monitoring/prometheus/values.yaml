@@ -163,7 +163,8 @@ grafana:
 
       # specify role for unauthenticated users
       # Available options: Admin, Editor, Viewer
-      org_role: Viewer
+      # org_role: Viewer
+      org_role: Admin
 
     # Basic Auth
     auth.basic:
