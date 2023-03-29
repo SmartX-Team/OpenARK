@@ -29,6 +29,8 @@ WORKDIR /src
 
 # Build it!
 RUN mkdir /out \
+    # Exclude netai packages
+    && sed -i 's/^\( \+"netai\)/#\1/g' ./Cargo.toml \
     && cargo build --all --workspace --release \
     && find ./target/release/ -maxdepth 1 -type f -perm +a=x -print0 | xargs -0 -I {} mv {} /out \
     && mv ./LICENSE /LICENSE \
