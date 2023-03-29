@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use ipis::{core::anyhow::Result, env, tokio::fs};
-use ort::{Environment, GraphOptimizationLevel, LoggingLevel, SessionBuilder};
+use ort::{tensor::InputTensor, Environment, GraphOptimizationLevel, LoggingLevel, SessionBuilder};
 
 use crate::{
-    input::{TensorKind, TensorKindMap},
+    tensor::{TensorKind, TensorKindMap},
     models::Model,
     role::Role,
 };
@@ -29,7 +29,7 @@ impl Session {
             .iter()
             .map(|output| TensorKind::try_from(output).map(|kind| (output.name.clone(), kind)))
             .collect::<Result<_>>()?;
-        let role = todo!();
+        let role = Role::try_from_io(&inputs, &outputs)?;
 
         Ok(Self {
             inner: session,
@@ -37,6 +37,23 @@ impl Session {
             outputs,
             role,
         })
+    }
+
+    pub fn inputs(&self) -> &TensorKindMap {
+        &self.inputs
+    }
+
+    pub fn outputs(&self) -> &TensorKindMap {
+        &self.outputs
+    }
+
+    pub fn role(&self) -> &Role {
+        &self.role
+    }
+
+    pub fn run(&self, inputs: impl AsRef<[InputTensor]>) -> Result<()> {
+        let outputs = self.inner.run(inputs)?;
+        todo!()
     }
 }
 

@@ -16,5 +16,9 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ipis = { workspace = true }
 
+actix-form-data = { workspace = true }
+bytes = { workspace = true }
+image = { workspace = true }
 ort = { workspace = true }
 serde = { workspace = true }
+strum = { workspace = true }
