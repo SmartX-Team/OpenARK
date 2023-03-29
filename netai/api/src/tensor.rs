@@ -4,8 +4,8 @@ use actix_form_data::Value;
 use bytes::Bytes;
 use image::{imageops::FilterType, GenericImageView, Pixel};
 use ipis::core::{
-    anyhow::{bail, Error, Result},
-    ndarray::Array,
+    anyhow::{anyhow, bail, Error, Result},
+    ndarray::{self, Array, Array1, ArrayView, Axis, IxDyn},
 };
 use ort::{
     session::{Input, Output},
@@ -25,7 +25,7 @@ impl ToTensor for Value<Bytes> {
         match self {
             Self::Bytes(data) => kind.convert_bytes(data),
             Self::Text(data) => match kind {
-                TensorKind::Text(kind) => kind.convert_str(data),
+                TensorKind::Text(kind) => kind.convert_string(data.clone()),
                 kind => {
                     let type_ = kind.type_();
                     bail!("expected {type_}, but given Text")
@@ -37,7 +37,57 @@ impl ToTensor for Value<Bytes> {
     }
 
     fn to_tensor_map(&self, kinds: &TensorKindMap) -> Result<TensorMap> {
-        todo!()
+        match self {
+            Self::Map(data) => data
+                .iter()
+                .map(|(name, data)| {
+                    let kind = match kinds.get(name) {
+                        Some(kind) => kind,
+                        None => bail!("failed to find the kind: {name:?}"),
+                    };
+
+                    let to_tensor = |data: &Value<Bytes>| {
+                        data.to_tensor(kind)
+                            .map_err(|e| anyhow!("failed to parse the tensor {name:?}: {e}"))
+                    };
+
+                    match data {
+                        Value::Array(array) => {
+                            let array: Vec<_> =
+                                array.iter().map(to_tensor).collect::<Result<_>>()?;
+
+                            if array.is_empty() {
+                                bail!("failed to parse zero-sized tensor: {name:?}");
+                            }
+
+                            match &array[0] {
+                                InputTensor::Int8Tensor(_) => i8::unwrap_tensor_array(&array),
+                                InputTensor::Int16Tensor(_) => i16::unwrap_tensor_array(&array),
+                                InputTensor::Int32Tensor(_) => i32::unwrap_tensor_array(&array),
+                                InputTensor::Int64Tensor(_) => i64::unwrap_tensor_array(&array),
+                                InputTensor::Uint8Tensor(_) => u8::unwrap_tensor_array(&array),
+                                InputTensor::Uint16Tensor(_) => u16::unwrap_tensor_array(&array),
+                                InputTensor::Uint32Tensor(_) => u32::unwrap_tensor_array(&array),
+                                InputTensor::Uint64Tensor(_) => u64::unwrap_tensor_array(&array),
+                                InputTensor::Bfloat16Tensor(_) => {
+                                    bail!("concatenating Bfloat16Tensors are not supported yet")
+                                }
+                                InputTensor::Float16Tensor(_) => {
+                                    bail!("concatenating Float16Tensors are not supported yet")
+                                }
+                                InputTensor::FloatTensor(_) => f32::unwrap_tensor_array(&array),
+                                InputTensor::DoubleTensor(_) => f64::unwrap_tensor_array(&array),
+                                InputTensor::StringTensor(_) => String::unwrap_tensor_array(&array),
+                            }
+                            .map(|tensor| (name.clone(), tensor))
+                            .map_err(|e| anyhow!("failed to concatenate the tensors {name:?}: {e}"))
+                        }
+                        data => to_tensor(data).map(|tensor| (name.clone(), tensor)),
+                    }
+                })
+                .collect(),
+            _ => bail!("unsupported value; expected Map"),
+        }
     }
 }
 
@@ -126,11 +176,22 @@ pub struct TextKind {
 
 impl TextKind {
     fn convert_bytes(&self, bytes: &Bytes) -> Result<InputTensor> {
-        todo!()
+        String::from_utf8(bytes.to_vec())
+            .map_err(Into::into)
+            .and_then(|s| self.convert_string(s))
     }
 
-    fn convert_str(&self, s: &str) -> Result<InputTensor> {
-        todo!()
+    fn convert_string(&self, s: String) -> Result<InputTensor> {
+        if let Some(max_len) = self.max_len {
+            let len = s.len();
+            if len > max_len as usize {
+                bail!("too long string; expected <={max_len}, but given {len:?}");
+            }
+        }
+
+        Ok(InputTensor::StringTensor(
+            Array1::from_vec(vec![s]).into_dyn(),
+        ))
     }
 }
 
@@ -337,3 +398,49 @@ impl Default for TensorType {
         Self::Float32
     }
 }
+
+trait UnwrapTensor {
+    fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>>
+    where
+        Self: Sized;
+
+    fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor>
+    where
+        Self: Sized;
+}
+
+macro_rules! impl_unwrap_tensor {
+    ($name:ident => $ty:ty) => {
+        impl UnwrapTensor for $ty {
+            fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>> {
+                match tensor {
+                    InputTensor::$name(tensor) => Ok(tensor.view()),
+                    _ => bail!("cannot combine other types than {}", stringify!($ty)),
+                }
+            }
+
+            fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor> {
+                let array: Vec<_> = array
+                    .iter()
+                    .map(<$ty as UnwrapTensor>::unwrap_tensor)
+                    .collect::<Result<_>>()?;
+
+                ndarray::concatenate(Axis(0), &array)
+                    .map(InputTensor::$name)
+                    .map_err(Into::into)
+            }
+        }
+    };
+}
+
+impl_unwrap_tensor!(Int8Tensor => i8);
+impl_unwrap_tensor!(Int16Tensor => i16);
+impl_unwrap_tensor!(Int32Tensor => i32);
+impl_unwrap_tensor!(Int64Tensor => i64);
+impl_unwrap_tensor!(Uint8Tensor => u8);
+impl_unwrap_tensor!(Uint16Tensor => u16);
+impl_unwrap_tensor!(Uint32Tensor => u32);
+impl_unwrap_tensor!(Uint64Tensor => u64);
+impl_unwrap_tensor!(FloatTensor => f32);
+impl_unwrap_tensor!(DoubleTensor => f64);
+impl_unwrap_tensor!(StringTensor => String);
