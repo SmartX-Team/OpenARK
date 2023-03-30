@@ -24,7 +24,7 @@ members = [
 ]
 
 [workspace.dependencies]
-ipis = { git = "https://github.com/ulagbulag/ipis" }
+ipis = { git = "https://github.com/ulagbulag/ipis", features = ["tokio-full"] }
 
 actix-form-data = { version = "0.6" }
 actix-web = { version = "4.3", default-features = false, features = [
@@ -57,10 +57,12 @@ ort = { version = "1.14", features = [
 ] }
 regex = { version = "1.7" }
 reqwest = { version = "0.11", default-features = false, features = [
+    "json",
     "rustls-tls",
     "stream",
 ] }
 reqwest-middleware = "0.2"
+rust-tokenizers = { package = "rust_tokenizers", version = "8.0" }
 schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
 sea-orm = { version = "0.11", features = [
     "macros",

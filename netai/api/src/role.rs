@@ -1,14 +1,28 @@
-use ipis::core::anyhow::Result;
+use inflector::Inflector;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 
-use crate::tensor::TensorKindMap;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Role {}
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub enum Role {
+    // NLP
+    QuestionAnswering,
+}
 
 impl Role {
-    pub fn try_from_io(inputs: &TensorKindMap, outputs: &TensorKindMap) -> Result<Self> {
-        todo!()
+    pub fn to_string_kebab_case(&self) -> String {
+        self.to_string().to_kebab_case()
     }
 }

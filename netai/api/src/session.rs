@@ -1,35 +1,48 @@
 use std::path::PathBuf;
 
-use ipis::{core::anyhow::Result, env, tokio::fs};
-use ort::{tensor::InputTensor, Environment, GraphOptimizationLevel, LoggingLevel, SessionBuilder};
+use ipis::{
+    core::{anyhow::Result, ndarray::IxDyn},
+    env,
+    tokio::fs,
+};
+use ort::{
+    tensor::{DynOrtTensor, InputTensor},
+    Environment, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
+};
 
 use crate::{
-    tensor::{TensorKind, TensorKindMap},
     models::Model,
     role::Role,
+    tensor::{TensorField, TensorFieldMap},
 };
 
 pub struct Session {
     inner: ::ort::Session,
-    inputs: TensorKindMap,
-    outputs: TensorKindMap,
+    inputs: TensorFieldMap,
+    outputs: TensorFieldMap,
     role: Role,
 }
 
 impl Session {
     pub async fn try_new(model: impl Model) -> Result<Self> {
-        let session = load_model(model).await?;
+        let session = load_model(&model).await?;
         let inputs = session
             .inputs
             .iter()
-            .map(|input| TensorKind::try_from(input).map(|kind| (input.name.clone(), kind)))
+            .enumerate()
+            .map(|(index, input)| {
+                TensorField::try_from_input(index, input).map(|kind| (input.name.clone(), kind))
+            })
             .collect::<Result<_>>()?;
         let outputs = session
             .outputs
             .iter()
-            .map(|output| TensorKind::try_from(output).map(|kind| (output.name.clone(), kind)))
+            .enumerate()
+            .map(|(index, output)| {
+                TensorField::try_from_output(index, output).map(|kind| (output.name.clone(), kind))
+            })
             .collect::<Result<_>>()?;
-        let role = Role::try_from_io(&inputs, &outputs)?;
+        let role = model.get_role();
 
         Ok(Self {
             inner: session,
@@ -39,11 +52,11 @@ impl Session {
         })
     }
 
-    pub fn inputs(&self) -> &TensorKindMap {
+    pub fn inputs(&self) -> &TensorFieldMap {
         &self.inputs
     }
 
-    pub fn outputs(&self) -> &TensorKindMap {
+    pub fn outputs(&self) -> &TensorFieldMap {
         &self.outputs
     }
 
@@ -51,32 +64,39 @@ impl Session {
         &self.role
     }
 
-    pub fn run(&self, inputs: impl AsRef<[InputTensor]>) -> Result<()> {
-        let outputs = self.inner.run(inputs)?;
-        todo!()
+    pub fn run_raw(
+        &self,
+        inputs: impl AsRef<[InputTensor]>,
+    ) -> Result<Vec<DynOrtTensor<'_, IxDyn>>> {
+        self.inner.run(inputs).map_err(Into::into)
     }
 }
 
 async fn load_model(model: impl Model) -> Result<::ort::Session> {
     // Specify model path
-    let path = {
-        let mut models_home: PathBuf =
-            env::infer("MODEL_HOME").unwrap_or_else(|_| "/models".into());
+    let path: PathBuf = {
+        let models_home: String = env::infer("MODEL_HOME").unwrap_or_else(|_| "/models".into());
+        let namespace = if env::infer("MODEL_USE_NAMESPACE").unwrap_or(true) {
+            model.get_namespace()
+        } else {
+            "".into()
+        };
+        let name = model.get_name();
 
-        models_home.push(model.get_namespace());
-        models_home.push(model.get_name());
-        models_home
+        format!("{models_home}/{namespace}/{name}").parse()?
     };
 
     // Download model
-    fs::create_dir_all(&path).await?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
     if !fs::try_exists(&path).await? || !model.verify(&path).await? {
         model.download_to(&path).await?;
     }
 
     // Load model
     let environment = Environment::builder()
-        .with_name("netai")
+        .with_name(crate::consts::NAMESPACE)
         .with_log_level(LoggingLevel::Info)
         .build()?
         .into();

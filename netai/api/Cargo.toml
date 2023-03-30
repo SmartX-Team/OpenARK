@@ -19,6 +19,8 @@ ipis = { workspace = true }
 actix-form-data = { workspace = true }
 bytes = { workspace = true }
 image = { workspace = true }
+inflector = { workspace = true }
 ort = { workspace = true }
+rust-tokenizers = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }

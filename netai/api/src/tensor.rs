@@ -15,39 +15,39 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 pub trait ToTensor {
-    fn to_tensor(&self, kind: &TensorKind) -> Result<InputTensor>;
+    fn to_tensor(&self, field: &TensorField) -> Result<InputTensor>;
 
-    fn to_tensor_map(&self, kinds: &TensorKindMap) -> Result<TensorMap>;
+    fn to_tensor_map(&self, fields: &TensorFieldMap) -> Result<TensorMap>;
 }
 
 impl ToTensor for Value<Bytes> {
-    fn to_tensor(&self, kind: &TensorKind) -> Result<InputTensor> {
+    fn to_tensor(&self, field: &TensorField) -> Result<InputTensor> {
         match self {
-            Self::Bytes(data) => kind.convert_bytes(data),
-            Self::Text(data) => match kind {
+            Self::Bytes(data) => field.convert_bytes(data),
+            Self::Text(data) => match &field.kind {
                 TensorKind::Text(kind) => kind.convert_string(data.clone()),
                 kind => {
                     let type_ = kind.type_();
                     bail!("expected {type_}, but given Text")
                 }
             },
-            Self::File(data) => kind.convert_bytes(&data.result),
+            Self::File(data) => field.convert_bytes(&data.result),
             _ => bail!("unsupported value"),
         }
     }
 
-    fn to_tensor_map(&self, kinds: &TensorKindMap) -> Result<TensorMap> {
+    fn to_tensor_map(&self, fields: &TensorFieldMap) -> Result<TensorMap> {
         match self {
             Self::Map(data) => data
                 .iter()
                 .map(|(name, data)| {
-                    let kind = match kinds.get(name) {
-                        Some(kind) => kind,
-                        None => bail!("failed to find the kind: {name:?}"),
+                    let field = match fields.get(name) {
+                        Some(field) => field,
+                        None => bail!("failed to find the field: {name:?}"),
                     };
 
                     let to_tensor = |data: &Value<Bytes>| {
-                        data.to_tensor(kind)
+                        data.to_tensor(field)
                             .map_err(|e| anyhow!("failed to parse the tensor {name:?}: {e}"))
                     };
 
@@ -93,33 +93,27 @@ impl ToTensor for Value<Bytes> {
 
 pub type TensorMap = BTreeMap<String, InputTensor>;
 
-pub type TensorKindMap = BTreeMap<String, TensorKind>;
+pub type TensorFieldMap = BTreeMap<String, TensorField>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind", content = "spec")]
-pub enum TensorKind {
-    Text(#[serde(default)] TextKind),
-    Image(#[serde(default)] ImageKind),
+#[serde(rename_all = "camelCase")]
+pub struct TensorField {
+    pub index: usize,
+    pub kind: TensorKind,
+    pub tensor_type: TensorType,
 }
 
-impl TryFrom<&Input> for TensorKind {
-    type Error = Error;
-
-    fn try_from(value: &Input) -> Result<Self, Self::Error> {
-        Self::try_from_ort(&value.name, &value.dimensions, value.input_type)
+impl TensorField {
+    pub fn try_from_input(index: usize, value: &Input) -> Result<Self> {
+        Self::try_from_ort(index, &value.name, &value.dimensions, value.input_type)
     }
-}
 
-impl TryFrom<&Output> for TensorKind {
-    type Error = Error;
-
-    fn try_from(value: &Output) -> Result<Self, Self::Error> {
-        Self::try_from_ort(&value.name, &value.dimensions, value.output_type)
+    pub fn try_from_output(index: usize, value: &Output) -> Result<Self> {
+        Self::try_from_ort(index, &value.name, &value.dimensions, value.output_type)
     }
-}
 
-impl TensorKind {
     fn try_from_ort(
+        index: usize,
         name: &str,
         dimensions: &[Option<u32>],
         type_: TensorElementDataType,
@@ -130,32 +124,53 @@ impl TensorKind {
             2 => match type_ {
                 TensorElementDataType::Int64
                 | TensorElementDataType::Float32
-                | TensorElementDataType::Float64 => Ok(Self::Text(TextKind {
+                | TensorElementDataType::Float64 => Ok(Self {
+                    index,
+                    kind: TensorKind::Text(TextKind {
+                        max_len: dimensions[1],
+                    }),
                     tensor_type: type_.into(),
-                    max_len: dimensions[1],
-                })),
+                }),
                 _ => fail(),
             },
             4 => match type_ {
                 TensorElementDataType::Uint8 | TensorElementDataType::Float32 => {
                     // NCHW format
-                    Ok(Self::Image(ImageKind {
+                    Ok(Self {
+                        index,
+                        kind: TensorKind::Image(ImageKind {
+                            channels: dimensions[1].try_into()?, // C
+                            width: dimensions[3],                // W
+                            height: dimensions[2],               // H
+                        }),
                         tensor_type: type_.into(),
-                        channels: dimensions[1].try_into()?, // C
-                        width: dimensions[3],                // W
-                        height: dimensions[2],               // H
-                    }))
+                    })
                 }
                 _ => fail(),
             },
             _ => fail(),
         }
     }
+}
 
+impl TensorField {
     fn convert_bytes(&self, bytes: &Bytes) -> Result<InputTensor> {
+        self.kind.convert_bytes(bytes, self.tensor_type)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "spec")]
+pub enum TensorKind {
+    Text(#[serde(default)] TextKind),
+    Image(#[serde(default)] ImageKind),
+}
+
+impl TensorKind {
+    fn convert_bytes(&self, bytes: &Bytes, tensor_type: TensorType) -> Result<InputTensor> {
         match self {
             Self::Text(kind) => kind.convert_bytes(bytes),
-            Self::Image(kind) => kind.convert_bytes(bytes),
+            Self::Image(kind) => kind.convert_bytes(bytes, tensor_type),
         }
     }
 
@@ -170,7 +185,6 @@ impl TensorKind {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextKind {
-    tensor_type: TensorType,
     max_len: Option<u32>,
 }
 
@@ -198,14 +212,13 @@ impl TextKind {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageKind {
-    tensor_type: TensorType,
     channels: ImageChannel,
     width: Option<u32>,
     height: Option<u32>,
 }
 
 impl ImageKind {
-    fn convert_bytes(&self, bytes: &Bytes) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &Bytes, tensor_type: TensorType) -> Result<InputTensor> {
         fn convert_image<I>(
             image: I,
             tensor_type: TensorType,
@@ -242,7 +255,6 @@ impl ImageKind {
             (None, None) => image,
         };
 
-        let tensor_type = self.tensor_type;
         let width = image.width() as usize;
         let height = image.height() as usize;
 

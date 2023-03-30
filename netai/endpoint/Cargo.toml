@@ -16,3 +16,9 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ipis = { workspace = true }
 netai-api = { path = "../api" }
+
+# TEST ONLY
+ort = { workspace = true }
+reqwest = { workspace = true }
+rust-tokenizers = { workspace = true }
+serde = { workspace = true }
