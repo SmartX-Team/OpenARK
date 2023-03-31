@@ -1,0 +1,64 @@
+# Copyright (c) 2022 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Configure environment variables
+ARG DEBIAN_VERSION="bullseye"
+ARG PACKAGE="openark"
+
+# Be ready for serving
+FROM "docker.io/library/debian:${DEBIAN_VERSION}" as server
+
+# Server Configuration
+EXPOSE 80/tcp
+WORKDIR /usr/local/bin
+CMD [ "/bin/sh" ]
+
+# Install python dependencies
+ARG PYTORCH_WHL_REPO="https://download.pytorch.org/whl"
+ARG PYTORCH_VERSION_URL="https://pytorch.org/assets/quick-start-module.js"
+ADD ./netai/api/requirements.txt /requirements.txt
+RUN apt-get update && apt-get install -y \
+    # Install python
+    curl \
+    python3-pip \
+    # Install python dependencies
+    && PYTORCH_CUDA_VERSION="$( \
+    curl -s "${PYTORCH_VERSION_URL}" \
+    | grep 'let version_map=' \
+    | grep -Po '\"release\"\: +\K.*' \
+    | grep -Po '\"cuda\.y\"\: +\[\"cuda\"\, +\"\K[0-9.]+' | sed 's/\.//g' \
+    )" \
+    && python3 -m pip install --no-cache-dir --index-url "${PYTORCH_WHL_REPO}/cu${PYTORCH_CUDA_VERSION}" \
+    torch torchvision torchaudio \
+    && python3 -m pip install --no-cache-dir --requirement /requirements.txt \
+    # Cleanup
+    && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
+    && rm /requirements.txt \
+    && rm -rf /var/lib/apt/lists/*
+
+# Be ready for building
+FROM "docker.io/library/rust:1-${DEBIAN_VERSION}" as builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Load source files
+ADD . /src
+WORKDIR /src
+
+# Build it!
+RUN mkdir /out \
+    # build
+    && cargo build --all --workspace --release \
+    && find ./target/release/ -maxdepth 1 -type f -perm a=x -print0 | xargs -0 -I {} mv {} /out \
+    && mv ./LICENSE /LICENSE \
+    && rm -rf /src
+
+# Copy executable files
+FROM server
+COPY --from=builder /out/* /usr/local/bin/
+COPY --from=builder /LICENSE /usr/share/licenses/${PACKAGE}/LICENSE
