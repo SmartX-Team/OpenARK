@@ -19,6 +19,7 @@ ipis = { workspace = true }
 actix-multipart = { workspace = true }
 actix-web = { workspace = true }
 bytes = { workspace = true }
+half = { workspace = true }
 image = { workspace = true }
 inflector = { workspace = true }
 mime = { workspace = true }

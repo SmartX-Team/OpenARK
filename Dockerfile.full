@@ -14,9 +14,6 @@ EXPOSE 80/tcp
 WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
-# Configure environment variables
-ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/bin"
-
 # Install python dependencies
 ARG PYTORCH_WHL_REPO="https://download.pytorch.org/whl"
 ARG PYTORCH_VERSION_URL="https://pytorch.org/assets/quick-start-module.js"
@@ -55,13 +52,21 @@ WORKDIR /src
 
 # Build it!
 RUN mkdir /out \
-    # build
+    # Build
     && cargo build --all --workspace --release \
     && find ./target/release/ -maxdepth 1 -type f -perm -a=x -print0 | xargs -0 -I {} mv {} /out \
     && mv ./LICENSE /LICENSE \
+    # Remove duplicated onnxruntime CAPI binary
+    && rm -rf /out/libonnxruntime_providers_*.so \
+    # Cleanup
     && rm -rf /src
 
 # Copy executable files
 FROM server
 COPY --from=builder /out/* /usr/local/bin/
 COPY --from=builder /LICENSE /usr/share/licenses/${PACKAGE}/LICENSE
+
+# Link onnxruntime CAPI binary
+RUN ORT_DYLIB_PATH="$(python3 -c 'import inspect,os; import onnxruntime; print(f"{os.path.dirname(inspect.getfile(onnxruntime))}/capi")')" \
+    && echo "/usr/local/bin" > "/etc/ld.so.conf.d/onnxruntime-$(arch).conf" \
+    && echo "${ORT_DYLIB_PATH}" > "/etc/ld.so.conf.d/onnxruntime-capi-$(arch).conf"

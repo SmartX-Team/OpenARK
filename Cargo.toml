@@ -35,7 +35,8 @@ actix-web-lab = { version = "0.19" }
 base64 = { version = "0.21" }
 bytes = { version = "1.4" }
 clap = { version = "4.1", features = ["env", "derive"] }
-email_address = "0.2"
+email_address = { version = "0.2" }
+half = { version = "2.2" }
 http-cache-reqwest = { version = "0.8", features = ["manager-cacache"] }
 image = { version = "0.24" }
 inflector = { package = "Inflector", version = "0.11" }
@@ -51,8 +52,13 @@ mime = { version = "0.3" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab", default-features = false, features = [
     "rustls-tls",
 ] }
-ort = { version = "1.14", features = [
-    # NVIDIA GPUs
+ort = { version = "1.14", default-features = false, features = [
+    # Common
+    "copy-dylibs",
+    "download-binaries",
+    "half",
+    "load-dynamic",
+    # NOTE: external providers are supported by python packages in a container
     "cuda",
     "tensorrt",
 ] }

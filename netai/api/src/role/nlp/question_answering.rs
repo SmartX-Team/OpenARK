@@ -11,7 +11,7 @@ use ipis::{
 use ort::tensor::InputTensor;
 use serde::Serialize;
 
-use crate::{ops, tensor::TensorType};
+use crate::tensor::{OutputTensor, TensorType};
 
 pub(crate) struct Solver {
     base: super::SolverBase,
@@ -74,11 +74,10 @@ impl super::super::Solver for Solver {
 
         let outputs = session.run_raw(&inputs)?;
 
-        // TODO: to be implemented
-        let start_logits = outputs[0].try_extract::<f32>()?;
-        let end_logits = outputs[1].try_extract::<f32>()?;
+        let start_logits = outputs.try_extract("start_logits")?;
+        let end_logits = outputs.try_extract("end_logits")?;
 
-        let answers = find_answer(&input_ids, &start_logits.view(), &end_logits.view());
+        let answers = find_answer(&input_ids, &start_logits, &end_logits);
 
         let outputs: Outputs = inputs_str
             .into_iter()
@@ -108,23 +107,19 @@ pub struct Output {
     pub answer: String,
 }
 
-fn find_answer<SM, SL, DM, DL>(
-    mat: &ndarray::ArrayBase<SM, DM>,
-    start_logits: &ndarray::ArrayBase<SL, DL>,
-    end_logits: &ndarray::ArrayBase<SL, DL>,
-) -> Vec<ndarray::Array1<SM::Elem>>
+fn find_answer<S, D>(
+    mat: &ndarray::ArrayBase<S, D>,
+    start_logits: &OutputTensor,
+    end_logits: &OutputTensor,
+) -> Vec<ndarray::Array1<S::Elem>>
 where
-    SM: ndarray::Data,
-    SM::Elem: Copy,
-    SL: ndarray::Data,
-    SL::Elem: Copy + PartialOrd,
-    DM: ndarray::Dimension,
-    DL: ndarray::Dimension,
-    i64: TryFrom<<SM as ndarray::RawData>::Elem>,
-    <i64 as TryFrom<<SM as ndarray::RawData>::Elem>>::Error: ::core::fmt::Debug,
+    S: ndarray::Data,
+    S::Elem: Copy,
+    D: ndarray::Dimension,
 {
-    let start_logits = ops::argmax(start_logits);
-    let end_logits = ops::argmax(end_logits);
+    let start_logits = start_logits.argmax();
+    let end_logits = end_logits.argmax();
+
     mat.rows()
         .into_iter()
         .zip(start_logits)

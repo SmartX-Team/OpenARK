@@ -13,10 +13,70 @@ use ipis::{
 };
 use ort::{
     session::{Input, Output},
-    tensor::{InputTensor, TensorElementDataType},
+    tensor::{InputTensor, OrtOwnedTensor, TensorElementDataType},
 };
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
+
+#[allow(clippy::enum_variant_names)]
+pub(crate) enum OutputTensor<'a, D = IxDyn>
+where
+    D: ndarray::Dimension,
+{
+    Int8Tensor(OrtOwnedTensor<'a, i8, D>),
+    Int16Tensor(OrtOwnedTensor<'a, i16, D>),
+    Int32Tensor(OrtOwnedTensor<'a, i32, D>),
+    Int64Tensor(OrtOwnedTensor<'a, i64, D>),
+    Uint8Tensor(OrtOwnedTensor<'a, u8, D>),
+    Uint16Tensor(OrtOwnedTensor<'a, u16, D>),
+    Uint32Tensor(OrtOwnedTensor<'a, u32, D>),
+    Uint64Tensor(OrtOwnedTensor<'a, u64, D>),
+    Bfloat16Tensor(OrtOwnedTensor<'a, ::half::bf16, D>),
+    Float16Tensor(OrtOwnedTensor<'a, ::half::f16, D>),
+    FloatTensor(OrtOwnedTensor<'a, f32, D>),
+    DoubleTensor(OrtOwnedTensor<'a, f64, D>),
+    StringTensor(OrtOwnedTensor<'a, String, D>),
+}
+
+impl<'a, D> OutputTensor<'a, D>
+where
+    D: 'a + ndarray::Dimension,
+{
+    pub(crate) fn argmax(&self) -> ndarray::Array1<usize> {
+        match self {
+            Self::Int8Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Int16Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Int32Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Int64Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Uint8Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Uint16Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Uint32Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Uint64Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Bfloat16Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::Float16Tensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::FloatTensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::DoubleTensor(tensor) => Self::argmax_with(&tensor.view()),
+            Self::StringTensor(tensor) => Self::argmax_with(&tensor.view()),
+        }
+    }
+
+    fn argmax_with<S>(mat: &ndarray::ArrayBase<S, D>) -> ndarray::Array1<usize>
+    where
+        S: ndarray::Data,
+        S::Elem: PartialOrd,
+    {
+        mat.rows()
+            .into_iter()
+            .map(|row| {
+                row.into_iter()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .unwrap()
+                    .0
+            })
+            .collect()
+    }
+}
 
 #[async_trait]
 pub trait ToTensor
@@ -486,7 +546,7 @@ trait UnwrapTensor {
         Self: Sized;
 }
 
-macro_rules! impl_unwrap_tensor {
+macro_rules! impl_tensor {
     ($name:ident => $ty:ty) => {
         impl UnwrapTensor for $ty {
             fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>> {
@@ -507,17 +567,28 @@ macro_rules! impl_unwrap_tensor {
                     .map_err(Into::into)
             }
         }
+
+        impl<'a, D> From<OrtOwnedTensor<'a, $ty, D>> for OutputTensor<'a, D>
+        where
+            D: ndarray::Dimension,
+        {
+            fn from(value: OrtOwnedTensor<'a, $ty, D>) -> Self {
+                Self::$name(value)
+            }
+        }
     };
 }
 
-impl_unwrap_tensor!(Int8Tensor => i8);
-impl_unwrap_tensor!(Int16Tensor => i16);
-impl_unwrap_tensor!(Int32Tensor => i32);
-impl_unwrap_tensor!(Int64Tensor => i64);
-impl_unwrap_tensor!(Uint8Tensor => u8);
-impl_unwrap_tensor!(Uint16Tensor => u16);
-impl_unwrap_tensor!(Uint32Tensor => u32);
-impl_unwrap_tensor!(Uint64Tensor => u64);
-impl_unwrap_tensor!(FloatTensor => f32);
-impl_unwrap_tensor!(DoubleTensor => f64);
-impl_unwrap_tensor!(StringTensor => String);
+impl_tensor!(Int8Tensor => i8);
+impl_tensor!(Int16Tensor => i16);
+impl_tensor!(Int32Tensor => i32);
+impl_tensor!(Int64Tensor => i64);
+impl_tensor!(Uint8Tensor => u8);
+impl_tensor!(Uint16Tensor => u16);
+impl_tensor!(Uint32Tensor => u32);
+impl_tensor!(Uint64Tensor => u64);
+impl_tensor!(Bfloat16Tensor => ::half::bf16);
+impl_tensor!(Float16Tensor => ::half::f16);
+impl_tensor!(FloatTensor => f32);
+impl_tensor!(DoubleTensor => f64);
+impl_tensor!(StringTensor => String);

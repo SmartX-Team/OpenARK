@@ -1,1 +1,3 @@
+onnxruntime      # CPU
+onnxruntime-gpu  # CUDA, TensorRT
 transformers[onnx]

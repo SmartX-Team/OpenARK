@@ -2,19 +2,22 @@ use std::path::PathBuf;
 
 use actix_web::{dev::Payload, http::header, HttpRequest, HttpResponse};
 use ipis::{
-    core::{anyhow::Result, ndarray::IxDyn},
+    core::{
+        anyhow::{bail, Result},
+        ndarray::IxDyn,
+    },
     env,
     tokio::fs,
 };
 use ort::{
     tensor::{DynOrtTensor, InputTensor},
-    Environment, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
+    Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
 };
 
 use crate::{
     models::{Model, ModelKind},
     role::{BoxSolver, Request, Response, Role},
-    tensor::{TensorField, TensorFieldMap},
+    tensor::{OutputTensor, TensorField, TensorFieldMap, TensorType},
 };
 
 pub struct Session {
@@ -88,11 +91,14 @@ impl Session {
         &*self.model
     }
 
-    pub fn run_raw(
-        &self,
-        inputs: impl AsRef<[InputTensor]>,
-    ) -> Result<Vec<DynOrtTensor<'_, IxDyn>>> {
-        self.inner.run(inputs).map_err(Into::into)
+    pub(crate) fn run_raw(&self, inputs: impl AsRef<[InputTensor]>) -> Result<SessionOutput<'_>> {
+        self.inner
+            .run(inputs)
+            .map(|inner| SessionOutput {
+                session: self,
+                inner,
+            })
+            .map_err(Into::into)
     }
 
     pub async fn run_web(&self, req: HttpRequest, payload: Payload) -> HttpResponse {
@@ -103,6 +109,80 @@ impl Session {
                 .insert_header((header::CONTENT_TYPE, mime::APPLICATION_JSON))
                 .body(value),
             Err(e) => HttpResponse::Forbidden().body(e.to_string()),
+        }
+    }
+}
+
+pub(crate) struct SessionOutput<'a> {
+    session: &'a Session,
+    inner: Vec<DynOrtTensor<'a, IxDyn>>,
+}
+
+impl<'a> SessionOutput<'a> {
+    pub(crate) fn try_extract(&self, name: &str) -> Result<OutputTensor<'_>> {
+        match self.session.outputs.get(name) {
+            Some(field) => {
+                let output = self.inner.get(field.index).expect("index should be valid");
+                match field.tensor_type {
+                    TensorType::Bool => output
+                        .try_extract::<i8>()
+                        .map_err(Into::into)
+                        .map(Into::into),
+                    TensorType::Int8 => output
+                        .try_extract::<i8>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Int16 => output
+                        .try_extract::<i16>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Int32 => output
+                        .try_extract::<i32>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Int64 => output
+                        .try_extract::<i64>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Uint8 => output
+                        .try_extract::<u8>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Uint16 => output
+                        .try_extract::<u16>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Uint32 => output
+                        .try_extract::<u32>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Uint64 => output
+                        .try_extract::<u64>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Bfloat16 => output
+                        .try_extract::<::half::bf16>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Float16 => output
+                        .try_extract::<::half::f16>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Float32 => output
+                        .try_extract::<f32>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::Float64 => output
+                        .try_extract::<f64>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                    TensorType::String => output
+                        .try_extract::<String>()
+                        .map(Into::into)
+                        .map_err(Into::into),
+                }
+            }
+            None => bail!("no such output tensor: {name:?}"),
         }
     }
 }
@@ -136,6 +216,12 @@ async fn load_model(model: impl Model) -> Result<::ort::Session> {
         .build()?
         .into();
     let session = SessionBuilder::new(&environment)?
+        .with_execution_providers([
+            ExecutionProvider::cuda(),
+            ExecutionProvider::acl(),
+            ExecutionProvider::tensorrt(),
+            ExecutionProvider::cpu(),
+        ])?
         .with_optimization_level(GraphOptimizationLevel::Level1)?
         .with_intra_threads(1)?
         .with_model_from_file(path)?;
