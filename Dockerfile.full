@@ -58,7 +58,7 @@ WORKDIR /src
 RUN mkdir -p /out/bin /out/lib \
     # Build
     && cargo build --all --workspace --release \
-    && find ./target/release/ -maxdepth 1 -type f -perm -a=x -print0 | xargs -0 -I {} mv {} /out \
+    && find ./target/release/ -maxdepth 1 -type f -perm -a=x -print0 | xargs -0 -I {} mv {} /out/bin \
     && mv /out/bin/*.so* /opt/lib/ \
     && mv ./LICENSE /LICENSE \
     # # Remove duplicated onnxruntime CAPI binary
