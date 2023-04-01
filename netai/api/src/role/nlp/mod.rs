@@ -9,7 +9,6 @@ use ipis::{
     },
     futures::TryFutureExt,
 };
-use ort::tensor::InputTensor;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
 use serde::{Deserialize, Serialize};
 
@@ -185,18 +184,9 @@ impl Tokenizer {
                 collect_encode_batch(&encodings, max_len, |encoding| &encoding.segment_ids)?;
 
             vec![
-                (
-                    "input_ids".to_string(),
-                    InputTensor::Int64Tensor(input_ids.clone().into_dyn()),
-                ),
-                (
-                    "attention_mask".to_string(),
-                    InputTensor::Int64Tensor(attention_mask.into_dyn()),
-                ),
-                (
-                    "token_type_ids".to_string(),
-                    InputTensor::Int64Tensor(token_type_ids.into_dyn()),
-                ),
+                ("attention_mask".to_string(), attention_mask.into_dyn()),
+                ("input_ids".to_string(), input_ids.clone().into_dyn()),
+                ("token_type_ids".to_string(), token_type_ids.into_dyn()),
             ]
             .into_iter()
             .collect()
@@ -278,6 +268,6 @@ impl WordInput for QuestionWordInput {
 
 struct TokenizedInputs<Input> {
     input_ids: ndarray::Array<i64, ndarray::Ix2>,
-    inputs: BTreeMap<String, InputTensor>,
+    inputs: BTreeMap<String, ndarray::Array<i64, ndarray::IxDyn>>,
     inputs_str: Vec<Input>,
 }

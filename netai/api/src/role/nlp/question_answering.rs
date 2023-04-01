@@ -1,12 +1,17 @@
 use actix_multipart::form::{text::Text, MultipartForm};
 use ipis::{
     async_trait::async_trait,
-    core::{anyhow::Result, ndarray},
+    core::{
+        anyhow::{bail, Result},
+        ndarray,
+    },
     futures::TryFutureExt,
+    itertools::Itertools,
 };
+use ort::tensor::InputTensor;
 use serde::Serialize;
 
-use crate::ops;
+use crate::{ops, tensor::TensorType};
 
 pub(crate) struct Solver {
     base: super::SolverBase,
@@ -29,7 +34,7 @@ impl super::super::Solver for Solver {
     ) -> Result<super::super::Response> {
         let Inputs { context, question } = request.parse_multipart().await?;
 
-        let inputs_str = context
+        let inputs_str: Vec<_> = context
             .iter()
             .map(|context| &context.0)
             .flat_map(|context| {
@@ -41,26 +46,41 @@ impl super::super::Solver for Solver {
                 })
             })
             .collect();
+        if inputs_str.is_empty() {
+            let outputs: Outputs = Default::default();
+            return super::super::Response::from_json(&outputs);
+        }
 
-        let mut encodings = self.base.tokenizer.encode(inputs_str, true)?;
+        let super::TokenizedInputs {
+            input_ids,
+            inputs,
+            inputs_str,
+        } = self.base.tokenizer.encode(inputs_str, true)?;
+
+        let inputs: Vec<_> = inputs
+            .into_iter()
+            .filter_map(|(name, value)| {
+                session
+                    .inputs()
+                    .get(&name)
+                    .map(|field| (name, field, value))
+            })
+            .sorted_by_key(|(_, field, _)| field.index)
+            .map(|(name, field, value)| match field.tensor_type {
+                TensorType::Int64 => Ok(InputTensor::Int64Tensor(value)),
+                _ => bail!("failed to convert tensor type: {name:?}"),
+            })
+            .collect::<Result<_>>()?;
+
+        let outputs = session.run_raw(&inputs)?;
 
         // TODO: to be implemented
-        let attention_mask = encodings.inputs.remove("attention_mask").unwrap();
-        let input_ids = encodings.inputs.remove("input_ids").unwrap();
-
-        let outputs = session.run_raw(&[input_ids, attention_mask])?;
-
         let start_logits = outputs[0].try_extract::<f32>()?;
         let end_logits = outputs[1].try_extract::<f32>()?;
 
-        let answers = find_answer(
-            &encodings.input_ids,
-            &start_logits.view(),
-            &end_logits.view(),
-        );
+        let answers = find_answer(&input_ids, &start_logits.view(), &end_logits.view());
 
-        let outputs: Outputs = encodings
-            .inputs_str
+        let outputs: Outputs = inputs_str
             .into_iter()
             .zip(answers.into_iter())
             .map(|(input, answer)| Output {
