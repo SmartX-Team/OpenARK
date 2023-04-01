@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use actix_web::{dev::Payload, http::header, HttpRequest, HttpResponse};
 use ipis::{
     core::{anyhow::Result, ndarray::IxDyn},
     env,
@@ -11,8 +12,8 @@ use ort::{
 };
 
 use crate::{
-    models::Model,
-    role::Role,
+    models::{Model, ModelKind},
+    role::{BoxSolver, Request, Response, Role},
     tensor::{TensorField, TensorFieldMap},
 };
 
@@ -20,12 +21,27 @@ pub struct Session {
     inner: ::ort::Session,
     inputs: TensorFieldMap,
     outputs: TensorFieldMap,
+    model: Box<dyn Model>,
     role: Role,
+    solver: BoxSolver,
 }
 
 impl Session {
-    pub async fn try_new(model: impl Model) -> Result<Self> {
+    pub async fn try_default() -> Result<Self> {
+        match env::infer("MODEL_KIND")? {
+            ModelKind::Huggingface => {
+                Self::try_new(crate::models::huggingface::Model {
+                    repo: env::infer("MODEL_REPO")?,
+                    role: env::infer("MODEL_ROLE")?,
+                })
+                .await
+            }
+        }
+    }
+
+    pub async fn try_new(model: impl 'static + Model) -> Result<Self> {
         let session = load_model(&model).await?;
+
         let inputs = session
             .inputs
             .iter()
@@ -44,11 +60,15 @@ impl Session {
             .collect::<Result<_>>()?;
         let role = model.get_role();
 
+        let solver = role.load_solver(&model).await?;
+
         Ok(Self {
             inner: session,
             inputs,
             outputs,
+            model: Box::new(model),
             role,
+            solver,
         })
     }
 
@@ -64,11 +84,26 @@ impl Session {
         &self.role
     }
 
+    pub fn model(&self) -> &dyn Model {
+        &*self.model
+    }
+
     pub fn run_raw(
         &self,
         inputs: impl AsRef<[InputTensor]>,
     ) -> Result<Vec<DynOrtTensor<'_, IxDyn>>> {
         self.inner.run(inputs).map_err(Into::into)
+    }
+
+    pub async fn run_web(&self, req: HttpRequest, payload: Payload) -> HttpResponse {
+        let request = Request { req, payload };
+
+        match self.solver.solve(self, request).await {
+            Ok(Response::Json(value)) => HttpResponse::Ok()
+                .insert_header((header::CONTENT_TYPE, mime::APPLICATION_JSON))
+                .body(value),
+            Err(e) => HttpResponse::Forbidden().body(e.to_string()),
+        }
     }
 }
 

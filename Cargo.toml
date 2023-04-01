@@ -26,7 +26,7 @@ members = [
 [workspace.dependencies]
 ipis = { git = "https://github.com/ulagbulag/ipis", features = ["tokio-full"] }
 
-actix-form-data = { version = "0.6" }
+actix-multipart = { version = "0.6", features = ["derive", "tempfile"] }
 actix-web = { version = "4.3", default-features = false, features = [
     "macros",
     "rustls",
@@ -47,6 +47,7 @@ kube = { version = "0.80", default-features = false, features = [
     "rustls-tls",
 ] }
 k8s-openapi = { version = "0.17", features = ["schemars", "v1_26"] }
+mime = { version = "0.3" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab", default-features = false, features = [
     "rustls-tls",
 ] }

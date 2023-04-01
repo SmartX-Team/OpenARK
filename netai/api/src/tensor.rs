@@ -1,11 +1,15 @@
 use std::collections::BTreeMap;
 
-use actix_form_data::Value;
-use bytes::Bytes;
 use image::{imageops::FilterType, GenericImageView, Pixel};
-use ipis::core::{
-    anyhow::{anyhow, bail, Error, Result},
-    ndarray::{self, Array, Array1, ArrayView, Axis, IxDyn},
+use ipis::{
+    async_trait::async_trait,
+    core::{
+        anyhow::{anyhow, bail, Error, Result},
+        ndarray::{self, Array, Array1, ArrayView, Axis, IxDyn},
+    },
+    futures::{future::try_join_all, TryFutureExt},
+    itertools::Itertools,
+    tokio::{self, io::AsyncReadExt},
 };
 use ort::{
     session::{Input, Output},
@@ -14,80 +18,141 @@ use ort::{
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-pub trait ToTensor {
-    fn to_tensor(&self, field: &TensorField) -> Result<InputTensor>;
+#[async_trait]
+pub trait ToTensor
+where
+    Self: Send,
+{
+    type Field: ?Sized;
+    type Output;
 
-    fn to_tensor_map(&self, fields: &TensorFieldMap) -> Result<TensorMap>;
+    async fn into_tensor(
+        self,
+        field: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output>;
 }
 
-impl ToTensor for Value<Bytes> {
-    fn to_tensor(&self, field: &TensorField) -> Result<InputTensor> {
-        match self {
-            Self::Bytes(data) => field.convert_bytes(data),
-            Self::Text(data) => match &field.kind {
-                TensorKind::Text(kind) => kind.convert_string(data.clone()),
-                kind => {
-                    let type_ = kind.type_();
-                    bail!("expected {type_}, but given Text")
-                }
-            },
-            Self::File(data) => field.convert_bytes(&data.result),
-            _ => bail!("unsupported value"),
+#[async_trait]
+impl ToTensor for ::actix_multipart::form::bytes::Bytes {
+    type Field = TensorField;
+    type Output = InputTensor;
+
+    async fn into_tensor(
+        self,
+        field: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output> {
+        field.convert_bytes(&self.data)
+    }
+}
+
+#[async_trait]
+impl ToTensor for ::actix_multipart::form::tempfile::TempFile {
+    type Field = TensorField;
+    type Output = InputTensor;
+
+    async fn into_tensor(
+        self,
+        field: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output> {
+        let mut file = tokio::fs::File::from_std(self.file.into_file());
+        let mut buf = Default::default();
+        file.read_to_end(&mut buf).await?;
+
+        field.convert_bytes(&buf)
+    }
+}
+
+#[async_trait]
+impl ToTensor for ::actix_multipart::form::text::Text<String> {
+    type Field = TensorField;
+    type Output = InputTensor;
+
+    async fn into_tensor(
+        self,
+        field: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output> {
+        match &field.kind {
+            TensorKind::Text(kind) => kind.convert_string(self.0),
+            kind => {
+                let type_ = kind.type_();
+                bail!("expected {type_}, but given Text")
+            }
         }
     }
+}
 
-    fn to_tensor_map(&self, fields: &TensorFieldMap) -> Result<TensorMap> {
-        match self {
-            Self::Map(data) => data
-                .iter()
-                .map(|(name, data)| {
-                    let field = match fields.get(name) {
-                        Some(field) => field,
-                        None => bail!("failed to find the field: {name:?}"),
-                    };
+#[async_trait]
+impl<T> ToTensor for Vec<T>
+where
+    T: ToTensor<Field = TensorField, Output = InputTensor>,
+{
+    type Field = TensorField;
+    type Output = InputTensor;
 
-                    let to_tensor = |data: &Value<Bytes>| {
-                        data.to_tensor(field)
-                            .map_err(|e| anyhow!("failed to parse the tensor {name:?}: {e}"))
-                    };
+    async fn into_tensor(
+        self,
+        field: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output> {
+        let array = try_join_all(self.into_iter().map(|item| item.into_tensor(field))).await?;
 
-                    match data {
-                        Value::Array(array) => {
-                            let array: Vec<_> =
-                                array.iter().map(to_tensor).collect::<Result<_>>()?;
-
-                            if array.is_empty() {
-                                bail!("failed to parse zero-sized tensor: {name:?}");
-                            }
-
-                            match &array[0] {
-                                InputTensor::Int8Tensor(_) => i8::unwrap_tensor_array(&array),
-                                InputTensor::Int16Tensor(_) => i16::unwrap_tensor_array(&array),
-                                InputTensor::Int32Tensor(_) => i32::unwrap_tensor_array(&array),
-                                InputTensor::Int64Tensor(_) => i64::unwrap_tensor_array(&array),
-                                InputTensor::Uint8Tensor(_) => u8::unwrap_tensor_array(&array),
-                                InputTensor::Uint16Tensor(_) => u16::unwrap_tensor_array(&array),
-                                InputTensor::Uint32Tensor(_) => u32::unwrap_tensor_array(&array),
-                                InputTensor::Uint64Tensor(_) => u64::unwrap_tensor_array(&array),
-                                InputTensor::Bfloat16Tensor(_) => {
-                                    bail!("concatenating Bfloat16Tensors are not supported yet")
-                                }
-                                InputTensor::Float16Tensor(_) => {
-                                    bail!("concatenating Float16Tensors are not supported yet")
-                                }
-                                InputTensor::FloatTensor(_) => f32::unwrap_tensor_array(&array),
-                                InputTensor::DoubleTensor(_) => f64::unwrap_tensor_array(&array),
-                                InputTensor::StringTensor(_) => String::unwrap_tensor_array(&array),
-                            }
-                            .map(|tensor| (name.clone(), tensor))
-                            .map_err(|e| anyhow!("failed to concatenate the tensors {name:?}: {e}"))
-                        }
-                        data => to_tensor(data).map(|tensor| (name.clone(), tensor)),
-                    }
-                })
-                .collect(),
-            _ => bail!("unsupported value; expected Map"),
+        if array.is_empty() {
+            bail!("failed to parse zero-sized tensor");
         }
+
+        match &array[0] {
+            InputTensor::Int8Tensor(_) => i8::unwrap_tensor_array(&array),
+            InputTensor::Int16Tensor(_) => i16::unwrap_tensor_array(&array),
+            InputTensor::Int32Tensor(_) => i32::unwrap_tensor_array(&array),
+            InputTensor::Int64Tensor(_) => i64::unwrap_tensor_array(&array),
+            InputTensor::Uint8Tensor(_) => u8::unwrap_tensor_array(&array),
+            InputTensor::Uint16Tensor(_) => u16::unwrap_tensor_array(&array),
+            InputTensor::Uint32Tensor(_) => u32::unwrap_tensor_array(&array),
+            InputTensor::Uint64Tensor(_) => u64::unwrap_tensor_array(&array),
+            InputTensor::Bfloat16Tensor(_) => {
+                bail!("concatenating Bfloat16Tensors are not supported yet")
+            }
+            InputTensor::Float16Tensor(_) => {
+                bail!("concatenating Float16Tensors are not supported yet")
+            }
+            InputTensor::FloatTensor(_) => f32::unwrap_tensor_array(&array),
+            InputTensor::DoubleTensor(_) => f64::unwrap_tensor_array(&array),
+            InputTensor::StringTensor(_) => String::unwrap_tensor_array(&array),
+        }
+        .map_err(|e| anyhow!("failed to concatenate the tensors: {e}"))
+    }
+}
+
+#[async_trait]
+impl<T> ToTensor for BTreeMap<String, T>
+where
+    T: ToTensor<Field = TensorField, Output = InputTensor>,
+{
+    type Field = TensorFieldMap;
+    type Output = Vec<InputTensor>;
+
+    async fn into_tensor(
+        self,
+        fields: &<Self as ToTensor>::Field,
+    ) -> Result<<Self as ToTensor>::Output> {
+        try_join_all(self.into_iter().map(|(name, item)| async move {
+            let field = match fields.get(&name) {
+                Some(field) => field,
+                None => bail!("failed to find the field: {name:?}"),
+            };
+
+            item.into_tensor(field)
+                .map_ok(|item| (field.index, item))
+                .map_err(|e| anyhow!("failed to parse the tensor {name:?}: {e}"))
+                .await
+        }))
+        .map_ok(|array| {
+            array
+                .into_iter()
+                .sorted_by_key(|(index, _)| *index)
+                .map(|(_, item)| item)
+                .collect()
+        })
+        .await
     }
 }
 
@@ -154,7 +219,7 @@ impl TensorField {
 }
 
 impl TensorField {
-    fn convert_bytes(&self, bytes: &Bytes) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8]) -> Result<InputTensor> {
         self.kind.convert_bytes(bytes, self.tensor_type)
     }
 }
@@ -167,7 +232,7 @@ pub enum TensorKind {
 }
 
 impl TensorKind {
-    fn convert_bytes(&self, bytes: &Bytes, tensor_type: TensorType) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<InputTensor> {
         match self {
             Self::Text(kind) => kind.convert_bytes(bytes),
             Self::Image(kind) => kind.convert_bytes(bytes, tensor_type),
@@ -189,7 +254,7 @@ pub struct TextKind {
 }
 
 impl TextKind {
-    fn convert_bytes(&self, bytes: &Bytes) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8]) -> Result<InputTensor> {
         String::from_utf8(bytes.to_vec())
             .map_err(Into::into)
             .and_then(|s| self.convert_string(s))
@@ -218,7 +283,7 @@ pub struct ImageKind {
 }
 
 impl ImageKind {
-    fn convert_bytes(&self, bytes: &Bytes, tensor_type: TensorType) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<InputTensor> {
         fn convert_image<I>(
             image: I,
             tensor_type: TensorType,
