@@ -57,7 +57,7 @@ ort = { version = "1.14", default-features = false, features = [
     "copy-dylibs",
     "download-binaries",
     "half",
-    "load-dynamic",
+    # "load-dynamic",
     # NOTE: external providers are supported by python packages in a container
     "cuda",
     "tensorrt",

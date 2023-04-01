@@ -26,6 +26,9 @@ Cargo.lock
 # Documentation
 **/*.md
 
+# Dockerfile/Containerfile
+/Dockerfile*
+
 # Editor
 /.vscode/
 **/tmp/

@@ -1,3 +1,7 @@
+nvidia-cuda-runtime
+nvidia-curand
+nvidia-cufft
+
 onnxruntime      # CPU
 onnxruntime-gpu  # CUDA, TensorRT
 transformers[onnx]
