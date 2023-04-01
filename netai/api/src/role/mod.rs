@@ -1,13 +1,17 @@
 pub mod nlp;
 
-use actix_multipart::form::{MultipartCollect, MultipartForm};
-use actix_web::{dev::Payload, FromRequest, HttpRequest};
+use actix_multipart::{
+    form::{FieldReader, Limits, MultipartCollect, MultipartForm},
+    Field, MultipartError,
+};
+use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
 use inflector::Inflector;
 use ipis::{
     async_trait::async_trait,
-    core::anyhow::{anyhow, Result},
+    core::anyhow::{anyhow, bail, Result},
+    futures::{future::LocalBoxFuture, FutureExt, TryFutureExt},
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 use crate::models::{Model, ModelKind};
@@ -25,13 +29,41 @@ pub(super) struct Request {
 }
 
 impl Request {
-    pub(super) async fn parse_multipart<T>(&mut self) -> Result<T>
+    async fn parse<T>(&mut self) -> Result<T>
+    where
+        T: DeserializeOwned + MultipartCollect,
+    {
+        match self.req.headers().get(header::CONTENT_TYPE) {
+            Some(content_type) => match content_type.to_str()? {
+                s if s.starts_with(::mime::APPLICATION_JSON.essence_str()) => {
+                    self.parse_json().await
+                }
+                s if s.starts_with(::mime::MULTIPART_FORM_DATA.essence_str()) => {
+                    self.parse_multipart().await
+                }
+                s => bail!("Unsupported Content Type: {s:?}"),
+            },
+            None => bail!("Content Type Header is required"),
+        }
+    }
+
+    async fn parse_json<T>(&mut self) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        Json::<T>::from_request(&self.req, &mut self.payload)
+            .await
+            .map(|value| value.0)
+            .map_err(|e| anyhow!("{e}"))
+    }
+
+    async fn parse_multipart<T>(&mut self) -> Result<T>
     where
         T: MultipartCollect,
     {
         MultipartForm::<T>::from_request(&self.req, &mut self.payload)
             .await
-            .map(|form| form.0)
+            .map(|value| value.0)
             .map_err(|e| anyhow!("{e}"))
     }
 }
@@ -48,6 +80,34 @@ impl Response {
         ::serde_json::to_string(value)
             .map(Self::Json)
             .map_err(Into::into)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Text(pub String);
+
+impl From<String> for Text {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Text> for String {
+    fn from(value: Text) -> Self {
+        value.0
+    }
+}
+
+impl<'t> FieldReader<'t> for Text {
+    type Future = LocalBoxFuture<'t, Result<Self, MultipartError>>;
+
+    fn read_field(req: &'t HttpRequest, field: Field, limits: &'t mut Limits) -> Self::Future {
+        <::actix_multipart::form::text::Text<String> as FieldReader<'t>>::read_field(
+            req, field, limits,
+        )
+        .map_ok(|value| Self(value.0))
+        .boxed_local()
     }
 }
 

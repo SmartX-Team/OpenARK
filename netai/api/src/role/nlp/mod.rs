@@ -246,7 +246,61 @@ trait WordInput {
     fn as_tokenizer_input_2(&self) -> Option<&str>;
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct QuestionWordInputs(pub(self) Vec<QuestionWordInput>);
+
+mod impl_multipart_form_for_qustion_word_inputs {
+    use actix_multipart::{
+        form::{Limits, MultipartCollect, MultipartForm, State},
+        Field, MultipartError,
+    };
+    use actix_web::HttpRequest;
+    use ipis::futures::future::LocalBoxFuture;
+
+    #[derive(MultipartForm)]
+    struct Template {
+        context: Vec<super::super::Text>,
+        question: Vec<super::super::Text>,
+    }
+
+    impl MultipartCollect for super::QuestionWordInputs {
+        fn limit(field_name: &str) -> Option<usize> {
+            <Template as MultipartCollect>::limit(field_name)
+        }
+
+        fn handle_field<'t>(
+            req: &'t HttpRequest,
+            field: Field,
+            limits: &'t mut Limits,
+            state: &'t mut State,
+        ) -> LocalBoxFuture<'t, Result<(), MultipartError>> {
+            <Template as MultipartCollect>::handle_field(req, field, limits, state)
+        }
+
+        fn from_state(state: State) -> Result<Self, MultipartError> {
+            <Template as MultipartCollect>::from_state(state).map(
+                |Template { context, question }| {
+                    Self(
+                        context
+                            .iter()
+                            .map(|context| &context.0)
+                            .flat_map(|context| {
+                                question.iter().map(|question| &question.0).map(|question| {
+                                    super::QuestionWordInput {
+                                        context: context.clone(),
+                                        question: question.clone(),
+                                    }
+                                })
+                            })
+                            .collect(),
+                    )
+                },
+            )
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionWordInput {
     pub context: String,
     pub question: String,

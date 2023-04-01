@@ -106,7 +106,7 @@ impl Session {
 
         match self.solver.solve(self, request).await {
             Ok(Response::Json(value)) => HttpResponse::Ok()
-                .insert_header((header::CONTENT_TYPE, mime::APPLICATION_JSON))
+                .insert_header((header::CONTENT_TYPE, ::mime::APPLICATION_JSON))
                 .body(value),
             Err(e) => HttpResponse::Forbidden().body(e.to_string()),
         }

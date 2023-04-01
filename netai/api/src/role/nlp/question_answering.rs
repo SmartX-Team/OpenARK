@@ -1,4 +1,3 @@
-use actix_multipart::form::{text::Text, MultipartForm};
 use ipis::{
     async_trait::async_trait,
     core::{
@@ -9,7 +8,7 @@ use ipis::{
     itertools::Itertools,
 };
 use ort::tensor::InputTensor;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::tensor::{OutputTensor, TensorType};
 
@@ -32,20 +31,8 @@ impl super::super::Solver for Solver {
         session: &crate::session::Session,
         mut request: super::super::Request,
     ) -> Result<super::super::Response> {
-        let Inputs { context, question } = request.parse_multipart().await?;
+        let Inputs { 0: inputs_str } = request.parse().await?;
 
-        let inputs_str: Vec<_> = context
-            .iter()
-            .map(|context| &context.0)
-            .flat_map(|context| {
-                question.iter().map(|question| &question.0).map(|question| {
-                    super::QuestionWordInput {
-                        context: context.clone(),
-                        question: question.clone(),
-                    }
-                })
-            })
-            .collect();
         if inputs_str.is_empty() {
             let outputs: Outputs = Default::default();
             return super::super::Response::from_json(&outputs);
@@ -92,15 +79,11 @@ impl super::super::Solver for Solver {
     }
 }
 
-#[derive(MultipartForm)]
-struct Inputs {
-    context: Vec<Text<String>>,
-    question: Vec<Text<String>>,
-}
+pub type Inputs = super::QuestionWordInputs;
 
 type Outputs = Vec<Output>;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Output {
     #[serde(flatten)]
     pub input: super::QuestionWordInput,
