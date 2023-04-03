@@ -1,0 +1,27 @@
+[package]
+name = "proxyx-storage-influxdb"
+version = "0.1.0"
+edition = "2021"
+
+authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
+description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
+documentation = "https://docs.rs/kiss-api"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+readme = "../README.md"
+homepage = "https://github.com/ulagbulag/OpenARK"
+repository = "https://github.com/ulagbulag/OpenARK"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dash-api = { path = "../../../dash/api" }
+ipis = { workspace = true }
+
+bytes = { workspace = true }
+influxdb2 = { workspace = true }
+influxdb2-derive = { workspace = true }
+influxdb2-structmap = { workspace = true }
+num-traits = { workspace = true }
+paste = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
