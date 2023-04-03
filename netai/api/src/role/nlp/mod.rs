@@ -302,9 +302,9 @@ impl CollectTokenizerInputs for Vec<QuestionWordInput> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionWordInput {
-    pub context: String,
-    pub question: Vec<String>,
+pub struct QuestionWordInput<Context = String, Question = Vec<String>> {
+    pub context: Context,
+    pub question: Question,
 }
 
 trait CollectTokenizerInputs {

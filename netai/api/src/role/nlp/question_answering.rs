@@ -65,14 +65,25 @@ impl super::super::Solver for Solver {
         let end_logits = outputs.try_extract("end_logits")?;
 
         let answers = find_answer(&input_ids, &start_logits, &end_logits);
+        let mut answers = answers.into_iter().map(|answer| {
+            answer
+                .as_slice()
+                .map(|answer| self.base.tokenizer.decode(answer))
+                .unwrap_or_default()
+        });
 
         let outputs: Outputs = inputs_str
             .into_iter()
-            .zip(answers.into_iter())
-            .map(|(input, answer)| Output {
-                input,
-                answer: self.base.tokenizer.decode(answer.as_slice().unwrap()),
-            })
+            .map(
+                |super::QuestionWordInput { context, question }| super::QuestionWordInput {
+                    context,
+                    question: question
+                        .into_iter()
+                        .zip(answers.by_ref())
+                        .map(|(question, answer)| OutputQuestion { question, answer })
+                        .collect(),
+                },
+            )
             .collect();
 
         super::super::Response::from_json(&outputs)
@@ -81,12 +92,11 @@ impl super::super::Solver for Solver {
 
 pub type Inputs = super::QuestionWordInputs;
 
-type Outputs = Vec<Output>;
+type Outputs = Vec<super::QuestionWordInput<String, Vec<OutputQuestion>>>;
 
 #[derive(Serialize, Deserialize)]
-pub struct Output {
-    #[serde(flatten)]
-    pub input: super::QuestionWordInput,
+pub struct OutputQuestion {
+    pub question: String,
     pub answer: String,
 }
 
