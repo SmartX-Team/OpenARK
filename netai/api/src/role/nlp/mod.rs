@@ -87,13 +87,9 @@ impl Tokenizer {
         }
     }
 
-    fn encode<Input>(
-        &self,
-        inputs_str: Vec<Input>,
-        to_tensor: bool,
-    ) -> Result<TokenizedInputs<Input>>
+    fn encode<Inputs>(&self, inputs_str: Inputs, to_tensor: bool) -> Result<TokenizedInputs<Inputs>>
     where
-        Input: WordInput,
+        Inputs: CollectTokenizerInputs,
     {
         match self {
             Self::DeBERTaV2(tokenizer) => Self::encode_with(tokenizer, inputs_str, to_tensor),
@@ -101,13 +97,13 @@ impl Tokenizer {
         }
     }
 
-    fn encode_with<Input, T, V>(
+    fn encode_with<Inputs, T, V>(
         tokenizer: &T,
-        inputs_str: Vec<Input>,
+        inputs_str: Inputs,
         to_tensor: bool,
-    ) -> Result<TokenizedInputs<Input>>
+    ) -> Result<TokenizedInputs<Inputs>>
     where
-        Input: WordInput,
+        Inputs: CollectTokenizerInputs,
         T: ::rust_tokenizers::tokenizer::Tokenizer<V>,
         V: ::rust_tokenizers::vocab::Vocab,
     {
@@ -143,20 +139,23 @@ impl Tokenizer {
             ndarray::concatenate(ndarray::Axis(0), &arrays).map_err(Into::into)
         }
 
-        let max_len = inputs_str
+        let inputs_str_raw = inputs_str.collect_tokenizer_inputs();
+
+        let max_len = inputs_str_raw
             .iter()
-            .map(WordInput::as_tokenizer_inputs)
-            .map(|(text_1, text_2)| text_1.len().max(text_2.map(|e| e.len()).unwrap_or(0)))
+            .map(|TokenizerInput { text_1, text_2 }| {
+                text_1.len().max(text_2.map(|e| e.len()).unwrap_or(0))
+            })
             .max()
             .unwrap_or(0);
 
-        let inputs_1: Vec<_> = inputs_str
+        let inputs_1: Vec<_> = inputs_str_raw
             .iter()
-            .map(WordInput::as_tokenizer_input_1)
+            .map(|TokenizerInput { text_1, text_2: _ }| text_1)
             .collect();
-        let inputs_2: Vec<_> = inputs_str
+        let inputs_2: Vec<_> = inputs_str_raw
             .iter()
-            .filter_map(WordInput::as_tokenizer_input_2)
+            .filter_map(|TokenizerInput { text_1: _, text_2 }| text_2.as_ref())
             .collect();
 
         if !inputs_2.is_empty() && inputs_1.len() != inputs_2.len() {
@@ -166,7 +165,7 @@ impl Tokenizer {
         let encodings = if inputs_2.is_empty() {
             tokenizer.encode_list(&inputs_1, max_len, &TruncationStrategy::LongestFirst, 0)
         } else {
-            let inputs_pair: Vec<_> = inputs_1.into_iter().zip(inputs_2.into_iter()).collect();
+            let inputs_pair: Vec<_> = inputs_1.iter().zip(inputs_2.iter()).collect();
 
             tokenizer.encode_pair_list(&inputs_pair, max_len, &TruncationStrategy::LongestFirst, 0)
         };
@@ -238,16 +237,8 @@ impl Tokenizer {
     }
 }
 
-trait WordInput {
-    fn as_tokenizer_inputs(&self) -> (&str, Option<&str>);
-
-    fn as_tokenizer_input_1(&self) -> &str;
-
-    fn as_tokenizer_input_2(&self) -> Option<&str>;
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionWordInputs(pub(self) Vec<QuestionWordInput>);
+pub struct QuestionWordInputs(Vec<QuestionWordInput>);
 
 mod impl_multipart_form_for_qustion_word_inputs {
     use actix_multipart::{
@@ -280,17 +271,14 @@ mod impl_multipart_form_for_qustion_word_inputs {
         fn from_state(state: State) -> Result<Self, MultipartError> {
             <Template as MultipartCollect>::from_state(state).map(
                 |Template { context, question }| {
+                    let question: Vec<_> =
+                        question.into_iter().map(|question| question.0).collect();
                     Self(
                         context
                             .iter()
-                            .map(|context| &context.0)
-                            .flat_map(|context| {
-                                question.iter().map(|question| &question.0).map(|question| {
-                                    super::QuestionWordInput {
-                                        context: context.clone(),
-                                        question: question.clone(),
-                                    }
-                                })
+                            .map(|context| super::QuestionWordInput {
+                                context: context.0.clone(),
+                                question: question.clone(),
                             })
                             .collect(),
                     )
@@ -300,28 +288,38 @@ mod impl_multipart_form_for_qustion_word_inputs {
     }
 }
 
+impl CollectTokenizerInputs for Vec<QuestionWordInput> {
+    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
+        self.iter()
+            .flat_map(|QuestionWordInput { context, question }| {
+                question.iter().map(|question| TokenizerInput {
+                    text_1: question,
+                    text_2: Some(context),
+                })
+            })
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionWordInput {
     pub context: String,
-    pub question: String,
+    pub question: Vec<String>,
 }
 
-impl WordInput for QuestionWordInput {
-    fn as_tokenizer_inputs(&self) -> (&str, Option<&str>) {
-        (&self.question, Some(&self.context))
-    }
-
-    fn as_tokenizer_input_1(&self) -> &str {
-        &self.question
-    }
-
-    fn as_tokenizer_input_2(&self) -> Option<&str> {
-        Some(&self.context)
-    }
+trait CollectTokenizerInputs {
+    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_>;
 }
 
-struct TokenizedInputs<Input> {
+type TokenizerInputs<'a> = Vec<TokenizerInput<'a>>;
+
+struct TokenizerInput<'a> {
+    text_1: &'a str,
+    text_2: Option<&'a str>,
+}
+
+struct TokenizedInputs<Inputs> {
     input_ids: ndarray::Array<i64, ndarray::Ix2>,
     inputs: BTreeMap<String, ndarray::Array<i64, ndarray::IxDyn>>,
-    inputs_str: Vec<Input>,
+    inputs_str: Inputs,
 }
