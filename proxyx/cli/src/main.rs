@@ -42,5 +42,8 @@ async fn main() -> Result<()> {
         let value = client.get_raw(&name);
         println!("{name} = {value}");
     }
+
+    let context = "My name is Ho Kim and I live in Gwangju.";
+    client.question("/name/", context).await?;
     Ok(())
 }

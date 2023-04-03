@@ -5,7 +5,6 @@ use actix_multipart::{
     Field, MultipartError,
 };
 use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
-use inflector::Inflector;
 use ipis::{
     async_trait::async_trait,
     core::anyhow::{anyhow, bail, Result},
@@ -128,11 +127,15 @@ impl<'t> FieldReader<'t> for Text {
 pub enum Role {
     // NLP
     QuestionAnswering,
+    ZeroShotClassification,
 }
 
 impl Role {
-    pub(crate) fn to_string_kebab_case(self) -> String {
-        self.to_string().to_kebab_case()
+    pub(crate) const fn to_huggingface_feature(self) -> &'static str {
+        match self {
+            Self::QuestionAnswering => "question-answering",
+            Self::ZeroShotClassification => "sequence-classification",
+        }
     }
 
     pub(crate) async fn load_solver(&self, model: impl Model) -> Result<BoxSolver> {
@@ -143,6 +146,15 @@ impl Role {
                     self::nlp::question_answering::Solver::load_from_huggingface(&model.get_repo())
                         .await
                         .map(|solver| Box::new(solver) as BoxSolver)
+                }
+            },
+            Self::ZeroShotClassification => match model.get_kind() {
+                ModelKind::Huggingface => {
+                    self::nlp::zero_shot_classification::Solver::load_from_huggingface(
+                        &model.get_repo(),
+                    )
+                    .await
+                    .map(|solver| Box::new(solver) as BoxSolver)
                 }
             },
         }

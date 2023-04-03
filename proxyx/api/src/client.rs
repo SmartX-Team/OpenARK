@@ -1,13 +1,19 @@
 use std::collections::BTreeMap;
 
 use dash_api::{
-    model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec},
+    model::{ModelFieldKindNativeSpec, ModelFieldKindNativeType, ModelFieldNativeSpec},
     serde_json::Value,
 };
-use ipis::core::{anyhow::Result, chrono::Duration};
+use ipis::{
+    core::{anyhow::Result, chrono::Duration, value::text::LanguageTag},
+    itertools::Itertools,
+};
+use netai_api::role::nlp::QuestionWordInputRef;
+use serde::{Deserialize, Serialize};
 use storage::{DynamicQuery, DynamicValue};
 
 pub struct Client {
+    netai_nlp_question_answering: ::netai_client::Client,
     storage: crate::storage::Client,
     fields: FieldMap,
 }
@@ -15,6 +21,9 @@ pub struct Client {
 impl Client {
     pub async fn try_default() -> Result<Self> {
         let mut client = Self {
+            netai_nlp_question_answering: ::netai_client::Client::with_env(
+                "NETAI_HOST_NLP_QUESTION_ANSWERING",
+            )?,
             storage: crate::storage::Client::try_default()?,
             fields: Self::load_fields().await?,
         };
@@ -24,6 +33,57 @@ impl Client {
 
     async fn load_fields() -> Result<FieldMap> {
         Ok(Default::default())
+    }
+
+    pub async fn question(&self, name: &str, context: &str) -> Result<Option<FieldLabel>> {
+        let field = match self.fields.get(name) {
+            Some(field) => field,
+            None => return Ok(None),
+        };
+        let inputs = &[QuestionWordInputRef {
+            context,
+            question: {
+                let name = field
+                    .metadata
+                    .name
+                    .split('/')
+                    .rev()
+                    .filter(|key| !key.is_empty())
+                    .join(" of ");
+                let type_ = match field.metadata.kind.to_type() {
+                    // BEGIN primitive types
+                    ModelFieldKindNativeType::None => return Ok(None),
+                    ModelFieldKindNativeType::Boolean => "boolean",
+                    ModelFieldKindNativeType::Integer => "integer",
+                    ModelFieldKindNativeType::Number => "number",
+                    ModelFieldKindNativeType::String => "word",
+                    ModelFieldKindNativeType::OneOfStrings => "word",
+                    // BEGIN string formats
+                    ModelFieldKindNativeType::DateTime => "date time",
+                    ModelFieldKindNativeType::Ip => "IP",
+                    ModelFieldKindNativeType::Uuid => "UUID",
+                    // BEGIN aggregation types
+                    ModelFieldKindNativeType::Object => return Ok(None),
+                    ModelFieldKindNativeType::ObjectArray => return Ok(None),
+                };
+
+                &[&format!("{name} as {type_}")]
+            },
+        }];
+
+        let mut outputs = self
+            .netai_nlp_question_answering
+            .call_question_answering(inputs)
+            .await?;
+
+        Ok(outputs
+            .pop()
+            .and_then(|mut question| question.pop())
+            .filter(|answer| !answer.is_empty())
+            .map(|label| FieldLabel {
+                label,
+                language: LanguageTag::new_en_us(),
+            }))
     }
 
     pub fn update_fields(&mut self, fields: Vec<ModelFieldNativeSpec>) {
@@ -77,6 +137,12 @@ impl Client {
                     })
             })
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct FieldLabel {
+    label: String,
+    language: LanguageTag,
 }
 
 type FieldMap = BTreeMap<String, Field>;

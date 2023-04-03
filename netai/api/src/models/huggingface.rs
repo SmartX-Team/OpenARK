@@ -26,7 +26,7 @@ impl super::Model for Model {
         format!(
             "huggingface/{}/{}",
             &self.repo,
-            self.role.to_string_kebab_case(),
+            self.role.to_huggingface_feature(),
         )
     }
 
@@ -82,7 +82,7 @@ impl super::Model for Model {
             "--model",
             &self.repo,
             "--feature",
-            &self.role.to_string_kebab_case(),
+            self.role.to_huggingface_feature(),
             &path
                 .parent()
                 .expect("namespace path should be exists")

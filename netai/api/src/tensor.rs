@@ -5,10 +5,11 @@ use ipis::{
     async_trait::async_trait,
     core::{
         anyhow::{anyhow, bail, Error, Result},
-        ndarray::{self, Array, Array1, ArrayView, Axis, IxDyn},
+        ndarray::{self, Array, Array1, ArrayBase, ArrayView, Axis, IxDyn},
     },
     futures::{future::try_join_all, TryFutureExt},
     itertools::Itertools,
+    log::warn,
     tokio::{self, io::AsyncReadExt},
 };
 use ort::{
@@ -17,6 +18,8 @@ use ort::{
 };
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
+
+use crate::primitive::AsPrimitive;
 
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum OutputTensor<'a, D = IxDyn>
@@ -42,25 +45,7 @@ impl<'a, D> OutputTensor<'a, D>
 where
     D: 'a + ndarray::Dimension,
 {
-    pub(crate) fn argmax(&self) -> ndarray::Array1<usize> {
-        match self {
-            Self::Int8Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Int16Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Int32Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Int64Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Uint8Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Uint16Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Uint32Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Uint64Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Bfloat16Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::Float16Tensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::FloatTensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::DoubleTensor(tensor) => Self::argmax_with(&tensor.view()),
-            Self::StringTensor(tensor) => Self::argmax_with(&tensor.view()),
-        }
-    }
-
-    fn argmax_with<S>(mat: &ndarray::ArrayBase<S, D>) -> ndarray::Array1<usize>
+    fn argmax_with<S>(mat: &ArrayBase<S, D>) -> Array1<usize>
     where
         S: ndarray::Data,
         S::Elem: PartialOrd,
@@ -75,6 +60,75 @@ where
                     .0
             })
             .collect()
+    }
+
+    fn argmax_by_group_with<S>(
+        mat: &ArrayBase<S, D>,
+        mut label: usize,
+        label_drop: Option<usize>,
+        groups: &[usize],
+    ) -> Array1<Option<usize>>
+    where
+        S: ndarray::Data,
+        S::Elem: PartialOrd + AsPrimitive<f64> + ::std::fmt::Debug,
+        D: ndarray::RemoveAxis,
+        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+    {
+        let mat = match label_drop {
+            Some(label_drop) => {
+                let mut mat = mat.to_owned();
+                {
+                    mat.remove_index(Axis(1), label_drop);
+                    if label_drop < label {
+                        label -= 1;
+                    }
+                }
+                Self::softmax_2d_with(&mat)
+            }
+            None => Self::softmax_2d_with(mat),
+        };
+
+        let mut max = mat.rows().into_iter().map(|row| {
+            row.into_iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .unwrap()
+        });
+
+        groups
+            .iter()
+            .map(|&group| {
+                max.by_ref()
+                    .take(group)
+                    .enumerate()
+                    .filter(|(_, (group_label, _))| *group_label == label)
+                    .map(|(group_index, (_, value))| (group_index, value))
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .map(|(group_index, _)| group_index)
+            })
+            .collect()
+    }
+
+    fn softmax_with<S>(mat: &ArrayBase<S, D>, axis: Axis) -> Array<f64, D>
+    where
+        S: ndarray::Data,
+        S::Elem: PartialOrd + AsPrimitive<f64>,
+        D: ndarray::RemoveAxis,
+        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+    {
+        let exp = mat.mapv(|value| value.as_().exp());
+        let sum = exp.sum_axis(axis).insert_axis(axis);
+        exp / sum
+    }
+
+    fn softmax_2d_with<S>(mat: &ArrayBase<S, D>) -> Array<f64, D>
+    where
+        S: ndarray::Data,
+        S::Elem: PartialOrd + AsPrimitive<f64>,
+        D: ndarray::RemoveAxis,
+        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+    {
+        Self::softmax_with(mat, Axis(1))
     }
 }
 
@@ -233,8 +287,14 @@ impl TensorField {
         Self::try_from_ort(index, &value.name, &value.dimensions, value.input_type)
     }
 
-    pub fn try_from_output(index: usize, value: &Output) -> Result<Self> {
-        Self::try_from_ort(index, &value.name, &value.dimensions, value.output_type)
+    pub fn try_from_output(index: usize, value: &Output) -> Option<Self> {
+        match Self::try_from_ort(index, &value.name, &value.dimensions, value.output_type) {
+            Ok(field) => Some(field),
+            Err(e) => {
+                warn!("error parsing OutputTensor: {e}");
+                None
+            }
+        }
     }
 
     fn try_from_ort(
@@ -243,7 +303,16 @@ impl TensorField {
         dimensions: &[Option<u32>],
         type_: TensorElementDataType,
     ) -> Result<Self> {
-        let fail = || bail!("unsupported kind: {name:?}");
+        let fail = || {
+            let dimensions = dimensions
+                .iter()
+                .map(|dimension| match dimension {
+                    Some(dimension) => dimension.to_string(),
+                    None => "*".into(),
+                })
+                .join(", ");
+            bail!("unsupported tensor kind: {name:?} as {type_:?}[{dimensions}]")
+        };
 
         match dimensions.len() {
             2 => match type_ {
@@ -547,48 +616,87 @@ trait UnwrapTensor {
 }
 
 macro_rules! impl_tensor {
-    ($name:ident => $ty:ty) => {
-        impl UnwrapTensor for $ty {
-            fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>> {
-                match tensor {
-                    InputTensor::$name(tensor) => Ok(tensor.view()),
-                    _ => bail!("cannot combine other types than {}", stringify!($ty)),
+    ( $( $name:ident => $ty:ty , )* ) => {
+        impl<'a, D> OutputTensor<'a, D>
+        where
+            D: 'a + ndarray::Dimension,
+        {
+            pub(crate) fn argmax(&self) -> Array1<usize> {
+                match self {
+                    $(
+                        Self::$name(tensor) => Self::argmax_with(&tensor.view()),
+                    )*
                 }
             }
 
-            fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor> {
-                let array: Vec<_> = array
-                    .iter()
-                    .map(<$ty as UnwrapTensor>::unwrap_tensor)
-                    .collect::<Result<_>>()?;
-
-                ndarray::concatenate(Axis(0), &array)
-                    .map(InputTensor::$name)
-                    .map_err(Into::into)
+            pub(crate) fn argmax_by_group(
+                &self,
+                label: usize,
+                label_drop: Option<usize>,
+                groups: &[usize],
+            ) -> Array1<Option<usize>>
+            where
+                D: ndarray::RemoveAxis,
+                <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+            {
+                match self {
+                    $(
+                        Self::$name(tensor) => Self::argmax_by_group_with(
+                            &tensor.view(),
+                            label,
+                            label_drop,
+                            groups,
+                        ),
+                    )*
+                }
             }
         }
 
-        impl<'a, D> From<OrtOwnedTensor<'a, $ty, D>> for OutputTensor<'a, D>
-        where
-            D: ndarray::Dimension,
-        {
-            fn from(value: OrtOwnedTensor<'a, $ty, D>) -> Self {
-                Self::$name(value)
+        $(
+            impl UnwrapTensor for $ty {
+                fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>> {
+                    match tensor {
+                        InputTensor::$name(tensor) => Ok(tensor.view()),
+                        _ => bail!("cannot combine other types than {}", stringify!($ty)),
+                    }
+                }
+
+                fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor> {
+                    let array: Vec<_> = array
+                        .iter()
+                        .map(<$ty as UnwrapTensor>::unwrap_tensor)
+                        .collect::<Result<_>>()?;
+
+                    ndarray::concatenate(Axis(0), &array)
+                        .map(InputTensor::$name)
+                        .map_err(Into::into)
+                }
             }
-        }
+
+            impl<'a, D> From<OrtOwnedTensor<'a, $ty, D>> for OutputTensor<'a, D>
+            where
+                D: ndarray::Dimension,
+            {
+                fn from(value: OrtOwnedTensor<'a, $ty, D>) -> Self {
+                    Self::$name(value)
+                }
+            }
+        )*
     };
 }
 
-impl_tensor!(Int8Tensor => i8);
-impl_tensor!(Int16Tensor => i16);
-impl_tensor!(Int32Tensor => i32);
-impl_tensor!(Int64Tensor => i64);
-impl_tensor!(Uint8Tensor => u8);
-impl_tensor!(Uint16Tensor => u16);
-impl_tensor!(Uint32Tensor => u32);
-impl_tensor!(Uint64Tensor => u64);
-impl_tensor!(Bfloat16Tensor => ::half::bf16);
-impl_tensor!(Float16Tensor => ::half::f16);
-impl_tensor!(FloatTensor => f32);
-impl_tensor!(DoubleTensor => f64);
-impl_tensor!(StringTensor => String);
+impl_tensor!(
+    Int8Tensor => i8,
+    Int16Tensor => i16,
+    Int32Tensor => i32,
+    Int64Tensor => i64,
+    Uint8Tensor => u8,
+    Uint16Tensor => u16,
+    Uint32Tensor => u32,
+    Uint64Tensor => u64,
+    FloatTensor => f32,
+    DoubleTensor => f64,
+    Bfloat16Tensor => ::half::bf16,
+    Float16Tensor => ::half::f16,
+    StringTensor => String,
+);

@@ -16,6 +16,8 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 dash-api = { path = "../../dash/api" }
 ipis = { workspace = true }
+netai-api = { path = "../../netai/api" }
+netai-client = { path = "../../netai/client" }
 proxyx-storage-influxdb = { path = "../storage/influxdb" }
 
 schemars = { workspace = true }

@@ -57,10 +57,10 @@ impl Session {
             .outputs
             .iter()
             .enumerate()
-            .map(|(index, output)| {
+            .filter_map(|(index, output)| {
                 TensorField::try_from_output(index, output).map(|kind| (output.name.clone(), kind))
             })
-            .collect::<Result<_>>()?;
+            .collect();
         let role = model.get_role();
 
         let solver = role.load_solver(&model).await?;

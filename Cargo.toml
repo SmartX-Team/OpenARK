@@ -15,6 +15,7 @@ members = [
     "kiss/manager",
     "kiss/monitor",
     "netai/api",
+    "netai/client",
     "netai/endpoint",
     "proxyx/api",
     "proxyx/cli",

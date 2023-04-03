@@ -1,6 +1,5 @@
 pub mod question_answering;
-
-use std::collections::BTreeMap;
+pub mod zero_shot_classification;
 
 use ipis::{
     core::{
@@ -8,7 +7,9 @@ use ipis::{
         ndarray,
     },
     futures::TryFutureExt,
+    itertools::Itertools,
 };
+use ort::tensor::InputTensor;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
 use serde::{Deserialize, Serialize};
 
@@ -24,9 +25,9 @@ impl SolverBase {
     }
 }
 
-enum Tokenizer {
-    DeBERTaV2(::rust_tokenizers::tokenizer::DeBERTaV2Tokenizer),
-    Roberta(::rust_tokenizers::tokenizer::RobertaTokenizer),
+struct Tokenizer {
+    base: TokenizerBase,
+    options: TokenizerOptions,
 }
 
 impl Tokenizer {
@@ -37,6 +38,8 @@ impl Tokenizer {
         struct Config {
             #[serde(default)]
             model_type: Option<String>,
+            #[serde(default, flatten)]
+            options: TokenizerOptions,
         }
 
         #[derive(Default, Deserialize)]
@@ -49,14 +52,18 @@ impl Tokenizer {
             strip_accents: bool,
         }
 
-        let Config { model_type } = model::get_json(repo, "config.json").await?;
+        let Config {
+            model_type,
+            options,
+        } = model::get_json(repo, "config.json").await?;
+
         let TokenizerConfig {
             add_prefix_space,
             do_lower_case: lower_case,
             strip_accents,
         } = model::get_json(repo, "tokenizer_config.json").await?;
 
-        match model_type.as_deref() {
+        let base = match model_type.as_deref() {
             Some("distilbert") => {
                 let vocab_path = model::get_file(repo, "vocab.txt").await?;
 
@@ -66,10 +73,9 @@ impl Tokenizer {
                     strip_accents,
                     add_prefix_space,
                 )
-                .map(Tokenizer::DeBERTaV2)
-                .map_err(Into::into)
+                .map(TokenizerBase::DeBERTaV2)?
             }
-            Some("roberta") => {
+            Some("bart") | Some("roberta") => {
                 let vocab_path = model::get_file(repo, "vocab.json").await?;
                 let merges_path = model::get_file(repo, "merges.txt").await?;
 
@@ -79,25 +85,37 @@ impl Tokenizer {
                     lower_case,
                     add_prefix_space,
                 )
-                .map(Tokenizer::Roberta)
-                .map_err(Into::into)
+                .map(TokenizerBase::Roberta)?
             }
             Some(model_type) => bail!("unsupported model type: {model_type:?}"),
             None => bail!("cannot infer a dynamic model type"),
-        }
+        };
+
+        Ok(Self { base, options })
     }
 
-    fn encode<Inputs>(&self, inputs_str: Inputs, to_tensor: bool) -> Result<TokenizedInputs>
+    fn encode<Inputs>(
+        &self,
+        session: &crate::session::Session,
+        inputs_str: Inputs,
+        to_tensor: bool,
+    ) -> Result<TokenizedInputs>
     where
         Inputs: CollectTokenizerInputs,
     {
-        match self {
-            Self::DeBERTaV2(tokenizer) => Self::encode_with(tokenizer, inputs_str, to_tensor),
-            Self::Roberta(tokenizer) => Self::encode_with(tokenizer, inputs_str, to_tensor),
+        match &self.base {
+            TokenizerBase::DeBERTaV2(tokenizer) => {
+                self.encode_with(session, tokenizer, inputs_str, to_tensor)
+            }
+            TokenizerBase::Roberta(tokenizer) => {
+                self.encode_with(session, tokenizer, inputs_str, to_tensor)
+            }
         }
     }
 
     fn encode_with<Inputs, T, V>(
+        &self,
+        session: &crate::session::Session,
         tokenizer: &T,
         inputs_str: Inputs,
         to_tensor: bool,
@@ -107,25 +125,21 @@ impl Tokenizer {
         T: ::rust_tokenizers::tokenizer::Tokenizer<V>,
         V: ::rust_tokenizers::vocab::Vocab,
     {
-        fn collect_encode_batch<T>(
-            encodings: &[TokenizedInput],
+        fn collect_encode_batch<'a, T, TIter>(
+            encodings: &'a [TokenizedInput],
             max_len: usize,
-            f: impl Fn(&TokenizedInput) -> &[T],
+            pad: i64,
+            f: impl Fn(&'a TokenizedInput) -> TIter,
         ) -> ::ipis::core::anyhow::Result<ndarray::Array<i64, ndarray::Ix2>>
         where
-            T: Copy + Into<i64>,
+            T: 'a + Copy + Into<i64>,
+            TIter: IntoIterator<Item = T>,
         {
             let arrays: Vec<_> = encodings
                 .iter()
-                .map(|encoding| {
-                    f(encoding)
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<_>>()
-                })
+                .map(|encoding| f(encoding).into_iter().map(Into::into).collect::<Vec<_>>())
                 .map(|mut input| {
-                    input.extend([0].repeat(max_len - input.len()));
+                    input.extend([pad].repeat(max_len - input.len()));
                     input
                 })
                 .map(ndarray::Array::from)
@@ -175,12 +189,23 @@ impl Tokenizer {
             .collect();
         let max_len = input_lens.iter().max().copied().unwrap_or(0);
 
-        let input_ids = collect_encode_batch(&encodings, max_len, |encoding| &encoding.token_ids)?;
+        let input_ids_pad = self.options.pad_token_id;
+        let input_ids = collect_encode_batch(&encodings, max_len, input_ids_pad, |encoding| {
+            encoding.token_ids.iter().copied()
+        })?;
 
         let inputs = if to_tensor {
-            let attention_mask = ndarray::Array::ones(input_ids.dim());
+            let attention_mask_pad = 0;
+            let attention_mask =
+                collect_encode_batch(&encodings, max_len, attention_mask_pad, |encoding| {
+                    vec![1; encoding.token_ids.len()]
+                })?;
+
+            let token_type_ids_pad = 0;
             let token_type_ids =
-                collect_encode_batch(&encodings, max_len, |encoding| &encoding.segment_ids)?;
+                collect_encode_batch(&encodings, max_len, token_type_ids_pad, |encoding| {
+                    encoding.segment_ids.iter().copied()
+                })?;
 
             vec![
                 ("attention_mask".to_string(), attention_mask.into_dyn()),
@@ -188,7 +213,18 @@ impl Tokenizer {
                 ("token_type_ids".to_string(), token_type_ids.into_dyn()),
             ]
             .into_iter()
-            .collect()
+            .filter_map(|(name, value)| {
+                session
+                    .inputs()
+                    .get(&name)
+                    .map(|field| (name, field, value))
+            })
+            .sorted_by_key(|(_, field, _)| field.index)
+            .map(|(name, field, value)| match field.tensor_type {
+                crate::tensor::TensorType::Int64 => Ok(InputTensor::Int64Tensor(value)),
+                _ => bail!("failed to convert tensor type: {name:?}"),
+            })
+            .collect::<Result<_>>()?
         } else {
             Default::default()
         };
@@ -200,14 +236,14 @@ impl Tokenizer {
         let skip_special_tokens = true;
         let clean_up_tokenization_spaces = true;
 
-        match self {
-            Self::DeBERTaV2(tokenizer) => Self::decode_with(
+        match &self.base {
+            TokenizerBase::DeBERTaV2(tokenizer) => Self::decode_with(
                 tokenizer,
                 token_ids,
                 skip_special_tokens,
                 clean_up_tokenization_spaces,
             ),
-            Self::Roberta(tokenizer) => Self::decode_with(
+            TokenizerBase::Roberta(tokenizer) => Self::decode_with(
                 tokenizer,
                 token_ids,
                 skip_special_tokens,
@@ -233,8 +269,32 @@ impl Tokenizer {
     }
 }
 
+enum TokenizerBase {
+    DeBERTaV2(::rust_tokenizers::tokenizer::DeBERTaV2Tokenizer),
+    Roberta(::rust_tokenizers::tokenizer::RobertaTokenizer),
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+struct TokenizerOptions {
+    label2id: LabelToId,
+    #[serde(default)]
+    pad_token_id: i64,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+struct LabelToId {
+    #[serde(default)]
+    contradiction: Option<u8>,
+    #[serde(default)]
+    entailment: Option<u8>,
+    #[serde(default)]
+    neutral: Option<u8>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionWordInputs(Vec<QuestionWordInput>);
+
+pub type QuestionWordInputsRef<'a> = [QuestionWordInputRef<'a>];
 
 mod impl_multipart_form_for_qustion_word_inputs {
     use actix_multipart::{
@@ -289,8 +349,8 @@ impl CollectTokenizerInputs for Vec<QuestionWordInput> {
         self.iter()
             .flat_map(|QuestionWord { context, question }| {
                 question.iter().map(|question| TokenizerInput {
-                    text_1: question,
-                    text_2: Some(context),
+                    text_1: context,
+                    text_2: Some(question),
                 })
             })
             .collect()
@@ -298,6 +358,7 @@ impl CollectTokenizerInputs for Vec<QuestionWordInput> {
 }
 
 pub type QuestionWordInput = QuestionWord<String, Vec<String>>;
+pub type QuestionWordInputRef<'a> = QuestionWord<&'a str, &'a [&'a str]>;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionWord<Context, Question> {
@@ -309,6 +370,15 @@ trait CollectTokenizerInputs {
     fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_>;
 }
 
+impl<T> CollectTokenizerInputs for &T
+where
+    T: CollectTokenizerInputs,
+{
+    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
+        (**self).collect_tokenizer_inputs()
+    }
+}
+
 type TokenizerInputs<'a> = Vec<TokenizerInput<'a>>;
 
 struct TokenizerInput<'a> {
@@ -318,5 +388,5 @@ struct TokenizerInput<'a> {
 
 struct TokenizedInputs {
     input_ids: ndarray::Array<i64, ndarray::Ix2>,
-    inputs: BTreeMap<String, ndarray::Array<i64, ndarray::IxDyn>>,
+    inputs: Vec<InputTensor>,
 }

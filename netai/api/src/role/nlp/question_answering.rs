@@ -1,15 +1,9 @@
-use ipis::{
-    async_trait::async_trait,
-    core::{
-        anyhow::{bail, Result},
-        ndarray,
-    },
-    futures::TryFutureExt,
-    itertools::Itertools,
-};
-use ort::tensor::InputTensor;
+use ipis::{async_trait::async_trait, core::anyhow::Result, futures::TryFutureExt};
 
-use crate::tensor::{OutputTensor, TensorType};
+pub type Inputs = super::QuestionWordInputs;
+pub type InputsRef<'a> = super::QuestionWordInputsRef<'a>;
+
+pub type Outputs = Vec<Vec<String>>;
 
 pub(crate) struct Solver {
     base: super::SolverBase,
@@ -38,70 +32,37 @@ impl super::super::Solver for Solver {
         }
 
         let super::TokenizedInputs { input_ids, inputs } =
-            self.base.tokenizer.encode(inputs_str, true)?;
+            self.base.tokenizer.encode(session, &inputs_str, true)?;
 
-        let inputs: Vec<_> = inputs
+        let raw_outputs = session.run_raw(&inputs)?;
+
+        let start_logits = raw_outputs.try_extract("start_logits")?.argmax();
+        let end_logits = raw_outputs.try_extract("end_logits")?.argmax();
+
+        let mut answers = input_ids
+            .rows()
             .into_iter()
-            .filter_map(|(name, value)| {
-                session
-                    .inputs()
-                    .get(&name)
-                    .map(|field| (name, field, value))
+            .zip(start_logits)
+            .zip(end_logits)
+            .map(|((row, start), end)| {
+                row.into_iter()
+                    .skip(start)
+                    .take(if end >= start { end - start + 1 } else { 1 })
+                    .copied()
+                    .collect()
             })
-            .sorted_by_key(|(_, field, _)| field.index)
-            .map(|(name, field, value)| match field.tensor_type {
-                TensorType::Int64 => Ok(InputTensor::Int64Tensor(value)),
-                _ => bail!("failed to convert tensor type: {name:?}"),
-            })
-            .collect::<Result<_>>()?;
+            .map(|answer: Vec<_>| self.base.tokenizer.decode(&answer));
 
-        let outputs = session.run_raw(&inputs)?;
-
-        let start_logits = outputs.try_extract("start_logits")?;
-        let end_logits = outputs.try_extract("end_logits")?;
-
-        let answers = find_answer(&input_ids, &start_logits, &end_logits);
-        let answers: Vec<_> = answers
-            .into_iter()
-            .map(|answer| {
-                answer
-                    .as_slice()
-                    .map(|answer| self.base.tokenizer.decode(answer))
-                    .unwrap_or_default()
+        let outputs = inputs_str
+            .iter()
+            .map(|input| {
+                answers
+                    .by_ref()
+                    .take(input.question.len())
+                    .collect::<Vec<_>>()
             })
             .collect();
 
-        super::super::Response::from_json(&answers)
+        super::super::Response::from_json::<Outputs>(&outputs)
     }
-}
-
-pub type Inputs = super::QuestionWordInputs;
-
-type Outputs = Vec<Vec<String>>;
-
-fn find_answer<S, D>(
-    mat: &ndarray::ArrayBase<S, D>,
-    start_logits: &OutputTensor,
-    end_logits: &OutputTensor,
-) -> Vec<ndarray::Array1<S::Elem>>
-where
-    S: ndarray::Data,
-    S::Elem: Copy,
-    D: ndarray::Dimension,
-{
-    let start_logits = start_logits.argmax();
-    let end_logits = end_logits.argmax();
-
-    mat.rows()
-        .into_iter()
-        .zip(start_logits)
-        .zip(end_logits)
-        .map(|((row, start), end)| {
-            row.into_iter()
-                .skip(start)
-                .take(if end >= start { end - start + 1 } else { 1 })
-                .copied()
-                .collect()
-        })
-        .collect()
 }

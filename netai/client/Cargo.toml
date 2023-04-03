@@ -1,5 +1,5 @@
 [package]
-name = "netai-api"
+name = "netai-client"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,16 +15,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ipis = { workspace = true }
+netai-api = { path = "../api" }
 
-actix-multipart = { workspace = true }
-actix-web = { workspace = true }
-bytes = { workspace = true }
-half = { workspace = true }
-image = { workspace = true }
-mime = { workspace = true }
-ort = { workspace = true }
 reqwest = { workspace = true }
-rust-tokenizers = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-strum = { workspace = true }
