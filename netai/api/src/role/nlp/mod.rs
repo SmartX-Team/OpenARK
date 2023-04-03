@@ -87,7 +87,7 @@ impl Tokenizer {
         }
     }
 
-    fn encode<Inputs>(&self, inputs_str: Inputs, to_tensor: bool) -> Result<TokenizedInputs<Inputs>>
+    fn encode<Inputs>(&self, inputs_str: Inputs, to_tensor: bool) -> Result<TokenizedInputs>
     where
         Inputs: CollectTokenizerInputs,
     {
@@ -101,7 +101,7 @@ impl Tokenizer {
         tokenizer: &T,
         inputs_str: Inputs,
         to_tensor: bool,
-    ) -> Result<TokenizedInputs<Inputs>>
+    ) -> Result<TokenizedInputs>
     where
         Inputs: CollectTokenizerInputs,
         T: ::rust_tokenizers::tokenizer::Tokenizer<V>,
@@ -193,11 +193,7 @@ impl Tokenizer {
             Default::default()
         };
 
-        Ok(TokenizedInputs {
-            input_ids,
-            inputs,
-            inputs_str,
-        })
+        Ok(TokenizedInputs { input_ids, inputs })
     }
 
     fn decode(&self, token_ids: &[i64]) -> String {
@@ -291,7 +287,7 @@ mod impl_multipart_form_for_qustion_word_inputs {
 impl CollectTokenizerInputs for Vec<QuestionWordInput> {
     fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
         self.iter()
-            .flat_map(|QuestionWordInput { context, question }| {
+            .flat_map(|QuestionWord { context, question }| {
                 question.iter().map(|question| TokenizerInput {
                     text_1: question,
                     text_2: Some(context),
@@ -301,8 +297,10 @@ impl CollectTokenizerInputs for Vec<QuestionWordInput> {
     }
 }
 
+pub type QuestionWordInput = QuestionWord<String, Vec<String>>;
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionWordInput<Context = String, Question = Vec<String>> {
+pub struct QuestionWord<Context, Question> {
     pub context: Context,
     pub question: Question,
 }
@@ -318,8 +316,7 @@ struct TokenizerInput<'a> {
     text_2: Option<&'a str>,
 }
 
-struct TokenizedInputs<Inputs> {
+struct TokenizedInputs {
     input_ids: ndarray::Array<i64, ndarray::Ix2>,
     inputs: BTreeMap<String, ndarray::Array<i64, ndarray::IxDyn>>,
-    inputs_str: Inputs,
 }

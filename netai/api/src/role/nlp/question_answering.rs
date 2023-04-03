@@ -8,7 +8,6 @@ use ipis::{
     itertools::Itertools,
 };
 use ort::tensor::InputTensor;
-use serde::{Deserialize, Serialize};
 
 use crate::tensor::{OutputTensor, TensorType};
 
@@ -38,11 +37,8 @@ impl super::super::Solver for Solver {
             return super::super::Response::from_json(&outputs);
         }
 
-        let super::TokenizedInputs {
-            input_ids,
-            inputs,
-            inputs_str,
-        } = self.base.tokenizer.encode(inputs_str, true)?;
+        let super::TokenizedInputs { input_ids, inputs } =
+            self.base.tokenizer.encode(inputs_str, true)?;
 
         let inputs: Vec<_> = inputs
             .into_iter()
@@ -65,40 +61,23 @@ impl super::super::Solver for Solver {
         let end_logits = outputs.try_extract("end_logits")?;
 
         let answers = find_answer(&input_ids, &start_logits, &end_logits);
-        let mut answers = answers.into_iter().map(|answer| {
-            answer
-                .as_slice()
-                .map(|answer| self.base.tokenizer.decode(answer))
-                .unwrap_or_default()
-        });
-
-        let outputs: Outputs = inputs_str
+        let answers: Vec<_> = answers
             .into_iter()
-            .map(
-                |super::QuestionWordInput { context, question }| super::QuestionWordInput {
-                    context,
-                    question: question
-                        .into_iter()
-                        .zip(answers.by_ref())
-                        .map(|(question, answer)| OutputQuestion { question, answer })
-                        .collect(),
-                },
-            )
+            .map(|answer| {
+                answer
+                    .as_slice()
+                    .map(|answer| self.base.tokenizer.decode(answer))
+                    .unwrap_or_default()
+            })
             .collect();
 
-        super::super::Response::from_json(&outputs)
+        super::super::Response::from_json(&answers)
     }
 }
 
 pub type Inputs = super::QuestionWordInputs;
 
-type Outputs = Vec<super::QuestionWordInput<String, Vec<OutputQuestion>>>;
-
-#[derive(Serialize, Deserialize)]
-pub struct OutputQuestion {
-    pub question: String,
-    pub answer: String,
-}
+type Outputs = Vec<Vec<String>>;
 
 fn find_answer<S, D>(
     mat: &ndarray::ArrayBase<S, D>,
