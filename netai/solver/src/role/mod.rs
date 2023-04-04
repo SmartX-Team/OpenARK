@@ -43,6 +43,7 @@ impl Role {
             Self::QuestionAnswering => match model.get_kind() {
                 ModelKind::Huggingface => {
                     crate::role::nlp::question_answering::Solver::load_from_huggingface(
+                        self,
                         &model.get_repo(),
                     )
                     .await
@@ -52,6 +53,7 @@ impl Role {
             Self::ZeroShotClassification => match model.get_kind() {
                 ModelKind::Huggingface => {
                     crate::role::nlp::zero_shot_classification::Solver::load_from_huggingface(
+                        self,
                         &model.get_repo(),
                     )
                     .await

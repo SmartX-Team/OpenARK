@@ -10,8 +10,8 @@ pub struct Solver {
 }
 
 impl Solver {
-    pub async fn load_from_huggingface(repo: &str) -> Result<Self> {
-        super::SolverBase::load_from_huggingface(repo)
+    pub async fn load_from_huggingface(role: &super::super::Role, repo: &str) -> Result<Self> {
+        super::SolverBase::load_from_huggingface(role, repo)
             .map_ok(|base| Self { base })
             .await
     }

@@ -19,8 +19,8 @@ pub struct SolverBase {
 }
 
 impl SolverBase {
-    async fn load_from_huggingface(repo: &str) -> Result<Self> {
-        Tokenizer::load_from_huggingface(repo)
+    async fn load_from_huggingface(role: &super::Role, repo: &str) -> Result<Self> {
+        Tokenizer::load_from_huggingface(role, repo)
             .map_ok(|tokenizer| Self { tokenizer })
             .await
     }
@@ -29,10 +29,11 @@ impl SolverBase {
 struct Tokenizer {
     base: TokenizerBase,
     options: TokenizerOptions,
+    order: TokenizeOrder,
 }
 
 impl Tokenizer {
-    async fn load_from_huggingface(repo: &str) -> Result<Self> {
+    async fn load_from_huggingface(role: &super::Role, repo: &str) -> Result<Self> {
         use crate::models::huggingface as model;
 
         #[derive(Default, Deserialize)]
@@ -92,7 +93,16 @@ impl Tokenizer {
             None => bail!("cannot infer a dynamic model type"),
         };
 
-        Ok(Self { base, options })
+        let order = match role {
+            super::Role::QuestionAnswering => TokenizeOrder::QuestionFirst,
+            super::Role::ZeroShotClassification => TokenizeOrder::ContextFirst,
+        };
+
+        Ok(Self {
+            base,
+            options,
+            order,
+        })
     }
 
     fn encode<Inputs>(
@@ -154,7 +164,7 @@ impl Tokenizer {
             ndarray::concatenate(ndarray::Axis(0), &arrays).map_err(Into::into)
         }
 
-        let inputs_str_raw = inputs_str.collect_tokenizer_inputs();
+        let inputs_str_raw = inputs_str.collect_tokenizer_inputs(&self.order);
 
         let max_len = inputs_str_raw
             .iter()
@@ -294,27 +304,33 @@ struct LabelToId {
 }
 
 impl CollectTokenizerInputs for Vec<QuestionWordInput> {
-    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
+    fn collect_tokenizer_inputs(&self, order: &TokenizeOrder) -> TokenizerInputs<'_> {
         self.iter()
             .flat_map(|QuestionWord { context, question }| {
-                question.iter().map(|question| TokenizerInput {
-                    text_1: context,
-                    text_2: Some(question),
+                question.iter().map(|question| match order {
+                    TokenizeOrder::ContextFirst => TokenizerInput {
+                        text_1: context,
+                        text_2: Some(question),
+                    },
+                    TokenizeOrder::QuestionFirst => TokenizerInput {
+                        text_1: question,
+                        text_2: Some(context),
+                    },
                 })
             })
             .collect()
     }
 }
 trait CollectTokenizerInputs {
-    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_>;
+    fn collect_tokenizer_inputs(&self, order: &TokenizeOrder) -> TokenizerInputs<'_>;
 }
 
 impl<T> CollectTokenizerInputs for &T
 where
     T: CollectTokenizerInputs,
 {
-    fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
-        (**self).collect_tokenizer_inputs()
+    fn collect_tokenizer_inputs(&self, order: &TokenizeOrder) -> TokenizerInputs<'_> {
+        (**self).collect_tokenizer_inputs(order)
     }
 }
 
@@ -328,4 +344,10 @@ struct TokenizerInput<'a> {
 struct TokenizedInputs {
     input_ids: ndarray::Array<i64, ndarray::Ix2>,
     inputs: Vec<InputTensor>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum TokenizeOrder {
+    ContextFirst,
+    QuestionFirst,
 }
