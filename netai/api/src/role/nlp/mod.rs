@@ -276,6 +276,7 @@ enum TokenizerBase {
 
 #[derive(Copy, Clone, Debug, Default, Deserialize)]
 struct TokenizerOptions {
+    #[serde(default)]
     label2id: LabelToId,
     #[serde(default)]
     pad_token_id: i64,
