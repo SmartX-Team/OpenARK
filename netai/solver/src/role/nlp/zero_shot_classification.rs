@@ -3,18 +3,14 @@ use ipis::{
     core::anyhow::{bail, Result},
     futures::TryFutureExt,
 };
+use netai_api::nlp::zero_shot_classification::{Inputs, Outputs};
 
-pub type Inputs = super::QuestionWordInputs;
-pub type InputsRef<'a> = super::QuestionWordInputsRef<'a>;
-
-pub type Outputs<'a> = Vec<Option<&'a str>>;
-
-pub(crate) struct Solver {
+pub struct Solver {
     base: super::SolverBase,
 }
 
 impl Solver {
-    pub(crate) async fn load_from_huggingface(repo: &str) -> Result<Self> {
+    pub async fn load_from_huggingface(repo: &str) -> Result<Self> {
         super::SolverBase::load_from_huggingface(repo)
             .map_ok(|base| Self { base })
             .await
@@ -22,17 +18,17 @@ impl Solver {
 }
 
 #[async_trait(?Send)]
-impl super::super::Solver for Solver {
+impl crate::Solver for Solver {
     async fn solve(
         &self,
         session: &crate::session::Session,
-        mut request: super::super::Request,
-    ) -> Result<super::super::Response> {
+        mut request: crate::io::Request,
+    ) -> Result<crate::io::Response> {
         let Inputs { 0: inputs_str } = request.parse().await?;
 
         if inputs_str.is_empty() {
             let outputs: Outputs = Default::default();
-            return super::super::Response::from_json(&outputs);
+            return crate::io::Response::from_json(&outputs);
         }
 
         let super::LabelToId {
@@ -73,6 +69,6 @@ impl super::super::Solver for Solver {
             .map(|(index, input)| index.map(|index| input.question[index].as_str()))
             .collect();
 
-        super::super::Response::from_json::<Outputs>(&outputs)
+        crate::io::Response::from_json::<Outputs>(&outputs)
     }
 }

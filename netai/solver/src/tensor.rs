@@ -22,7 +22,7 @@ use strum::{Display, EnumString};
 use crate::primitive::AsPrimitive;
 
 #[allow(clippy::enum_variant_names)]
-pub(crate) enum OutputTensor<'a, D = IxDyn>
+pub enum OutputTensor<'a, D = IxDyn>
 where
     D: ndarray::Dimension,
 {
@@ -269,8 +269,6 @@ where
         .await
     }
 }
-
-pub type TensorMap = BTreeMap<String, InputTensor>;
 
 pub type TensorFieldMap = BTreeMap<String, TensorField>;
 
@@ -621,7 +619,7 @@ macro_rules! impl_tensor {
         where
             D: 'a + ndarray::Dimension,
         {
-            pub(crate) fn argmax(&self) -> Array1<usize> {
+            pub fn argmax(&self) -> Array1<usize> {
                 match self {
                     $(
                         Self::$name(tensor) => Self::argmax_with(&tensor.view()),
@@ -629,7 +627,7 @@ macro_rules! impl_tensor {
                 }
             }
 
-            pub(crate) fn argmax_by_group(
+            pub fn argmax_by_group(
                 &self,
                 label: usize,
                 label_drop: Option<usize>,

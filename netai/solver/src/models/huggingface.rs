@@ -26,7 +26,7 @@ impl super::Model for Model {
         format!(
             "huggingface/{}/{}",
             &self.repo,
-            self.role.to_huggingface_feature(),
+            self.role.as_huggingface_feature(),
         )
     }
 
@@ -82,7 +82,7 @@ impl super::Model for Model {
             "--model",
             &self.repo,
             "--feature",
-            self.role.to_huggingface_feature(),
+            self.role.as_huggingface_feature(),
             &path
                 .parent()
                 .expect("namespace path should be exists")
@@ -102,7 +102,7 @@ impl super::Model for Model {
     }
 }
 
-pub(crate) async fn get_file(repo: &str, name: &str) -> Result<PathBuf> {
+pub async fn get_file(repo: &str, name: &str) -> Result<PathBuf> {
     let (_, response) = try_request_raw(repo, name).await?;
 
     let mut byte_stream = response.bytes_stream();
@@ -127,7 +127,7 @@ async fn try_get_text(repo: &str, name: &str) -> Result<Option<String>> {
         .await
 }
 
-pub(crate) async fn get_json<T>(repo: &str, name: &str) -> Result<T>
+pub async fn get_json<T>(repo: &str, name: &str) -> Result<T>
 where
     T: Default + DeserializeOwned,
 {

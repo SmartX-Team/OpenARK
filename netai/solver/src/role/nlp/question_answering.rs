@@ -1,16 +1,12 @@
 use ipis::{async_trait::async_trait, core::anyhow::Result, futures::TryFutureExt};
+use netai_api::nlp::question_answering::{Inputs, Outputs};
 
-pub type Inputs = super::QuestionWordInputs;
-pub type InputsRef<'a> = super::QuestionWordInputsRef<'a>;
-
-pub type Outputs = Vec<Vec<String>>;
-
-pub(crate) struct Solver {
+pub struct Solver {
     base: super::SolverBase,
 }
 
 impl Solver {
-    pub(crate) async fn load_from_huggingface(repo: &str) -> Result<Self> {
+    pub async fn load_from_huggingface(repo: &str) -> Result<Self> {
         super::SolverBase::load_from_huggingface(repo)
             .map_ok(|base| Self { base })
             .await
@@ -18,17 +14,17 @@ impl Solver {
 }
 
 #[async_trait(?Send)]
-impl super::super::Solver for Solver {
+impl crate::Solver for Solver {
     async fn solve(
         &self,
         session: &crate::session::Session,
-        mut request: super::super::Request,
-    ) -> Result<super::super::Response> {
+        mut request: crate::io::Request,
+    ) -> Result<crate::io::Response> {
         let Inputs { 0: inputs_str } = request.parse().await?;
 
         if inputs_str.is_empty() {
             let outputs: Outputs = Default::default();
-            return super::super::Response::from_json(&outputs);
+            return crate::io::Response::from_json(&outputs);
         }
 
         let super::TokenizedInputs { input_ids, inputs } =
@@ -63,6 +59,6 @@ impl super::super::Solver for Solver {
             })
             .collect();
 
-        super::super::Response::from_json::<Outputs>(&outputs)
+        crate::io::Response::from_json::<Outputs>(&outputs)
     }
 }

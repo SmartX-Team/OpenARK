@@ -9,11 +9,12 @@ use ipis::{
     futures::TryFutureExt,
     itertools::Itertools,
 };
+use netai_api::nlp::{QuestionWord, QuestionWordInput};
 use ort::tensor::InputTensor;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-pub(super) struct SolverBase {
+pub struct SolverBase {
     tokenizer: Tokenizer,
 }
 
@@ -292,59 +293,6 @@ struct LabelToId {
     neutral: Option<u8>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionWordInputs(Vec<QuestionWordInput>);
-
-pub type QuestionWordInputsRef<'a> = [QuestionWordInputRef<'a>];
-
-mod impl_multipart_form_for_qustion_word_inputs {
-    use actix_multipart::{
-        form::{Limits, MultipartCollect, MultipartForm, State},
-        Field, MultipartError,
-    };
-    use actix_web::HttpRequest;
-    use ipis::futures::future::LocalBoxFuture;
-
-    #[derive(MultipartForm)]
-    struct Template {
-        context: Vec<super::super::Text>,
-        question: Vec<super::super::Text>,
-    }
-
-    impl MultipartCollect for super::QuestionWordInputs {
-        fn limit(field_name: &str) -> Option<usize> {
-            <Template as MultipartCollect>::limit(field_name)
-        }
-
-        fn handle_field<'t>(
-            req: &'t HttpRequest,
-            field: Field,
-            limits: &'t mut Limits,
-            state: &'t mut State,
-        ) -> LocalBoxFuture<'t, Result<(), MultipartError>> {
-            <Template as MultipartCollect>::handle_field(req, field, limits, state)
-        }
-
-        fn from_state(state: State) -> Result<Self, MultipartError> {
-            <Template as MultipartCollect>::from_state(state).map(
-                |Template { context, question }| {
-                    let question: Vec<_> =
-                        question.into_iter().map(|question| question.0).collect();
-                    Self(
-                        context
-                            .iter()
-                            .map(|context| super::QuestionWordInput {
-                                context: context.0.clone(),
-                                question: question.clone(),
-                            })
-                            .collect(),
-                    )
-                },
-            )
-        }
-    }
-}
-
 impl CollectTokenizerInputs for Vec<QuestionWordInput> {
     fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_> {
         self.iter()
@@ -357,16 +305,6 @@ impl CollectTokenizerInputs for Vec<QuestionWordInput> {
             .collect()
     }
 }
-
-pub type QuestionWordInput = QuestionWord<String, Vec<String>>;
-pub type QuestionWordInputRef<'a> = QuestionWord<&'a str, &'a [&'a str]>;
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionWord<Context, Question> {
-    pub context: Context,
-    pub question: Question,
-}
-
 trait CollectTokenizerInputs {
     fn collect_tokenizer_inputs(&self) -> TokenizerInputs<'_>;
 }

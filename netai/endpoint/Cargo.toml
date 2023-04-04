@@ -15,7 +15,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ipis = { workspace = true }
-netai-api = { path = "../api" }
+netai-solver = { path = "../solver" }
 
 actix-multipart = { workspace = true }
 actix-web = { workspace = true }

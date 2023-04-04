@@ -17,6 +17,7 @@ members = [
     "netai/api",
     "netai/client",
     "netai/endpoint",
+    "netai/solver",
     "proxyx/api",
     "proxyx/cli",
     "proxyx/storage/influxdb",

@@ -1,34 +1,21 @@
-pub mod nlp;
-
 use actix_multipart::{
     form::{FieldReader, Limits, MultipartCollect, MultipartForm},
     Field, MultipartError,
 };
 use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
 use ipis::{
-    async_trait::async_trait,
     core::anyhow::{anyhow, bail, Result},
     futures::{future::LocalBoxFuture, FutureExt, TryFutureExt},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use strum::{Display, EnumString};
 
-use crate::models::{Model, ModelKind};
-
-pub(super) type BoxSolver = Box<dyn Solver + Send + Sync>;
-
-#[async_trait(?Send)]
-pub(super) trait Solver {
-    async fn solve(&self, session: &crate::session::Session, request: Request) -> Result<Response>;
-}
-
-pub(super) struct Request {
-    pub(super) req: HttpRequest,
-    pub(super) payload: Payload,
+pub struct Request {
+    pub req: HttpRequest,
+    pub payload: Payload,
 }
 
 impl Request {
-    async fn parse<T>(&mut self) -> Result<T>
+    pub async fn parse<T>(&mut self) -> Result<T>
     where
         T: DeserializeOwned + MultipartCollect,
     {
@@ -67,12 +54,12 @@ impl Request {
     }
 }
 
-pub(super) enum Response {
+pub enum Response {
     Json(String),
 }
 
 impl Response {
-    fn from_json<T>(value: &T) -> Result<Self>
+    pub fn from_json<T>(value: &T) -> Result<Self>
     where
         T: Serialize,
     {
@@ -84,7 +71,7 @@ impl Response {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Text(pub String);
+struct Text(String);
 
 impl From<String> for Text {
     fn from(value: String) -> Self {
@@ -107,56 +94,5 @@ impl<'t> FieldReader<'t> for Text {
         )
         .map_ok(|value| Self(value.0))
         .boxed_local()
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Display,
-    EnumString,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
-pub enum Role {
-    // NLP
-    QuestionAnswering,
-    ZeroShotClassification,
-}
-
-impl Role {
-    pub(crate) const fn to_huggingface_feature(self) -> &'static str {
-        match self {
-            Self::QuestionAnswering => "question-answering",
-            Self::ZeroShotClassification => "sequence-classification",
-        }
-    }
-
-    pub(crate) async fn load_solver(&self, model: impl Model) -> Result<BoxSolver> {
-        match self {
-            // NLP
-            Self::QuestionAnswering => match model.get_kind() {
-                ModelKind::Huggingface => {
-                    self::nlp::question_answering::Solver::load_from_huggingface(&model.get_repo())
-                        .await
-                        .map(|solver| Box::new(solver) as BoxSolver)
-                }
-            },
-            Self::ZeroShotClassification => match model.get_kind() {
-                ModelKind::Huggingface => {
-                    self::nlp::zero_shot_classification::Solver::load_from_huggingface(
-                        &model.get_repo(),
-                    )
-                    .await
-                    .map(|solver| Box::new(solver) as BoxSolver)
-                }
-            },
-        }
     }
 }

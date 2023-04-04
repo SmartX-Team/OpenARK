@@ -42,8 +42,8 @@ mod nlp {
     impl super::Client {
         pub async fn call_question_answering(
             &self,
-            inputs: &::netai_api::role::nlp::question_answering::InputsRef<'_>,
-        ) -> Result<::netai_api::role::nlp::question_answering::Outputs> {
+            inputs: &::netai_api::nlp::question_answering::InputsRef<'_>,
+        ) -> Result<::netai_api::nlp::question_answering::Outputs> {
             self.call_json(inputs).await
         }
     }

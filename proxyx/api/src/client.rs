@@ -8,7 +8,7 @@ use ipis::{
     core::{anyhow::Result, chrono::Duration, value::text::LanguageTag},
     itertools::Itertools,
 };
-use netai_api::role::nlp::QuestionWordInputRef;
+use netai_api::nlp::QuestionWordInputRef;
 use serde::{Deserialize, Serialize};
 use storage::{DynamicQuery, DynamicValue};
 

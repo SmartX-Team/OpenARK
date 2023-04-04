@@ -1,5 +1,5 @@
 [package]
-name = "netai-api"
+name = "netai-solver"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,14 +13,19 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = []
-actix = ["actix-multipart", "actix-web"]
-
 [dependencies]
 ipis = { workspace = true }
+netai-api = { path = "../api", features = ["actix"] }
 
-actix-multipart = { workspace = true, optional = true }
-actix-web = { workspace = true, optional = true }
+actix-multipart = { workspace = true }
+actix-web = { workspace = true }
+bytes = { workspace = true }
+half = { workspace = true }
+image = { workspace = true }
+mime = { workspace = true }
+ort = { workspace = true }
+reqwest = { workspace = true }
+rust-tokenizers = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 strum = { workspace = true }

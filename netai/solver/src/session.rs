@@ -15,9 +15,11 @@ use ort::{
 };
 
 use crate::{
+    io::{Request, Response},
     models::{Model, ModelKind},
-    role::{BoxSolver, Request, Response, Role},
+    role::Role,
     tensor::{OutputTensor, TensorField, TensorFieldMap, TensorType},
+    BoxSolver,
 };
 
 pub struct Session {
@@ -211,7 +213,7 @@ async fn load_model(model: impl Model) -> Result<::ort::Session> {
 
     // Load model
     let environment = Environment::builder()
-        .with_name(crate::consts::NAMESPACE)
+        .with_name(::netai_api::consts::NAMESPACE)
         .with_log_level(LoggingLevel::Info)
         .build()?
         .into();

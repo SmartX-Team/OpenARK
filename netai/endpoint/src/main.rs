@@ -6,7 +6,7 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use ipis::{env::infer, log::warn, logger};
-use netai_api::session::Session;
+use netai_solver::session::Session;
 
 #[get("/")]
 async fn index() -> impl Responder {
