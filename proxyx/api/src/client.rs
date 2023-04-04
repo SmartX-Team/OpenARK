@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use dash_api::{
-    model::{ModelFieldKindNativeSpec, ModelFieldKindNativeType, ModelFieldNativeSpec},
+    model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec},
     serde_json::Value,
 };
 use ipis::{
@@ -50,24 +50,24 @@ impl Client {
                     .rev()
                     .filter(|key| !key.is_empty())
                     .join(" of ");
-                let type_ = match field.metadata.kind.to_type() {
-                    // BEGIN primitive types
-                    ModelFieldKindNativeType::None => return Ok(None),
-                    ModelFieldKindNativeType::Boolean => "boolean",
-                    ModelFieldKindNativeType::Integer => "integer",
-                    ModelFieldKindNativeType::Number => "number",
-                    ModelFieldKindNativeType::String => "word",
-                    ModelFieldKindNativeType::OneOfStrings => "word",
-                    // BEGIN string formats
-                    ModelFieldKindNativeType::DateTime => "date time",
-                    ModelFieldKindNativeType::Ip => "IP",
-                    ModelFieldKindNativeType::Uuid => "UUID",
-                    // BEGIN aggregation types
-                    ModelFieldKindNativeType::Object => return Ok(None),
-                    ModelFieldKindNativeType::ObjectArray => return Ok(None),
-                };
+                // let type_ = match field.metadata.kind.to_type() {
+                //     // BEGIN primitive types
+                //     ModelFieldKindNativeType::None => return Ok(None),
+                //     ModelFieldKindNativeType::Boolean => "boolean",
+                //     ModelFieldKindNativeType::Integer => "integer",
+                //     ModelFieldKindNativeType::Number => "number",
+                //     ModelFieldKindNativeType::String => "word",
+                //     ModelFieldKindNativeType::OneOfStrings => "word",
+                //     // BEGIN string formats
+                //     ModelFieldKindNativeType::DateTime => "date time",
+                //     ModelFieldKindNativeType::Ip => "IP",
+                //     ModelFieldKindNativeType::Uuid => "UUID",
+                //     // BEGIN aggregation types
+                //     ModelFieldKindNativeType::Object => return Ok(None),
+                //     ModelFieldKindNativeType::ObjectArray => return Ok(None),
+                // };
 
-                &[&format!("{name} as {type_}")]
+                &[&format!("What is {name}?")]
             },
         }];
 
@@ -141,8 +141,8 @@ impl Client {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FieldLabel {
-    label: String,
-    language: LanguageTag,
+    pub label: String,
+    pub language: LanguageTag,
 }
 
 type FieldMap = BTreeMap<String, Field>;

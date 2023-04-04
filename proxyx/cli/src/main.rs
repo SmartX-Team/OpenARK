@@ -44,6 +44,12 @@ async fn main() -> Result<()> {
     }
 
     let context = "My name is Ho Kim and I live in Gwangju.";
-    client.question("/name/", context).await?;
+    println!("\nContext: {context}");
+    for name in &["/name/"] {
+        if let Some(answer) = client.question(name, context).await? {
+            let value = &answer.label;
+            println!("{name} = {value}");
+        }
+    }
     Ok(())
 }

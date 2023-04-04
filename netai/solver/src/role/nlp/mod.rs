@@ -1,6 +1,8 @@
 pub mod question_answering;
 pub mod zero_shot_classification;
 
+use std::borrow::Cow;
+
 use ipis::{
     core::{
         anyhow::{bail, Result},
@@ -12,14 +14,15 @@ use ipis::{
 use netai_api::nlp::{QuestionWord, QuestionWordInput};
 use ort::tensor::InputTensor;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 
 pub struct SolverBase {
     tokenizer: Tokenizer,
 }
 
 impl SolverBase {
-    async fn load_from_huggingface(role: &super::Role, repo: &str) -> Result<Self> {
+    async fn load_from_huggingface(role: Role, repo: &str) -> Result<Self> {
         Tokenizer::load_from_huggingface(role, repo)
             .map_ok(|tokenizer| Self { tokenizer })
             .await
@@ -30,10 +33,11 @@ struct Tokenizer {
     base: TokenizerBase,
     options: TokenizerOptions,
     order: TokenizeOrder,
+    role: Role,
 }
 
 impl Tokenizer {
-    async fn load_from_huggingface(role: &super::Role, repo: &str) -> Result<Self> {
+    async fn load_from_huggingface(role: Role, repo: &str) -> Result<Self> {
         use crate::models::huggingface as model;
 
         #[derive(Default, Deserialize)]
@@ -94,14 +98,15 @@ impl Tokenizer {
         };
 
         let order = match role {
-            super::Role::QuestionAnswering => TokenizeOrder::QuestionFirst,
-            super::Role::ZeroShotClassification => TokenizeOrder::ContextFirst,
+            Role::QuestionAnswering => TokenizeOrder::QuestionFirst,
+            Role::ZeroShotClassification => TokenizeOrder::ContextFirst,
         };
 
         Ok(Self {
             base,
             options,
             order,
+            role,
         })
     }
 
@@ -190,7 +195,14 @@ impl Tokenizer {
         let encodings = if inputs_2.is_empty() {
             tokenizer.encode_list(&inputs_1, max_len, &TruncationStrategy::LongestFirst, 0)
         } else {
-            let inputs_pair: Vec<_> = inputs_1.iter().zip(inputs_2.iter()).collect();
+            let inputs_pair: Vec<_> = inputs_1
+                .iter()
+                .map(|&&text| Cow::Borrowed(text))
+                .zip(inputs_2.iter().map(|&&text| match self.role {
+                    Role::QuestionAnswering => Cow::Borrowed(text),
+                    Role::ZeroShotClassification => Cow::Owned(format!("This example is {text}.")),
+                }))
+                .collect();
 
             tokenizer.encode_pair_list(&inputs_pair, max_len, &TruncationStrategy::LongestFirst, 0)
         };
@@ -350,4 +362,62 @@ struct TokenizedInputs {
 enum TokenizeOrder {
     ContextFirst,
     QuestionFirst,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub enum Role {
+    // NLP
+    QuestionAnswering,
+    ZeroShotClassification,
+}
+
+impl Role {
+    pub(super) const fn as_huggingface_feature(&self) -> &'static str {
+        match self {
+            Self::QuestionAnswering => "question-answering",
+            Self::ZeroShotClassification => "sequence-classification",
+        }
+    }
+
+    pub(super) async fn load_solver(
+        &self,
+        model: impl crate::models::Model,
+    ) -> Result<crate::BoxSolver> {
+        match self {
+            // NLP
+            Self::QuestionAnswering => match model.get_kind() {
+                crate::models::ModelKind::Huggingface => {
+                    crate::role::nlp::question_answering::Solver::load_from_huggingface(
+                        *self,
+                        &model.get_repo(),
+                    )
+                    .await
+                    .map(|solver| Box::new(solver) as crate::BoxSolver)
+                }
+            },
+            Self::ZeroShotClassification => match model.get_kind() {
+                crate::models::ModelKind::Huggingface => {
+                    crate::role::nlp::zero_shot_classification::Solver::load_from_huggingface(
+                        *self,
+                        &model.get_repo(),
+                    )
+                    .await
+                    .map(|solver| Box::new(solver) as crate::BoxSolver)
+                }
+            },
+        }
+    }
 }
