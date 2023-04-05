@@ -16,11 +16,11 @@ members = [
     "kiss/monitor",
     "netai/api",
     "netai/client",
-    "netai/endpoint",
-    "netai/solver",
-    "proxyx/api",
-    "proxyx/cli",
-    "proxyx/storage/influxdb",
+    "netai/endpoint",          # exclude(alpine)
+    "netai/solver",            # exclude(alpine)
+    "proxyx/api",              # exclude(alpine)
+    "proxyx/cli",              # exclude(alpine)
+    "proxyx/storage/influxdb", # exclude(alpine)
     "vine/api",
     "vine/bastion",
     "vine/controller",

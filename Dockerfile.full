@@ -20,7 +20,7 @@ ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib"
 # Install python dependencies
 ARG PYTORCH_WHL_REPO="https://download.pytorch.org/whl"
 ARG PYTORCH_VERSION_URL="https://pytorch.org/assets/quick-start-module.js"
-ADD ./netai/api/requirements.txt /requirements.txt
+ADD ./netai/solver/requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y \
     # Install python
     curl \
