@@ -9,4 +9,4 @@ set -e -o pipefail
 set -x
 
 # Run desktop environment
-exec /bin/dbus-launch xfce4-session
+exec /usr/bin/dbus-launch xfce4-session
