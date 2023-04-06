@@ -9,6 +9,7 @@ ARG ALPINE_VERSION="edge"
 ARG USER_GID="2000"
 ARG USER_NAME="user"
 ARG USER_SHELL="zsh"
+ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
@@ -53,7 +54,13 @@ RUN apk add --no-cache \
     "${USER_SHELL}" \
     vim \
     wget \
-    zip
+    zip \
+    # Allow passwordless sudo command
+    && if [ "${USER_SUDO}" == "true" ]; then \
+    apk add --no-cache sudo \
+    && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
+    && chmod 440 /etc/sudoers.d/10-wheel \
+    ; fi
 
 # Install desktop environment dependencies
 RUN apk add --no-cache \
