@@ -19,6 +19,7 @@ FROM "docker.io/library/alpine:${ALPINE_VERSION}"
 ARG USER_GID
 ARG USER_NAME
 ARG USER_SHELL
+ARG USER_SUDO
 ARG USER_UID
 
 # SystemD Configuration
