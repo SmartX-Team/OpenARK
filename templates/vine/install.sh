@@ -16,7 +16,7 @@ set -x
 export CLUSTER_NAME="$(
     kubectl -n kube-system get configmap coredns -o yaml |
         yq '.data.Corefile' |
-        grep -Po '^ +kubernetes \K[\w\.\_\-]+'
+        grep -Po ' +kubernetes \K[\w\.\_\-]+'
 )"
 export DOMAIN_NAME="ingress-nginx-controller.vine.svc.${CLUSTER_NAME}"
 
