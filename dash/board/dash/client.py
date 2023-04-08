@@ -29,14 +29,11 @@ class DashClient:
         if response.status_code == 200:
             if 'spec' in data:
                 return data['spec']
-            st.error(f'Failed to execute {path}: no output')
-            return st.stop()
+            raise Exception(f'Failed to execute {path}: no output')
         if 'spec' in data:
-            st.error(f'Failed to execute {path}: {data["spec"]}')
-            return st.stop()
-        st.error(
+            raise Exception(f'Failed to execute {path}: {data["spec"]}')
+        raise Exception(
             f'Failed to execute {path}: status code [{response.status_code}]')
-        return st.stop()
 
     def list_model(self) -> list[str]:
         return self._call_raw(

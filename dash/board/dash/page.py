@@ -2,7 +2,7 @@ import inflect
 import streamlit as st
 
 from dash.client import DashClient
-from dash.modules import converter, filter, selector
+from dash.modules import converter, selector
 
 
 # Create engines
@@ -30,13 +30,7 @@ def draw_page(*, model_name: str):
     # Get boxes summary
     summary = converter.to_dataframe(items)
 
-    # Apply filter
-    summary = filter.dataframe(summary)
-
-    # Show summary
-    st.write(summary)
-
-    # Add selector
+    # Apply selector
     selected = selector.dataframe(summary)
     if selected is None:
         st.stop()
@@ -57,19 +51,24 @@ def draw_page(*, model_name: str):
                                     'Power ON', 'Power OFF', ])
     action = actions[0].button('Apply')
 
-    selected_item = next(
+    selected_items = (
         item
+        for selected_item in selected
         for item in items
-        if item['metadata']['name'] == selected['Name']
+        if item['metadata']['name'] == selected_item['Name']
     )
 
     # Do specific action
     if action:
-        client.create_function(
-            name=functions[0]['metadata']['name'],
-            data=dict(
-                box=selected_item,
-                power='on' if action_power == 'Power ON' else 'off',
-            ),
-        )
-        st.success('Successed!')
+        for selected_item in selected_items:
+            try:
+                client.create_function(
+                    name=functions[0]['metadata']['name'],
+                    data=dict(
+                        box=selected_item,
+                        power='on' if action_power == 'Power ON' else 'off',
+                    ),
+                )
+            except Exception as e:
+                st.error(f'Failed to run "{selected_item["metadata"]["name"]}": {e}')
+        st.success('Done!')
