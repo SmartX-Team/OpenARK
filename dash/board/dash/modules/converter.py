@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 
-def create_key_map(items: list[object]) -> dict[str, str]:
+def create_key_map(items: list[object]) -> dict[str, list[str]]:
     # 1. 모든 키(+타입) 취합
     #   - 언더바(_)는 분리기호(/)로 취급
     #   - Object, Array 타입이 섞여있는 경우 skip
@@ -17,7 +17,7 @@ def create_key_map(items: list[object]) -> dict[str, str]:
     #       예) /spec/power/address 및 /status/power/address => Power (status 생략!)
     #   - name 등 상징적 심볼 => 상위 의미 고집하기
     if not items:
-        return {}
+        return []
 
     return [
         (renamed.title(), origin.split('/'))
