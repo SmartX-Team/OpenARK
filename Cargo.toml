@@ -2,6 +2,11 @@
 default-members = ["dash/cli"]
 members = [
     # "ipwis-binding",
+    "ark/actor",
+    "ark/api",
+    "ark/cli",
+    "ark/controller",
+    "ark/gateway",
     "dash/actor",
     "dash/api",
     "dash/cli",
