@@ -60,15 +60,19 @@ def draw_page(*, model_name: str):
 
     # Do specific action
     if action:
-        for selected_item in selected_items:
-            try:
-                client.create_function(
-                    name=functions[0]['metadata']['name'],
-                    data=dict(
-                        box=selected_item,
-                        power='on' if action_power == 'Power ON' else 'off',
-                    ),
-                )
-            except Exception as e:
-                st.error(f'Failed to run "{selected_item["metadata"]["name"]}": {e}')
+        with st.spinner():
+            with st.container():
+                for selected_item in selected_items:
+                    try:
+                        client.create_function(
+                            name=functions[0]['metadata']['name'],
+                            data=dict(
+                                box=selected_item,
+                                power='on' if action_power == 'Power ON' else 'off',
+                            ),
+                        )
+                    except Exception as e:
+                        st.error(
+                            f'Failed to run "{selected_item["metadata"]["name"]}": {e}',
+                        )
         st.success('Done!')
