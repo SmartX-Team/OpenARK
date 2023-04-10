@@ -349,6 +349,7 @@ data:
     if [ "${_IS_DESKTOP}" == "true" ]; then
       ### Common
       dnf install -y \
+        firefox \
         "gnutls.${ARCH_WIN32}" \
         mesa-dri-drivers \
         "mesa-dri-drivers.${ARCH_WIN32}" \
@@ -359,7 +360,10 @@ data:
         "vulkan-loader.${ARCH_WIN32}" \
         wireplumber \
         xdg-dbus-proxy \
-        xorg-x11-server-Xorg
+        xdotool \
+        xorg-x11-server-Xorg \
+        xrandr \
+        xset
 
       #### Autologin to X11
       cat <<EOF >/usr/local/bin/xinit
@@ -369,9 +373,17 @@ data:
     # found in the LICENSE file.
 
     # Prehibit errors
-    set -e
+    set -e -o pipefail
     # Verbose
     set -x
+
+    # Catch trap signals
+    trap "echo 'Gracefully terminating...'; exit" INT TERM
+    trap "echo 'Terminated.'; exit" EXIT
+
+    # Configure environment variables
+    export DISPLAY=:0
+    export VINE_BASTION_ENTRYPOINT="http://ingress-nginx-controller.vine.svc.ops.openark/bastion"
 
     echo "Wait until graphic drivers are ready ..."
     ## NVIDIA
@@ -382,7 +394,62 @@ data:
     fi
 
     echo "Starting Xorg display server ..."
-    exec /bin/Xorg
+    /bin/Xorg "\${DISPLAY}" &
+    PID_DISPLAY=\$!
+
+    # Skip installation if already done
+    if [ -d "/tmp/.vine" ]; then
+      exec sleep infinity
+    fi
+
+    # Disable screen blanking
+    until xset -dpms >/dev/null 2>/dev/null; do
+      sleep 0.1
+    done
+    xset s off
+
+    # Get the screen size
+    SCREEN_WIDTH="800"
+    SCREEN_HEIGHT="600"
+
+    # Configure firefox window
+    function update_window() {
+      classname="\$1"
+
+      xdotool search --classname "\${classname}" set_window --name 'Welcome'
+      xdotool search --classname "\${classname}" windowsize "\${SCREEN_WIDTH}" "\${SCREEN_HEIGHT}"
+      xdotool search --classname "\${classname}" windowfocus
+      xrandr --size "\${SCREEN_WIDTH}x\${SCREEN_HEIGHT}"
+    }
+
+    echo "Fixing screen size..."
+    xrandr --size "\${SCREEN_WIDTH}x\${SCREEN_HEIGHT}"
+
+    echo "Executing a welcome shell..."
+    firefox \
+      --first-startup \
+      --private \
+      --window-size "\${SCREEN_WIDTH},\${SCREEN_HEIGHT}" \
+      --kiosk "\${VINE_BASTION_ENTRYPOINT}/print/install_os" &
+    PID_SHELL=\$!
+
+    echo "Waiting until window is ready..."
+    sleep 1
+    until xdotool search --classname 'Navigator' >/dev/null; do
+      sleep 0.5
+    done
+
+    echo "Resizing window to fullscreen..."
+    update_window 'Navigator'
+
+    echo "Waiting until installation is succeeded..."
+    until [ -d "/tmp/.vine" ]; do
+      sleep 1
+    done
+
+    echo "Stopping firefox..."
+    kill "\${PID_SHELL}" 2>/dev/null || true
+    exec sleep infinity
     EOF
       chmod 555 /usr/local/bin/xinit
 
@@ -401,6 +468,39 @@ data:
       fi
       unset TTY
     fi
+    EOF
+
+      #### Firefox Configuration
+      cat <<EOF | sudo tee /usr/lib64/firefox/defaults/pref/autoconfig.js
+    pref("general.config.filename", "firefox.cfg");
+    pref("general.config.obscure_value", 0);
+    EOF
+
+      cat <<EOF | sudo tee /usr/lib64/firefox/firefox.cfg
+    // IMPORTANT: Start your code on the 2nd line
+
+    lockPref("app.update.disable_button.showUpdateHistory", true);
+    lockPref("browser.toolbars.bookmarks.visibility", "never");
+    lockPref("pref.browser.homepage.disable_button.current_page", true);
+    lockPref("pref.browser.homepage.disable_button.bookmark_page", true);
+    lockPref("pref.browser.homepage.disable_button.restore_default", true);
+    lockPref("pref.downloads.disable_button.edit_actions", true);
+    lockPref("pref.privacy.disable_button.cookie_exceptions", true);
+    lockPref("pref.general.disable_button.default_browser", true);
+    lockPref("pref.privacy.disable_button.view_cookies", true);
+    lockPref("pref.privacy.disable_button.view_passwords", true);
+    lockPref("pref.privacy.disable_button.view_passwords_exceptions", true);
+    lockPref("security.disable_button.openCertManager", true);
+    lockPref("security.disable_button.openDeviceManager", true);
+    lockPref("security.enterprise_roots.enabled", true);
+    lockPref("security.insecure_connection_icon.enabled", false);
+    lockPref("security.insecure_connection_icon.pbmode.enabled", false);
+    lockPref("security.insecure_field_warning.contextual.enabled", false);
+    lockPref("services.sync.prefs.sync.signon.autofillForms", false);
+    lockPref("signon.autofillForms", false);
+    lockPref("signon.autofillForms.autocompleteOff", true);
+    lockPref("signon.autofillForms.http", false);
+    lockPref("signon.showAutoCompleteFooter", false);
     EOF
 
       ### SystemD Configuration

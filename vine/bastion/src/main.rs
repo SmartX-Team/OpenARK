@@ -26,6 +26,7 @@ async fn main() {
                 .service(health)
                 .service(crate::routes::auth::get)
                 .service(crate::routes::r#box::login::get)
+                .service(crate::routes::install_os::get)
                 .service(crate::routes::welcome::get)
         })
         .bind(addr)
