@@ -1,15 +1,17 @@
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: "desktop-{{ spec.node.metadata.name }}"
   namespace: "{{ metadata.namespace }}"
 spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
   selector:
     matchLabels:
       name: desktop
-  updateStrategy:
-    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -21,11 +23,6 @@ spec:
           # KISS ephemeral control plane nodes should be excluded
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/kiss
-                    operator: In
-                    values:
-                      - Desktop
               - matchExpressions:
                   - key: kubernetes.io/hostname
                     operator: In
@@ -193,3 +190,142 @@ spec:
           hostPath:
             path: /tmp/.X11-unix
             type: Directory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "novnc-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: "novnc-{{ spec.node.metadata.name }}"
+  template:
+    metadata:
+      labels:
+        name: "novnc-{{ spec.node.metadata.name }}"
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be excluded
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - "{{ spec.node.metadata.name }}"
+      containers:
+        - name: x11vnc
+          image: quay.io/ulagbulag/openark-vine-x11vnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: X11VNC_ARGS
+              value: -cursor most -noscr -nowcr -nowf -noxdamage
+            - name: X11VNC_MULTIPTR
+              value: "false"
+            - name: X11VNC_XKB
+              value: "true"
+          ports:
+            - name: vnc
+              protocol: TCP
+              containerPort: 5900
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 100Mi
+            limits:
+              cpu: 4000m
+              memory: 2Gi
+          volumeMounts:
+            - name: x11
+              mountPath: /tmp/.X11-unix
+        - name: novnc
+          image: quay.io/ulagbulag/openark-vine-novnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: NOVNC_VNC_PATH
+              value: "/box/vnc/{{ spec.node.metadata.name }}/"
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 6080
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 100Mi
+            limits:
+              cpu: 4000m
+              memory: 2Gi
+      hostIPC: true
+      securityContext:
+        runAsUser: 2000
+        fsGroup: 2000
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: x11
+          hostPath:
+            path: /tmp/.X11-unix
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "novnc-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  selector:
+    name: "novnc-{{ spec.node.metadata.name }}"
+  ports:
+    # - name: vnc
+    #   port: 5900
+    #   protocol: TCP
+    #   targetPort: 5900
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 6080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "novnc-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+  annotations:
+    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
+    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.openark
+    nginx.ingress.kubernetes.io/auth-response-headers: Authorization
+    nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "false"
+    vine.ulagbulag.io/is-service-system: "true"
+    vine.ulagbulag.io/service-kind: noVNC ({{ spec.node.metadata.name }})
+spec:
+  rules:
+    - host: ingress-nginx-controller.vine.svc.ops.openark
+      http:
+        paths:
+          - path: "/box/{{ spec.node.metadata.name }}/vnc(/|$)(.*)"
+            pathType: Prefix
+            backend:
+              service:
+                name: "novnc-{{ spec.node.metadata.name }}"
+                port:
+                  number: 80
+          # - path: "/box/{{ spec.node.metadata.name }}/vnc(/|$)(.*)"
+          #   pathType: Prefix
+          #   backend:
+          #     service:
+          #       name: "novnc-{{ spec.node.metadata.name }}"
+          #       port:
+          #         number: 5900
