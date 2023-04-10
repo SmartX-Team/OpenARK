@@ -652,6 +652,23 @@ pub enum ModelFieldKindNativeType {
     ObjectArray,
 }
 
+impl ModelFieldKindNativeType {
+    pub fn to_natural(&self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::Boolean => "Boolean",
+            Self::Integer => "Integer",
+            Self::Number => "Number",
+            Self::String | Self::OneOfStrings => "String",
+            Self::DateTime => "DateTime",
+            Self::Ip => "Ip",
+            Self::Uuid => "Uuid",
+            Self::Object => "Object",
+            Self::ObjectArray => "Object[]",
+        }
+    }
+}
+
 #[derive(
     Copy,
     Clone,
