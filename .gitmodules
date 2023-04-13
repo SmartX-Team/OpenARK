@@ -1,0 +1,3 @@
+[submodule "templates/ark/repos/community"]
+path = templates/ark/repos/community
+url = git@github.com:ulagbulag/ark-community.git
