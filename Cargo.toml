@@ -2,7 +2,8 @@
 default-members = ["dash/cli"]
 members = [
     # "ipwis-binding",
-    "ark/actor",
+    "ark/actor/kubernetes",
+    "ark/actor/local",
     "ark/api",
     "ark/cli",
     "ark/controller",
@@ -44,6 +45,7 @@ actix-web = { version = "4.3", default-features = false, features = [
 actix-web-lab = { version = "0.19" }
 base64 = { version = "0.21" }
 bytes = { version = "1.4" }
+chatgpt = { package = "chatgpt_rs", version = "1.1" }
 clap = { version = "4.1", features = ["env", "derive"] }
 email_address = { version = "0.2" }
 half = { version = "2.2" }

@@ -14,7 +14,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-actor = { path = "../actor" }
+ark-actor = { package = "ark-actor-kubernetes", path = "../actor/kubernetes" }
 ark-api = { path = "../api" }
 ipis = { workspace = true }
 

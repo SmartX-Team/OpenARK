@@ -1,5 +1,5 @@
 [package]
-name = "ark-controller"
+name = "ark-actor-local"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,10 +14,5 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-actor = { package = "ark-actor-kubernetes", path = "../actor/kubernetes" }
-ark-api = { path = "../api" }
+ark-api = { path = "../../api" }
 ipis = { workspace = true }
-kiss-api = { path = "../../kiss/api" }
-
-inflector = { workspace = true }
-regex = { workspace = true }

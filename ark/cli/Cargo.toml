@@ -17,8 +17,14 @@ repository = "https://github.com/ulagbulag/OpenARK"
 name = "ark"
 path = "./src/main.rs"
 
+[features]
+default = ["kubernetes", "local"]
+kubernetes = ["ark-actor-kubernetes"]
+local = ["ark-actor-local"]
+
 [dependencies]
-ark-actor = { path = "../actor" }
+ark-actor-kubernetes = { path = "../actor/kubernetes", optional = true }
+ark-actor-local = { path = "../actor/local", optional = true }
 ark-api = { path = "../api" }
 ipis = { workspace = true }
 

@@ -1,5 +1,5 @@
 [package]
-name = "ark-actor"
+name = "ark-actor-kubernetes"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,5 +14,5 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-api = { path = "../api" }
+ark-api = { path = "../../api" }
 ipis = { workspace = true }
