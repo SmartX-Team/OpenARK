@@ -1,5 +1,5 @@
 [workspace]
-default-members = ["dash/cli"]
+default-members = ["ark/cli"]
 members = [
     # "ipwis-binding",
     "ark/actor/api",
