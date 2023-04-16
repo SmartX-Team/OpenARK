@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 #[derive(Parser)]
-pub struct Args {
+pub struct ActorArgs {
     #[command(flatten)]
     pub flags: PackageFlags,
 
@@ -26,12 +26,16 @@ pub struct Args {
     #[arg(
         long,
         env = "ARK_CONTAINER_TEMPLATE_FILE",
-        default_value = "./templates/Containerfile.j2"
+        default_value = "./templates/ark/templates/Containerfile.j2"
     )]
     pub container_template_file: PathBuf,
 
     /// Specify repository home
-    #[arg(long, env = "ARK_REPOSITORY_HOME", default_value = "./repos/")]
+    #[arg(
+        long,
+        env = "ARK_REPOSITORY_HOME",
+        default_value = "./templates/ark/repos/"
+    )]
     pub repository_home: PathBuf,
 }
 

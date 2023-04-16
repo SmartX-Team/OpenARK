@@ -15,7 +15,7 @@ pub(crate) enum Command {
 }
 
 impl Command {
-    pub(crate) async fn run(self, args: &::ark_actor_api::args::Args) -> Result<()> {
+    pub(crate) async fn run(self, args: &::ark_actor_api::args::ActorArgs) -> Result<()> {
         match self {
             Self::Add(command) => command.run(args).await,
             Self::Del(command) => command.run(args).await,

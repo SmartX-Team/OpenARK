@@ -7,7 +7,7 @@ use ipis::{core::anyhow::Result, futures::TryFutureExt, logger};
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Args {
     #[command(flatten)]
-    ark: ::ark_actor_api::args::Args,
+    actor: ::ark_actor_api::args::ActorArgs,
 
     #[command(flatten)]
     common: ArgsCommon,
@@ -20,7 +20,7 @@ impl Args {
     pub(crate) async fn run(self) -> Result<()> {
         self.common
             .run()
-            .and_then(|()| self.command.run(&self.ark))
+            .and_then(|()| self.command.run(&self.actor))
             .await
     }
 }

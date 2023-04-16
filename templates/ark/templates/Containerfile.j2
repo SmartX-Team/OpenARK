@@ -1,0 +1,116 @@
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Be ready for packaging
+FROM "{{ default.distImageList[spec.base.dist.name] }}:{{ spec.base.dist.version }}" as base
+
+# Install feature dependencies
+RUN true \
+    && pacman -Sy --needed --noconfirm \
+        "curl" \
+        "git" \
+    # Add a build-only user
+    && BUILDER_GID="999" \
+    && BUILDER_UID="999" \
+    && BUILDER_NAME="builder" \
+    && BUILDER_SHELL="sh" \
+    && groupadd -g "${BUILDER_GID}" -o "${BUILDER_NAME}" \
+    && useradd -u "${BUILDER_UID}" -g "${BUILDER_GID}" \
+        -s "/bin/${BUILDER_SHELL}" -m -o "${BUILDER_NAME}" \
+    # Install YAY (AUR package manager)
+    && ARCH_YAY_SNAPSHOP_URL="https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz" \
+    && ARCH_YAY_SNAPSHOP_FILENAME="/tmp/${ARCH_YAY_SNAPSHOP_URL##*/}" \
+    && ARCH_YAY_SNAPSHOP_PKGDIR="${ARCH_YAY_SNAPSHOP_FILENAME%%.*}" \
+    && ARCH_YAY_SNAPSHOP_DEPENDENCIES="binutils fakeroot gcc make go" \
+    && curl -s "${ARCH_YAY_SNAPSHOP_URL}" -o "${ARCH_YAY_SNAPSHOP_FILENAME}" \
+    && tar -x -C "$(dirname "${ARCH_YAY_SNAPSHOP_PKGDIR}")" -f "${ARCH_YAY_SNAPSHOP_FILENAME}" \
+    && pushd "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
+    && chown -R "${BUILDER_UID}:${BUILDER_GID}" . \
+    && pacman -S --needed --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
+    && su "${BUILDER_NAME}" bash -c 'makepkg -s' \
+    && pacman -U --noconfirm ./*.pkg.tar.zst \
+    && pacman -Rcns --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
+    && popd \
+    && rm -rf "${ARCH_YAY_SNAPSHOP_FILENAME}" "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
+    # Remove the build-only user
+    && userdel "${BUILDER_NAME}" \
+    # Create YAY cache directory
+    && mkdir '/var/cache/yay' \
+    # Cleanup
+    && rm -rf "/home/${BUILDER_NAME}" \
+    && pacman -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install permission dependencies
+{% if spec.permissions | length > 0 -%}
+RUN true \
+    && yay -Sy --needed --noconfirm \
+{% for dependency in spec.permissions | sort(attribute='name') -%}
+# --- BEGIN PERMISSION DEPENDENCY ---
+{% if dependency.name == 'audio' -%}
+        "pipewire" \
+{%- endif -%}
+{%- if dependency.name == 'graphics' -%}
+        "libglvnd" \
+        "mesa" \
+        "mesa-utils" \
+        "vulkan-tools" \
+{%- endif %}
+# --- END PERMISSION DEPENDENCY ---
+{%- endfor %}
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+{%- endif %}
+
+# Configure user-specific environment variables
+ARG USER_GID="{{ spec.user.gid | default(value=2000) }}"
+ARG USER_NAME="{{ spec.user.name | default(value='user') }}"
+ARG USER_SHELL="{{ spec.user.shell | default(value='sh') }}"
+{% if spec.user.sudo | default(value=false) -%}
+ARG USER_SUDO="true"
+{%- else -%}
+ARG USER_SUDO="false"
+{%- endif %}
+ARG USER_UID="{{ spec.user.uid | default(value=2000) }}"
+RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
+    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \
+        -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
+    && echo -e "${USER_UID}:$(( USER_UID + 1 )):$(( 65535 - USER_UID ))" > /etc/subuid \
+    && echo -e "${USER_GID}:$(( USER_GID + 1 )):$(( 65535 - USER_UID ))" > /etc/subgid \
+    # Install user-specific dependencies
+    && yay -Sy --needed --noconfirm \
+        "{{ spec.user.shell }}" \
+{% if spec.user.sudo | default(value=false) -%}
+        "sudo" \
+{%- endif %}
+    # Allow passwordless sudo command
+{% if spec.user.sudo | default(value=false) -%}
+    && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
+    && chmod 440 /etc/sudoers.d/10-wheel \
+{%- endif %}
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install dependencies
+RUN true \
+    && yay -Sy --needed --noconfirm \
+{% for dependency in spec.base.dependencies | sort(attribute='name') -%}
+{% if dependency.kind | default(value='package') == 'package' -%}
+        "{{ dependency.name }}" \
+{%- endif %}
+{%- endfor %}
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Configure application-specific environment variables
+ENV __ARK_PACKAGE_EXEC_FILE="/usr/bin/{{ metadata.name }}"
+ENV __ARK_PACKAGE_ICON_FILE=""
+
+# Configure package
+CMD [ ]
+ENTRYPOINT [ "/usr/bin/env", "{{ metadata.name }}" ]
+WORKDIR "/home/${USER_NAME}"

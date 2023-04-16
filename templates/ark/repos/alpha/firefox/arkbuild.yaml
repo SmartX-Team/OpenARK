@@ -1,0 +1,26 @@
+---
+apiVersion: ark.ulagbulag.io/v1alpha1
+kind: ArkBuild
+metadata:
+  name: firefox
+spec:
+  base:
+    dist:
+      name: archlinux
+      version: latest
+    dependencies:
+      - name: firefox
+        version: latest
+  permissions:
+    - name: audio
+      features:
+        - all
+    - name: graphics
+      features:
+        - all
+  user:
+    name: user
+    uid: 1000
+    gid: 1000
+    shell: bash
+    sudo: true

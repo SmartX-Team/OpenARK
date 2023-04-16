@@ -4,7 +4,7 @@ mod template;
 use std::ffi::OsStr;
 
 use ark_actor_api::{
-    args::{Args, PackageFlags},
+    args::{ActorArgs, PackageFlags},
     repo::RepositoryManager,
 };
 use ipis::{
@@ -20,7 +20,7 @@ pub struct PackageManager {
 }
 
 impl PackageManager {
-    pub async fn try_new(args: &Args) -> Result<Self> {
+    pub async fn try_new(args: &ActorArgs) -> Result<Self> {
         Ok(Self {
             container_runtime: self::container_runtime::ContainerRuntimeManager::try_new(
                 args.container_runtime,
