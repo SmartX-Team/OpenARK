@@ -1,5 +1,5 @@
 [package]
-name = "ark-api"
+name = "ark-actor-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,12 +14,11 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-api = { path = "../../api" }
 ipis = { workspace = true }
-vine-api = { path = "../../vine/api" }
 
-kube = { workspace = true }
-k8s-openapi = { workspace = true }
-schemars = { workspace = true }
+clap = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 strum = { workspace = true }
+which = { workspace = true }

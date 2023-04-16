@@ -2,6 +2,7 @@
 default-members = ["dash/cli"]
 members = [
     # "ipwis-binding",
+    "ark/actor/api",
     "ark/actor/kubernetes",
     "ark/actor/local",
     "ark/api",
@@ -105,6 +106,7 @@ sha2 = { version = "0.10" }
 strum = { version = "0.24", features = ["derive"] }
 tera = { version = "1.18" }
 url = { version = "2.3", features = ["serde"] }
+which = { version = "4.4" }
 
 [patch.crates-io]
 # Fixes a bug in building with musl binary (i.e. Alpine Linux)

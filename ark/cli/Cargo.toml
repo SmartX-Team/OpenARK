@@ -23,10 +23,10 @@ kubernetes = ["ark-actor-kubernetes"]
 local = ["ark-actor-local"]
 
 [dependencies]
+ark-actor-api = { path = "../actor/api" }
 ark-actor-kubernetes = { path = "../actor/kubernetes", optional = true }
 ark-actor-local = { path = "../actor/local", optional = true }
 ark-api = { path = "../api" }
 ipis = { workspace = true }
 
 clap = { workspace = true }
-serde = { workspace = true }

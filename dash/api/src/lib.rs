@@ -10,5 +10,5 @@ pub mod pipe;
 pub mod storage;
 
 pub mod consts {
-    pub use vine_api::consts::NAMESPACE;
+    pub use ::vine_api::consts::NAMESPACE;
 }
