@@ -1,8 +1,19 @@
-use std::{ffi::OsStr, io::Cursor, path::PathBuf, process::Stdio};
+use std::{fs, io::Cursor, path::PathBuf, process::Stdio};
 
-use ark_actor_api::{args::ContainerRuntimeKind, package::Package};
-use ark_api::package::{ArkPermissionKind, ArkUserSpec};
+use ark_actor_api::{
+    args::ContainerRuntimeKind,
+    builder::{
+        ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
+        ApplicationDeviceGpu, ApplicationDeviceGpuNvidia, ApplicationDeviceIpc,
+        ApplicationEnvironmentVariable, ApplicationResource, ApplicationUserGroup,
+        ApplicationVolume, ApplicationVolumeSource,
+    },
+    package::Package,
+    runtime::ApplicationRuntime,
+};
+use ark_api::package::ArkUserSpec;
 use ipis::{
+    async_trait::async_trait,
     core::anyhow::{bail, Result},
     tokio::{
         io::{self, AsyncWriteExt},
@@ -13,9 +24,10 @@ use ipis::{
 use crate::template::Template;
 
 pub(super) struct ContainerRuntimeManager {
+    app: ApplicationRuntime<ContainerApplicationBuilderFactory>,
     kind: ContainerRuntimeKind,
     name_prefix: String,
-    runtime: PathBuf,
+    program: PathBuf,
 }
 
 impl ContainerRuntimeManager {
@@ -23,18 +35,19 @@ impl ContainerRuntimeManager {
         kind: Option<ContainerRuntimeKind>,
         name_prefix: String,
     ) -> Result<Self> {
-        let (kind, runtime) = ContainerRuntimeKind::parse(kind)?;
+        let (kind, program) = ContainerRuntimeKind::parse(kind)?;
         Ok(Self {
+            app: Default::default(),
             kind,
             name_prefix,
-            runtime,
+            program,
         })
     }
 
     pub(super) async fn exists(&self, package: &Package) -> Result<bool> {
         let image_name = self.get_image_name_from_package(package);
 
-        let mut command = Command::new(&self.runtime);
+        let mut command = Command::new(&self.program);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => command
                 .arg("image")
@@ -60,7 +73,7 @@ impl ContainerRuntimeManager {
 
         let image_name = self.get_image_name(name, &template.version);
 
-        let mut command = Command::new(&self.runtime);
+        let mut command = Command::new(&self.program);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
                 command.arg("build").arg("--tag").arg(image_name).arg("-")
@@ -89,7 +102,7 @@ impl ContainerRuntimeManager {
     pub(super) async fn remove(&self, package: &Package) -> Result<()> {
         let image_name = self.get_image_name_from_package(package);
 
-        let mut command = Command::new(&self.runtime);
+        let mut command = Command::new(&self.program);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => command
                 .arg("image")
@@ -114,99 +127,19 @@ impl ContainerRuntimeManager {
         }
     }
 
-    pub(super) async fn run<I, S>(&self, package: &Package, args: I) -> Result<()>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
-    {
+    pub(super) async fn run(
+        &self,
+        package: &Package,
+        command_line_arguments: &[String],
+    ) -> Result<()> {
         let image_name = self.get_image_name_from_package(package);
 
-        let mut command = Command::new(&self.runtime);
-        let command = match &self.kind {
-            ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
-                let ArkUserSpec { uid, gid, .. } = &package.resource.spec.user;
-
-                command
-                    .arg("run")
-                    .arg("--rm")
-                    .arg("--group-add")
-                    .arg(gid.to_string())
-                    .arg("--user")
-                    .arg(uid.to_string());
-
-                for permission in &package.resource.spec.permissions {
-                    match &permission.name {
-                        ArkPermissionKind::Audio => {
-                            command
-                                .arg("--group-add")
-                                .arg("audio")
-                                .arg("--volume")
-                                .arg("/dev/snd:/dev/snd:ro")
-                                .arg("--volume")
-                                .arg("/etc/pulse:/etc/pulse:ro");
-                        }
-                        ArkPermissionKind::Graphics => {
-                            let home = ::std::env::var("HOME")?;
-
-                            command
-                                .arg("--gpus")
-                                .arg("all")
-                                .arg("--group-add")
-                                .arg("render")
-                                .arg("--group-add")
-                                .arg("video")
-                                .arg("--env")
-                                .arg("DISPLAY=:0")
-                                .arg("--env")
-                                .arg("NVIDIA_DRIVER_CAPABILITIES=all")
-                                .arg("--env")
-                                .arg("NVIDIA_VISIBLE_DEVICES=all")
-                                .arg("--env")
-                                .arg(format!("XDG_RUNTIME_DIR=/run/user/{uid}"))
-                                .arg("--ipc")
-                                .arg("host")
-                                .arg("--volume")
-                                .arg("/dev/dri:/dev/dri:ro")
-                                .arg("--volume")
-                                .arg(format!("{home}/indocker:/home/user"))
-                                .arg("--volume")
-                                .arg(format!("{home}/.local/share:/home/user/share:ro"))
-                                .arg("--volume")
-                                .arg("/usr/share/egl/egl_external_platform.d:/usr/share/egl/egl_external_platform.d:ro")
-                                .arg("--volume")
-                                .arg("/usr/share/glvnd/egl_vendor.d:/usr/share/glvnd/egl_vendor.d:ro")
-                                .arg("--volume")
-                                .arg("/usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro")
-                                .arg("--volume")
-                                .arg("/run/dbus:/run/dbus:ro")
-                                .arg("--volume")
-                                .arg(format!("/run/user/{uid}:/run/user/{uid}"))
-                                .arg("--volume")
-                                .arg("/tmp/.ICE-unix:/tmp/.ICE-unix:ro")
-                                .arg("--volume")
-                                .arg("/tmp/.X11-unix:/tmp/.X11-unix:ro");
-                        }
-                    }
-                }
-
-                command.arg(image_name).args(args)
-            }
+        let args = ContainerApplicationBuilderArgs {
+            manager: self,
+            name: &package.name,
+            image_name,
         };
-
-        if command
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .kill_on_drop(true)
-            .status()
-            .await?
-            .success()
-        {
-            Ok(())
-        } else {
-            let name = &package.name;
-            bail!("failed to run package: {name:?}")
-        }
+        self.app.spawn(args, package, command_line_arguments).await
     }
 
     fn get_image_name(&self, name: &str, version: &str) -> String {
@@ -217,5 +150,161 @@ impl ContainerRuntimeManager {
     fn get_image_name_from_package(&self, package: &Package) -> String {
         let version = package.resource.get_image_version();
         self.get_image_name(&package.name, version)
+    }
+}
+
+#[derive(Default)]
+struct ContainerApplicationBuilderFactory;
+
+#[async_trait]
+impl<'args> ApplicationBuilderFactory<'args> for ContainerApplicationBuilderFactory {
+    type Args = ContainerApplicationBuilderArgs<'args>;
+    type Builder = ContainerApplicationBuilder<'args>;
+
+    async fn create_builder<'builder>(
+        &self,
+        args: <Self as ApplicationBuilderFactory<'args>>::Args,
+        ApplicationBuilderArgs {
+            command_line_arguments,
+            user,
+        }: ApplicationBuilderArgs<'builder>,
+    ) -> Result<<Self as ApplicationBuilderFactory<'args>>::Builder>
+    where
+        'builder: 'args,
+    {
+        Ok(ContainerApplicationBuilder {
+            command: match &args.manager.kind {
+                ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
+                    let ArkUserSpec { uid, gid, .. } = user;
+
+                    let mut command = Command::new(&args.manager.program);
+                    command
+                        .arg("run")
+                        .arg("--rm")
+                        .arg("--group-add")
+                        .arg(gid.to_string())
+                        .arg("--user")
+                        .arg(uid.to_string());
+                    command
+                }
+            },
+            args,
+            command_line_arguments,
+        })
+    }
+}
+
+struct ContainerApplicationBuilder<'args> {
+    args: ContainerApplicationBuilderArgs<'args>,
+    command: Command,
+    command_line_arguments: &'args [String],
+}
+
+struct ContainerApplicationBuilderArgs<'args> {
+    manager: &'args ContainerRuntimeManager,
+    name: &'args str,
+    image_name: String,
+}
+
+#[async_trait]
+impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
+    fn add(&mut self, resource: ApplicationResource) -> Result<()> {
+        match &self.args.manager.kind {
+            ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => match resource {
+                ApplicationResource::Device(device) => match device {
+                    ApplicationDevice::Gpu(gpu) => match gpu {
+                        ApplicationDeviceGpu::Nvidia(nvidia) => match nvidia {
+                            ApplicationDeviceGpuNvidia::All => {
+                                self.command.arg("--gpus");
+                                self.command.arg("all");
+                                Ok(())
+                            }
+                        },
+                    },
+                    ApplicationDevice::Ipc(ipc) => match ipc {
+                        ApplicationDeviceIpc::Host => {
+                            self.command.arg("--ipc");
+                            self.command.arg("host");
+                            Ok(())
+                        }
+                    },
+                },
+                ApplicationResource::EnvironmentVariable(ApplicationEnvironmentVariable {
+                    key,
+                    value,
+                }) => {
+                    self.command.arg("--env");
+                    self.command.arg(format!("{key}={value}"));
+                    Ok(())
+                }
+                ApplicationResource::UserGroup(group) => match group {
+                    ApplicationUserGroup::Gid(gid) => {
+                        self.command.arg("--group-add");
+                        self.command.arg(gid.to_string());
+                        Ok(())
+                    }
+                    ApplicationUserGroup::Name(name) => {
+                        self.command.arg("--group-add");
+                        self.command.arg(name);
+                        Ok(())
+                    }
+                },
+                ApplicationResource::Volume(ApplicationVolume {
+                    src,
+                    dst_path,
+                    read_only,
+                }) => match src {
+                    ApplicationVolumeSource::HostPath(src_path) => {
+                        let src_path = src_path.unwrap_or(dst_path);
+                        let permission = if read_only { "ro" } else { "" };
+
+                        self.command.arg("--volume");
+                        self.command
+                            .arg(format!("{src_path}:{dst_path}:{permission}"));
+                        Ok(())
+                    }
+                    ApplicationVolumeSource::UserHome(src_path) => {
+                        let home = ::std::env::var("HOME")?; // TODO: enable to use virtualized home
+                        let src_path = src_path.unwrap_or(dst_path);
+                        let src_path = format!("{home}/{src_path}");
+                        let permission = if read_only { "ro" } else { "" };
+
+                        // make a user-level directory if not exists
+                        fs::create_dir_all(&src_path)?;
+
+                        self.command.arg("--volume");
+                        self.command
+                            .arg(format!("{src_path}:{dst_path}:{permission}"));
+                        Ok(())
+                    }
+                },
+            },
+        }
+    }
+
+    async fn spawn(&mut self) -> Result<()> {
+        match &self.args.manager.kind {
+            ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
+                self.command
+                    .arg(&self.args.image_name)
+                    .args(self.command_line_arguments);
+            }
+        }
+
+        if self
+            .command
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true)
+            .status()
+            .await?
+            .success()
+        {
+            Ok(())
+        } else {
+            let name = &self.args.name;
+            bail!("failed to run package: {name:?}")
+        }
     }
 }

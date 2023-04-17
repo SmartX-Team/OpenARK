@@ -5,7 +5,7 @@ use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     repo::RepositoryManager,
 };
-use ipis::{async_trait, core::anyhow::Result};
+use ipis::{async_trait::async_trait, core::anyhow::Result};
 
 pub struct PackageManager {
     container_runtime: self::container_runtime::ContainerRuntimeManager,
@@ -32,7 +32,7 @@ impl PackageManager {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl ::ark_actor_api::PackageManager for PackageManager {
     async fn exists(&self, name: &str) -> Result<bool> {
         let package = self.repos.get(name).await?;

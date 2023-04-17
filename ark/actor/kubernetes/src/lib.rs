@@ -6,7 +6,7 @@ use ark_actor_api::{
     repo::RepositoryManager,
 };
 use ark_api::package::ArkPackageCrd;
-use ipis::{async_trait, core::anyhow::Result};
+use ipis::{async_trait::async_trait, core::anyhow::Result};
 use kube::{api::PostParams, Api, Client};
 
 pub struct PackageManager {
@@ -53,7 +53,7 @@ pub struct PackageSessionOwned {
     manager: PackageManager,
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl ::ark_actor_api::PackageManager for PackageSessionOwned {
     async fn exists(&self, name: &str) -> Result<bool> {
         let Self { kube, manager } = self;
@@ -85,7 +85,7 @@ pub struct PackageSession<'kube, 'manager> {
     manager: &'manager PackageManager,
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 'manager> {
     async fn exists(&self, name: &str) -> Result<bool> {
         let package = self
