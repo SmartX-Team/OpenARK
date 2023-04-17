@@ -11,9 +11,6 @@ type BoxPackageManager = Box<dyn PackageManager + 'static + Send + Sync>;
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Args {
     #[command(flatten)]
-    actor: ActorArgs,
-
-    #[command(flatten)]
     common: ArgsCommon,
 
     #[command(subcommand)]
@@ -23,8 +20,8 @@ pub(crate) struct Args {
 impl Args {
     pub(crate) async fn run(self) -> Result<()> {
         self.common
-            .run(&self.actor)
-            .and_then(|manager| self.command.run(manager, &self.actor))
+            .run()
+            .and_then(|manager| self.command.run(manager))
             .await
     }
 }
@@ -36,6 +33,10 @@ pub(crate) struct ArgsCommon {
     #[arg(value_parser = value_parser!(u8).range(..=3))]
     debug: u8,
 
+    #[command(flatten)]
+    actor: ActorArgs,
+
+    /// Which runtime to use
     #[arg(long, env = "ARK_RUNTIME")]
     #[cfg_attr(all(not(feature = "local"), feature = "kubernetes"), arg(default_value_t = Runtime::Kubernetes))]
     #[cfg_attr(feature = "local", arg(default_value_t = Runtime::Local))]
@@ -43,9 +44,9 @@ pub(crate) struct ArgsCommon {
 }
 
 impl ArgsCommon {
-    async fn run(&self, args: &ActorArgs) -> Result<BoxPackageManager> {
+    async fn run(&self) -> Result<BoxPackageManager> {
         self.init_logger();
-        self.runtime.init_package_manager(args).await
+        self.runtime.init_package_manager(&self.actor).await
     }
 
     fn init_logger(&self) {

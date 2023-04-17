@@ -14,11 +14,7 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) async fn run(
-        self,
-        manager: impl PackageManager,
-        args: &::ark_actor_api::args::ActorArgs,
-    ) -> Result<()> {
+    pub(crate) async fn run(self, manager: impl PackageManager) -> Result<()> {
         manager.run(&self.name, &self.args).await
     }
 }
