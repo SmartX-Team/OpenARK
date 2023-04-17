@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,21 @@ use strum::{Display, EnumString};
     version = "v1alpha1",
     kind = "ArkPackage",
     struct = "ArkPackageCrd",
+    status = "ArkPackageStatus",
     shortname = "ab",
-    namespaced
+    namespaced,
+    printcolumn = r#"{
+        "name": "state",
+        "type": "string",
+        "description":"state of the package",
+        "jsonPath":".status.state"
+    }"#,
+    printcolumn = r#"{
+        "name": "created-at",
+        "type": "date",
+        "description":"created time",
+        "jsonPath":".metadata.creationTimestamp"
+    }"#
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ArkPackageSpec {
@@ -28,6 +42,14 @@ impl ArkPackageCrd {
     pub fn get_image_version(&self) -> &str {
         "latest"
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArkPackageStatus {
+    pub state: Option<ArkPackageState>,
+    pub spec: Option<ArkPackageSpec>,
+    pub last_updated: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -121,4 +143,25 @@ impl Default for ArkUserSpec {
             sudo: false,
         }
     }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum ArkPackageState {
+    Pending,
+    Building,
+    Ready,
 }

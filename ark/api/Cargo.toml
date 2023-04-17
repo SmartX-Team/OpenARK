@@ -15,7 +15,6 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ipis = { workspace = true }
-vine-api = { path = "../../vine/api" }
 
 kube = { workspace = true }
 k8s-openapi = { workspace = true }

@@ -7,7 +7,6 @@ use ipis::{
     futures::{self, StreamExt},
     log::{info, warn},
     logger,
-    tokio::sync::RwLock,
 };
 use k8s_openapi::{
     apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
@@ -22,13 +21,13 @@ use serde::de::DeserializeOwned;
 
 pub struct Manager<C> {
     pub kube: Client,
-    pub ctx: Arc<RwLock<C>>,
+    pub ctx: Arc<C>,
 }
 
 #[async_trait]
 pub trait Ctx
 where
-    Self: 'static + Send + Sync + Default,
+    Self: 'static + Send + Sync + TryDefault,
     <Self as Ctx>::Data:
         Send + Sync + Clone + ::core::fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
     <<Self as Ctx>::Data as Resource>::DynamicType:
@@ -46,6 +45,7 @@ where
 
     async fn spawn()
     where
+        Self: Sized,
         <Self as Ctx>::Data: Resource<Scope = ClusterResourceScope>,
     {
         <Self as Ctx>::try_spawn(|client| async move { Ok(Self::init_resource(client)) })
@@ -55,6 +55,7 @@ where
 
     async fn spawn_namespaced()
     where
+        Self: Sized,
         <Self as Ctx>::Data: Resource<Scope = NamespaceResourceScope>,
     {
         <Self as Ctx>::try_spawn(|client| async move { Ok(Self::init_resource_namespaced(client)) })
@@ -64,6 +65,7 @@ where
 
     async fn spawn_crd()
     where
+        Self: Sized,
         <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = ClusterResourceScope>,
     {
         <Self as Ctx>::try_spawn(|client| async move {
@@ -77,6 +79,7 @@ where
 
     async fn spawn_crd_namespaced()
     where
+        Self: Sized,
         <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = NamespaceResourceScope>,
     {
         <Self as Ctx>::try_spawn(|client| async move {
@@ -90,13 +93,14 @@ where
 
     async fn try_spawn<F, Fut>(f_init: F) -> Result<()>
     where
+        Self: Sized,
         F: FnOnce(Client) -> Fut + Send,
         Fut: Future<Output = Result<Api<<Self as Ctx>::Data>>> + Send,
     {
         logger::init_once();
 
         let client = Client::try_default().await?;
-        let ctx = Arc::new(RwLock::new(Self::default()));
+        let ctx = Arc::new(Self::try_default().await?);
         let manager = Arc::new(Manager {
             kube: client.clone(),
             ctx: ctx.clone(),
@@ -187,5 +191,22 @@ where
         E: ::std::fmt::Debug,
     {
         Action::requeue(<Self as Ctx>::FALLBACK)
+    }
+}
+
+#[async_trait]
+pub trait TryDefault {
+    async fn try_default() -> Result<Self>
+    where
+        Self: Sized;
+}
+
+#[async_trait]
+impl<T> TryDefault for T
+where
+    T: Default,
+{
+    async fn try_default() -> Result<Self> {
+        Ok(T::default())
     }
 }

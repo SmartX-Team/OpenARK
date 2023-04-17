@@ -1,5 +1,11 @@
 mod job_runtime;
 
+pub mod consts {
+    pub const FIELD_MANAGER: &str = "ark-actor-kubernetes";
+
+    pub const LABEL_PACKAGE_NAME: &str = "ark.ulagbulag.io/package-name";
+}
+
 use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     package::Package,
@@ -111,7 +117,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
             Ok(())
         } else {
             let pp = PostParams {
-                field_manager: Some(FIELD_MANAGER.into()),
+                field_manager: Some(self::consts::FIELD_MANAGER.into()),
                 ..Default::default()
             };
             api.create(&pp, &package.resource)
@@ -168,5 +174,3 @@ async fn exists(api: &Api<ArkPackageCrd>, name: &str) -> Result<bool> {
         .map(|object| object.is_some())
         .map_err(Into::into)
 }
-
-const FIELD_MANAGER: &str = "ark-actor-kubernetes";

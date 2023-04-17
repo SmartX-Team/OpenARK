@@ -1,5 +1,5 @@
 pub mod container_runtime;
-mod template;
+pub mod template;
 
 use ark_actor_api::{
     args::{ActorArgs, PackageFlags},

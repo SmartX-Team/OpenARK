@@ -1,8 +1,11 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use ark_actor_api::package::Package;
 use ark_api::package::ArkPackageCrd;
-use ipis::{core::anyhow::Result, tokio::fs};
+use ipis::{core::anyhow::Result, env, tokio::fs};
 use serde::Serialize;
 use tera::{Context, Tera};
 
@@ -13,6 +16,11 @@ pub struct TemplateManager {
 
 impl TemplateManager {
     const TEMPLATE_NAME: &'static str = "Containerfile.j2";
+
+    pub async fn try_default() -> Result<Self> {
+        let path: PathBuf = env::infer("ARK_CONTAINER_TEMPLATE_FILE")?;
+        Self::try_from_local(&path).await
+    }
 
     pub async fn try_from_local(path: &Path) -> Result<Self> {
         Ok(Self {

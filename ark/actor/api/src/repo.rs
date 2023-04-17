@@ -5,6 +5,7 @@ use std::{
 
 use ipis::{
     core::anyhow::{bail, Error, Result},
+    env,
     tokio::fs,
 };
 
@@ -15,6 +16,11 @@ pub struct RepositoryManager {
 }
 
 impl RepositoryManager {
+    pub async fn try_default() -> Result<Self> {
+        let home: PathBuf = env::infer("ARK_REPOSITORY_HOME")?;
+        Self::try_from_local(&home).await
+    }
+
     pub async fn try_from_local(home: &Path) -> Result<Self> {
         Ok(Self {
             repos: {

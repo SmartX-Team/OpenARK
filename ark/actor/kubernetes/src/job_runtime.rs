@@ -7,7 +7,7 @@ use ark_actor_api::{
     },
     package::Package,
 };
-use ark_api::package::ArkUserSpec;
+use ark_api::{package::ArkUserSpec, NamespaceAny};
 use ipis::{async_trait::async_trait, core::anyhow::Result};
 use k8s_openapi::{
     api::{
@@ -19,7 +19,7 @@ use k8s_openapi::{
     },
     chrono::Utc,
 };
-use kube::{api::PostParams, core::ObjectMeta, Api, Client, ResourceExt};
+use kube::{api::PostParams, core::ObjectMeta, Api, Client};
 
 #[derive(Default)]
 pub(crate) struct JobApplicationBuilderFactory;
@@ -47,7 +47,7 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
             template: PodTemplateSpec {
                 metadata: Some(ObjectMeta {
                     labels: Some(
-                        [("name", &args.package.name)]
+                        [(crate::consts::LABEL_PACKAGE_NAME, &args.package.name)]
                             .iter()
                             .map(|(k, v)| (k.to_string(), v.to_string()))
                             .collect(),
@@ -84,7 +84,7 @@ pub(crate) struct JobApplicationBuilder<'args> {
 
 impl<'args> JobApplicationBuilder<'args> {
     fn container(&mut self) -> &mut Container {
-        self.pod().containers.get_mut(0).unwrap()
+        self.pod().containers.first_mut().unwrap()
     }
 
     fn env(&mut self) -> &mut Vec<EnvVar> {
@@ -92,11 +92,7 @@ impl<'args> JobApplicationBuilder<'args> {
     }
 
     fn namespace(&self) -> String {
-        self.args
-            .package
-            .resource
-            .namespace()
-            .unwrap_or_else(|| "default".into())
+        self.args.package.resource.namespace_any()
     }
 
     fn pod(&mut self) -> &mut PodSpec {
@@ -200,7 +196,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             metadata: ObjectMeta {
                 name: Some(format!("{name}-{timestamp}")),
                 namespace: Some(self.namespace()),
-                ..Default::default()
+                ..self.template.metadata.clone().unwrap()
             },
             spec: Some(JobSpec {
                 backoff_limit: Some(0),
@@ -213,7 +209,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
 
         let api = Api::<Job>::default_namespaced(self.args.kube.clone());
         let pp = PostParams {
-            field_manager: Some(super::FIELD_MANAGER.into()),
+            field_manager: Some(crate::consts::FIELD_MANAGER.into()),
             ..Default::default()
         };
         api.create(&pp, &job).await.map(|_| ()).map_err(Into::into)
