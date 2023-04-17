@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, io::Cursor, path::PathBuf, process::Stdio};
 
 use ark_actor_api::{args::ContainerRuntimeKind, package::Package};
-use ark_api::build::{ArkPermissionKind, ArkUserSpec};
+use ark_api::package::{ArkPermissionKind, ArkUserSpec};
 use ipis::{
     core::anyhow::{bail, Result},
     tokio::{

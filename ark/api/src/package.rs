@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,18 +9,19 @@ use strum::{Display, EnumString};
 #[kube(
     group = "ark.ulagbulag.io",
     version = "v1alpha1",
-    kind = "ArkBuild",
-    struct = "ArkBuildCrd",
-    shortname = "ab"
+    kind = "ArkPackage",
+    struct = "ArkPackageCrd",
+    shortname = "ab",
+    namespaced
 )]
 #[serde(rename_all = "camelCase")]
-pub struct ArkBuildSpec {
-    pub base: ArkBuildBaseSpec,
+pub struct ArkPackageSpec {
+    pub base: ArkPackageContainerSpec,
     pub permissions: Vec<ArkPermissionSpec>,
     pub user: ArkUserSpec,
 }
 
-impl ArkBuildCrd {
+impl ArkPackageCrd {
     pub fn get_image_version(&self) -> &str {
         "latest"
     }
@@ -26,14 +29,20 @@ impl ArkBuildCrd {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ArkBuildBaseSpec {
-    dist: ArkBuildDependencySpec,
-    dependencies: Vec<ArkBuildDependencySpec>,
+pub enum ArkPackageKindSpec {
+    Container { base: ArkPackageContainerSpec },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ArkBuildDependencySpec {
+pub struct ArkPackageContainerSpec {
+    dist: ArkPackageDependencySpec,
+    dependencies: Vec<ArkPackageDependencySpec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArkPackageDependencySpec {
     name: String,
     version: String,
 }
@@ -42,17 +51,50 @@ pub struct ArkBuildDependencySpec {
 #[serde(rename_all = "camelCase")]
 pub struct ArkPermissionSpec {
     pub name: ArkPermissionKind,
-    pub features: Vec<String>,
+    pub features: BTreeSet<ArkPermissionFeature>,
 }
 
 #[derive(
-    Copy, Clone, Debug, Display, EnumString, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum ArkPermissionKind {
     Audio,
     Graphics,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
+pub enum ArkPermissionFeature {
+    All,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

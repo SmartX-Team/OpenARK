@@ -2,8 +2,7 @@ mod add;
 mod del;
 mod run;
 
-#[cfg(feature = "local")]
-pub use ark_actor_local::PackageManager as PackageManagerImpl;
+use ark_actor_api::PackageManager;
 use clap::Subcommand;
 use ipis::core::anyhow::Result;
 
@@ -15,11 +14,15 @@ pub(crate) enum Command {
 }
 
 impl Command {
-    pub(crate) async fn run(self, args: &::ark_actor_api::args::ActorArgs) -> Result<()> {
+    pub(crate) async fn run(
+        self,
+        manager: impl PackageManager,
+        args: &::ark_actor_api::args::ActorArgs,
+    ) -> Result<()> {
         match self {
-            Self::Add(command) => command.run(args).await,
-            Self::Del(command) => command.run(args).await,
-            Self::Run(command) => command.run(args).await,
+            Self::Add(command) => command.run(manager, args).await,
+            Self::Del(command) => command.run(manager, args).await,
+            Self::Run(command) => command.run(manager, args).await,
         }
     }
 }

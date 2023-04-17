@@ -1,9 +1,9 @@
-use ark_api::build::{ArkBuildCrd, ArkPermissionSpec, ArkUserSpec};
+use ark_api::package::{ArkPackageCrd, ArkPermissionSpec, ArkUserSpec};
 use ipis::core::anyhow::{bail, Result};
 
 pub struct Package {
     pub name: String,
-    pub build: Option<ArkBuildCrd>,
+    pub build: Option<ArkPackageCrd>,
     pub spec: Option<String>,
 }
 

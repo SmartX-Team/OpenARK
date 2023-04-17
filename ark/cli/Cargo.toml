@@ -30,3 +30,4 @@ ark-api = { path = "../api" }
 ipis = { workspace = true }
 
 clap = { workspace = true }
+strum = { workspace = true }

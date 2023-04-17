@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::Path};
 
 use ark_actor_api::package::Package;
-use ark_api::build::ArkBuildCrd;
+use ark_api::package::ArkPackageCrd;
 use ipis::{
     core::anyhow::{bail, Result},
     tokio::fs,
@@ -65,7 +65,7 @@ pub struct Template {
 struct BuildContext<'a> {
     default: &'a DefaultContext<'static>,
     #[serde(flatten)]
-    crd: &'a ArkBuildCrd,
+    crd: &'a ArkPackageCrd,
 }
 
 #[derive(Serialize)]

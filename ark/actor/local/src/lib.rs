@@ -1,8 +1,6 @@
 pub mod container_runtime;
 mod template;
 
-use std::ffi::OsStr;
-
 use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     repo::RepositoryManager,
@@ -62,11 +60,7 @@ impl ::ark_actor_api::PackageManager for PackageManager {
         }
     }
 
-    async fn run<I, S>(&self, name: &str, args: I) -> Result<()>
-    where
-        I: IntoIterator<Item = S> + Send,
-        S: AsRef<OsStr>,
-    {
+    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
         let package = self.repos.get(name).await?;
 
         if !self.container_runtime.exists(&package).await? {
