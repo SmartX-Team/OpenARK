@@ -2,10 +2,7 @@ use std::{collections::BTreeMap, path::Path};
 
 use ark_actor_api::package::Package;
 use ark_api::package::ArkPackageCrd;
-use ipis::{
-    core::anyhow::{bail, Result},
-    tokio::fs,
-};
+use ipis::{core::anyhow::Result, tokio::fs};
 use serde::Serialize;
 use tera::{Context, Tera};
 
@@ -30,25 +27,18 @@ impl TemplateManager {
         })
     }
 
-    pub fn render_build(&self, package: &Package) -> Result<Template> {
-        let crd = match &package.build {
-            Some(crd) => crd,
-            None => {
-                let name = &package.name;
-                bail!("failed to find arkbuild.yaml file: {name:?}")
-            }
-        };
+    pub fn render_build(&self, Package { name, resource }: &Package) -> Result<Template> {
         let context = Context::from_serialize(&BuildContext {
             default: &self.default_context,
-            crd,
+            resource,
         })?;
 
         self.tera
             .render(Self::TEMPLATE_NAME, &context)
             .map(|text| Template {
-                name: package.name.clone(),
+                name: name.clone(),
                 text,
-                version: crd.get_image_version().to_string(),
+                version: resource.get_image_version().to_string(),
             })
             .map_err(Into::into)
     }
@@ -65,7 +55,7 @@ pub struct Template {
 struct BuildContext<'a> {
     default: &'a DefaultContext<'static>,
     #[serde(flatten)]
-    crd: &'a ArkPackageCrd,
+    resource: &'a ArkPackageCrd,
 }
 
 #[derive(Serialize)]

@@ -16,8 +16,11 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ArkPackageSpec {
-    pub base: ArkPackageContainerSpec,
+    #[serde(flatten)]
+    pub kind: ArkPackageKindSpec,
+    #[serde(default)]
     pub permissions: Vec<ArkPermissionSpec>,
+    #[serde(default)]
     pub user: ArkUserSpec,
 }
 
@@ -37,6 +40,7 @@ pub enum ArkPackageKindSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ArkPackageContainerSpec {
     dist: ArkPackageDependencySpec,
+    #[serde(default)]
     dependencies: Vec<ArkPackageDependencySpec>,
 }
 
@@ -105,4 +109,16 @@ pub struct ArkUserSpec {
     pub gid: u32,
     shell: String,
     sudo: bool,
+}
+
+impl Default for ArkUserSpec {
+    fn default() -> Self {
+        Self {
+            name: "user".into(),
+            uid: 2000,
+            gid: 2000,
+            shell: "sh".into(),
+            sudo: false,
+        }
+    }
 }

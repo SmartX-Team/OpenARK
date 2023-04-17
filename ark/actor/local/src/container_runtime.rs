@@ -32,7 +32,7 @@ impl ContainerRuntimeManager {
     }
 
     pub(super) async fn exists(&self, package: &Package) -> Result<bool> {
-        let image_name = self.get_image_name_from_package(package)?;
+        let image_name = self.get_image_name_from_package(package);
 
         let mut command = Command::new(&self.runtime);
         let command = match &self.kind {
@@ -87,7 +87,7 @@ impl ContainerRuntimeManager {
     }
 
     pub(super) async fn remove(&self, package: &Package) -> Result<()> {
-        let image_name = self.get_image_name_from_package(package)?;
+        let image_name = self.get_image_name_from_package(package);
 
         let mut command = Command::new(&self.runtime);
         let command = match &self.kind {
@@ -119,12 +119,12 @@ impl ContainerRuntimeManager {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let image_name = self.get_image_name_from_package(package)?;
+        let image_name = self.get_image_name_from_package(package);
 
         let mut command = Command::new(&self.runtime);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
-                let ArkUserSpec { uid, gid, .. } = package.user()?;
+                let ArkUserSpec { uid, gid, .. } = &package.resource.spec.user;
 
                 command
                     .arg("run")
@@ -134,7 +134,7 @@ impl ContainerRuntimeManager {
                     .arg("--user")
                     .arg(uid.to_string());
 
-                for permission in package.permissions()? {
+                for permission in &package.resource.spec.permissions {
                     match &permission.name {
                         ArkPermissionKind::Audio => {
                             command
@@ -214,9 +214,8 @@ impl ContainerRuntimeManager {
         format!("{name_prefix}{name}:{version}")
     }
 
-    fn get_image_name_from_package(&self, package: &Package) -> Result<String> {
-        package
-            .version()
-            .map(|version| self.get_image_name(&package.name, version))
+    fn get_image_name_from_package(&self, package: &Package) -> String {
+        let version = package.resource.get_image_version();
+        self.get_image_name(&package.name, version)
     }
 }

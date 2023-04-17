@@ -1,16 +1,17 @@
 ---
 apiVersion: ark.ulagbulag.io/v1alpha1
-kind: ArkBuild
+kind: ArkPackage
 metadata:
   name: firefox
 spec:
-  base:
-    dist:
-      name: archlinux
-      version: latest
-    dependencies:
-      - name: firefox
+  container:
+    base:
+      dist:
+        name: archlinux
         version: latest
+      dependencies:
+        - name: firefox
+          version: latest
   permissions:
     - name: audio
       features:

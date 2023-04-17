@@ -45,6 +45,16 @@ pub struct PackageFlags {
     pub add_if_not_exists: bool,
 }
 
+impl PackageFlags {
+    pub fn assert_add_if_not_exists(&self, name: &str) -> Result<()> {
+        if self.add_if_not_exists {
+            Ok(())
+        } else {
+            bail!("failed to find a package; you may add the package: {name:?}")
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Display, EnumString, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]

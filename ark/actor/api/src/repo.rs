@@ -4,7 +4,7 @@ use std::{
 };
 
 use ipis::{
-    core::anyhow::{bail, Result},
+    core::anyhow::{bail, Error, Result},
     tokio::fs,
 };
 
@@ -37,7 +37,7 @@ impl RepositoryManager {
     pub async fn get(&self, name: &str) -> Result<Package> {
         for package in self.repos.values().map(|repo| repo.get(name)) {
             match package.await? {
-                Some(package) if !package.is_empty() => {
+                Some(package) => {
                     return Ok(package);
                 }
                 _ => continue,
@@ -78,12 +78,10 @@ impl Repository {
                 if fs::try_exists(&home).await? {
                     Ok(Some(Package {
                         name: name.to_string(),
-                        build: read_to_string("arkbuild.yaml")
+                        resource: read_to_string("package.yaml")
                             .await
-                            .ok()
-                            .map(|text| ::serde_yaml::from_str(&text))
-                            .transpose()?,
-                        spec: read_to_string("package.yaml").await.ok(),
+                            .map_err(Error::from)
+                            .and_then(|text| ::serde_yaml::from_str(&text).map_err(Into::into))?,
                     }))
                 } else {
                     Ok(None)

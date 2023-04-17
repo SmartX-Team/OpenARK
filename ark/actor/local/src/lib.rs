@@ -5,10 +5,7 @@ use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     repo::RepositoryManager,
 };
-use ipis::{
-    async_trait,
-    core::anyhow::{bail, Result},
-};
+use ipis::{async_trait, core::anyhow::Result};
 
 pub struct PackageManager {
     container_runtime: self::container_runtime::ContainerRuntimeManager,
@@ -64,11 +61,8 @@ impl ::ark_actor_api::PackageManager for PackageManager {
         let package = self.repos.get(name).await?;
 
         if !self.container_runtime.exists(&package).await? {
-            if self.flags.add_if_not_exists {
-                self.add(name).await?;
-            } else {
-                bail!("failed to find a package; you may add the package: {name:?}")
-            }
+            self.flags.assert_add_if_not_exists(name)?;
+            self.add(name).await?;
         }
         self.container_runtime.run(&package, args).await
     }
