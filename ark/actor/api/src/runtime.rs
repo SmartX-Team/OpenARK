@@ -11,9 +11,31 @@ use crate::{
     package::Package,
 };
 
-#[derive(Default)]
 pub struct ApplicationRuntime<Builder> {
     builder: Builder,
+    image_name_prefix: String,
+}
+
+impl<Builder> ApplicationRuntime<Builder> {
+    pub fn new(image_name_prefix: String) -> Self
+    where
+        Builder: Default,
+    {
+        Self {
+            builder: Default::default(),
+            image_name_prefix,
+        }
+    }
+
+    pub fn get_image_name(&self, name: &str, version: &str) -> String {
+        let name_prefix = &self.image_name_prefix;
+        format!("{name_prefix}{name}:{version}")
+    }
+
+    pub fn get_image_name_from_package(&self, package: &Package) -> String {
+        let version = package.resource.get_image_version();
+        self.get_image_name(&package.name, version)
+    }
 }
 
 impl<'args, Builder> ApplicationRuntime<Builder>
@@ -23,13 +45,14 @@ where
     pub async fn spawn<'package, 'command>(
         &self,
         args: <Builder as ApplicationBuilderFactory<'args>>::Args,
-        Package { name, resource }: &'package Package,
+        package: &'package Package,
         command_line_arguments: &'command [String],
     ) -> Result<()>
     where
         'package: 'args,
         'command: 'args,
     {
+        let Package { name, resource } = package;
         let ArkUserSpec {
             name: username,
             uid,
@@ -42,6 +65,7 @@ where
                 args,
                 ApplicationBuilderArgs {
                     command_line_arguments,
+                    image_name: self.get_image_name_from_package(package),
                     user: &resource.spec.user,
                 },
             )

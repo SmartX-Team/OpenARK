@@ -19,3 +19,4 @@ ark-api = { path = "../../api" }
 ipis = { workspace = true }
 
 kube = { workspace = true }
+k8s-openapi = { workspace = true }

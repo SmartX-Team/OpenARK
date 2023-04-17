@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 # Be ready for packaging
-FROM "{{ default.distImageList[spec.base.dist.name] }}:{{ spec.base.dist.version }}" as base
+FROM "{{ default.distImageList[spec.container.base.dist.name] }}:{{ spec.container.base.dist.version }}" as base
 
 # Install feature dependencies
 RUN true \
@@ -97,7 +97,7 @@ RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
 # Install dependencies
 RUN true \
     && yay -Sy --needed --noconfirm \
-{% for dependency in spec.base.dependencies | sort(attribute='name') -%}
+{% for dependency in spec.container.base.dependencies | sort(attribute='name') -%}
 {% if dependency.kind | default(value='package') == 'package' -%}
         "{{ dependency.name }}" \
 {%- endif %}

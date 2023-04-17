@@ -26,26 +26,24 @@ use crate::template::Template;
 pub(super) struct ContainerRuntimeManager {
     app: ApplicationRuntime<ContainerApplicationBuilderFactory>,
     kind: ContainerRuntimeKind,
-    name_prefix: String,
     program: PathBuf,
 }
 
 impl ContainerRuntimeManager {
     pub(super) async fn try_new(
         kind: Option<ContainerRuntimeKind>,
-        name_prefix: String,
+        image_name_prefix: String,
     ) -> Result<Self> {
         let (kind, program) = ContainerRuntimeKind::parse(kind)?;
         Ok(Self {
-            app: Default::default(),
+            app: ApplicationRuntime::new(image_name_prefix),
             kind,
-            name_prefix,
             program,
         })
     }
 
     pub(super) async fn exists(&self, package: &Package) -> Result<bool> {
-        let image_name = self.get_image_name_from_package(package);
+        let image_name = self.app.get_image_name_from_package(package);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -71,7 +69,7 @@ impl ContainerRuntimeManager {
         let name = &template.name;
         let mut text = Cursor::new(&template.text);
 
-        let image_name = self.get_image_name(name, &template.version);
+        let image_name = self.app.get_image_name(name, &template.version);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -100,7 +98,7 @@ impl ContainerRuntimeManager {
     }
 
     pub(super) async fn remove(&self, package: &Package) -> Result<()> {
-        let image_name = self.get_image_name_from_package(package);
+        let image_name = self.app.get_image_name_from_package(package);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -132,24 +130,11 @@ impl ContainerRuntimeManager {
         package: &Package,
         command_line_arguments: &[String],
     ) -> Result<()> {
-        let image_name = self.get_image_name_from_package(package);
-
         let args = ContainerApplicationBuilderArgs {
             manager: self,
             name: &package.name,
-            image_name,
         };
         self.app.spawn(args, package, command_line_arguments).await
-    }
-
-    fn get_image_name(&self, name: &str, version: &str) -> String {
-        let name_prefix = &self.name_prefix;
-        format!("{name_prefix}{name}:{version}")
-    }
-
-    fn get_image_name_from_package(&self, package: &Package) -> String {
-        let version = package.resource.get_image_version();
-        self.get_image_name(&package.name, version)
     }
 }
 
@@ -166,6 +151,7 @@ impl<'args> ApplicationBuilderFactory<'args> for ContainerApplicationBuilderFact
         args: <Self as ApplicationBuilderFactory<'args>>::Args,
         ApplicationBuilderArgs {
             command_line_arguments,
+            image_name,
             user,
         }: ApplicationBuilderArgs<'builder>,
     ) -> Result<<Self as ApplicationBuilderFactory<'args>>::Builder>
@@ -190,6 +176,7 @@ impl<'args> ApplicationBuilderFactory<'args> for ContainerApplicationBuilderFact
             },
             args,
             command_line_arguments,
+            image_name,
         })
     }
 }
@@ -198,12 +185,12 @@ struct ContainerApplicationBuilder<'args> {
     args: ContainerApplicationBuilderArgs<'args>,
     command: Command,
     command_line_arguments: &'args [String],
+    image_name: String,
 }
 
 struct ContainerApplicationBuilderArgs<'args> {
     manager: &'args ContainerRuntimeManager,
     name: &'args str,
-    image_name: String,
 }
 
 #[async_trait]
@@ -282,11 +269,11 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
         }
     }
 
-    async fn spawn(&mut self) -> Result<()> {
+    async fn spawn(mut self) -> Result<()> {
         match &self.args.manager.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
                 self.command
-                    .arg(&self.args.image_name)
+                    .arg(&self.image_name)
                     .args(self.command_line_arguments);
             }
         }

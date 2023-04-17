@@ -105,8 +105,8 @@ pub enum ArkPermissionFeature {
 #[serde(rename_all = "camelCase")]
 pub struct ArkUserSpec {
     pub name: String,
-    pub uid: u32,
-    pub gid: u32,
+    pub uid: i64,
+    pub gid: i64,
     shell: String,
     sudo: bool,
 }

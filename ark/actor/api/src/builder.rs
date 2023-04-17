@@ -17,6 +17,7 @@ pub trait ApplicationBuilderFactory<'args> {
 
 pub struct ApplicationBuilderArgs<'a> {
     pub command_line_arguments: &'a [String],
+    pub image_name: String,
     pub user: &'a ArkUserSpec,
 }
 
@@ -24,7 +25,7 @@ pub struct ApplicationBuilderArgs<'a> {
 pub trait ApplicationBuilder {
     fn add(&mut self, resource: ApplicationResource) -> Result<()>;
 
-    async fn spawn(&mut self) -> Result<()>;
+    async fn spawn(self) -> Result<()>;
 }
 
 pub enum ApplicationResource<'a> {

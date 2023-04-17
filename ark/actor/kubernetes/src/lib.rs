@@ -4,12 +4,14 @@ use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     package::Package,
     repo::RepositoryManager,
+    runtime::ApplicationRuntime,
 };
 use ark_api::package::ArkPackageCrd;
 use ipis::{async_trait::async_trait, core::anyhow::Result};
 use kube::{api::PostParams, Api, Client};
 
 pub struct PackageManager {
+    app: ApplicationRuntime<self::job_runtime::JobApplicationBuilderFactory>,
     flags: PackageFlags,
     repos: RepositoryManager,
 }
@@ -17,6 +19,7 @@ pub struct PackageManager {
 impl PackageManager {
     pub async fn try_new(args: &ActorArgs) -> Result<Self> {
         Ok(Self {
+            app: ApplicationRuntime::new(args.container_image_name_prefix.clone()),
             flags: args.flags.clone(),
             repos: RepositoryManager::try_from_local(&args.repository_home).await?,
         })
@@ -136,7 +139,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         }
     }
 
-    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
+    async fn run(&self, name: &str, command_line_arguments: &[String]) -> Result<()> {
         let package = self
             .manager
             .get(name, self.kube.default_namespace())
@@ -148,12 +151,14 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
             self.add(name).await?;
         }
 
-        let builder = self::job_runtime::JobRuntimeBuilder {
-            args,
+        let args = self::job_runtime::JobApplicationBuilderArgs {
             kube: self.kube,
             package: &package,
         };
-        builder.spawn().await
+        self.manager
+            .app
+            .spawn(args, &package, command_line_arguments)
+            .await
     }
 }
 
