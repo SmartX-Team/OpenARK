@@ -3,9 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ark_actor_api::package::Package;
+use ark_actor_api::{args::ActorArgs, package::Package};
 use ark_api::package::ArkPackageCrd;
-use ipis::{core::anyhow::Result, env, tokio::fs};
+use ipis::{
+    core::anyhow::{Error, Result},
+    env,
+    tokio::fs,
+};
 use serde::Serialize;
 use tera::{Context, Tera};
 
@@ -15,10 +19,13 @@ pub struct TemplateManager {
 }
 
 impl TemplateManager {
-    const TEMPLATE_NAME: &'static str = "Containerfile.j2";
-
     pub async fn try_default() -> Result<Self> {
-        let path: PathBuf = env::infer("ARK_CONTAINER_TEMPLATE_FILE")?;
+        let path =
+            env::infer::<_, PathBuf>(ActorArgs::ARK_CONTAINER_TEMPLATE_FILE_KEY).or_else(|_| {
+                ActorArgs::ARK_CONTAINER_TEMPLATE_FILE_VALUE
+                    .try_into()
+                    .map_err(Error::from)
+            })?;
         Self::try_from_local(&path).await
     }
 
@@ -29,7 +36,7 @@ impl TemplateManager {
                 let content = fs::read_to_string(path).await?;
 
                 let mut tera = Tera::default();
-                tera.add_raw_template(Self::TEMPLATE_NAME, &content)?;
+                tera.add_raw_template(ActorArgs::ARK_CONTAINER_TEMPLATE_FILE_VALUE, &content)?;
                 tera
             },
         })
@@ -42,7 +49,7 @@ impl TemplateManager {
         })?;
 
         self.tera
-            .render(Self::TEMPLATE_NAME, &context)
+            .render(ActorArgs::ARK_CONTAINER_TEMPLATE_FILE_VALUE, &context)
             .map(|text| Template {
                 name: name.clone(),
                 text,

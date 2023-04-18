@@ -13,30 +13,46 @@ pub struct ActorArgs {
     /// Specify container image name prefix
     #[arg(
         long,
-        env = "ARK_CONTAINER_IMAGE_NAME_PREFIX",
-        default_value = "quay.io/ulagbulag/openark-package-"
+        env = Self::ARK_CONTAINER_IMAGE_NAME_PREFIX_KEY,
+        default_value = Self::ARK_CONTAINER_IMAGE_NAME_PREFIX_VALUE,
     )]
     pub container_image_name_prefix: String,
 
     /// Specify container runtime engine
-    #[arg(long, env = "ARK_CONTAINER_RUNTIME")]
+    #[arg(long, env = Self::ARK_CONTAINER_RUNTIME_KEY)]
     pub container_runtime: Option<ContainerRuntimeKind>,
 
     /// Specify container template file
     #[arg(
         long,
-        env = "ARK_CONTAINER_TEMPLATE_FILE",
-        default_value = "./templates/ark/templates/Containerfile.j2"
+        env = Self::ARK_CONTAINER_TEMPLATE_FILE_KEY,
+        default_value = Self::ARK_CONTAINER_TEMPLATE_FILE_VALUE,
     )]
     pub container_template_file: PathBuf,
 
     /// Specify repository home
     #[arg(
         long,
-        env = "ARK_REPOSITORY_HOME",
-        default_value = "./templates/ark/repos/"
+        env = Self::ARK_REPOSITORY_HOME_KEY,
+        default_value = Self::ARK_REPOSITORY_HOME_VALUE,
     )]
     pub repository_home: PathBuf,
+}
+
+impl ActorArgs {
+    pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_KEY: &'static str =
+        "ARK_CONTAINER_IMAGE_NAME_PREFIX";
+    pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_VALUE: &'static str =
+        "quay.io/ulagbulag/openark-package-";
+
+    pub(crate) const ARK_CONTAINER_RUNTIME_KEY: &'static str = "ARK_CONTAINER_RUNTIME";
+
+    pub const ARK_CONTAINER_TEMPLATE_FILE_KEY: &'static str = "ARK_CONTAINER_TEMPLATE_FILE";
+    pub const ARK_CONTAINER_TEMPLATE_FILE_VALUE: &'static str =
+        "./templates/ark/templates/Containerfile.j2";
+
+    pub(crate) const ARK_REPOSITORY_HOME_KEY: &'static str = "ARK_REPOSITORY_HOME";
+    pub(crate) const ARK_REPOSITORY_HOME_VALUE: &'static str = "./templates/ark/repos/";
 }
 
 #[derive(Clone, Debug, Parser)]

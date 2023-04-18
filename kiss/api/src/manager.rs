@@ -10,7 +10,7 @@ use ipis::{
 };
 use k8s_openapi::{
     apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
-    ClusterResourceScope, NamespaceResourceScope,
+    NamespaceResourceScope,
 };
 use kube::{
     api::{ListParams, Patch, PatchParams, PostParams},
@@ -46,7 +46,6 @@ where
     async fn spawn()
     where
         Self: Sized,
-        <Self as Ctx>::Data: Resource<Scope = ClusterResourceScope>,
     {
         <Self as Ctx>::try_spawn(|client| async move { Ok(Self::init_resource(client)) })
             .await
@@ -66,7 +65,7 @@ where
     async fn spawn_crd()
     where
         Self: Sized,
-        <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = ClusterResourceScope>,
+        <Self as Ctx>::Data: CustomResourceExt,
     {
         <Self as Ctx>::try_spawn(|client| async move {
             Self::init_crd(client.clone())
@@ -125,10 +124,7 @@ where
         Ok(())
     }
 
-    fn init_resource(client: Client) -> Api<<Self as Ctx>::Data>
-    where
-        <Self as Ctx>::Data: Resource<Scope = ClusterResourceScope>,
-    {
+    fn init_resource(client: Client) -> Api<<Self as Ctx>::Data> {
         Api::<<Self as Ctx>::Data>::all(client)
     }
 

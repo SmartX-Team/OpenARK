@@ -9,5 +9,5 @@ pub(crate) mod consts {
 
 #[tokio::main]
 async fn main() {
-    self::ctx::Ctx::spawn_crd_namespaced().await
+    self::ctx::Ctx::spawn_crd().await
 }

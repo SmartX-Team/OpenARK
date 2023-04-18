@@ -9,7 +9,7 @@ use ipis::{
     tokio::fs,
 };
 
-use crate::package::Package;
+use crate::{args::ActorArgs, package::Package};
 
 pub struct RepositoryManager {
     repos: BTreeMap<String, Repository>,
@@ -17,7 +17,12 @@ pub struct RepositoryManager {
 
 impl RepositoryManager {
     pub async fn try_default() -> Result<Self> {
-        let home: PathBuf = env::infer("ARK_REPOSITORY_HOME")?;
+        let home: PathBuf =
+            env::infer::<_, PathBuf>(ActorArgs::ARK_REPOSITORY_HOME_KEY).or_else(|_| {
+                ActorArgs::ARK_REPOSITORY_HOME_VALUE
+                    .try_into()
+                    .map_err(Error::from)
+            })?;
         Self::try_from_local(&home).await
     }
 
@@ -58,6 +63,8 @@ enum Repository {
 }
 
 impl Repository {
+    const PACKAGE_FILE: &'static str = "package.yaml";
+
     fn from_local(home: &Path) -> Self {
         Self::Local {
             home: home.to_path_buf(),
@@ -84,7 +91,7 @@ impl Repository {
                 if fs::try_exists(&home).await? {
                     Ok(Some(Package {
                         name: name.to_string(),
-                        resource: read_to_string("package.yaml")
+                        resource: read_to_string(Self::PACKAGE_FILE)
                             .await
                             .map_err(Error::from)
                             .and_then(|text| ::serde_yaml::from_str(&text).map_err(Into::into))?,

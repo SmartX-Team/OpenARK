@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -13,7 +11,7 @@ use strum::{Display, EnumString};
     kind = "ArkPackage",
     struct = "ArkPackageCrd",
     status = "ArkPackageStatus",
-    shortname = "ab",
+    shortname = "ark",
     namespaced,
     printcolumn = r#"{
         "name": "state",
@@ -77,7 +75,7 @@ pub struct ArkPackageDependencySpec {
 #[serde(rename_all = "camelCase")]
 pub struct ArkPermissionSpec {
     pub name: ArkPermissionKind,
-    pub features: BTreeSet<ArkPermissionFeature>,
+    pub features: Vec<ArkPermissionFeature>,
 }
 
 #[derive(
