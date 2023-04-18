@@ -76,13 +76,13 @@ struct BuildContext<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DefaultContext<'a> {
-    os_image_list: BTreeMap<&'a str, &'a str>,
+    dist_image_list: BTreeMap<&'a str, &'a str>,
 }
 
 impl Default for DefaultContext<'static> {
     fn default() -> Self {
         Self {
-            os_image_list: [
+            dist_image_list: [
                 ("alpine", "docker.io/library/alpine"),
                 ("archlinux", "docker.io/library/archlinux"),
                 ("rockylinux", "quay.io/rockylinux/rockylinux"),

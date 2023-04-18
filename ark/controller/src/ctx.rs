@@ -1,4 +1,4 @@
-use std::{fmt, sync::Arc};
+use std::{fmt, sync::Arc, time::Duration};
 
 use ark_actor_api::repo::RepositoryManager;
 use ark_actor_local::template::TemplateManager;
@@ -10,16 +10,20 @@ use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
     log::{info, warn},
-    tokio::try_join,
+    tokio::{time, try_join},
 };
 use kiss_api::{
     k8s_openapi::{
         api::{
             batch::v1::{Job, JobSpec},
             core::v1::{
-                ConfigMap, ConfigMapVolumeSource, Container, PodSpec, PodTemplateSpec, Volume,
+                Affinity, ConfigMap, ConfigMapVolumeSource, Container, EmptyDirVolumeSource,
+                EnvVar, NodeAffinity, NodeSelectorRequirement, NodeSelectorTerm,
+                PodSecurityContext, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
+                ResourceRequirements, Volume, VolumeMount,
             },
         },
+        apimachinery::pkg::api::resource::Quantity,
         serde::{de::DeserializeOwned, Serialize},
         NamespaceResourceScope,
     },
@@ -132,25 +136,114 @@ async fn build(
         ..Default::default()
     };
 
+    let home_dir = "/home/podman";
+    let template_dir = format!("{home_dir}/src");
     let job = Job {
         metadata: object_metadata,
         spec: Some(JobSpec {
             template: PodTemplateSpec {
                 metadata: Some(metadata),
                 spec: Some(PodSpec {
-                    containers: vec![Container {
-                        name: "build".into(),
-                        ..Default::default()
-                    }],
-                    volumes: Some(vec![Volume {
-                        name: "template".into(),
-                        config_map: Some(ConfigMapVolumeSource {
-                            default_mode: Some(444),
-                            name: Some(job_name),
+                    affinity: Some(Affinity {
+                        node_affinity: Some(NodeAffinity {
+                            preferred_during_scheduling_ignored_during_execution: Some(vec![
+                                PreferredSchedulingTerm {
+                                    weight: 1,
+                                    preference: NodeSelectorTerm {
+                                        match_expressions: Some(vec![NodeSelectorRequirement {
+                                            key: "node-role.kubernetes.io/kiss-ephemeral-control-plane".into(),
+                                            operator: "DoesNotExist".into(),
+                                            values: None,
+                                        }]),
+                                        ..Default::default()
+                                    },
+                                },
+                                PreferredSchedulingTerm {
+                                    preference: NodeSelectorTerm {
+                                        match_expressions: Some(vec![NodeSelectorRequirement {
+                                            key: "node-role.kubernetes.io/kiss".into(),
+                                            operator: "NotIn".into(),
+                                            values: Some(vec!["ControlPlane".into()]),
+                                        }]),
+                                        ..Default::default()
+                                    },
+                                    weight: 2,
+                                },
+                                PreferredSchedulingTerm {
+                                    preference: NodeSelectorTerm {
+                                        match_expressions: Some(vec![NodeSelectorRequirement {
+                                            key: "node-role.kubernetes.io/kiss".into(),
+                                            operator: "In".into(),
+                                            values: Some(vec!["Compute".into()]),
+                                        }]),
+                                        ..Default::default()
+                                    },
+                                    weight: 4,
+                                },
+                            ]),
                             ..Default::default()
                         }),
                         ..Default::default()
-                    }]),
+                    }),
+                    containers: vec![Container {
+                        name: "build".into(),
+                        image: Some("quay.io/podman/stable:latest".into()),
+                        command: Some(vec!["podman".into(), "build".into(), template_dir.clone()]),
+                        env: Some(vec![EnvVar {
+                            name: "HOME".into(),
+                            value: Some(home_dir.into()),
+                            value_from: None,
+                        }]),
+                        resources: Some(ResourceRequirements {
+                            limits: Some(
+                                [("github.com/fuse", 1)]
+                                    .iter()
+                                    .map(|(k, v)| (k.to_string(), Quantity(v.to_string())))
+                                    .collect(),
+                            ),
+                            ..Default::default()
+                        }),
+                        volume_mounts: Some(vec![
+                            VolumeMount {
+                                name: "template".into(),
+                                mount_path: template_dir,
+                                read_only: Some(true),
+                                ..Default::default()
+                            },
+                            VolumeMount {
+                                name: "user-local".into(),
+                                mount_path: format!("{home_dir}/.local/share/containers"),
+                                ..Default::default()
+                            },
+                        ]),
+                        working_dir: Some(home_dir.into()),
+                        ..Default::default()
+                    }],
+                    restart_policy: Some("OnFailure".into()),
+                    security_context: Some(PodSecurityContext {
+                        fs_group: Some(1000),
+                        run_as_non_root: Some(true),
+                        run_as_user: Some(1000),
+                        ..Default::default()
+                    }),
+                    volumes: Some(vec![
+                        Volume {
+                            name: "template".into(),
+                            config_map: Some(ConfigMapVolumeSource {
+                                default_mode: Some(444),
+                                name: Some(job_name),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        Volume {
+                            name: "user-local".into(),
+                            empty_dir: Some(EmptyDirVolumeSource {
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                    ]),
                     ..Default::default()
                 }),
             },
@@ -165,7 +258,7 @@ async fn build(
     ) {
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
-            match update_spec(&manager.kube, &name, data.spec.clone()).await {
+            match update_spec(&manager.kube, &namespace, &name, data.spec.clone()).await {
                 Ok(()) => Ok(Action::await_change()),
                 Err(e) => {
                     info!("failed to update state: {namespace} -> {name}: {e}");
@@ -180,8 +273,13 @@ async fn build(
     }
 }
 
-async fn update_spec(kube: &Client, name: &str, spec: ArkPackageSpec) -> Result<()> {
-    let api = Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::all(kube.clone());
+async fn update_spec(
+    kube: &Client,
+    namespace: &str,
+    name: &str,
+    spec: ArkPackageSpec,
+) -> Result<()> {
+    let api = Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced(kube.clone(), namespace);
     let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
 
     let patch = Patch::Merge(json!({
@@ -213,8 +311,9 @@ where
 
     let api = Api::<K>::namespaced(kube.clone(), &namespace);
     if api.get_opt(&name).await?.is_some() {
-        let dp = DeleteParams::default();
+        let dp: DeleteParams = DeleteParams::default();
         api.delete(&name, &dp).await?;
+        time::sleep(Duration::from_secs(1)).await;
     }
 
     let pp = PostParams {
