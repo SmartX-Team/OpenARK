@@ -89,6 +89,11 @@ impl ::kiss_api::manager::Ctx for Ctx {
     }
 }
 
+impl Ctx {
+    const TIMEOUT_BUILDING: Option<Duration> =
+        Some(Duration::from_secs(6 * 60 * 60 /* 6 hours */));
+}
+
 async fn build(
     manager: &Manager<Ctx>,
     data: &<Ctx as ::kiss_api::manager::Ctx>::Data,
@@ -259,7 +264,7 @@ async fn build(
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
             match update_spec(&manager.kube, &namespace, &name, data.spec.clone()).await {
-                Ok(()) => Ok(Action::await_change()),
+                Ok(()) => Ok(Action::requeue(Ctx::TIMEOUT_BUILDING)),
                 Err(e) => {
                     info!("failed to update state: {namespace} -> {name}: {e}");
                     Ok(Action::await_change())
