@@ -264,7 +264,10 @@ async fn build(
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
             match update_spec(&manager.kube, &namespace, &name, data.spec.clone()).await {
-                Ok(()) => Ok(Action::requeue(Ctx::TIMEOUT_BUILDING)),
+                Ok(()) => match Ctx::TIMEOUT_BUILDING {
+                    Some(timeout) => Ok(Action::requeue(timeout)),
+                    None => Ok(Action::await_change()),
+                },
                 Err(e) => {
                     info!("failed to update state: {namespace} -> {name}: {e}");
                     Ok(Action::await_change())
