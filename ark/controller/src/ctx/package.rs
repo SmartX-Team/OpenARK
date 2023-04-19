@@ -413,7 +413,7 @@ impl<'a> UpdateStateCtx<'a> {
             "status": {
                 "state": state,
                 "spec": spec,
-                "last_updated": timestamp.unwrap_or_else(Utc::now),
+                "lastUpdated": timestamp.unwrap_or_else(Utc::now),
             },
         }));
         let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
