@@ -91,7 +91,7 @@ impl<'model> DatabaseStorageClient<'model> {
 
     fn get_model_fields(&self) -> Result<&ModelFieldsNativeSpec> {
         match &self.model.status {
-            Some(status) if status.state == Some(ModelState::Ready) => match &status.fields {
+            Some(status) if status.state == ModelState::Ready => match &status.fields {
                 Some(fields) => Ok(fields),
                 None => {
                     let name = self.model.name_any();

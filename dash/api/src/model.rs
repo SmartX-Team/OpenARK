@@ -64,7 +64,8 @@ impl ModelCrd {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatus {
-    pub state: Option<ModelState>,
+    #[serde(default)]
+    pub state: ModelState,
     pub fields: Option<ModelFieldsSpec<ModelFieldKindNativeSpec>>,
     pub last_updated: DateTime<Utc>,
 }
@@ -732,4 +733,10 @@ pub struct ModelCustomResourceDefinitionRefSpec {
 pub enum ModelState {
     Pending,
     Ready,
+}
+
+impl Default for ModelState {
+    fn default() -> Self {
+        Self::Pending
+    }
 }

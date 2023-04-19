@@ -47,7 +47,8 @@ impl FunctionCrd {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionStatus {
-    pub state: Option<FunctionState>,
+    #[serde(default)]
+    pub state: FunctionState,
     pub spec: Option<FunctionSpec<ModelFieldKindNativeSpec>>,
     pub last_updated: DateTime<Utc>,
 }
@@ -90,4 +91,10 @@ pub struct FunctionActorSourceConfigMapRefSpec {
 pub enum FunctionState {
     Pending,
     Ready,
+}
+
+impl Default for FunctionState {
+    fn default() -> Self {
+        Self::Pending
+    }
 }

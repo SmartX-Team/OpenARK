@@ -42,7 +42,8 @@ pub struct ModelStorageBindingSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingStatus {
-    pub state: Option<ModelStorageBindingState>,
+    #[serde(default)]
+    pub state: ModelStorageBindingState,
     pub model: Option<ModelSpec>,
     pub storage: Option<ModelStorageSpec>,
     pub last_updated: DateTime<Utc>,
@@ -66,4 +67,10 @@ pub struct ModelStorageBindingStatus {
 pub enum ModelStorageBindingState {
     Pending,
     Ready,
+}
+
+impl Default for ModelStorageBindingState {
+    fn default() -> Self {
+        Self::Pending
+    }
 }

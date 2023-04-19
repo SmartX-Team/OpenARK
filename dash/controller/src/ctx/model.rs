@@ -42,8 +42,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
         match data
             .status
             .as_ref()
-            .and_then(|status| status.state.as_ref())
-            .unwrap_or(&ModelState::Pending)
+            .map(|status| status.state)
+            .unwrap_or_default()
         {
             ModelState::Pending => {
                 let validator = ModelValidator {
@@ -89,7 +89,7 @@ impl Ctx {
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "status": ModelStatus {
-                state: Some(ModelState::Ready),
+                state: ModelState::Ready,
                 fields: Some(fields),
                 last_updated: Utc::now(),
             },

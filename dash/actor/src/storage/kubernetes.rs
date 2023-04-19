@@ -137,7 +137,7 @@ impl<'a> KubernetesStorageClient<'a> {
         let model = api.get(name).await?;
 
         match &model.status {
-            Some(status) if status.state == Some(ModelState::Ready) => match &status.fields {
+            Some(status) if status.state == ModelState::Ready => match &status.fields {
                 Some(_) => Ok(model),
                 None => bail!("model has no fields status: {name:?}"),
             },
@@ -156,7 +156,7 @@ impl<'a> KubernetesStorageClient<'a> {
                 model
                     .status()
                     .map(|status| {
-                        matches!(status.state, Some(ModelState::Ready)) && status.fields.is_some()
+                        matches!(status.state, ModelState::Ready) && status.fields.is_some()
                     })
                     .unwrap_or_default()
             })
@@ -169,7 +169,7 @@ impl<'a> KubernetesStorageClient<'a> {
         let storage = api.get(name).await?;
 
         match &storage.status {
-            Some(status) if status.state == Some(ModelStorageState::Ready) => Ok(storage),
+            Some(status) if status.state == ModelStorageState::Ready => Ok(storage),
             Some(_) | None => bail!("model storage is not ready: {name:?}"),
         }
     }
@@ -188,8 +188,7 @@ impl<'a> KubernetesStorageClient<'a> {
             .filter(|binding| {
                 binding
                     .status()
-                    .and_then(|status| status.state)
-                    .map(|state| matches!(state, ModelStorageBindingState::Ready))
+                    .map(|status| matches!(status.state, ModelStorageBindingState::Ready))
                     .unwrap_or_default()
             })
             .filter(|binding| binding.spec.model == model_name)
@@ -202,7 +201,7 @@ impl<'a> KubernetesStorageClient<'a> {
         let function = api.get(name).await?;
 
         match &function.status {
-            Some(status) if status.state == Some(FunctionState::Ready) => match &status.spec {
+            Some(status) if status.state == FunctionState::Ready => match &status.spec {
                 Some(_) => Ok(function),
                 None => bail!("function has no spec status: {name:?}"),
             },
@@ -221,7 +220,7 @@ impl<'a> KubernetesStorageClient<'a> {
                 function
                     .status()
                     .map(|status| {
-                        matches!(status.state, Some(FunctionState::Ready)) && status.spec.is_some()
+                        matches!(status.state, FunctionState::Ready) && status.spec.is_some()
                     })
                     .unwrap_or_default()
             })
@@ -240,7 +239,7 @@ impl<'a> KubernetesStorageClient<'a> {
                 function
                     .status()
                     .map(|status| {
-                        matches!(status.state, Some(FunctionState::Ready)) && status.spec.is_some()
+                        matches!(status.state, FunctionState::Ready) && status.spec.is_some()
                     })
                     .unwrap_or_default()
             })

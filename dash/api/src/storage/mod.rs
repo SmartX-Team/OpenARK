@@ -54,7 +54,8 @@ pub enum ModelStorageKindSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageStatus {
-    pub state: Option<ModelStorageState>,
+    #[serde(default)]
+    pub state: ModelStorageState,
     pub kind: Option<ModelStorageKindSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -77,4 +78,10 @@ pub struct ModelStorageStatus {
 pub enum ModelStorageState {
     Pending,
     Ready,
+}
+
+impl Default for ModelStorageState {
+    fn default() -> Self {
+        Self::Pending
+    }
 }
