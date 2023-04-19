@@ -105,6 +105,7 @@ impl<'a> UpdateStateCtx<'a> {
             Err(e) => {
                 let package_name = self.package_name;
                 warn!("failed to update package state: {package_name}: {e}");
+
                 Err(Error::Service(e.into()))
             }
         }
@@ -129,20 +130,32 @@ impl<'a> UpdateStateCtx<'a> {
                     .get(::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
                     == Some(*build_timestamp) =>
             {
-                let crd = ArkPackageCrd::api_resource();
-                let patch = Patch::Merge(json!({
-                    "apiVersion": crd.api_version,
-                    "kind": crd.kind,
-                    "status": {
-                        "state": *state,
-                        "last_updated": Utc::now(),
-                    },
-                }));
-                let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
-                api.patch_status(package_name, &pp, &patch).await?;
+                if package
+                    .status
+                    .as_ref()
+                    .map(|status| status.state == ArkPackageState::Building)
+                    .unwrap_or_default()
+                {
+                    let crd = ArkPackageCrd::api_resource();
+                    let patch = Patch::Merge(json!({
+                        "apiVersion": crd.api_version,
+                        "kind": crd.kind,
+                        "status": {
+                            "state": state,
+                            "last_updated": Utc::now(),
+                        },
+                    }));
+                    let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
+                    api.patch_status(package_name, &pp, &patch).await?;
 
-                info!("updated package state; removing job: {name}");
-                super::try_delete::<Job>(kube, namespace, name).await
+                    info!("updated package state; removing job: {name}");
+                    super::try_delete::<Job>(kube, namespace, name).await
+                } else {
+                    info!(
+                        "package is not in building state; skipping updating state: {package_name}"
+                    );
+                    Ok(())
+                }
             }
             Ok(_) => {
                 info!("build timestamp mismatch; skipping updating state: {package_name}");

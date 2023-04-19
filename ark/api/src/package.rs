@@ -45,7 +45,8 @@ impl ArkPackageCrd {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ArkPackageStatus {
-    pub state: Option<ArkPackageState>,
+    #[serde(default)]
+    pub state: ArkPackageState,
     pub spec: Option<ArkPackageSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -162,5 +163,12 @@ pub enum ArkPackageState {
     Pending,
     Building,
     Failed,
+    Timeout,
     Ready,
+}
+
+impl Default for ArkPackageState {
+    fn default() -> Self {
+        Self::Pending
+    }
 }

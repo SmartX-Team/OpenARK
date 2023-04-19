@@ -1,9 +1,9 @@
-use std::{fmt, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
 use ark_actor_api::repo::RepositoryManager;
 use ark_actor_local::template::TemplateManager;
 use ark_api::{
-    package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState, ArkPackageStatus},
+    package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
     NamespaceAny,
 };
 use ipis::{
@@ -95,8 +95,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
         match data
             .status
             .as_ref()
-            .and_then(|status| status.state.as_ref())
-            .unwrap_or(&ArkPackageState::Pending)
+            .map(|status| status.state)
+            .unwrap_or_default()
         {
             ArkPackageState::Pending => begin_build(&manager, &data).await,
             ArkPackageState::Building => {
@@ -137,7 +137,9 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     }
                 }
             }
-            ArkPackageState::Failed |ArkPackageState::Ready => rebuild_if_changed().await,
+            ArkPackageState::Failed | ArkPackageState::Timeout | ArkPackageState::Ready => {
+                rebuild_if_changed().await
+            }
         }
     }
 }
@@ -155,20 +157,9 @@ async fn begin_build(
     let namespace = data.namespace_any();
     let job_name = job_name(&name);
 
-    let timestamp = Utc::now().timestamp_micros().to_string();
+    let timestamp: DateTime<Utc> = Utc::now();
     let metadata = ObjectMeta {
-        labels: Some(
-            [
-                (
-                    ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
-                    &timestamp,
-                ),
-                (::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME, &name),
-            ]
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect(),
-        ),
+        labels: Some(job_labels(&name, Some(timestamp))),
         ..Default::default()
     };
     let object_metadata = ObjectMeta {
@@ -207,7 +198,7 @@ async fn begin_build(
         metadata: object_metadata,
         spec: Some(JobSpec {
             template: PodTemplateSpec {
-                metadata: Some(metadata),
+                metadata: Some(metadata.clone()),
                 spec: Some(PodSpec {
                     affinity: Some(Affinity {
                         node_affinity: Some(NodeAffinity {
@@ -324,24 +315,15 @@ async fn begin_build(
     ) {
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
-            match update_spec(
-                &manager.kube,
-                &namespace,
-                &name,
-                data.spec.clone(),
-                ArkPackageState::Building,
-            )
-            .await
-            {
-                Ok(()) => match Ctx::TIMEOUT_BUILDING {
-                    Some(timeout) => Ok(Action::requeue(timeout)),
-                    None => Ok(Action::await_change()),
-                },
-                Err(e) => {
-                    info!("failed to update state: {namespace} -> {name}: {e}");
-                    Ok(Action::await_change())
-                }
-            }
+            let ctx = UpdateStateCtx {
+                kube: &manager.kube,
+                namespace: &namespace,
+                name: &name,
+                spec: &data.spec,
+                state: ArkPackageState::Building,
+                timestamp: Some(timestamp),
+            };
+            ctx.apply().await
         }
         Err(e) => {
             warn!("failed to begin building: {namespace} -> {name}: {e}");
@@ -365,24 +347,15 @@ async fn cancel_build(
     ) {
         Ok(((), ())) => {
             info!("canceled building ({reason}): {namespace} -> {name}");
-            match update_spec(
-                &manager.kube,
-                &namespace,
-                &name,
-                data.spec.clone(),
-                ArkPackageState::Pending,
-            )
-            .await
-            {
-                Ok(()) => match Ctx::TIMEOUT_BUILDING {
-                    Some(timeout) => Ok(Action::requeue(timeout)),
-                    None => Ok(Action::await_change()),
-                },
-                Err(e) => {
-                    info!("failed to update state: {namespace} -> {name}: {e}");
-                    Ok(Action::await_change())
-                }
-            }
+            let ctx = UpdateStateCtx {
+                kube: &manager.kube,
+                namespace: &namespace,
+                name: &name,
+                spec: &data.spec,
+                state: ArkPackageState::Timeout,
+                timestamp: None,
+            };
+            ctx.apply().await
         }
         Err(e) => {
             warn!("failed to cancel building: {namespace} -> {name}: {e}");
@@ -391,34 +364,62 @@ async fn cancel_build(
     }
 }
 
-async fn update_spec(
-    kube: &Client,
-    namespace: &str,
-    name: &str,
-    spec: ArkPackageSpec,
+struct UpdateStateCtx<'a> {
+    kube: &'a Client,
+    namespace: &'a str,
+    name: &'a str,
+    spec: &'a ArkPackageSpec,
     state: ArkPackageState,
-) -> Result<()> {
-    let api = Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced(kube.clone(), namespace);
-    let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
+    timestamp: Option<DateTime<Utc>>,
+}
 
-    let timestamp = Utc::now();
-    let patch = Patch::Merge(json!({
-        "apiVersion": crd.api_version,
-        "kind": crd.kind,
-        "metadata": {
-            "labels": {
-                ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP: timestamp.timestamp_micros().to_string(),
+impl<'a> UpdateStateCtx<'a> {
+    async fn apply(&self) -> Result<Action, Error> {
+        match self.try_apply().await {
+            Ok(()) => match Ctx::TIMEOUT_BUILDING {
+                Some(timeout) => Ok(Action::requeue(timeout)),
+                None => Ok(Action::await_change()),
             },
-        },
-        "status": ArkPackageStatus {
-            state: Some(state),
-            spec: Some(spec),
-            last_updated: timestamp,
-        },
-    }));
-    let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
-    api.patch_status(name, &pp, &patch).await?;
-    Ok(())
+            Err(e) => {
+                let namespace = self.namespace;
+                let name = self.name;
+                info!("failed to update state: {namespace} -> {name}: {e}");
+
+                Err(Error::Service(e.into()))
+            }
+        }
+    }
+
+    async fn try_apply(&self) -> Result<()> {
+        let Self {
+            kube,
+            namespace,
+            name,
+            spec,
+            state,
+            timestamp,
+        } = self;
+
+        let api =
+            Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced((*kube).clone(), namespace);
+        let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
+
+        let patch = Patch::Merge(json!({
+            "apiVersion": crd.api_version,
+            "kind": crd.kind,
+            "metadata": {
+                "labels": job_labels(name, *timestamp),
+            },
+            "status": {
+                "state": state,
+                "spec": spec,
+                "last_updated": timestamp.unwrap_or_else(Utc::now),
+            },
+        }));
+        let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
+        api.patch_status(name, &pp, &patch).await?;
+        Ok(())
+    }
 }
 
 async fn force_create<K>(kube: &Client, data: &K) -> Result<()>
@@ -450,4 +451,22 @@ where
 
 fn job_name(name: &str) -> String {
     format!("package-build-{name}")
+}
+
+fn job_labels(name: &str, timestamp: Option<DateTime<Utc>>) -> BTreeMap<String, String> {
+    let timestamp = timestamp.map(|timestamp| timestamp.timestamp_micros().to_string());
+
+    [
+        (
+            ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
+            timestamp.as_deref(),
+        ),
+        (
+            ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME,
+            Some(name),
+        ),
+    ]
+    .iter()
+    .filter_map(|(k, v)| Some((k.to_string(), (*v)?.to_string())))
+    .collect()
 }
