@@ -9,7 +9,10 @@ use kiss_api::{
         serde::{de::DeserializeOwned, Serialize},
         NamespaceResourceScope,
     },
-    kube::{Api, Client, Resource, ResourceExt, api::DeleteParams},
+    kube::{
+        api::{DeleteParams, ListParams},
+        Api, Client, Resource, ResourceExt,
+    },
 };
 
 async fn try_delete<K>(kube: &Client, namespace: &str, name: &str) -> Result<()>
@@ -29,4 +32,29 @@ where
     } else {
         Ok(())
     }
+}
+
+async fn try_delete_all<K>(kube: &Client, namespace: &str, package_name: &str) -> Result<()>
+where
+    K: Clone
+        + fmt::Debug
+        + Serialize
+        + DeserializeOwned
+        + Resource<Scope = NamespaceResourceScope>
+        + ResourceExt,
+    <K as Resource>::DynamicType: Default,
+{
+    let api = Api::<K>::namespaced(kube.clone(), namespace);
+    let dp = DeleteParams::default();
+    let lp = ListParams {
+        label_selector: {
+            let key = ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME;
+            Some(format!("{key}={package_name}"))
+        },
+        ..Default::default()
+    };
+    api.delete_collection(&dp, &lp)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
 }

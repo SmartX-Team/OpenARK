@@ -21,7 +21,7 @@ use kiss_api::{
             batch::v1::{Job, JobSpec},
             core::v1::{
                 Affinity, ConfigMap, ConfigMapVolumeSource, Container, EmptyDirVolumeSource,
-                EnvVar, NodeAffinity, NodeSelectorRequirement, NodeSelectorTerm,
+                EnvVar, NodeAffinity, NodeSelectorRequirement, NodeSelectorTerm, Pod,
                 PodSecurityContext, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
                 ResourceRequirements, Volume, VolumeMount,
             },
@@ -31,7 +31,7 @@ use kiss_api::{
         NamespaceResourceScope,
     },
     kube::{
-        api::{DeleteParams, Patch, PatchParams, PostParams},
+        api::{Patch, PatchParams, PostParams},
         core::ObjectMeta,
         runtime::controller::Action,
         Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
@@ -61,6 +61,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::ark_api::consts::NAMESPACE;
+    const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
@@ -79,6 +80,8 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 .unwrap_or(true)
         };
 
+        // TODO: skip building if already built
+        // TODO: note: use bash -c 'podman pull... || podman build... && podman push...' instead
         let rebuild = || async {
             info!("package has been changed; rebuilding: {name}");
             begin_build(&manager, &data).await
@@ -309,9 +312,14 @@ async fn begin_build(
         status: None,
     };
 
+    if let Err(e) = super::try_delete_all::<Pod>(&manager.kube, &namespace, &name).await {
+        warn!("failed to delete previous pods: {namespace} -> {name}: {e}");
+        return Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK));
+    }
+
     match try_join!(
-        force_create(&manager.kube, &config_map),
-        force_create(&manager.kube, &job),
+        force_create(&manager.kube, &name, &config_map),
+        force_create(&manager.kube, &name, &job),
     ) {
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
@@ -339,11 +347,10 @@ async fn cancel_build(
 ) -> Result<Action, Error> {
     let name = data.name_any();
     let namespace = data.namespace_any();
-    let job_name = job_name(&name);
 
     match try_join!(
-        super::try_delete::<ConfigMap>(&manager.kube, &namespace, &job_name),
-        super::try_delete::<Job>(&manager.kube, &namespace, &job_name),
+        super::try_delete_all::<ConfigMap>(&manager.kube, &namespace, &name),
+        super::try_delete_all::<Job>(&manager.kube, &namespace, &name),
     ) {
         Ok(((), ())) => {
             info!("canceled building ({reason}): {namespace} -> {name}");
@@ -423,7 +430,7 @@ impl<'a> UpdateStateCtx<'a> {
     }
 }
 
-async fn force_create<K>(kube: &Client, data: &K) -> Result<()>
+async fn force_create<K>(kube: &Client, package_name: &str, data: &K) -> Result<()>
 where
     K: Clone
         + fmt::Debug
@@ -433,16 +440,13 @@ where
         + ResourceExt,
     <K as Resource>::DynamicType: Default,
 {
-    let name: String = data.name_any();
     let namespace = data.namespace_any();
 
-    let api = Api::<K>::namespaced(kube.clone(), &namespace);
-    if api.get_opt(&name).await?.is_some() {
-        let dp: DeleteParams = DeleteParams::default();
-        api.delete(&name, &dp).await?;
-        time::sleep(Duration::from_secs(1)).await;
-    }
+    // delete last objects
+    super::try_delete_all::<K>(kube, &namespace, package_name).await?;
+    time::sleep(Duration::from_secs(1)).await;
 
+    let api = Api::<K>::namespaced(kube.clone(), &namespace);
     let pp = PostParams {
         field_manager: Some(::ark_actor_kubernetes::consts::FIELD_MANAGER.into()),
         ..Default::default()
