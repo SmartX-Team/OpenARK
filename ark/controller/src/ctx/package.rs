@@ -418,6 +418,7 @@ impl<'a> UpdateStateCtx<'a> {
         }));
         let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
+        api.patch(name, &pp, &patch).await?;
         Ok(())
     }
 }
