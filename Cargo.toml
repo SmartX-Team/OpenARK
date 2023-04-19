@@ -9,7 +9,6 @@ members = [
     "ark/cli",
     "ark/controller",
     "ark/gateway",
-    "ark/monitor",
     "dash/actor",
     "dash/api",
     "dash/cli",

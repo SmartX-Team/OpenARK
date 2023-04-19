@@ -161,5 +161,6 @@ impl Default for ArkUserSpec {
 pub enum ArkPackageState {
     Pending,
     Building,
+    Failed,
     Ready,
 }

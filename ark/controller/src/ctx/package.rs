@@ -8,7 +8,10 @@ use ark_api::{
 };
 use ipis::{
     async_trait::async_trait,
-    core::{anyhow::Result, chrono::Utc},
+    core::{
+        anyhow::Result,
+        chrono::{DateTime, NaiveDateTime, Utc},
+    },
     log::{info, warn},
     tokio::{time, try_join},
 };
@@ -68,23 +71,73 @@ impl ::kiss_api::manager::Ctx for Ctx {
     {
         let name = data.name_any();
 
+        let is_changed = || {
+            data.status
+                .as_ref()
+                .and_then(|status| status.spec.as_ref())
+                .map(|last| &data.spec != last)
+                .unwrap_or(true)
+        };
+
+        let rebuild = || async {
+            info!("package has been changed; rebuilding: {name}");
+            begin_build(&manager, &data).await
+        };
+
+        let rebuild_if_changed = || async {
+            if is_changed() {
+                rebuild().await
+            } else {
+                Ok(Action::await_change())
+            }
+        };
+
         match data
             .status
             .as_ref()
             .and_then(|status| status.state.as_ref())
             .unwrap_or(&ArkPackageState::Pending)
         {
-            ArkPackageState::Pending => build(&manager, &data).await,
-            ArkPackageState::Building | ArkPackageState::Ready => {
-                let status = data.status.as_ref().unwrap();
-
-                if Some(&data.spec) != status.spec.as_ref() {
-                    info!("package has been changed; rebuilding: {name}");
-                    build(&manager, &data).await
+            ArkPackageState::Pending => begin_build(&manager, &data).await,
+            ArkPackageState::Building => {
+                if is_changed() {
+                    rebuild().await
                 } else {
-                    Ok(Action::await_change())
+                    match Self::TIMEOUT_BUILDING
+                        .and_then(|timeout| ::ipis::core::chrono::Duration::from_std(timeout).ok())
+                    {
+                        Some(timeout) => match data
+                            .labels()
+                            .get(::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
+                            .and_then(|build_timestamp| build_timestamp.parse::<i64>().ok())
+                            .and_then(|build_timestamp| {
+                                NaiveDateTime::from_timestamp_micros(build_timestamp)
+                            })
+                            .map(|build_timestamp| DateTime::<Utc>::from_utc(build_timestamp, Utc))
+                            .and_then(|build_timestamp| build_timestamp.checked_add_signed(timeout))
+                        {
+                            Some(build_timeout) => {
+                                let now = Utc::now();
+                                if now > build_timeout {
+                                    let reason = "timeout";
+                                    cancel_build(&manager, &data, reason).await
+                                } else {
+                                    match (now - build_timeout).to_std() {
+                                        Ok(remaining) => Ok(Action::requeue(remaining)),
+                                        Err(_) => Ok(Action::await_change()),
+                                    }
+                                }
+                            }
+                            None => match timeout.to_std() {
+                                Ok(timeout) => Ok(Action::requeue(timeout)),
+                                Err(_) => Ok(Action::await_change()),
+                            },
+                        },
+                        None => Ok(Action::await_change()),
+                    }
                 }
             }
+            ArkPackageState::Failed |ArkPackageState::Ready => rebuild_if_changed().await,
         }
     }
 }
@@ -94,20 +147,27 @@ impl Ctx {
         Some(Duration::from_secs(6 * 60 * 60 /* 6 hours */));
 }
 
-async fn build(
+async fn begin_build(
     manager: &Manager<Ctx>,
     data: &<Ctx as ::kiss_api::manager::Ctx>::Data,
 ) -> Result<Action, Error> {
     let name = data.name_any();
     let namespace = data.namespace_any();
-    let job_name = format!("package-build-{name}");
+    let job_name = job_name(&name);
 
+    let timestamp = Utc::now().timestamp_micros().to_string();
     let metadata = ObjectMeta {
         labels: Some(
-            [(::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME, &name)]
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
+            [
+                (
+                    ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
+                    &timestamp,
+                ),
+                (::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME, &name),
+            ]
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
         ),
         ..Default::default()
     };
@@ -201,6 +261,7 @@ async fn build(
                         }]),
                         resources: Some(ResourceRequirements {
                             limits: Some(
+                                // TODO: deploy fuse-device-plugin-daemonset
                                 [("github.com/fuse", 1)]
                                     .iter()
                                     .map(|(k, v)| (k.to_string(), Quantity(v.to_string())))
@@ -263,7 +324,15 @@ async fn build(
     ) {
         Ok(((), ())) => {
             info!("begin building: {namespace} -> {name}");
-            match update_spec(&manager.kube, &namespace, &name, data.spec.clone()).await {
+            match update_spec(
+                &manager.kube,
+                &namespace,
+                &name,
+                data.spec.clone(),
+                ArkPackageState::Building,
+            )
+            .await
+            {
                 Ok(()) => match Ctx::TIMEOUT_BUILDING {
                     Some(timeout) => Ok(Action::requeue(timeout)),
                     None => Ok(Action::await_change()),
@@ -281,22 +350,70 @@ async fn build(
     }
 }
 
+async fn cancel_build(
+    manager: &Manager<Ctx>,
+    data: &<Ctx as ::kiss_api::manager::Ctx>::Data,
+    reason: &str,
+) -> Result<Action, Error> {
+    let name = data.name_any();
+    let namespace = data.namespace_any();
+    let job_name = job_name(&name);
+
+    match try_join!(
+        super::try_delete::<ConfigMap>(&manager.kube, &namespace, &job_name),
+        super::try_delete::<Job>(&manager.kube, &namespace, &job_name),
+    ) {
+        Ok(((), ())) => {
+            info!("canceled building ({reason}): {namespace} -> {name}");
+            match update_spec(
+                &manager.kube,
+                &namespace,
+                &name,
+                data.spec.clone(),
+                ArkPackageState::Pending,
+            )
+            .await
+            {
+                Ok(()) => match Ctx::TIMEOUT_BUILDING {
+                    Some(timeout) => Ok(Action::requeue(timeout)),
+                    None => Ok(Action::await_change()),
+                },
+                Err(e) => {
+                    info!("failed to update state: {namespace} -> {name}: {e}");
+                    Ok(Action::await_change())
+                }
+            }
+        }
+        Err(e) => {
+            warn!("failed to cancel building: {namespace} -> {name}: {e}");
+            Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK))
+        }
+    }
+}
+
 async fn update_spec(
     kube: &Client,
     namespace: &str,
     name: &str,
     spec: ArkPackageSpec,
+    state: ArkPackageState,
 ) -> Result<()> {
     let api = Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced(kube.clone(), namespace);
     let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
 
+    let timestamp = Utc::now();
     let patch = Patch::Merge(json!({
         "apiVersion": crd.api_version,
         "kind": crd.kind,
+        "metadata": {
+            "labels": {
+                ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP: timestamp.timestamp_micros().to_string(),
+            },
+        },
         "status": ArkPackageStatus {
-            state: Some(ArkPackageState::Building),
+            state: Some(state),
             spec: Some(spec),
-            last_updated: Utc::now(),
+            last_updated: timestamp,
         },
     }));
     let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
@@ -329,4 +446,8 @@ where
         ..Default::default()
     };
     api.create(&pp, data).await.map(|_| ()).map_err(Into::into)
+}
+
+fn job_name(name: &str) -> String {
+    format!("package-build-{name}")
 }

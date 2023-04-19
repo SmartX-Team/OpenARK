@@ -68,11 +68,6 @@ RUN true \
 ARG USER_GID="{{ spec.user.gid | default(value=2000) }}"
 ARG USER_NAME="{{ spec.user.name | default(value='user') }}"
 ARG USER_SHELL="{{ spec.user.shell | default(value='sh') }}"
-{% if spec.user.sudo | default(value=false) -%}
-ARG USER_SUDO="true"
-{%- else -%}
-ARG USER_SUDO="false"
-{%- endif %}
 ARG USER_UID="{{ spec.user.uid | default(value=2000) }}"
 RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \

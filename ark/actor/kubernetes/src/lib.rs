@@ -3,6 +3,7 @@ mod job_runtime;
 pub mod consts {
     pub const FIELD_MANAGER: &str = "ark-actor-kubernetes";
 
+    pub const LABEL_BUILD_TIMESTAMP: &str = "ark.ulagbulag.io/build-timestamp";
     pub const LABEL_PACKAGE_NAME: &str = "ark.ulagbulag.io/package-name";
 }
 
