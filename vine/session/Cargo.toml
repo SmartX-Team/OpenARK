@@ -14,6 +14,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-api = { path = "../../ark/api" }
 dash-actor = { path = "../../dash/actor" }
 ipis = { workspace = true }
 vine-api = { path = "../api" }

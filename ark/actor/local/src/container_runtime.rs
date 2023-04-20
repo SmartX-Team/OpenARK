@@ -146,8 +146,15 @@ impl ContainerRuntimeManager {
             manager: self,
             name: &package.name,
         };
+        let node_name = None;
         self.app
-            .spawn(args, &self.namespace, package, command_line_arguments)
+            .spawn(
+                args,
+                &self.namespace,
+                node_name,
+                package,
+                command_line_arguments,
+            )
             .await
     }
 }
@@ -239,6 +246,7 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                     self.command.arg(format!("{key}={value}"));
                     Ok(())
                 }
+                ApplicationResource::NodeName(_) => Ok(()),
                 ApplicationResource::UserGroup(group) => match group {
                     ApplicationUserGroup::Gid(gid) => {
                         self.command.arg("--group-add");

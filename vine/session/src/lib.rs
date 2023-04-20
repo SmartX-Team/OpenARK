@@ -1,10 +1,11 @@
 use std::{fs, path::PathBuf};
 
+use ark_api::{NamespaceAny, SessionRef};
 use dash_actor::client::{job::FunctionActorJobClient, SessionContextMetadata};
 use ipis::{
     core::{
         anyhow::{bail, Error, Result},
-        chrono::{DateTime, Duration, NaiveDateTime, Utc},
+        chrono::Utc,
     },
     env,
     futures::TryFutureExt,
@@ -12,7 +13,11 @@ use ipis::{
 };
 use serde::Serialize;
 use vine_api::{
-    k8s_openapi::{api::core::v1::Node, Resource},
+    k8s_openapi::{
+        api::core::v1::{Namespace, Node},
+        serde_json::Value,
+        Resource,
+    },
     kube::{
         api::{Patch, PatchParams},
         Api, Client, ResourceExt,
@@ -52,10 +57,6 @@ impl SessionManager {
 }
 
 impl SessionManager {
-    const LABEL_BIND_BY_USER: &'static str = "vine.ulagbulag.io/bind.user";
-    const LABEL_BIND_STATUS: &'static str = "vine.ulagbulag.io/bind";
-    const LABEL_BIND_TIMESTAMP: &'static str = "vine.ulagbulag.io/bind.timestamp";
-
     const TEMPLATE_CLEANUP_FILENAME: &'static str = "user-session-cleanup.yaml.j2";
     const TEMPLATE_NAMESPACE_FILENAME: &'static str = "user-session-namespace.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
@@ -64,7 +65,7 @@ impl SessionManager {
         let ctx: SessionContext = spec.into();
 
         self.label_user(ctx.spec.node, Some(ctx.spec.user_name))
-            .and_then(|()| self.create_namespace(&ctx))
+            .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
             .and_then(|()| self.delete_cleanup(&ctx))
             .and_then(|()| self.create_template(&ctx))
             .await
@@ -73,7 +74,7 @@ impl SessionManager {
     pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx: SessionContext = spec.into();
 
-        self.create_namespace(&ctx)
+        self.label_namespace(&ctx, None)
             .and_then(|()| self.delete_template(&ctx))
             .and_then(|()| self.create_cleanup(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, None))
@@ -81,18 +82,19 @@ impl SessionManager {
     }
 
     pub async fn try_unbind(&self, node: &Node) -> Result<Option<String>> {
-        if let Some(user_name) = self.get_user_name(node)? {
-            let spec = SessionContextSpec {
-                box_quota: None,
-                node,
-                role: None,
-                user_name,
-            };
-            let ctx: SessionContext = (&spec).into();
+        match node.get_session_ref() {
+            Ok(SessionRef { user_name, .. }) => {
+                let spec = SessionContextSpec {
+                    box_quota: None,
+                    node,
+                    role: None,
+                    user_name,
+                };
+                let ctx: SessionContext = (&spec).into();
 
-            if
-            // If the node is not ready
-            !node
+                if
+                // If the node is not ready
+                !node
                 .status
                 .as_ref()
                 .and_then(|status| status.conditions.as_ref())
@@ -106,14 +108,19 @@ impl SessionManager {
                 ||
                 // If the node's managed session has been logged out
                 !self.exists_template(&ctx).await?
-            {
-                return self
-                    .delete(ctx.spec)
-                    .map_ok(|()| Some(ctx.spec.user_name.to_string()))
-                    .await;
+                {
+                    self.delete(ctx.spec)
+                        .map_ok(|()| Some(ctx.spec.user_name.to_string()))
+                        .await
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                info!("skipping unbinding node: {e}");
+                Ok(None)
             }
         }
-        Ok(None)
     }
 
     async fn exists_template(&self, ctx: &SessionContext<'_>) -> Result<bool> {
@@ -157,43 +164,32 @@ impl SessionManager {
             .map(|_| ())
     }
 
-    fn get_user_name<'a>(&self, node: &'a Node) -> Result<Option<&'a str>> {
-        let name = node.name_any();
+    async fn label_namespace(
+        &self,
+        ctx: &SessionContext<'_>,
+        user_name: Option<&str>,
+    ) -> Result<()> {
+        self.create_namespace(ctx).await?;
 
-        let labels = node.labels();
-        if labels.get(Self::LABEL_BIND_STATUS).map(AsRef::as_ref) != Some("true") {
-            info!("skipping unbinding node [{name}]: not binded");
-            return Ok(None);
-        }
-
-        let duration_session_start = Duration::seconds(5);
-        match labels
-            .get(Self::LABEL_BIND_TIMESTAMP)
-            .and_then(|timestamp| {
-                let timestamp: i64 = timestamp.parse().ok()?;
-                let naive_date_time = NaiveDateTime::from_timestamp_millis(timestamp)?;
-                Some(DateTime::<Utc>::from_utc(naive_date_time, Utc))
-            }) {
-            Some(timestamp) if Utc::now() - timestamp >= duration_session_start => {}
-            Some(_) => {
-                info!("skipping unbinding node: {name:?}: session is in starting (timeout: {duration_session_start})");
-                return Ok(None);
-            }
-            None => {
-                info!("skipping unbinding node: {name:?}: timestamp is missing");
-                return Ok(None);
-            }
-        }
-
-        let user_name = match labels.get(Self::LABEL_BIND_BY_USER) {
-            Some(user_name) => user_name,
-            None => {
-                info!("skipping unbinding node: {name:?}: username is missing");
-                return Ok(None);
-            }
+        let api: Api<Namespace> = Api::<Namespace>::all(self.client.kube.clone());
+        let name: String = ctx.spec.node.name_any();
+        let pp = PatchParams {
+            field_manager: Some(self::consts::NAME.into()),
+            force: true,
+            ..Default::default()
         };
 
-        Ok(Some(user_name))
+        let patch = Patch::Apply(json!({
+            "apiVersion": Namespace::API_VERSION,
+            "kind": Namespace::KIND,
+            "metadata": {
+                "labels": get_label(&name, user_name),
+            },
+        }));
+        api.patch(&name, &pp, &patch)
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
     }
 
     async fn label_user(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
@@ -209,11 +205,7 @@ impl SessionManager {
             "apiVersion": Node::API_VERSION,
             "kind": Node::KIND,
             "metadata": {
-                "labels": {
-                    Self::LABEL_BIND_BY_USER: user_name,
-                    Self::LABEL_BIND_STATUS: user_name.is_some().to_string(),
-                    Self::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
-                },
+                "labels": get_label(&name, user_name),
             },
         }));
         api.patch(&name, &pp, &patch)
@@ -244,4 +236,13 @@ impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
             spec,
         }
     }
+}
+
+fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
+    json!({
+        ::ark_api::consts::LABEL_BIND_BY_USER: user_name,
+        ::ark_api::consts::LABEL_BIND_NODE: node_name,
+        ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
+        ::ark_api::consts::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
+    })
 }

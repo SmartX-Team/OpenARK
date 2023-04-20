@@ -184,6 +184,17 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                 });
                 Ok(())
             }
+            ApplicationResource::NodeName(node_name) => {
+                self.node_selector_terms_required().push(NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "kubernetes.io/hostname".into(),
+                        operator: "In".into(),
+                        values: Some(vec![node_name.to_string()]),
+                    }]),
+                    ..Default::default()
+                });
+                Ok(())
+            }
             ApplicationResource::UserGroup(_) => Ok(()),
             ApplicationResource::Volume(ApplicationVolume {
                 src,
@@ -191,7 +202,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                 read_only,
             }) => match src {
                 ApplicationVolumeSource::HostPath(src_path) => {
-                    let name = format!("volume-{}", self.volume_mounts().len());
+                    let name = format!("ark-volume-{}", self.volume_mounts().len());
 
                     self.volume_mounts().push(VolumeMount {
                         name: name.clone(),

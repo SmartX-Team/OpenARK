@@ -15,8 +15,9 @@ use ark_actor_api::{
     repo::RepositoryManager,
     runtime::ApplicationRuntime,
 };
-use ark_api::package::ArkPackageCrd;
+use ark_api::{package::ArkPackageCrd, NamespaceAny};
 use ipis::{async_trait::async_trait, core::anyhow::Result};
+use k8s_openapi::api::core::v1::Namespace;
 use kube::{api::PostParams, Api, Client};
 
 pub struct PackageManager {
@@ -162,10 +163,27 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
             kube: self.kube,
             package: &package,
         };
+        let node_name = self.get_node_name(namespace).await?;
         self.manager
             .app
-            .spawn(args, namespace, &package, command_line_arguments)
+            .spawn(
+                args,
+                namespace,
+                Some(&node_name),
+                &package,
+                command_line_arguments,
+            )
             .await
+    }
+}
+
+impl<'kube, 'manager> PackageSession<'kube, 'manager> {
+    async fn get_node_name(&self, namespace: &str) -> Result<String> {
+        let api: Api<Namespace> = Api::<Namespace>::all(self.kube.clone());
+        let namespace = api.get(namespace).await?;
+        namespace
+            .get_session_ref()
+            .map(|session| session.node_name.to_string())
     }
 }
 

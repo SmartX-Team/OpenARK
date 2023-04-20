@@ -33,6 +33,7 @@ pub enum ApplicationResource<'a> {
     Box(BoxGroupRole),
     Device(ApplicationDevice),
     EnvironmentVariable(ApplicationEnvironmentVariable<'a>),
+    NodeName(&'a str),
     UserGroup(ApplicationUserGroup<'a>),
     Volume(ApplicationVolume<'a>),
 }
