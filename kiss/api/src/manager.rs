@@ -13,8 +13,8 @@ use k8s_openapi::{
     NamespaceResourceScope,
 };
 use kube::{
-    api::{ListParams, Patch, PatchParams, PostParams},
-    runtime::{controller::Action, Controller},
+    api::{Patch, PatchParams, PostParams},
+    runtime::{controller::Action, watcher::Config, Controller},
     Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
 };
 use serde::de::DeserializeOwned;
@@ -108,7 +108,7 @@ where
         let api = f_init(client).await?;
 
         // All good. Start controller and return its future.
-        Controller::new(api, ListParams::default())
+        Controller::new(api, Config::default())
             .run(
                 |data, manager| Self::reconcile(manager, data),
                 |data, error, manager| {

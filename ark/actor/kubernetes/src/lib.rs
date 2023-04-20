@@ -13,7 +13,7 @@ use ark_actor_api::{
     args::{ActorArgs, PackageFlags},
     package::Package,
     repo::RepositoryManager,
-    runtime::ApplicationRuntime,
+    runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
 use ark_api::{package::ArkPackageCrd, NamespaceAny};
 use ipis::{async_trait::async_trait, core::anyhow::Result};
@@ -44,7 +44,11 @@ impl PackageManager {
 
     pub async fn try_into_owned_session(self) -> Result<PackageSessionOwned> {
         Ok(PackageSessionOwned {
-            kube: Client::try_default().await?,
+            kube: {
+                let mut config = ::kube::Config::infer().await?;
+                config.read_timeout = None; // disable sync timeout
+                config.try_into()?
+            },
             manager: self,
         })
     }
@@ -86,10 +90,10 @@ impl ::ark_actor_api::PackageManager for PackageSessionOwned {
         session.delete(name).await
     }
 
-    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
+    async fn run(&self, name: &str, args: &[String], sync: bool) -> Result<()> {
         let Self { kube, manager } = self;
         let session = PackageSession { kube, manager };
-        session.run(name, args).await
+        session.run(name, args, sync).await
     }
 }
 
@@ -149,7 +153,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         }
     }
 
-    async fn run(&self, name: &str, command_line_arguments: &[String]) -> Result<()> {
+    async fn run(&self, name: &str, command_line_arguments: &[String], sync: bool) -> Result<()> {
         let namespace = self.kube.default_namespace();
         let package = self.manager.get(name, namespace).await?;
 
@@ -159,21 +163,20 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
             self.add(name).await?;
         }
 
+        let node_name = self.get_node_name(namespace).await?;
+
         let args = self::job_runtime::JobApplicationBuilderArgs {
             kube: self.kube,
             package: &package,
         };
-        let node_name = self.get_node_name(namespace).await?;
-        self.manager
-            .app
-            .spawn(
-                args,
-                namespace,
-                Some(&node_name),
-                &package,
-                command_line_arguments,
-            )
-            .await
+        let ctx = ApplicationRuntimeCtx {
+            namespace,
+            node_name: Some(&node_name),
+            package: &package,
+            command_line_arguments,
+            sync,
+        };
+        self.manager.app.spawn(args, ctx).await
     }
 }
 

@@ -9,7 +9,7 @@ use ark_actor_api::{
         ApplicationVolume, ApplicationVolumeSource,
     },
     package::Package,
-    runtime::ApplicationRuntime,
+    runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
 use ark_api::package::ArkUserSpec;
 use ipis::{
@@ -141,21 +141,20 @@ impl ContainerRuntimeManager {
         &self,
         package: &Package,
         command_line_arguments: &[String],
+        sync: bool,
     ) -> Result<()> {
         let args = ContainerApplicationBuilderArgs {
             manager: self,
             name: &package.name,
         };
-        let node_name = None;
-        self.app
-            .spawn(
-                args,
-                &self.namespace,
-                node_name,
-                package,
-                command_line_arguments,
-            )
-            .await
+        let ctx = ApplicationRuntimeCtx {
+            namespace: &self.namespace,
+            node_name: None,
+            package,
+            command_line_arguments,
+            sync,
+        };
+        self.app.spawn(args, ctx).await
     }
 }
 
@@ -292,29 +291,44 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
         }
     }
 
-    async fn spawn(mut self) -> Result<()> {
+    async fn spawn(mut self, sync: bool) -> Result<()> {
         match &self.args.manager.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
+                if !sync {
+                    self.command.arg("--detach");
+                }
+
                 self.command
                     .arg(&self.image_name)
                     .args(self.command_line_arguments);
             }
         }
 
-        if self
+        let create_output_channel = || {
+            if sync {
+                Stdio::inherit()
+            } else {
+                Stdio::null()
+            }
+        };
+
+        let mut process = self
             .command
             .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .kill_on_drop(true)
-            .status()
-            .await?
-            .success()
-        {
-            Ok(())
+            .stdout(create_output_channel())
+            .stderr(create_output_channel())
+            .kill_on_drop(sync)
+            .spawn()?;
+
+        if sync {
+            if process.wait().await?.success() {
+                Ok(())
+            } else {
+                let name = &self.args.name;
+                bail!("failed to run package: {name:?}")
+            }
         } else {
-            let name = &self.args.name;
-            bail!("failed to run package: {name:?}")
+            Ok(())
         }
     }
 }

@@ -11,10 +11,14 @@ pub(crate) struct Args {
     /// Specify command-line arguments
     #[arg(last = true)]
     args: Vec<String>,
+
+    /// Whether the spawned process depends on the main process
+    #[arg(long, env = "ARK_JOB_DETACH")]
+    detach: bool,
 }
 
 impl Args {
     pub(crate) async fn run(self, manager: impl PackageManager) -> Result<()> {
-        manager.run(&self.name, &self.args).await
+        manager.run(&self.name, &self.args, !self.detach).await
     }
 }

@@ -8,19 +8,28 @@ use ark_actor_api::{
     package::Package,
 };
 use ark_api::{package::ArkUserSpec, NamespaceAny};
-use ipis::{async_trait::async_trait, core::anyhow::Result};
+use ipis::{
+    async_trait::async_trait,
+    core::anyhow::{bail, Result},
+    futures::StreamExt,
+    tokio::io,
+};
 use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
         core::v1::{
             Affinity, Container, EnvVar, HostPathVolumeSource, LocalObjectReference, NodeAffinity,
-            NodeSelectorRequirement, NodeSelectorTerm, PodSecurityContext, PodSpec,
+            NodeSelectorRequirement, NodeSelectorTerm, Pod, PodSecurityContext, PodSpec,
             PodTemplateSpec, Volume, VolumeMount,
         },
     },
     chrono::Utc,
 };
-use kube::{api::PostParams, core::ObjectMeta, Api, Client};
+use kube::{
+    api::{LogParams, PostParams, WatchParams},
+    core::{ObjectMeta, WatchEvent},
+    Api, Client, ResourceExt,
+};
 
 #[derive(Default)]
 pub(crate) struct JobApplicationBuilderFactory;
@@ -236,13 +245,16 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
         }
     }
 
-    async fn spawn(self) -> Result<()> {
-        let name = &self.args.package.name;
-        let timestamp = Utc::now().timestamp_nanos();
+    async fn spawn(self, sync: bool) -> Result<()> {
+        let name = {
+            let name = &self.args.package.name;
+            let timestamp = Utc::now().timestamp_nanos();
+            format!("{name}-{timestamp}")
+        };
 
         let job = Job {
             metadata: ObjectMeta {
-                name: Some(format!("{name}-{timestamp}")),
+                name: Some(name.clone()),
                 namespace: Some(self.namespace()),
                 ..self.template.metadata.clone().unwrap()
             },
@@ -260,6 +272,59 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             field_manager: Some(crate::consts::FIELD_MANAGER.into()),
             ..Default::default()
         };
-        api.create(&pp, &job).await.map(|_| ()).map_err(Into::into)
+        api.create(&pp, &job).await?;
+
+        if sync {
+            async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<String> {
+                let wp = WatchParams {
+                    label_selector: Some(format!("job-name={name}")),
+                    timeout: Some(290),
+                    ..Default::default()
+                };
+                let mut stream = api.watch(&wp, "0").await?.boxed();
+
+                while let Some(event) = stream.next().await {
+                    match event? {
+                        WatchEvent::Added(pod) | WatchEvent::Modified(pod) => {
+                            if pod
+                                .status
+                                .as_ref()
+                                .and_then(|status| status.phase.as_ref())
+                                .map(|phase| phase == "Running")
+                                .unwrap_or_default()
+                            {
+                                return Ok(pod.name_any());
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ => continue,
+                    }
+                }
+                bail!("pod is not created: {name}");
+            }
+
+            async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
+                let lp = LogParams {
+                    follow: true,
+                    pretty: true,
+                    ..Default::default()
+                };
+                let mut stream = api.log_stream(pod_name, &lp).await?;
+                let mut stdout = io::stdout();
+
+                while let Some(value) = stream.next().await {
+                    let value = value?;
+                    io::copy(&mut value.as_ref(), &mut stdout).await?;
+                }
+                Ok(())
+            }
+
+            let api = Api::<Pod>::default_namespaced(self.args.kube.clone());
+            let pod_name = get_pod_name(&api, &name).await?;
+            show_pod_logs(&api, &pod_name).await
+        } else {
+            Ok(())
+        }
     }
 }

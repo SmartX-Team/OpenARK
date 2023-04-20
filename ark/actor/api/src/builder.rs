@@ -26,7 +26,7 @@ pub struct ApplicationBuilderArgs<'a> {
 pub trait ApplicationBuilder {
     fn add(&mut self, resource: ApplicationResource) -> Result<()>;
 
-    async fn spawn(self) -> Result<()>;
+    async fn spawn(self, sync: bool) -> Result<()>;
 }
 
 pub enum ApplicationResource<'a> {

@@ -59,18 +59,17 @@ impl<'args, Builder> ApplicationRuntime<Builder>
 where
     Builder: ApplicationBuilderFactory<'args>,
 {
-    pub async fn spawn<'package, 'command>(
+    pub async fn spawn(
         &self,
         args: <Builder as ApplicationBuilderFactory<'args>>::Args,
-        namespace: &str,
-        node_name: Option<&str>,
-        package: &'package Package,
-        command_line_arguments: &'command [String],
-    ) -> Result<()>
-    where
-        'package: 'args,
-        'command: 'args,
-    {
+        ApplicationRuntimeCtx {
+            namespace,
+            node_name,
+            package,
+            command_line_arguments,
+            sync,
+        }: ApplicationRuntimeCtx<'args>,
+    ) -> Result<()> {
         let Package { name, resource } = package;
         let ArkUserSpec {
             name: username,
@@ -198,6 +197,14 @@ where
                 }
             }
         }
-        builder.spawn().await
+        builder.spawn(sync).await
     }
+}
+
+pub struct ApplicationRuntimeCtx<'a> {
+    pub namespace: &'a str,
+    pub node_name: Option<&'a str>,
+    pub package: &'a Package,
+    pub command_line_arguments: &'a [String],
+    pub sync: bool,
 }

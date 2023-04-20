@@ -57,13 +57,13 @@ impl ::ark_actor_api::PackageManager for PackageManager {
         }
     }
 
-    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
+    async fn run(&self, name: &str, args: &[String], sync: bool) -> Result<()> {
         let package = self.repos.get(name).await?;
 
         if !self.container_runtime.exists(&package).await? {
             self.flags.assert_add_if_not_exists(name)?;
             self.add(name).await?;
         }
-        self.container_runtime.run(&package, args).await
+        self.container_runtime.run(&package, args, sync).await
     }
 }
