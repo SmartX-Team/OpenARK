@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
-use ark_actor_api::repo::RepositoryManager;
+use ark_actor_api::{repo::RepositoryManager, runtime::ApplicationRuntime};
 use ark_actor_local::template::TemplateManager;
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
@@ -41,6 +41,7 @@ use kiss_api::{
 };
 
 pub struct Ctx {
+    app: ApplicationRuntime<()>,
     repos: RepositoryManager,
     template: TemplateManager,
 }
@@ -49,6 +50,7 @@ pub struct Ctx {
 impl ::kiss_api::manager::TryDefault for Ctx {
     async fn try_default() -> Result<Self> {
         Ok(Self {
+            app: ApplicationRuntime::try_default()?,
             repos: RepositoryManager::try_default().await?,
             template: TemplateManager::try_default().await?,
         })
@@ -197,6 +199,14 @@ async fn begin_build(
 
     let home_dir = "/home/podman";
     let template_dir = format!("{home_dir}/src");
+    let image_name = manager
+        .ctx
+        .app
+        .get_image_name_from_package(&namespace, &package);
+    let command = format!(
+        "podman pull {image_name} || podman build --tag {image_name} {template_dir} && podman push --tls-verify=false {image_name}"
+    );
+
     let job = Job {
         metadata: object_metadata,
         spec: Some(JobSpec {
@@ -247,7 +257,10 @@ async fn begin_build(
                     containers: vec![Container {
                         name: "build".into(),
                         image: Some("quay.io/podman/stable:latest".into()),
-                        command: Some(vec!["podman".into(), "build".into(), template_dir.clone()]),
+                        command: Some(vec!["bash".into(), "-c".into()]),
+                        args: Some(vec![
+                            command
+                        ]),
                         env: Some(vec![EnvVar {
                             name: "HOME".into(),
                             value: Some(home_dir.into()),

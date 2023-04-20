@@ -1,7 +1,11 @@
 use ark_api::package::{ArkPermissionKind, ArkUserSpec};
-use ipis::core::anyhow::Result;
+use ipis::{
+    core::anyhow::{Error, Result},
+    env,
+};
 
 use crate::{
+    args::ActorArgs,
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
         ApplicationDeviceGpu, ApplicationDeviceGpuNvidia, ApplicationDeviceIpc,
@@ -17,6 +21,19 @@ pub struct ApplicationRuntime<Builder> {
 }
 
 impl<Builder> ApplicationRuntime<Builder> {
+    pub fn try_default() -> Result<Self>
+    where
+        Builder: Default,
+    {
+        env::infer::<_, String>(ActorArgs::ARK_CONTAINER_IMAGE_NAME_PREFIX_KEY)
+            .or_else(|_| {
+                ActorArgs::ARK_CONTAINER_IMAGE_NAME_PREFIX_VALUE
+                    .try_into()
+                    .map_err(Error::from)
+            })
+            .map(Self::new)
+    }
+
     pub fn new(image_name_prefix: String) -> Self
     where
         Builder: Default,
@@ -27,14 +44,14 @@ impl<Builder> ApplicationRuntime<Builder> {
         }
     }
 
-    pub fn get_image_name(&self, name: &str, version: &str) -> String {
+    pub fn get_image_name(&self, namespace: &str, name: &str, version: &str) -> String {
         let name_prefix = &self.image_name_prefix;
-        format!("{name_prefix}{name}:{version}")
+        format!("{name_prefix}/{namespace}/ark-package-{name}:{version}")
     }
 
-    pub fn get_image_name_from_package(&self, package: &Package) -> String {
+    pub fn get_image_name_from_package(&self, namespace: &str, package: &Package) -> String {
         let version = package.resource.get_image_version();
-        self.get_image_name(&package.name, version)
+        self.get_image_name(namespace, &package.name, version)
     }
 }
 
@@ -45,6 +62,7 @@ where
     pub async fn spawn<'package, 'command>(
         &self,
         args: <Builder as ApplicationBuilderFactory<'args>>::Args,
+        namespace: &str,
         package: &'package Package,
         command_line_arguments: &'command [String],
     ) -> Result<()>
@@ -65,7 +83,7 @@ where
                 args,
                 ApplicationBuilderArgs {
                     command_line_arguments,
-                    image_name: self.get_image_name_from_package(package),
+                    image_name: self.get_image_name_from_package(namespace, package),
                     user: &resource.spec.user,
                 },
             )

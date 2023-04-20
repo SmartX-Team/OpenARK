@@ -1,9 +1,0 @@
----
-service:
-  port: 80
-# ingress:
-#   enabled: true
-#   hosts:
-#     - docker-registry.example.kerryeon.com
-#   annotations:
-#     cert-manager.io/cluster-issuer: letsencrypt-prod

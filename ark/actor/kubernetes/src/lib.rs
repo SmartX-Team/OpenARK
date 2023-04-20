@@ -3,6 +3,8 @@ mod job_runtime;
 pub mod consts {
     pub const FIELD_MANAGER: &str = "ark-actor-kubernetes";
 
+    pub const IMAGE_PULL_SECRET_NAME: &str = "ark-registry";
+
     pub const LABEL_BUILD_TIMESTAMP: &str = "ark.ulagbulag.io/build-timestamp";
     pub const LABEL_PACKAGE_NAME: &str = "ark.ulagbulag.io/package-name";
 }
@@ -147,10 +149,8 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
     }
 
     async fn run(&self, name: &str, command_line_arguments: &[String]) -> Result<()> {
-        let package = self
-            .manager
-            .get(name, self.kube.default_namespace())
-            .await?;
+        let namespace = self.kube.default_namespace();
+        let package = self.manager.get(name, namespace).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         if !exists(&api, &package.name).await? {
@@ -164,7 +164,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         };
         self.manager
             .app
-            .spawn(args, &package, command_line_arguments)
+            .spawn(args, namespace, &package, command_line_arguments)
             .await
     }
 }

@@ -49,6 +49,7 @@ bytes = { version = "1.4" }
 chatgpt = { package = "chatgpt_rs", version = "1.1" }
 clap = { version = "4.1", features = ["env", "derive"] }
 email_address = { version = "0.2" }
+gethostname = { version = "0.4" }
 half = { version = "2.2" }
 http-cache-reqwest = { version = "0.9", features = ["manager-cacache"] }
 image = { version = "0.24" }

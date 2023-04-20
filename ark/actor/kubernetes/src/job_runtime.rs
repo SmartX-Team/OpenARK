@@ -13,8 +13,8 @@ use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
         core::v1::{
-            Container, EnvVar, HostPathVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec,
-            Volume, VolumeMount,
+            Container, EnvVar, HostPathVolumeSource, LocalObjectReference, PodSecurityContext,
+            PodSpec, PodTemplateSpec, Volume, VolumeMount,
         },
     },
     chrono::Utc,
@@ -62,6 +62,10 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
                         image_pull_policy: Some("Always".into()),
                         ..Default::default()
                     }],
+                    // TODO: deploy user registry accounts on VINE
+                    image_pull_secrets: Some(vec![LocalObjectReference {
+                        name: Some(crate::consts::IMAGE_PULL_SECRET_NAME.into()),
+                    }]),
                     restart_policy: Some("Never".into()),
                     security_context: Some(PodSecurityContext {
                         fs_group: Some(*uid),

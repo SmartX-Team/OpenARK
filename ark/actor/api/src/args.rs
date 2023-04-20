@@ -43,7 +43,7 @@ impl ActorArgs {
     pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_KEY: &'static str =
         "ARK_CONTAINER_IMAGE_NAME_PREFIX";
     pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_VALUE: &'static str =
-        "quay.io/ulagbulag/openark-package-";
+        "registry.ark.svc.ops.openark";
 
     pub(crate) const ARK_CONTAINER_RUNTIME_KEY: &'static str = "ARK_CONTAINER_RUNTIME";
 

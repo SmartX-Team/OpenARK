@@ -26,6 +26,7 @@ use crate::template::Template;
 pub(super) struct ContainerRuntimeManager {
     app: ApplicationRuntime<ContainerApplicationBuilderFactory>,
     kind: ContainerRuntimeKind,
+    namespace: String,
     program: PathBuf,
 }
 
@@ -38,12 +39,19 @@ impl ContainerRuntimeManager {
         Ok(Self {
             app: ApplicationRuntime::new(image_name_prefix),
             kind,
+            namespace: {
+                let hostname = ::gethostname::gethostname();
+                let hostname = hostname.to_string_lossy();
+                format!("localhost_{hostname}")
+            },
             program,
         })
     }
 
     pub(super) async fn exists(&self, package: &Package) -> Result<bool> {
-        let image_name = self.app.get_image_name_from_package(package);
+        let image_name = self
+            .app
+            .get_image_name_from_package(&self.namespace, package);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -69,7 +77,9 @@ impl ContainerRuntimeManager {
         let name = &template.name;
         let mut text = Cursor::new(&template.text);
 
-        let image_name = self.app.get_image_name(name, &template.version);
+        let image_name = self
+            .app
+            .get_image_name(&self.namespace, name, &template.version);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -98,7 +108,9 @@ impl ContainerRuntimeManager {
     }
 
     pub(super) async fn remove(&self, package: &Package) -> Result<()> {
-        let image_name = self.app.get_image_name_from_package(package);
+        let image_name = self
+            .app
+            .get_image_name_from_package(&self.namespace, package);
 
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
@@ -134,7 +146,9 @@ impl ContainerRuntimeManager {
             manager: self,
             name: &package.name,
         };
-        self.app.spawn(args, package, command_line_arguments).await
+        self.app
+            .spawn(args, &self.namespace, package, command_line_arguments)
+            .await
     }
 }
 

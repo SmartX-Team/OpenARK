@@ -1,0 +1,5 @@
+---
+fullnameOverride: registry
+
+service:
+  port: 80
