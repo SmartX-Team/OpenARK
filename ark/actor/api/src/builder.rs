@@ -1,5 +1,6 @@
 use ark_api::package::ArkUserSpec;
 use ipis::{async_trait::async_trait, core::anyhow::Result};
+use kiss_api::r#box::BoxGroupRole;
 
 #[async_trait]
 pub trait ApplicationBuilderFactory<'args> {
@@ -29,6 +30,7 @@ pub trait ApplicationBuilder {
 }
 
 pub enum ApplicationResource<'a> {
+    Box(BoxGroupRole),
     Device(ApplicationDevice),
     EnvironmentVariable(ApplicationEnvironmentVariable<'a>),
     UserGroup(ApplicationUserGroup<'a>),

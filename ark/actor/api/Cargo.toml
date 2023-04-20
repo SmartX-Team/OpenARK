@@ -16,6 +16,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ark-api = { path = "../../api" }
 ipis = { workspace = true }
+kiss-api = { path = "../../../kiss/api" }
 
 clap = { workspace = true }
 serde = { workspace = true }

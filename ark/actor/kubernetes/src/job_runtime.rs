@@ -13,8 +13,9 @@ use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
         core::v1::{
-            Container, EnvVar, HostPathVolumeSource, LocalObjectReference, PodSecurityContext,
-            PodSpec, PodTemplateSpec, Volume, VolumeMount,
+            Affinity, Container, EnvVar, HostPathVolumeSource, LocalObjectReference, NodeAffinity,
+            NodeSelectorRequirement, NodeSelectorTerm, PodSecurityContext, PodSpec,
+            PodTemplateSpec, Volume, VolumeMount,
         },
     },
     chrono::Utc,
@@ -88,6 +89,10 @@ pub(crate) struct JobApplicationBuilder<'args> {
 }
 
 impl<'args> JobApplicationBuilder<'args> {
+    fn affinity(&mut self) -> &mut Affinity {
+        self.pod().affinity.get_or_insert_with(Default::default)
+    }
+
     fn container(&mut self) -> &mut Container {
         self.pod().containers.first_mut().unwrap()
     }
@@ -98,6 +103,20 @@ impl<'args> JobApplicationBuilder<'args> {
 
     fn namespace(&self) -> String {
         self.args.package.resource.namespace_any()
+    }
+
+    fn node_affinity(&mut self) -> &mut NodeAffinity {
+        self.affinity()
+            .node_affinity
+            .get_or_insert_with(Default::default)
+    }
+
+    fn node_selector_terms_required(&mut self) -> &mut Vec<NodeSelectorTerm> {
+        &mut self
+            .node_affinity()
+            .required_during_scheduling_ignored_during_execution
+            .get_or_insert_with(Default::default)
+            .node_selector_terms
     }
 
     fn pod(&mut self) -> &mut PodSpec {
@@ -124,6 +143,17 @@ pub(crate) struct JobApplicationBuilderArgs<'args> {
 impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
     fn add(&mut self, resource: ApplicationResource) -> Result<()> {
         match resource {
+            ApplicationResource::Box(r#box) => {
+                self.node_selector_terms_required().push(NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "node-role.kubernetes.io/kiss".into(),
+                        operator: "In".into(),
+                        values: Some(vec![r#box.to_string()]),
+                    }]),
+                    ..Default::default()
+                });
+                Ok(())
+            }
             ApplicationResource::Device(device) => match device {
                 ApplicationDevice::Gpu(gpu) => match gpu {
                     ApplicationDeviceGpu::Nvidia(nvidia) => match nvidia {

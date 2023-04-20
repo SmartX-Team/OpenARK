@@ -3,6 +3,7 @@ use ipis::{
     core::anyhow::{Error, Result},
     env,
 };
+use kiss_api::r#box::BoxGroupRole;
 
 use crate::{
     args::ActorArgs,
@@ -88,6 +89,7 @@ where
                 },
             )
             .await?;
+        builder.add(ApplicationResource::Box(BoxGroupRole::Desktop))?;
 
         for permission in &resource.spec.permissions {
             match &permission.name {

@@ -212,6 +212,7 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
     fn add(&mut self, resource: ApplicationResource) -> Result<()> {
         match &self.args.manager.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => match resource {
+                ApplicationResource::Box(_) => Ok(()),
                 ApplicationResource::Device(device) => match device {
                     ApplicationDevice::Gpu(gpu) => match gpu {
                         ApplicationDeviceGpu::Nvidia(nvidia) => match nvidia {
