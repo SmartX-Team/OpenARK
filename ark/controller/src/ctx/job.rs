@@ -122,6 +122,11 @@ impl<'a> UpdateStateCtx<'a> {
         } = self;
         info!("Updating package state: {name} ({package_name} => {state})");
 
+        let try_delete = || async {
+            info!("Removing job: {name}");
+            super::try_delete::<Job>(kube, namespace, name).await
+        };
+
         let api = Api::<ArkPackageCrd>::namespaced((*kube).clone(), namespace);
         match api.get_opt(package_name).await {
             Ok(Some(package))
@@ -148,22 +153,22 @@ impl<'a> UpdateStateCtx<'a> {
                     let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
                     api.patch_status(package_name, &pp, &patch).await?;
 
-                    info!("updated package state; removing job: {name}");
-                    super::try_delete::<Job>(kube, namespace, name).await
+                    info!("Updated package state: {name} ({package_name} => {state})");
+                    try_delete().await
                 } else {
                     info!(
                         "package is not in building state; skipping updating state: {package_name}"
                     );
-                    Ok(())
+                    try_delete().await
                 }
             }
             Ok(_) => {
                 info!("build timestamp mismatch; skipping updating state: {package_name}");
-                Ok(())
+                try_delete().await
             }
             Err(e) => {
                 info!("failed to find package; skipping updating state: {package_name}: {e}");
-                Ok(())
+                try_delete().await
             }
         }
     }
