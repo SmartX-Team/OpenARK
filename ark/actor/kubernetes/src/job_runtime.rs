@@ -59,9 +59,10 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
                         name: args.package.name.clone(),
                         command: Some(command_line_arguments.to_vec()),
                         image: Some(image_name),
-                        image_pull_policy: Some("always".into()),
+                        image_pull_policy: Some("Always".into()),
                         ..Default::default()
                     }],
+                    restart_policy: Some("Never".into()),
                     security_context: Some(PodSecurityContext {
                         fs_group: Some(*uid),
                         run_as_group: Some(*gid),
@@ -88,7 +89,7 @@ impl<'args> JobApplicationBuilder<'args> {
     }
 
     fn env(&mut self) -> &mut Vec<EnvVar> {
-        self.container().env.as_mut().unwrap()
+        self.container().env.get_or_insert_with(Default::default)
     }
 
     fn namespace(&self) -> String {
@@ -96,15 +97,17 @@ impl<'args> JobApplicationBuilder<'args> {
     }
 
     fn pod(&mut self) -> &mut PodSpec {
-        self.template.spec.as_mut().unwrap()
+        self.template.spec.get_or_insert_with(Default::default)
     }
 
     fn volume_mounts(&mut self) -> &mut Vec<VolumeMount> {
-        self.container().volume_mounts.as_mut().unwrap()
+        self.container()
+            .volume_mounts
+            .get_or_insert_with(Default::default)
     }
 
     fn volumes(&mut self) -> &mut Vec<Volume> {
-        self.pod().volumes.as_mut().unwrap()
+        self.pod().volumes.get_or_insert_with(Default::default)
     }
 }
 
