@@ -12,6 +12,7 @@ use ipis::{
     async_trait::async_trait,
     core::anyhow::{bail, Result},
     futures::StreamExt,
+    log::warn,
     tokio::io,
 };
 use k8s_openapi::{
@@ -26,7 +27,7 @@ use k8s_openapi::{
     chrono::Utc,
 };
 use kube::{
-    api::{LogParams, PostParams, WatchParams},
+    api::{DeleteParams, ListParams, LogParams, PostParams, WatchParams},
     core::{ObjectMeta, WatchEvent},
     Api, Client, ResourceExt,
 };
@@ -251,6 +252,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             let timestamp = Utc::now().timestamp_nanos();
             format!("{name}-{timestamp}")
         };
+        let namespace = self.namespace();
 
         let job = Job {
             metadata: ObjectMeta {
@@ -268,6 +270,46 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
         };
 
         let api = Api::<Job>::default_namespaced(self.args.kube.clone());
+
+        if sync {
+            let delete_pods = {
+                let name = name.clone();
+
+                let api = Api::<Pod>::namespaced(self.args.kube.clone(), &namespace);
+                let dp = DeleteParams::default();
+                let lp = ListParams {
+                    label_selector: Some(format!("job-name={name}")),
+                    ..Default::default()
+                };
+
+                async move {
+                    match api.delete_collection(&dp, &lp).await {
+                        Ok(_) => (),
+                        Err(e) => warn!("failed to terminate pods: {name}: {e}"),
+                    }
+                }
+            };
+
+            let delete_job = {
+                let name = name.clone();
+
+                let api = api.clone();
+                let dp = DeleteParams::default();
+
+                async move {
+                    match api.delete(&name, &dp).await {
+                        Ok(_) => (),
+                        Err(e) => warn!("failed to terminate job: {name}: {e}"),
+                    }
+                }
+            };
+
+            ::ctrlc_async::set_async_handler(async move {
+                delete_pods.await;
+                delete_job.await;
+            })?;
+        }
+
         let pp = PostParams {
             field_manager: Some(crate::consts::FIELD_MANAGER.into()),
             ..Default::default()
