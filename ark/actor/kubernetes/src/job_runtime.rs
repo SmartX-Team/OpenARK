@@ -307,6 +307,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             ::ctrlc_async::set_async_handler(async move {
                 delete_pods.await;
                 delete_job.await;
+                ::std::process::exit(0)
             })?;
         }
 
