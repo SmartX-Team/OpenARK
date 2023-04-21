@@ -44,9 +44,9 @@ pub(crate) struct ArgsCommon {
 }
 
 impl ArgsCommon {
-    async fn run(&self) -> Result<BoxPackageManager> {
+    async fn run(self) -> Result<BoxPackageManager> {
         self.init_logger();
-        self.runtime.init_package_manager(&self.actor).await
+        self.runtime.init_package_manager(self.actor).await
     }
 
     fn init_logger(&self) {
@@ -74,7 +74,7 @@ pub(crate) enum Runtime {
 }
 
 impl Runtime {
-    async fn init_package_manager(&self, args: &ActorArgs) -> Result<BoxPackageManager> {
+    async fn init_package_manager(&self, args: ActorArgs) -> Result<BoxPackageManager> {
         match self {
             #[cfg(feature = "kubernetes")]
             Self::Kubernetes => ::ark_actor_kubernetes::PackageManager::try_new(args)

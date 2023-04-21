@@ -14,7 +14,7 @@ pub trait PackageManager {
 
     async fn delete(&self, name: &str) -> Result<()>;
 
-    async fn run(&self, name: &str, args: &[String], sync: bool) -> Result<()>;
+    async fn run(&self, name: &str, args: &[String]) -> Result<()>;
 }
 
 #[async_trait]
@@ -31,7 +31,7 @@ impl PackageManager for Box<dyn PackageManager + Send + Sync> {
         (**self).delete(name).await
     }
 
-    async fn run(&self, name: &str, args: &[String], sync: bool) -> Result<()> {
-        (**self).run(name, args, sync).await
+    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
+        (**self).run(name, args).await
     }
 }

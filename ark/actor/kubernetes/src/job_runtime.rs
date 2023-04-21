@@ -18,10 +18,9 @@ use ark_actor_api::{
 use ark_api::{package::ArkUserSpec, NamespaceAny};
 use ipis::{
     async_trait::async_trait,
-    core::anyhow::{bail, Result},
-    futures::StreamExt,
+    core::anyhow::Result,
     log::{info, warn},
-    tokio::{io, join, spawn, time::sleep},
+    tokio::{join, spawn, time::sleep},
 };
 use k8s_openapi::{
     api::{
@@ -35,9 +34,9 @@ use k8s_openapi::{
     chrono::Utc,
 };
 use kube::{
-    api::{DeleteParams, ListParams, LogParams, PostParams, WatchParams},
+    api::{DeleteParams, ListParams, PostParams},
     core::ObjectMeta,
-    Api, Client, ResourceExt,
+    Api, Client,
 };
 
 #[derive(Default)]
@@ -76,6 +75,7 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
                 spec: Some(PodSpec {
                     containers: vec![Container {
                         name: args.package.name.clone(),
+                        // command: Some(vec!["/usr/bin/env".into(), "firefox".into()]),
                         args: Some(command_line_arguments.to_vec()),
                         image: Some(image_name),
                         image_pull_policy: Some("Always".into()),
@@ -359,53 +359,8 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             api_job.create(&pp, &job).await?;
 
             if sync {
-                async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<String> {
-                    let wp = WatchParams {
-                        label_selector: Some(format!("job-name={name}")),
-                        timeout: Some(290),
-                        ..Default::default()
-                    };
-                    let phase_ready = &["Running", "Failed", "Succeeded"];
-                    let is_running = |pod: &Pod| {
-                        pod.status
-                            .as_ref()
-                            .and_then(|status| status.phase.as_ref())
-                            .map(|phase| phase_ready.contains(&phase.as_str()))
-                            .unwrap_or_default()
-                    };
-
-                    match crate::wait_for(api, &wp, is_running).await? {
-                        Some(pod) => Ok(pod.name_any()),
-                        None => bail!("failed to create a pod: {name}"),
-                    }
-                }
-
-                info!("Waiting for a pod ({namespace}/{name})...");
-                let pod_name = match get_pod_name(&api_pod, &name).await {
-                    Ok(pod_name) => pod_name,
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-
-                async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
-                    let lp = LogParams {
-                        follow: true,
-                        pretty: true,
-                        ..Default::default()
-                    };
-                    let mut stream = api.log_stream(pod_name, &lp).await?;
-                    let mut stdout = io::stdout();
-
-                    while let Some(value) = stream.next().await {
-                        let value = value?;
-                        io::copy(&mut value.as_ref(), &mut stdout).await?;
-                    }
-                    Ok(())
-                }
-
-                info!("Getting logs ({namespace}/{name})...");
-                show_pod_logs(&api_pod, &pod_name).await
+                let skip_if_not_exists = true;
+                crate::show_logs(&api_pod, &namespace, &name, skip_if_not_exists).await
             } else {
                 Ok(())
             }

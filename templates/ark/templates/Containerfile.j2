@@ -82,6 +82,16 @@ RUN true \
     && rm -r /var/lib/pacman/sync/*
 {%- endif %}
 
+# Install dependencies
+{% set dependencies = image.dependencies | sort(attribute='name') | unique(attribute='name') %}
+{% if dependencies | length > 0 -%}
+RUN true \
+    && yay -Sy --needed --noconfirm {{ dependencies | map(attribute='name') | quote | join(sep=' ') }} \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+{%- endif %}
+
 # Configure user-specific environment variables
 ARG USER_GID="{{ spec.user.gid | default(value=2000) }}"
 ARG USER_NAME="{{ spec.user.name | default(value='user') }}"
@@ -106,16 +116,6 @@ RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     # Cleanup
     && yay -Scc --noconfirm \
     && rm -r /var/lib/pacman/sync/*
-
-# Install dependencies
-{% set dependencies = image.dependencies | sort(attribute='name') | unique(attribute='name') %}
-{% if dependencies | length > 0 -%}
-RUN true \
-    && yay -Sy --needed --noconfirm {{ dependencies | map(attribute='name') | quote | join(sep=' ') }} \
-    # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
-{%- endif %}
 
 ###############################################################################
 #   END Linux Distributions                                                   #

@@ -7,8 +7,8 @@ use strum::{Display, EnumString};
 
 #[derive(Parser)]
 pub struct ActorArgs {
-    #[command(flatten)]
-    pub flags: PackageFlags,
+    #[arg(long, global = true, env = "ARK_FLAG_ADD_IF_NOT_EXISTS")]
+    pub add_if_not_exists: bool,
 
     /// Specify container image name prefix
     #[arg(
@@ -32,6 +32,14 @@ pub struct ActorArgs {
     )]
     pub container_template_file: PathBuf,
 
+    /// Whether the spawned process depends on the main process
+    #[arg(long, env = Self::ARK_PULL_KEY, default_value_t = ActorArgs::ARK_PULL_VALUE)]
+    pub detach: bool,
+
+    /// Whether to pull prebuilt images when possible
+    #[arg(long, global = true, env = "ARK_PULL")]
+    pub pull: bool,
+
     /// Specify repository home
     #[arg(
         long,
@@ -45,6 +53,7 @@ pub struct ActorArgs {
 impl ActorArgs {
     pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_KEY: &'static str =
         "ARK_CONTAINER_IMAGE_NAME_PREFIX";
+
     pub(crate) const ARK_CONTAINER_IMAGE_NAME_PREFIX_VALUE: &'static str =
         "registry.ark.svc.ops.openark";
 
@@ -54,23 +63,22 @@ impl ActorArgs {
     pub const ARK_CONTAINER_TEMPLATE_FILE_VALUE: &'static str =
         "./templates/ark/templates/Containerfile.j2";
 
+    pub const ARK_PULL_KEY: &'static str = "ARK_PULL";
+    pub const ARK_PULL_VALUE: bool = false;
+
     pub(crate) const ARK_REPOSITORY_HOME_KEY: &'static str = "ARK_REPOSITORY_HOME";
     pub(crate) const ARK_REPOSITORY_HOME_VALUE: &'static str = "./templates/ark/repos/";
-}
 
-#[derive(Clone, Debug, Parser)]
-pub struct PackageFlags {
-    #[arg(long, global = true, env = "ARK_FLAG_ADD_IF_NOT_EXISTS")]
-    pub add_if_not_exists: bool,
-}
-
-impl PackageFlags {
     pub fn assert_add_if_not_exists(&self, name: &str) -> Result<()> {
         if self.add_if_not_exists {
             Ok(())
         } else {
             bail!("failed to find a package; you may add the package: {name:?}")
         }
+    }
+
+    pub const fn sync(&self) -> bool {
+        !self.detach
     }
 }
 

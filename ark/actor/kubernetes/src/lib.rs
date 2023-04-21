@@ -12,7 +12,7 @@ pub mod consts {
 use std::fmt;
 
 use ark_actor_api::{
-    args::{ActorArgs, PackageFlags},
+    args::ActorArgs,
     package::Package,
     repo::RepositoryManager,
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
@@ -26,29 +26,30 @@ use ipis::{
     core::anyhow::{bail, Result},
     futures::StreamExt,
     log::info,
+    tokio::io,
 };
 use k8s_openapi::{
-    api::core::v1::Namespace,
+    api::core::v1::{Namespace, Pod},
     serde::{de::DeserializeOwned, Serialize},
 };
 use kube::{
-    api::{PostParams, WatchParams},
+    api::{LogParams, PostParams, WatchParams},
     core::WatchEvent,
     Api, Client, Resource, ResourceExt,
 };
 
 pub struct PackageManager {
     app: ApplicationRuntime<self::job_runtime::JobApplicationBuilderFactory>,
-    flags: PackageFlags,
+    args: ActorArgs,
     repos: RepositoryManager,
 }
 
 impl PackageManager {
-    pub async fn try_new(args: &ActorArgs) -> Result<Self> {
+    pub async fn try_new(args: ActorArgs) -> Result<Self> {
         Ok(Self {
             app: ApplicationRuntime::new(args.container_image_name_prefix.clone()),
-            flags: args.flags.clone(),
             repos: RepositoryManager::try_from_local(&args.repository_home).await?,
+            args,
         })
     }
 
@@ -80,6 +81,10 @@ impl PackageManager {
             package
         })
     }
+
+    pub fn job_name(name: &str) -> String {
+        format!("package-build-{name}")
+    }
 }
 
 pub struct PackageSessionOwned {
@@ -107,10 +112,10 @@ impl ::ark_actor_api::PackageManager for PackageSessionOwned {
         session.delete(name).await
     }
 
-    async fn run(&self, name: &str, args: &[String], sync: bool) -> Result<()> {
+    async fn run(&self, name: &str, args: &[String]) -> Result<()> {
         let Self { kube, manager } = self;
         let session = PackageSession { kube, manager };
-        session.run(name, args, sync).await
+        session.run(name, args).await
     }
 }
 
@@ -132,7 +137,10 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
     }
 
     async fn add(&self, name: &str) -> Result<()> {
-        let package = self
+        let namespace = self.kube.default_namespace();
+        let sync = self.manager.args.sync();
+
+        let mut package = self
             .manager
             .get(name, self.kube.default_namespace())
             .await?;
@@ -145,10 +153,14 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
                 field_manager: Some(self::consts::FIELD_MANAGER.into()),
                 ..Default::default()
             };
-            api.create(&pp, &package.resource)
-                .await
-                .map(|_| ())
-                .map_err(Into::into)
+            api.create(&pp, &package.resource).await?;
+
+            if sync {
+                self.wait_for_ready(&api, namespace, name, &mut package)
+                    .await
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -170,47 +182,23 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         }
     }
 
-    async fn run(&self, name: &str, command_line_arguments: &[String], sync: bool) -> Result<()> {
+    async fn run(&self, name: &str, command_line_arguments: &[String]) -> Result<()> {
         let namespace = self.kube.default_namespace();
+        let sync = self.manager.args.sync();
+
         let mut package = self.manager.get(name, namespace).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         if !exists(&api, &package.name).await? {
-            self.manager.flags.assert_add_if_not_exists(name)?;
+            self.manager.args.assert_add_if_not_exists(name)?;
 
             info!("Starting building package ({namespace}/{name})...");
             self.add(name).await?;
         }
 
-        // wait for ready
-        {
-            let is_ready = |resource: &ArkPackageCrd| {
-                resource
-                    .status
-                    .as_ref()
-                    .map(|status| status.state == ArkPackageState::Ready)
-                    .unwrap_or_default()
-            };
-
-            if !is_ready(&package.resource) {
-                info!("Waiting for building package ({namespace}/{name})...");
-
-                let wp = WatchParams {
-                    label_selector: Some({
-                        let key = crate::consts::LABEL_PACKAGE_NAME;
-                        format!("{key}={name}")
-                    }),
-                    timeout: Some(290),
-                    ..Default::default()
-                };
-
-                match wait_for(&api, &wp, is_ready).await? {
-                    Some(resource) => {
-                        package.resource = resource;
-                    }
-                    None => bail!("failed to find package: {name}"),
-                }
-            };
+        if sync {
+            self.wait_for_ready(&api, namespace, name, &mut package)
+                .await?;
         }
 
         let node_name = self.get_node_name(namespace).await?;
@@ -237,6 +225,53 @@ impl<'kube, 'manager> PackageSession<'kube, 'manager> {
         namespace
             .get_session_ref()
             .map(|session| session.node_name.to_string())
+    }
+
+    async fn wait_for_ready(
+        &self,
+        api: &Api<ArkPackageCrd>,
+        namespace: &str,
+        name: &str,
+        package: &mut Package,
+    ) -> Result<()> {
+        let is_ready = |resource: &ArkPackageCrd| {
+            resource
+                .status
+                .as_ref()
+                .map(|status| status.state == ArkPackageState::Ready)
+                .unwrap_or_default()
+        };
+
+        if is_ready(&package.resource) {
+            Ok(())
+        } else {
+            {
+                let api = Api::<Pod>::namespaced(self.kube.clone(), namespace);
+                let name = PackageManager::job_name(name);
+                let skip_if_not_exists: bool = false;
+
+                info!("Waiting for building package ({namespace}/{name})...");
+                show_logs(&api, namespace, &name, skip_if_not_exists).await?
+            }
+
+            let wp = WatchParams {
+                label_selector: Some({
+                    let key = crate::consts::LABEL_PACKAGE_NAME;
+                    format!("{key}={name}")
+                }),
+                timeout: Some(290),
+                ..Default::default()
+            };
+
+            info!("Waiting for package to be ready ({namespace}/{name})...");
+            match wait_for(api, &wp, is_ready).await? {
+                Some(resource) => {
+                    package.resource = resource;
+                    Ok(())
+                }
+                None => bail!("failed to find package: {name}"),
+            }
+        }
     }
 }
 
@@ -268,4 +303,65 @@ where
         }
     }
     Ok(None)
+}
+
+async fn show_logs(
+    api: &Api<Pod>,
+    namespace: &str,
+    name: &str,
+    skip_if_not_exists: bool,
+) -> Result<()> {
+    async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<Option<String>> {
+        let wp = WatchParams {
+            label_selector: Some(format!("job-name={name}")),
+            timeout: Some(290),
+            ..Default::default()
+        };
+        let phase_ready = &["Running", "Failed", "Succeeded"];
+        let is_running = |pod: &Pod| {
+            pod.status
+                .as_ref()
+                .and_then(|status| status.phase.as_ref())
+                .map(|phase| phase_ready.contains(&phase.as_str()))
+                .unwrap_or_default()
+        };
+
+        wait_for(api, &wp, is_running)
+            .await
+            .map(|maybe_pod| maybe_pod.map(|pod| pod.name_any()))
+    }
+
+    info!("Waiting for a pod ({namespace}/{name})...");
+    let pod_name = match get_pod_name(api, name).await {
+        Ok(Some(pod_name)) => pod_name,
+        Ok(None) => {
+            if skip_if_not_exists {
+                return Ok(());
+            } else {
+                bail!("failed to create a pod: {name}")
+            }
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
+        let lp = LogParams {
+            follow: true,
+            pretty: true,
+            ..Default::default()
+        };
+        let mut stream = api.log_stream(pod_name, &lp).await?;
+        let mut stdout = io::stdout();
+
+        while let Some(value) = stream.next().await {
+            let value = value?;
+            io::copy(&mut value.as_ref(), &mut stdout).await?;
+        }
+        Ok(())
+    }
+
+    info!("Getting logs ({namespace}/{name})...");
+    show_pod_logs(api, &pod_name).await
 }

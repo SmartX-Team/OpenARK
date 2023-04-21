@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
-use ark_actor_api::{repo::RepositoryManager, runtime::ApplicationRuntime};
+use ark_actor_api::{args::ActorArgs, repo::RepositoryManager, runtime::ApplicationRuntime};
+use ark_actor_kubernetes::PackageManager;
 use ark_actor_local::template::TemplateManager;
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
@@ -12,6 +13,7 @@ use ipis::{
         anyhow::Result,
         chrono::{DateTime, NaiveDateTime, Utc},
     },
+    env,
     log::{info, warn},
     tokio::{time, try_join},
 };
@@ -42,6 +44,7 @@ use kiss_api::{
 
 pub struct Ctx {
     app: ApplicationRuntime<()>,
+    pull: bool,
     repos: RepositoryManager,
     template: TemplateManager,
 }
@@ -51,6 +54,7 @@ impl ::kiss_api::manager::TryDefault for Ctx {
     async fn try_default() -> Result<Self> {
         Ok(Self {
             app: ApplicationRuntime::try_default()?,
+            pull: env::infer(ActorArgs::ARK_PULL_KEY).unwrap_or(ActorArgs::ARK_PULL_VALUE),
             repos: RepositoryManager::try_default().await?,
             template: TemplateManager::try_default().await?,
         })
@@ -73,6 +77,10 @@ impl ::kiss_api::manager::Ctx for Ctx {
         Self: Sized,
     {
         let name = data.name_any();
+        let args = BuildArgs {
+            manager: &manager,
+            data: &data,
+        };
 
         let is_changed = || {
             data.status
@@ -84,7 +92,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         let rebuild = || async {
             info!("package has been changed; rebuilding: {name}");
-            begin_build(&manager, &data).await
+            begin_build(&args).await
         };
 
         let rebuild_if_changed = || async {
@@ -101,7 +109,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             .map(|status| status.state)
             .unwrap_or_default()
         {
-            ArkPackageState::Pending => begin_build(&manager, &data).await,
+            ArkPackageState::Pending => begin_build(&args).await,
             ArkPackageState::Building => {
                 if is_changed() {
                     rebuild().await
@@ -152,13 +160,15 @@ impl Ctx {
         Some(Duration::from_secs(6 * 60 * 60 /* 6 hours */));
 }
 
-async fn begin_build(
-    manager: &Manager<Ctx>,
-    data: &<Ctx as ::kiss_api::manager::Ctx>::Data,
-) -> Result<Action, Error> {
+struct BuildArgs<'a> {
+    manager: &'a Manager<Ctx>,
+    data: &'a <Ctx as ::kiss_api::manager::Ctx>::Data,
+}
+
+async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Action, Error> {
     let name = data.name_any();
     let namespace = data.namespace_any();
-    let job_name = job_name(&name);
+    let job_name = PackageManager::job_name(&name);
 
     let timestamp: DateTime<Utc> = Utc::now();
     let metadata = ObjectMeta {
@@ -201,8 +211,14 @@ async fn begin_build(
         .ctx
         .app
         .get_image_name_from_package(&namespace, &package);
+
+    let try_pull = if manager.ctx.pull {
+        "podman pull --tls-verify=false {image_name}"
+    } else {
+        "false"
+    };
     let command = format!(
-        "podman pull --tls-verify=false {image_name} || podman build --tag {image_name} {template_dir} && podman push --tls-verify=false {image_name}"
+        "{try_pull} || podman build --tag {image_name} {template_dir} && podman push --tls-verify=false {image_name}"
     );
 
     let job = Job {
@@ -463,10 +479,6 @@ where
         ..Default::default()
     };
     api.create(&pp, data).await.map(|_| ()).map_err(Into::into)
-}
-
-fn job_name(name: &str) -> String {
-    format!("package-build-{name}")
 }
 
 fn job_labels(name: &str, timestamp: Option<DateTime<Utc>>) -> BTreeMap<String, String> {

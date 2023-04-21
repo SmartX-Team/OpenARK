@@ -1,7 +1,7 @@
 use std::{fs, io::Cursor, path::PathBuf, process::Stdio};
 
 use ark_actor_api::{
-    args::ContainerRuntimeKind,
+    args::{ActorArgs, ContainerRuntimeKind},
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
         ApplicationDeviceGpu, ApplicationDeviceGpuNvidia, ApplicationDeviceIpc,
@@ -28,16 +28,14 @@ pub(super) struct ContainerRuntimeManager {
     kind: ContainerRuntimeKind,
     namespace: String,
     program: PathBuf,
+    sync: bool,
 }
 
 impl ContainerRuntimeManager {
-    pub(super) async fn try_new(
-        kind: Option<ContainerRuntimeKind>,
-        image_name_prefix: String,
-    ) -> Result<Self> {
-        let (kind, program) = ContainerRuntimeKind::parse(kind)?;
+    pub(super) async fn try_new(args: &ActorArgs) -> Result<Self> {
+        let (kind, program) = ContainerRuntimeKind::parse(args.container_runtime)?;
         Ok(Self {
-            app: ApplicationRuntime::new(image_name_prefix),
+            app: ApplicationRuntime::new(args.container_image_name_prefix.clone()),
             kind,
             namespace: {
                 let hostname = ::gethostname::gethostname();
@@ -45,6 +43,7 @@ impl ContainerRuntimeManager {
                 format!("localhost_{hostname}")
             },
             program,
+            sync: args.sync(),
         })
     }
 
@@ -73,6 +72,29 @@ impl ContainerRuntimeManager {
             .map_err(Into::into)
     }
 
+    pub(super) async fn pull(&self, package: &Package) -> Result<()> {
+        let image_name = self
+            .app
+            .get_image_name_from_package(&self.namespace, package);
+
+        let mut command = Command::new(&self.program);
+        let command = match &self.kind {
+            ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
+                command.arg("pull").arg(image_name)
+            }
+        };
+
+        command
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true)
+            .output()
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
+    }
+
     pub(super) async fn build(&self, template: &Template) -> Result<()> {
         let name = &template.name;
         let mut text = Cursor::new(&template.text);
@@ -88,12 +110,8 @@ impl ContainerRuntimeManager {
             }
         };
 
-        let mut process = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .kill_on_drop(true)
-            .spawn()?;
+        let mut process =
+            apply_sync_on_command(command.stdin(Stdio::piped()), self.sync).spawn()?;
         {
             let mut stdin = process.stdin.take().unwrap();
             io::copy(&mut text, &mut stdin).await?;
@@ -141,7 +159,6 @@ impl ContainerRuntimeManager {
         &self,
         package: &Package,
         command_line_arguments: &[String],
-        sync: bool,
     ) -> Result<()> {
         let args = ContainerApplicationBuilderArgs {
             manager: self,
@@ -152,7 +169,7 @@ impl ContainerRuntimeManager {
             node_name: None,
             package,
             command_line_arguments,
-            sync,
+            sync: self.sync,
         };
         self.app.spawn(args, ctx).await
     }
@@ -304,21 +321,7 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
             }
         }
 
-        let create_output_channel = || {
-            if sync {
-                Stdio::inherit()
-            } else {
-                Stdio::null()
-            }
-        };
-
-        let mut process = self
-            .command
-            .stdin(Stdio::null())
-            .stdout(create_output_channel())
-            .stderr(create_output_channel())
-            .kill_on_drop(sync)
-            .spawn()?;
+        let mut process = apply_sync_on_command(self.command.stdin(Stdio::null()), sync).spawn()?;
 
         if sync {
             if process.wait().await?.success() {
@@ -331,4 +334,19 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
             Ok(())
         }
     }
+}
+
+fn apply_sync_on_command(command: &mut Command, sync: bool) -> &mut Command {
+    let create_output_channel = || {
+        if sync {
+            Stdio::inherit()
+        } else {
+            Stdio::null()
+        }
+    };
+
+    command
+        .stdout(create_output_channel())
+        .stderr(create_output_channel())
+        .kill_on_drop(sync)
 }
