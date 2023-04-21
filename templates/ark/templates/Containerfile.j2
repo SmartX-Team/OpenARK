@@ -103,7 +103,7 @@ RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
 
 # Install dependencies
 {% set dependencies = image.dependencies | sort(attribute='name') | unique(attribute='name') %}
-{% if dependencies -%}
+{% if dependencies | length > 0 -%}
 RUN true \
     && yay -Sy --needed --noconfirm {{ dependencies | map(attribute='name') | quote | join(sep=' ') }} \
     # Cleanup
@@ -123,9 +123,14 @@ RUN true \
 FROM "{{ image_name }}"
 
 # Configure package
+{% if image.entrypoint | length > 0 -%}
+{% set entrypoint = image.entrypoint %}
+{%- else -%}
+{% set entrypoint = [metadata.name] %}
+{%- endif %}
+
 CMD [ ]
-{% set entrypoint = image.entrypoint | default(value=[metadata.name]) | quote | join(sep=', ') %}
-ENTRYPOINT [ "/usr/bin/env", {{ entrypoint }} ]
+ENTRYPOINT [ "/usr/bin/env", {{ entrypoint | quote | join(sep=', ') }} ]
 WORKDIR "/home/${USER_NAME}"
 
 ###############################################################################

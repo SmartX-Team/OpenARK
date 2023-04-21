@@ -43,7 +43,9 @@ impl TemplateManager {
                     .map(Value::Array),
                 Value::Object(value) => value
                     .iter()
-                    .map(|(key, value)| filter_quote(value, _args).map(|value| (key.clone(), value)))
+                    .map(|(key, value)| {
+                        filter_quote(value, _args).map(|value| (key.clone(), value))
+                    })
                     .collect::<::tera::Result<_>>()
                     .map(Value::Object),
             }
