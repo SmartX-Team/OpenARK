@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 
 use ark_actor_api::{
@@ -18,7 +21,7 @@ use ipis::{
     core::anyhow::{bail, Result},
     futures::StreamExt,
     log::{info, warn},
-    tokio::{io, join, spawn, task::yield_now},
+    tokio::{io, join, spawn, time::sleep},
 };
 use k8s_openapi::{
     api::{
@@ -335,7 +338,7 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
 
             async move {
                 while !complete_flag.is_completed() {
-                    yield_now().await;
+                    sleep(Duration::from_millis(100)).await;
                 }
 
                 join!(delete_job, delete_pods);
