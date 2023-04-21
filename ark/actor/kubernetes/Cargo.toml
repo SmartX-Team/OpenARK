@@ -18,6 +18,6 @@ ark-actor-api = { path = "../api" }
 ark-api = { path = "../../api" }
 ipis = { workspace = true }
 
-ctrlc-async = { workspace = true }
+ctrlc = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }

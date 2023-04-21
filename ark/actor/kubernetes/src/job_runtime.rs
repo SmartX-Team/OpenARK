@@ -1,3 +1,8 @@
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use ark_actor_api::{
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
@@ -13,7 +18,7 @@ use ipis::{
     core::anyhow::{bail, Result},
     futures::StreamExt,
     log::{info, warn},
-    tokio::io,
+    tokio::{io, join, spawn, task::yield_now},
 };
 use k8s_openapi::{
     api::{
@@ -68,7 +73,7 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
                 spec: Some(PodSpec {
                     containers: vec![Container {
                         name: args.package.name.clone(),
-                        command: Some(command_line_arguments.to_vec()),
+                        args: Some(command_line_arguments.to_vec()),
                         image: Some(image_name),
                         image_pull_policy: Some("Always".into()),
                         ..Default::default()
@@ -262,29 +267,39 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             },
             spec: Some(JobSpec {
                 backoff_limit: Some(0),
-                ttl_seconds_after_finished: Some(0),
+                ttl_seconds_after_finished: Some(30),
                 template: self.template,
                 ..Default::default()
             }),
             status: None,
         };
 
-        let api = Api::<Job>::default_namespaced(self.args.kube.clone());
+        let api_job = Api::<Job>::default_namespaced(self.args.kube.clone());
+        let api_pod = Api::<Pod>::default_namespaced(self.args.kube.clone());
 
-        let pp = PostParams {
-            field_manager: Some(crate::consts::FIELD_MANAGER.into()),
-            ..Default::default()
-        };
-        api.create(&pp, &job).await?;
+        #[derive(Default)]
+        struct CompleteFlag(AtomicBool);
 
-        if sync {
-            let api = Api::<Pod>::default_namespaced(self.args.kube.clone());
+        impl CompleteFlag {
+            fn is_completed(&self) -> bool {
+                self.0.load(Ordering::SeqCst)
+            }
+
+            fn complete(&self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let complete_flag: Arc<CompleteFlag> = Default::default();
+
+        let delete_all = spawn({
+            let complete_flag = complete_flag.clone();
 
             let delete_job = {
                 let name = name.clone();
                 let namespace = namespace.clone();
 
-                let api: Api<Job> = Api::default_namespaced(self.args.kube.clone());
+                let api = api_job.clone();
                 let dp = DeleteParams::default();
 
                 async move {
@@ -297,40 +312,11 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                 }
             };
 
-            async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<String> {
-                let wp = WatchParams {
-                    label_selector: Some(format!("job-name={name}")),
-                    timeout: Some(290),
-                    ..Default::default()
-                };
-                let is_running = |pod: &Pod| {
-                    pod.status
-                        .as_ref()
-                        .and_then(|status| status.phase.as_ref())
-                        .map(|phase| phase == "Running")
-                        .unwrap_or_default()
-                };
-
-                match crate::wait_for(api, &wp, is_running).await? {
-                    Some(pod) => Ok(pod.name_any()),
-                    None => bail!("failed to create a pod: {name}"),
-                }
-            }
-
-            info!("Waiting for a pod ({namespace}/{name})...");
-            let pod_name = match get_pod_name(&api, &name).await {
-                Ok(pod_name) => pod_name,
-                Err(e) => {
-                    delete_job.await;
-                    return Err(e);
-                }
-            };
-
             let delete_pods = {
                 let name = name.clone();
                 let namespace = namespace.clone();
 
-                let api: Api<Pod> = api.clone();
+                let api = api_pod.clone();
                 let dp = DeleteParams::default();
                 let lp = ListParams {
                     label_selector: Some(format!("job-name={name}")),
@@ -347,31 +333,84 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                 }
             };
 
-            ::ctrlc_async::set_async_handler(async move {
-                delete_pods.await;
-                delete_job.await;
-            })?;
-
-            async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
-                let lp = LogParams {
-                    follow: true,
-                    pretty: true,
-                    ..Default::default()
-                };
-                let mut stream = api.log_stream(pod_name, &lp).await?;
-                let mut stdout = io::stdout();
-
-                while let Some(value) = stream.next().await {
-                    let value = value?;
-                    io::copy(&mut value.as_ref(), &mut stdout).await?;
+            async move {
+                while !complete_flag.is_completed() {
+                    yield_now().await;
                 }
+
+                join!(delete_job, delete_pods);
+            }
+        });
+
+        if sync {
+            let complete_flag = complete_flag.clone();
+
+            ::ctrlc::set_handler(move || complete_flag.complete())?;
+        }
+
+        let create = async move {
+            let pp = PostParams {
+                field_manager: Some(crate::consts::FIELD_MANAGER.into()),
+                ..Default::default()
+            };
+            api_job.create(&pp, &job).await?;
+
+            if sync {
+                async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<String> {
+                    let wp = WatchParams {
+                        label_selector: Some(format!("job-name={name}")),
+                        timeout: Some(290),
+                        ..Default::default()
+                    };
+                    let phase_ready = &["Running", "Failed", "Succeeded"];
+                    let is_running = |pod: &Pod| {
+                        pod.status
+                            .as_ref()
+                            .and_then(|status| status.phase.as_ref())
+                            .map(|phase| phase_ready.contains(&phase.as_str()))
+                            .unwrap_or_default()
+                    };
+
+                    match crate::wait_for(api, &wp, is_running).await? {
+                        Some(pod) => Ok(pod.name_any()),
+                        None => bail!("failed to create a pod: {name}"),
+                    }
+                }
+
+                info!("Waiting for a pod ({namespace}/{name})...");
+                let pod_name = match get_pod_name(&api_pod, &name).await {
+                    Ok(pod_name) => pod_name,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+
+                async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
+                    let lp = LogParams {
+                        follow: true,
+                        pretty: true,
+                        ..Default::default()
+                    };
+                    let mut stream = api.log_stream(pod_name, &lp).await?;
+                    let mut stdout = io::stdout();
+
+                    while let Some(value) = stream.next().await {
+                        let value = value?;
+                        io::copy(&mut value.as_ref(), &mut stdout).await?;
+                    }
+                    Ok(())
+                }
+
+                info!("Getting logs ({namespace}/{name})...");
+                show_pod_logs(&api_pod, &pod_name).await
+            } else {
                 Ok(())
             }
+        };
 
-            info!("Getting logs ({namespace}/{name})...");
-            show_pod_logs(&api, &pod_name).await
-        } else {
-            Ok(())
-        }
+        let result = create.await;
+        complete_flag.complete();
+        delete_all.await.ok();
+        result
     }
 }
