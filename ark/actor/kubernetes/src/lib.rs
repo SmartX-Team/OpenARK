@@ -1,12 +1,22 @@
 mod job_runtime;
 
 pub mod consts {
+    use strum::{Display, EnumString};
+
     pub const FIELD_MANAGER: &str = "ark-actor-kubernetes";
 
     pub const IMAGE_PULL_SECRET_NAME: &str = "ark-registry";
 
     pub const LABEL_BUILD_TIMESTAMP: &str = "ark.ulagbulag.io/build-timestamp";
+    pub const LABEL_JOB_KIND: &str = "ark.ulagbulag.io/job-kind";
     pub const LABEL_PACKAGE_NAME: &str = "ark.ulagbulag.io/package-name";
+
+    #[derive(Copy, Clone, Debug, Display, EnumString, PartialEq, Eq, Hash)]
+    #[strum(serialize_all = "camelCase")]
+    pub enum JobKind {
+        Add,
+        Run,
+    }
 }
 
 use std::fmt;

@@ -21,3 +21,4 @@ ipis = { workspace = true }
 ctrlc = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
+strum = { workspace = true }

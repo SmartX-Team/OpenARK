@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
 use ark_actor_api::{args::ActorArgs, repo::RepositoryManager, runtime::ApplicationRuntime};
-use ark_actor_kubernetes::PackageManager;
+use ark_actor_kubernetes::{consts::JobKind, PackageManager};
 use ark_actor_local::template::TemplateManager;
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
@@ -33,7 +33,7 @@ use kiss_api::{
         NamespaceResourceScope,
     },
     kube::{
-        api::{Patch, PatchParams, PostParams},
+        api::{ListParams, Patch, PatchParams, PostParams},
         core::ObjectMeta,
         runtime::controller::Action,
         Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
@@ -170,9 +170,10 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
     let namespace = data.namespace_any();
     let job_name = PackageManager::job_name(&name);
 
+    let job_kind = JobKind::Add;
     let timestamp: DateTime<Utc> = Utc::now();
     let metadata = ObjectMeta {
-        labels: Some(job_labels(&name, Some(timestamp))),
+        labels: Some(job_labels(&name, Some(job_kind), Some(timestamp))),
         ..Default::default()
     };
     let object_metadata = ObjectMeta {
@@ -224,6 +225,7 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
     let job = Job {
         metadata: object_metadata,
         spec: Some(JobSpec {
+            ttl_seconds_after_finished: Some(0),
             template: PodTemplateSpec {
                 metadata: Some(metadata.clone()),
                 spec: Some(PodSpec {
@@ -339,7 +341,8 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
         status: None,
     };
 
-    if let Err(e) = super::try_delete_all::<Pod>(&manager.kube, &namespace, &name).await {
+    let lp = list_jobs(&name, JobKind::Add);
+    if let Err(e) = super::try_delete_all::<Pod>(&manager.kube, &namespace, &lp).await {
         warn!("failed to delete previous pods: {namespace} -> {name}: {e}");
         return Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK));
     }
@@ -375,9 +378,10 @@ async fn cancel_build(
     let name = data.name_any();
     let namespace = data.namespace_any();
 
+    let lp = list_jobs(&name, JobKind::Add);
     match try_join!(
-        super::try_delete_all::<ConfigMap>(&manager.kube, &namespace, &name),
-        super::try_delete_all::<Job>(&manager.kube, &namespace, &name),
+        super::try_delete_all::<ConfigMap>(&manager.kube, &namespace, &lp),
+        super::try_delete_all::<Job>(&manager.kube, &namespace, &lp),
     ) {
         Ok(((), ())) => {
             info!("canceled building ({reason}): {namespace} -> {name}");
@@ -437,12 +441,13 @@ impl<'a> UpdateStateCtx<'a> {
         let api =
             Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced((*kube).clone(), namespace);
         let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
+        let job_kind = None;
 
         let patch = Patch::Merge(json!({
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "metadata": {
-                "labels": job_labels(name, *timestamp),
+                "labels": job_labels(name, job_kind, *timestamp),
             },
             "status": {
                 "state": state,
@@ -470,7 +475,8 @@ where
     let namespace = data.namespace_any();
 
     // delete last objects
-    super::try_delete_all::<K>(kube, &namespace, package_name).await?;
+    let lp = list_jobs(package_name, JobKind::Add);
+    super::try_delete_all::<K>(kube, &namespace, &lp).await?;
     time::sleep(Duration::from_secs(1)).await;
 
     let api = Api::<K>::namespaced(kube.clone(), &namespace);
@@ -481,13 +487,22 @@ where
     api.create(&pp, data).await.map(|_| ()).map_err(Into::into)
 }
 
-fn job_labels(name: &str, timestamp: Option<DateTime<Utc>>) -> BTreeMap<String, String> {
+fn job_labels(
+    name: &str,
+    job_kind: Option<JobKind>,
+    timestamp: Option<DateTime<Utc>>,
+) -> BTreeMap<String, String> {
+    let job_kind = job_kind.map(|job_kind| job_kind.to_string());
     let timestamp = timestamp.map(|timestamp| timestamp.timestamp_micros().to_string());
 
     [
         (
             ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
             timestamp.as_deref(),
+        ),
+        (
+            ::ark_actor_kubernetes::consts::LABEL_JOB_KIND,
+            job_kind.as_deref(),
         ),
         (
             ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME,
@@ -497,4 +512,18 @@ fn job_labels(name: &str, timestamp: Option<DateTime<Utc>>) -> BTreeMap<String, 
     .iter()
     .filter_map(|(k, v)| Some((k.to_string(), (*v)?.to_string())))
     .collect()
+}
+
+fn list_jobs(package_name: &str, job_kind: JobKind) -> ListParams {
+    ListParams {
+        label_selector: {
+            let package_name_key = ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME;
+            let job_kind_key = ::ark_actor_kubernetes::consts::LABEL_JOB_KIND;
+
+            Some(format!(
+                "{package_name_key}={package_name},{job_kind_key}={job_kind}"
+            ))
+        },
+        ..Default::default()
+    }
 }

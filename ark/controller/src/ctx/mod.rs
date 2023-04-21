@@ -34,7 +34,7 @@ where
     }
 }
 
-async fn try_delete_all<K>(kube: &Client, namespace: &str, package_name: &str) -> Result<()>
+async fn try_delete_all<K>(kube: &Client, namespace: &str, lp: &ListParams) -> Result<()>
 where
     K: Clone
         + fmt::Debug
@@ -46,14 +46,7 @@ where
 {
     let api = Api::<K>::namespaced(kube.clone(), namespace);
     let dp = DeleteParams::default();
-    let lp = ListParams {
-        label_selector: {
-            let key = ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME;
-            Some(format!("{key}={package_name}"))
-        },
-        ..Default::default()
-    };
-    api.delete_collection(&dp, &lp)
+    api.delete_collection(&dp, lp)
         .await
         .map(|_| ())
         .map_err(Into::into)

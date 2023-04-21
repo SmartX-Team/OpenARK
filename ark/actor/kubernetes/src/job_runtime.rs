@@ -39,6 +39,8 @@ use kube::{
     Api, Client,
 };
 
+use crate::consts::JobKind;
+
 #[derive(Default)]
 pub(crate) struct JobApplicationBuilderFactory;
 
@@ -60,15 +62,19 @@ impl<'args> ApplicationBuilderFactory<'args> for JobApplicationBuilderFactory {
         'builder: 'args,
     {
         let ArkUserSpec { uid, gid, .. } = user;
+        let job_kind = JobKind::Run.to_string();
 
         Ok(JobApplicationBuilder {
             template: PodTemplateSpec {
                 metadata: Some(ObjectMeta {
                     labels: Some(
-                        [(crate::consts::LABEL_PACKAGE_NAME, &args.package.name)]
-                            .iter()
-                            .map(|(k, v)| (k.to_string(), v.to_string()))
-                            .collect(),
+                        [
+                            (crate::consts::LABEL_JOB_KIND, &job_kind),
+                            (crate::consts::LABEL_PACKAGE_NAME, &args.package.name),
+                        ]
+                        .iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect(),
                     ),
                     ..Default::default()
                 }),

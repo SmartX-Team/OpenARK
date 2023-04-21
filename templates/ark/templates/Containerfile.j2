@@ -2,6 +2,13 @@
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
+# Configure user-specific environment variables
+{% set user_gid = spec.user.gid | default(value=2000) %}
+{% set user_name = spec.user.name | default(value='user') %}
+{% set user_shell = spec.user.shell | default(value='sh') %}
+{% set user_sudo = spec.user.sudo | default(value=false) %}
+{% set user_uid = spec.user.uid | default(value=2000) %}
+
 ###############################################################################
 #   BEGIN Container Provider Definition                                       #
 ###############################################################################
@@ -93,12 +100,6 @@ RUN true \
 {%- endif %}
 
 # Configure user-specific environment variables
-{% set user_gid = spec.user.gid | default(value=2000) %}
-{% set user_name = spec.user.name | default(value='user') %}
-{% set user_shell = spec.user.shell | default(value='sh') %}
-{% set user_sudo = spec.user.sudo | default(value=false) %}
-{% set user_uid = spec.user.uid | default(value=2000) %}
-
 RUN groupadd -g "{{ user_gid }}" -o "{{ user_name }}" \
     && useradd -u "{{ user_uid }}" -g "{{ user_gid }}" -G "audio,input,render,video" \
         -s "/bin/{{ user_shell }}" -m -o "{{ user_name }}" \
