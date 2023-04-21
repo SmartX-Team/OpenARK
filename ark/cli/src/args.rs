@@ -29,7 +29,7 @@ impl Args {
 #[derive(Parser)]
 pub(crate) struct ArgsCommon {
     /// Turn debugging information on
-    #[arg(short, long, env = "ARK_DEBUG", action = ArgAction::Count)]
+    #[arg(short, long, global = true, env = "ARK_DEBUG", action = ArgAction::Count)]
     #[arg(value_parser = value_parser!(u8).range(..=3))]
     debug: u8,
 
@@ -37,7 +37,7 @@ pub(crate) struct ArgsCommon {
     actor: ActorArgs,
 
     /// Which runtime to use
-    #[arg(long, env = "ARK_RUNTIME")]
+    #[arg(long, global = true, env = "ARK_RUNTIME")]
     #[cfg_attr(all(not(feature = "local"), feature = "kubernetes"), arg(default_value_t = Runtime::Kubernetes))]
     #[cfg_attr(feature = "local", arg(default_value_t = Runtime::Local))]
     runtime: Runtime,
