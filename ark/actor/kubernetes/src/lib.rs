@@ -184,9 +184,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
 
             info!("Starting building package ({namespace}/{name})...");
             self.add(name).await?;
-        }
-
-        if sync {
+        } else if sync {
             self.wait_for_ready(&api, namespace, name, &mut package)
                 .await?;
         }
