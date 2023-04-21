@@ -2,8 +2,19 @@
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
+###############################################################################
+#   BEGIN Container Provider Definition                                       #
+###############################################################################
+{% if spec.container -%}
+
 # Be ready for packaging
-FROM "{{ default.distImageList[spec.container.base.dist.name] }}:{{ spec.container.base.dist.version }}" as base
+{% for image_name, image in spec.container -%}
+FROM "{{ default.distImageList[image.dist.name] }}:{{ image.dist.version }}" as {{ image_name }}
+
+###############################################################################
+#   BEGIN Linux Distribution: ArchLinux                                       #
+###############################################################################
+{% if image.dist.name == 'archlinux' -%}
 
 # Install feature dependencies
 RUN true \
@@ -43,15 +54,16 @@ RUN true \
     && rm -r /var/lib/pacman/sync/*
 
 # Install permission dependencies
-{% if spec.permissions | length > 0 -%}
+{% set permissions = spec.permissions | sort(attribute='name') | unique(attribute='name') %}
+{% if permissions -%}
 RUN true \
     && yay -Sy --needed --noconfirm \
-{% for dependency in spec.permissions | sort(attribute='name') -%}
+{% for permission in permissions -%}
 # --- BEGIN PERMISSION DEPENDENCY ---
-{% if dependency.name == 'audio' -%}
+{% if permission.name == 'audio' -%}
         "pipewire" \
 {%- endif -%}
-{%- if dependency.name == 'graphics' -%}
+{%- if permission.name == 'graphics' -%}
         "libglvnd" \
         "mesa" \
         "mesa-utils" \
@@ -90,22 +102,33 @@ RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && rm -r /var/lib/pacman/sync/*
 
 # Install dependencies
+{% set dependencies = image.dependencies | sort(attribute='name') | unique(attribute='name') %}
+{% if dependencies -%}
 RUN true \
-    && yay -Sy --needed --noconfirm \
-{% for dependency in spec.container.base.dependencies | sort(attribute='name') -%}
-{% if dependency.kind | default(value='package') == 'package' -%}
-        "{{ dependency.name }}" \
-{%- endif %}
-{%- endfor %}
+    && yay -Sy --needed --noconfirm {{ dependencies | map(attribute='name') | quote | join(sep=' ') }} \
     # Cleanup
     && yay -Scc --noconfirm \
     && rm -r /var/lib/pacman/sync/*
+{%- endif %}
 
-# Configure application-specific environment variables
-ENV __ARK_PACKAGE_EXEC_FILE="/usr/bin/{{ metadata.name }}"
-ENV __ARK_PACKAGE_ICON_FILE=""
+###############################################################################
+#   END Linux Distributions                                                   #
+###############################################################################
+{%- endif %}
+
+# Checkout to base image
+{%- endfor %}
+{% set image_name = 'base' %}
+{% set image = spec.container[image_name] %}
+FROM "{{ image_name }}"
 
 # Configure package
 CMD [ ]
-ENTRYPOINT [ "/usr/bin/env", "{{ metadata.name }}" ]
+{% set entrypoint = image.entrypoint | default(value=[metadata.name]) | quote | join(sep=', ') %}
+ENTRYPOINT [ "/usr/bin/env", {{ entrypoint }} ]
 WORKDIR "/home/${USER_NAME}"
+
+###############################################################################
+#   END Container Provider Definition                                         #
+###############################################################################
+{% endif -%}

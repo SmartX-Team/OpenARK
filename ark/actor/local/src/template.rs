@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
 };
 
@@ -11,7 +11,7 @@ use ipis::{
     tokio::fs,
 };
 use serde::Serialize;
-use tera::{Context, Tera};
+use tera::{Context, Tera, Value};
 
 pub struct TemplateManager {
     default_context: DefaultContext<'static>,
@@ -30,6 +30,25 @@ impl TemplateManager {
     }
 
     pub async fn try_from_local(path: &Path) -> Result<Self> {
+        fn filter_quote(value: &Value, _args: &HashMap<String, Value>) -> ::tera::Result<Value> {
+            match value {
+                Value::Null => Ok(Value::Null),
+                Value::Bool(value) => Ok(Value::String(format!("{value:?}"))),
+                Value::Number(value) => Ok(Value::String(format!("{value:?}"))),
+                Value::String(value) => Ok(Value::String(format!("{value:?}"))),
+                Value::Array(value) => value
+                    .iter()
+                    .map(|value| filter_quote(value, _args))
+                    .collect::<::tera::Result<_>>()
+                    .map(Value::Array),
+                Value::Object(value) => value
+                    .iter()
+                    .map(|(key, value)| filter_quote(value, _args).map(|value| (key.clone(), value)))
+                    .collect::<::tera::Result<_>>()
+                    .map(Value::Object),
+            }
+        }
+
         Ok(Self {
             default_context: Default::default(),
             tera: {
@@ -37,6 +56,7 @@ impl TemplateManager {
 
                 let mut tera = Tera::default();
                 tera.add_raw_template(ActorArgs::ARK_CONTAINER_TEMPLATE_FILE_VALUE, &content)?;
+                tera.register_filter("quote", filter_quote);
                 tera
             },
         })
