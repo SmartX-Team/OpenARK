@@ -12,7 +12,7 @@ use ipis::{
     async_trait::async_trait,
     core::anyhow::{bail, Result},
     futures::StreamExt,
-    log::warn,
+    log::{info, warn},
     tokio::io,
 };
 use k8s_openapi::{
@@ -355,7 +355,11 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
             }
 
             let api = Api::<Pod>::default_namespaced(self.args.kube.clone());
+
+            info!("Waiting for a pod ({namespace}/{name})...");
             let pod_name = get_pod_name(&api, &name).await?;
+
+            info!("Getting logs ({namespace}/{name})...");
             show_pod_logs(&api, &pod_name).await
         } else {
             Ok(())
