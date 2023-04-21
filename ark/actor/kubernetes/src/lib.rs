@@ -263,7 +263,8 @@ where
                     continue;
                 }
             }
-            _ => continue,
+            WatchEvent::Deleted(_) => return Ok(None),
+            WatchEvent::Bookmark(_) | WatchEvent::Error(_) => continue,
         }
     }
     Ok(None)

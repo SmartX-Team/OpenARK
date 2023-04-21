@@ -271,46 +271,6 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
 
         let api = Api::<Job>::default_namespaced(self.args.kube.clone());
 
-        if sync {
-            let delete_pods = {
-                let name = name.clone();
-
-                let api = Api::<Pod>::namespaced(self.args.kube.clone(), &namespace);
-                let dp = DeleteParams::default();
-                let lp = ListParams {
-                    label_selector: Some(format!("job-name={name}")),
-                    ..Default::default()
-                };
-
-                async move {
-                    match api.delete_collection(&dp, &lp).await {
-                        Ok(_) => (),
-                        Err(e) => warn!("failed to terminate pods: {name}: {e}"),
-                    }
-                }
-            };
-
-            let delete_job = {
-                let name = name.clone();
-
-                let api = api.clone();
-                let dp = DeleteParams::default();
-
-                async move {
-                    match api.delete(&name, &dp).await {
-                        Ok(_) => (),
-                        Err(e) => warn!("failed to terminate job: {name}: {e}"),
-                    }
-                }
-            };
-
-            ::ctrlc_async::set_async_handler(async move {
-                delete_pods.await;
-                delete_job.await;
-                ::std::process::exit(0)
-            })?;
-        }
-
         let pp = PostParams {
             field_manager: Some(crate::consts::FIELD_MANAGER.into()),
             ..Default::default()
@@ -318,6 +278,25 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
         api.create(&pp, &job).await?;
 
         if sync {
+            let api = Api::<Pod>::default_namespaced(self.args.kube.clone());
+
+            let delete_job = {
+                let name = name.clone();
+                let namespace = namespace.clone();
+
+                let api: Api<Job> = Api::default_namespaced(self.args.kube.clone());
+                let dp = DeleteParams::default();
+
+                async move {
+                    info!("Removing job ({namespace}/{name})...");
+
+                    match api.delete(&name, &dp).await {
+                        Ok(_) => (),
+                        Err(e) => warn!("failed to terminate job: {name}: {e}"),
+                    }
+                }
+            };
+
             async fn get_pod_name(api: &Api<Pod>, name: &str) -> Result<String> {
                 let wp = WatchParams {
                     label_selector: Some(format!("job-name={name}")),
@@ -334,9 +313,44 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
 
                 match crate::wait_for(api, &wp, is_running).await? {
                     Some(pod) => Ok(pod.name_any()),
-                    None => bail!("pod is not created: {name}"),
+                    None => bail!("failed to create a pod: {name}"),
                 }
             }
+
+            info!("Waiting for a pod ({namespace}/{name})...");
+            let pod_name = match get_pod_name(&api, &name).await {
+                Ok(pod_name) => pod_name,
+                Err(e) => {
+                    delete_job.await;
+                    return Err(e);
+                }
+            };
+
+            let delete_pods = {
+                let name = name.clone();
+                let namespace = namespace.clone();
+
+                let api: Api<Pod> = api.clone();
+                let dp = DeleteParams::default();
+                let lp = ListParams {
+                    label_selector: Some(format!("job-name={name}")),
+                    ..Default::default()
+                };
+
+                async move {
+                    info!("Removing pod ({namespace}/{name})...");
+
+                    match api.delete_collection(&dp, &lp).await {
+                        Ok(_) => (),
+                        Err(e) => warn!("failed to terminate pods: {name}: {e}"),
+                    }
+                }
+            };
+
+            ::ctrlc_async::set_async_handler(async move {
+                delete_pods.await;
+                delete_job.await;
+            })?;
 
             async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {
                 let lp = LogParams {
@@ -353,11 +367,6 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                 }
                 Ok(())
             }
-
-            let api = Api::<Pod>::default_namespaced(self.args.kube.clone());
-
-            info!("Waiting for a pod ({namespace}/{name})...");
-            let pod_name = get_pod_name(&api, &name).await?;
 
             info!("Getting logs ({namespace}/{name})...");
             show_pod_logs(&api, &pod_name).await
