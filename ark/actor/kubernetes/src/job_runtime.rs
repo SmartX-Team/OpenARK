@@ -28,7 +28,7 @@ use k8s_openapi::{
 };
 use kube::{
     api::{DeleteParams, ListParams, LogParams, PostParams, WatchParams},
-    core::{ObjectMeta, WatchEvent},
+    core::ObjectMeta,
     Api, Client, ResourceExt,
 };
 
@@ -323,27 +323,18 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                     timeout: Some(290),
                     ..Default::default()
                 };
-                let mut stream = api.watch(&wp, "0").await?.boxed();
+                let is_running = |pod: &Pod| {
+                    pod.status
+                        .as_ref()
+                        .and_then(|status| status.phase.as_ref())
+                        .map(|phase| phase == "Running")
+                        .unwrap_or_default()
+                };
 
-                while let Some(event) = stream.next().await {
-                    match event? {
-                        WatchEvent::Added(pod) | WatchEvent::Modified(pod) => {
-                            if pod
-                                .status
-                                .as_ref()
-                                .and_then(|status| status.phase.as_ref())
-                                .map(|phase| phase == "Running")
-                                .unwrap_or_default()
-                            {
-                                return Ok(pod.name_any());
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => continue,
-                    }
+                match crate::wait_for(api, &wp, is_running).await? {
+                    Some(pod) => Ok(pod.name_any()),
+                    None => bail!("pod is not created: {name}"),
                 }
-                bail!("pod is not created: {name}");
             }
 
             async fn show_pod_logs(api: &Api<Pod>, pod_name: &str) -> Result<()> {

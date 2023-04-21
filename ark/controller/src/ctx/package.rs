@@ -82,8 +82,6 @@ impl ::kiss_api::manager::Ctx for Ctx {
                 .unwrap_or(true)
         };
 
-        // TODO: skip building if already built
-        // TODO: note: use bash -c 'podman pull... || podman build... && podman push...' instead
         let rebuild = || async {
             info!("package has been changed; rebuilding: {name}");
             begin_build(&manager, &data).await
@@ -204,7 +202,7 @@ async fn begin_build(
         .app
         .get_image_name_from_package(&namespace, &package);
     let command = format!(
-        "podman pull {image_name} || podman build --tag {image_name} {template_dir} && podman push --tls-verify=false {image_name}"
+        "podman pull --tls-verify=false {image_name} || podman build --tag {image_name} {template_dir} && podman push --tls-verify=false {image_name}"
     );
 
     let job = Job {
