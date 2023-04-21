@@ -18,6 +18,12 @@ FROM "{{ default.distImageList[image.dist.name] }}:{{ image.dist.version }}" as 
 
 # Install feature dependencies
 RUN true \
+    # Install reflector and retrieve the latest mirror list
+    # NOTE: it will make the overall build time faster
+    && pacman -Sy --needed --noconfirm \
+        "reflector" \
+    && reflector >"/etc/pacman.d/mirrorlist" \
+    # Install common packages
     && pacman -Sy --needed --noconfirm \
         "curl" \
         "git" \
