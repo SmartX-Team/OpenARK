@@ -93,24 +93,26 @@ RUN true \
 {%- endif %}
 
 # Configure user-specific environment variables
-ARG USER_GID="{{ spec.user.gid | default(value=2000) }}"
-ARG USER_NAME="{{ spec.user.name | default(value='user') }}"
-ARG USER_SHELL="{{ spec.user.shell | default(value='sh') }}"
-ARG USER_UID="{{ spec.user.uid | default(value=2000) }}"
-RUN groupadd -g "${USER_GID}" -o "${USER_NAME}" \
-    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \
-        -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
-    && echo -e "${USER_UID}:$(( USER_UID + 1 )):$(( 65535 - USER_UID ))" > /etc/subuid \
-    && echo -e "${USER_GID}:$(( USER_GID + 1 )):$(( 65535 - USER_UID ))" > /etc/subgid \
+{% set user_gid = spec.user.gid | default(value=2000) %}
+{% set user_name = spec.user.name | default(value='user') %}
+{% set user_shell = spec.user.shell | default(value='sh') %}
+{% set user_sudo = spec.user.sudo | default(value=false) %}
+{% set user_uid = spec.user.uid | default(value=2000) %}
+
+RUN groupadd -g "{{ user_gid }}" -o "{{ user_name }}" \
+    && useradd -u "{{ user_uid }}" -g "{{ user_gid }}" -G "audio,input,render,video" \
+        -s "/bin/{{ user_shell }}" -m -o "{{ user_name }}" \
+    && echo -e "{{ user_uid }}:$(( {{ user_uid }} + 1 )):$(( 65535 - {{ user_uid }} ))" > /etc/subuid \
+    && echo -e "{{ user_gid }}:$(( {{ user_gid }} + 1 )):$(( 65535 - {{ user_gid }} ))" > /etc/subgid \
     # Install user-specific dependencies
     && yay -Sy --needed --noconfirm \
-        "{{ spec.user.shell }}" \
-{% if spec.user.sudo | default(value=false) -%}
+        "{{ user_shell }}" \
+{% if user_sudo -%}
         "sudo" \
 {%- endif %}
     # Allow passwordless sudo command
-{% if spec.user.sudo | default(value=false) -%}
-    && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
+{% if user_sudo -%}
+    && echo "{{ user_name }} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
 {%- endif %}
     # Cleanup
@@ -137,7 +139,7 @@ FROM "{{ image_name }}"
 
 CMD [ ]
 ENTRYPOINT [ "/usr/bin/env", {{ entrypoint | quote | join(sep=', ') }} ]
-WORKDIR "/home/${USER_NAME}"
+WORKDIR "/home/{{ user_name }}"
 
 ###############################################################################
 #   END Container Provider Definition                                         #
