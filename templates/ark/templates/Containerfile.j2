@@ -55,7 +55,7 @@ RUN true \
 
 # Install permission dependencies
 {% set permissions = spec.permissions | sort(attribute='name') | unique(attribute='name') %}
-{% if permissions -%}
+{% if permissions | length > 0 -%}
 RUN true \
     && yay -Sy --needed --noconfirm \
 {% for permission in permissions -%}
