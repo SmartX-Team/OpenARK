@@ -71,17 +71,6 @@ impl PackageManager {
         })
     }
 
-    async fn get(&self, name: &str, namespace: &str) -> Result<Package> {
-        self.repos.get(name).await.map(|mut package| {
-            package
-                .resource
-                .metadata
-                .namespace
-                .replace(namespace.into());
-            package
-        })
-    }
-
     pub fn job_name(name: &str) -> String {
         format!("package-build-{name}")
     }
@@ -127,10 +116,7 @@ pub struct PackageSession<'kube, 'manager> {
 #[async_trait]
 impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 'manager> {
     async fn exists(&self, name: &str) -> Result<bool> {
-        let package = self
-            .manager
-            .get(name, self.kube.default_namespace())
-            .await?;
+        let package = self.get(name, self.kube.default_namespace()).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         exists(&api, &package.name).await
@@ -140,10 +126,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         let namespace = self.kube.default_namespace();
         let sync = self.manager.args.sync();
 
-        let mut package = self
-            .manager
-            .get(name, self.kube.default_namespace())
-            .await?;
+        let mut package = self.get(name, self.kube.default_namespace()).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         if exists(&api, &package.name).await? {
@@ -165,10 +148,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
     }
 
     async fn delete(&self, name: &str) -> Result<()> {
-        let package = self
-            .manager
-            .get(name, self.kube.default_namespace())
-            .await?;
+        let package = self.get(name, self.kube.default_namespace()).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         if exists(&api, &package.name).await? {
@@ -186,7 +166,7 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
         let namespace = self.kube.default_namespace();
         let sync = self.manager.args.sync();
 
-        let mut package = self.manager.get(name, namespace).await?;
+        let mut package = self.get(name, namespace).await?;
 
         let api = Api::<ArkPackageCrd>::default_namespaced(self.kube.clone());
         if !exists(&api, &package.name).await? {
@@ -219,6 +199,24 @@ impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 
 }
 
 impl<'kube, 'manager> PackageSession<'kube, 'manager> {
+    async fn get(&self, name: &str, namespace: &str) -> Result<Package> {
+        let api = Api::<ArkPackageCrd>::namespaced(self.kube.clone(), namespace);
+        match api.get_opt(name).await? {
+            Some(resource) => Ok(Package {
+                name: name.to_string(),
+                resource,
+            }),
+            None => self.manager.repos.get(name).await.map(|mut package| {
+                package
+                    .resource
+                    .metadata
+                    .namespace
+                    .replace(namespace.into());
+                package
+            }),
+        }
+    }
+
     async fn get_node_name(&self, namespace: &str) -> Result<String> {
         let api: Api<Namespace> = Api::<Namespace>::all(self.kube.clone());
         let namespace = api.get(namespace).await?;
