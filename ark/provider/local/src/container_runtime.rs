@@ -1,6 +1,7 @@
 use std::{fs, io::Cursor, path::PathBuf, process::Stdio};
 
-use ark_actor_api::{
+use ark_api::package::ArkUserSpec;
+use ark_provider_api::{
     args::{ActorArgs, ContainerRuntimeKind},
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
@@ -11,7 +12,6 @@ use ark_actor_api::{
     package::Package,
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
-use ark_api::package::ArkUserSpec;
 use ipis::{
     async_trait::async_trait,
     core::anyhow::{bail, Result},

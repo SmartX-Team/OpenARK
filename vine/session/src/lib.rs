@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use ark_api::{NamespaceAny, SessionRef};
-use dash_actor::client::{job::FunctionActorJobClient, SessionContextMetadata};
+use dash_provider::client::{job::FunctionActorJobClient, SessionContextMetadata};
 use ipis::{
     core::{
         anyhow::{bail, Error, Result},
@@ -215,7 +215,7 @@ impl SessionManager {
     }
 }
 
-pub type SessionContext<'a> = ::dash_actor::client::SessionContext<&'a SessionContextSpec<'a>>;
+pub type SessionContext<'a> = ::dash_provider::client::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

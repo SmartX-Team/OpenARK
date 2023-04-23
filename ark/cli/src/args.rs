@@ -1,6 +1,6 @@
 use std::env;
 
-use ark_actor_api::{args::ActorArgs, PackageManager};
+use ark_provider_api::{args::ActorArgs, PackageManager};
 use clap::{value_parser, ArgAction, Parser};
 use ipis::{core::anyhow::Result, futures::TryFutureExt, logger};
 use strum::{Display, EnumString};
@@ -36,17 +36,17 @@ pub(crate) struct ArgsCommon {
     #[command(flatten)]
     actor: ActorArgs,
 
-    /// Which runtime to use
-    #[arg(long, global = true, env = "ARK_RUNTIME")]
-    #[cfg_attr(all(not(feature = "local"), feature = "kubernetes"), arg(default_value_t = Runtime::Kubernetes))]
-    #[cfg_attr(feature = "local", arg(default_value_t = Runtime::Local))]
-    runtime: Runtime,
+    /// Which provider to use
+    #[arg(long, global = true, env = "ARK_PROVIDER")]
+    #[cfg_attr(all(not(feature = "local"), feature = "kubernetes"), arg(default_value_t = Provider::Kubernetes))]
+    #[cfg_attr(feature = "local", arg(default_value_t = Provider::Local))]
+    provider: Provider,
 }
 
 impl ArgsCommon {
     async fn run(self) -> Result<BoxPackageManager> {
         self.init_logger();
-        self.runtime.init_package_manager(self.actor).await
+        self.provider.init_package_manager(self.actor).await
     }
 
     fn init_logger(&self) {
@@ -66,23 +66,23 @@ impl ArgsCommon {
 
 #[derive(Copy, Clone, Debug, Display, EnumString, Parser)]
 #[strum(serialize_all = "camelCase")]
-pub(crate) enum Runtime {
+pub(crate) enum Provider {
     #[cfg(feature = "kubernetes")]
     Kubernetes,
     #[cfg(feature = "local")]
     Local,
 }
 
-impl Runtime {
+impl Provider {
     async fn init_package_manager(&self, args: ActorArgs) -> Result<BoxPackageManager> {
         match self {
             #[cfg(feature = "kubernetes")]
-            Self::Kubernetes => ::ark_actor_kubernetes::PackageManager::try_new(args)
-                .and_then(::ark_actor_kubernetes::PackageManager::try_into_owned_session)
+            Self::Kubernetes => ::ark_provider_kubernetes::PackageManager::try_new(args)
+                .and_then(::ark_provider_kubernetes::PackageManager::try_into_owned_session)
                 .await
                 .map(|manager| Box::new(manager) as BoxPackageManager),
             #[cfg(feature = "local")]
-            Self::Local => ::ark_actor_local::PackageManager::try_new(args)
+            Self::Local => ::ark_provider_local::PackageManager::try_new(args)
                 .await
                 .map(|manager| Box::new(manager) as BoxPackageManager),
         }

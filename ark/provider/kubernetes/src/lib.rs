@@ -3,7 +3,7 @@ mod job_runtime;
 pub mod consts {
     use strum::{Display, EnumString};
 
-    pub const FIELD_MANAGER: &str = "ark-actor-kubernetes";
+    pub const FIELD_MANAGER: &str = "ark-provider-kubernetes";
 
     pub const IMAGE_PULL_SECRET_NAME: &str = "ark-registry";
 
@@ -21,15 +21,15 @@ pub mod consts {
 
 use std::fmt;
 
-use ark_actor_api::{
+use ark_api::{
+    package::{ArkPackageCrd, ArkPackageState},
+    NamespaceAny,
+};
+use ark_provider_api::{
     args::ActorArgs,
     package::Package,
     repo::RepositoryManager,
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
-};
-use ark_api::{
-    package::{ArkPackageCrd, ArkPackageState},
-    NamespaceAny,
 };
 use ipis::{
     async_trait::async_trait,
@@ -92,7 +92,7 @@ pub struct PackageSessionOwned {
 }
 
 #[async_trait]
-impl ::ark_actor_api::PackageManager for PackageSessionOwned {
+impl ::ark_provider_api::PackageManager for PackageSessionOwned {
     async fn exists(&self, name: &str) -> Result<bool> {
         let Self { kube, manager } = self;
         let session = PackageSession { kube, manager };
@@ -124,7 +124,7 @@ pub struct PackageSession<'kube, 'manager> {
 }
 
 #[async_trait]
-impl<'kube, 'manager> ::ark_actor_api::PackageManager for PackageSession<'kube, 'manager> {
+impl<'kube, 'manager> ::ark_provider_api::PackageManager for PackageSession<'kube, 'manager> {
     async fn exists(&self, name: &str) -> Result<bool> {
         let package = self.get(name, self.kube.default_namespace()).await?;
 

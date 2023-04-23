@@ -3,12 +3,12 @@ use actix_web::{
     web::{Data, Json, Path},
     HttpResponse, Responder,
 };
-use dash_actor::{
+use dash_api::{kube::Client, serde_json::Value};
+use dash_provider::{
     client::{FunctionSession, SessionContextMetadata, SessionResult},
     input::{InputField, Name},
     storage::KubernetesStorageClient,
 };
-use dash_api::{kube::Client, serde_json::Value};
 
 #[get("/function/{name}/")]
 pub async fn get(kube: Data<Client>, name: Path<Name>) -> impl Responder {

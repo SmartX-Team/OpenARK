@@ -40,11 +40,12 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
         let parse_label = |key: &str| data.labels().get(key);
         let build_timestamp =
-            match parse_label(::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP) {
+            match parse_label(::ark_provider_kubernetes::consts::LABEL_BUILD_TIMESTAMP) {
                 Some(build_timestamp) => build_timestamp,
                 None => return Ok(Action::await_change()),
             };
-        let package_name = match parse_label(::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME) {
+        let package_name = match parse_label(::ark_provider_kubernetes::consts::LABEL_PACKAGE_NAME)
+        {
             Some(build_timestamp) => build_timestamp,
             None => return Ok(Action::await_change()),
         };
@@ -132,7 +133,7 @@ impl<'a> UpdateStateCtx<'a> {
             Ok(Some(package))
                 if package
                     .labels()
-                    .get(::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
+                    .get(::ark_provider_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
                     == Some(*build_timestamp) =>
             {
                 if package

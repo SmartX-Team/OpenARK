@@ -3,7 +3,6 @@ use std::{
     fmt,
 };
 
-use dash_actor::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use dash_api::{
     k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
         CustomResourceDefinitionVersion, JSONSchemaProps,
@@ -14,6 +13,7 @@ use dash_api::{
         ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
     },
 };
+use dash_provider::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use inflector::Inflector;
 use ipis::{
     core::anyhow::{bail, Result},

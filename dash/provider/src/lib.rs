@@ -117,4 +117,4 @@ pub mod name {
     pub const RE_SET: &str = r"^(/[1-9]?[0-9]+|/[a-z_-][a-z0-9_-]*[a-z0-9]?)*/([A-Za-z0-9._-]*)$";
 }
 
-pub(crate) const NAME: &str = "dash-actor";
+pub(crate) const NAME: &str = "dash-provider";

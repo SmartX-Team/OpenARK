@@ -1,11 +1,11 @@
 use std::env;
 
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_actor::{
+use dash_api::{kube::Client, serde_json};
+use dash_provider::{
     client::{FunctionSession, SessionContextMetadata, SessionResult},
     input::InputFieldString,
 };
-use dash_api::{kube::Client, serde_json};
 use ipis::{core::anyhow::Result, logger, tokio};
 
 #[derive(Parser)]

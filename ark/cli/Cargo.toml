@@ -19,13 +19,13 @@ path = "./src/main.rs"
 
 [features]
 default = ["kubernetes", "local"]
-kubernetes = ["ark-actor-kubernetes"]
-local = ["ark-actor-local"]
+kubernetes = ["ark-provider-kubernetes"]
+local = ["ark-provider-local"]
 
 [dependencies]
-ark-actor-api = { path = "../actor/api" }
-ark-actor-kubernetes = { path = "../actor/kubernetes", optional = true }
-ark-actor-local = { path = "../actor/local", optional = true }
+ark-provider-api = { path = "../provider/api" }
+ark-provider-kubernetes = { path = "../provider/kubernetes", optional = true }
+ark-provider-local = { path = "../provider/local", optional = true }
 ark-api = { path = "../api" }
 ipis = { workspace = true }
 

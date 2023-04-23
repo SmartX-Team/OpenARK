@@ -1,4 +1,4 @@
-use ark_actor_api::PackageManager;
+use ark_provider_api::PackageManager;
 use clap::Parser;
 use ipis::core::anyhow::Result;
 

@@ -1,5 +1,5 @@
-use dash_actor::{client::FunctionActorClient, storage::KubernetesStorageClient};
 use dash_api::{function::FunctionSpec, kube::Client, model::ModelFieldKindNativeSpec};
+use dash_provider::{client::FunctionActorClient, storage::KubernetesStorageClient};
 use ipis::core::anyhow::{bail, Result};
 
 use super::model::ModelValidator;

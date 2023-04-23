@@ -14,8 +14,8 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-actor = { path = "../actor" }
 dash-api = { path = "../api" }
+dash-provider = { path = "../provider" }
 ipis = { workspace = true }
 kiss-api = { path = "../../kiss/api" }
 

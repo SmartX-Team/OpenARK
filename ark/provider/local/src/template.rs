@@ -3,8 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ark_actor_api::{args::ActorArgs, package::Package};
 use ark_api::package::ArkPackageCrd;
+use ark_provider_api::{args::ActorArgs, package::Package};
 use ipis::{
     core::anyhow::{Error, Result},
     env,

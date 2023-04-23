@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
-use ark_actor_api::{args::ActorArgs, repo::RepositoryManager, runtime::ApplicationRuntime};
-use ark_actor_kubernetes::{consts::JobKind, PackageManager};
-use ark_actor_local::template::TemplateManager;
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
     NamespaceAny,
 };
+use ark_provider_api::{args::ActorArgs, repo::RepositoryManager, runtime::ApplicationRuntime};
+use ark_provider_kubernetes::{consts::JobKind, PackageManager};
+use ark_provider_local::template::TemplateManager;
 use ipis::{
     async_trait::async_trait,
     core::{
@@ -119,7 +119,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     {
                         Some(timeout) => match data
                             .labels()
-                            .get(::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
+                            .get(::ark_provider_kubernetes::consts::LABEL_BUILD_TIMESTAMP)
                             .and_then(|build_timestamp| build_timestamp.parse::<i64>().ok())
                             .and_then(|build_timestamp| {
                                 NaiveDateTime::from_timestamp_micros(build_timestamp)
@@ -481,7 +481,7 @@ where
 
     let api = Api::<K>::namespaced(kube.clone(), &namespace);
     let pp = PostParams {
-        field_manager: Some(::ark_actor_kubernetes::consts::FIELD_MANAGER.into()),
+        field_manager: Some(::ark_provider_kubernetes::consts::FIELD_MANAGER.into()),
         ..Default::default()
     };
     api.create(&pp, data).await.map(|_| ()).map_err(Into::into)
@@ -497,15 +497,15 @@ fn job_labels(
 
     [
         (
-            ::ark_actor_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
+            ::ark_provider_kubernetes::consts::LABEL_BUILD_TIMESTAMP,
             timestamp.as_deref(),
         ),
         (
-            ::ark_actor_kubernetes::consts::LABEL_JOB_KIND,
+            ::ark_provider_kubernetes::consts::LABEL_JOB_KIND,
             job_kind.as_deref(),
         ),
         (
-            ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME,
+            ::ark_provider_kubernetes::consts::LABEL_PACKAGE_NAME,
             Some(name),
         ),
     ]
@@ -517,8 +517,8 @@ fn job_labels(
 fn list_jobs(package_name: &str, job_kind: JobKind) -> ListParams {
     ListParams {
         label_selector: {
-            let package_name_key = ::ark_actor_kubernetes::consts::LABEL_PACKAGE_NAME;
-            let job_kind_key = ::ark_actor_kubernetes::consts::LABEL_JOB_KIND;
+            let package_name_key = ::ark_provider_kubernetes::consts::LABEL_PACKAGE_NAME;
+            let job_kind_key = ::ark_provider_kubernetes::consts::LABEL_JOB_KIND;
 
             Some(format!(
                 "{package_name_key}={package_name},{job_kind_key}={job_kind}"

@@ -1,5 +1,5 @@
 [package]
-name = "dash-actor"
+name = "ark-provider-kubernetes"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,18 +13,12 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = []
-i-want-to-cleanup-all-before-running-for-my-testing = []
-
 [dependencies]
-dash-api = { path = "../api" }
+ark-api = { path = "../../api" }
+ark-provider-api = { path = "../api" }
 ipis = { workspace = true }
 
-actix-web = { workspace = true, default-features = false }
-inflector = { workspace = true }
-regex = { workspace = true }
-sea-orm = { workspace = true }
-serde = { workspace = true }
-sha2 = { workspace = true }
-tera = { workspace = true }
+ctrlc = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+strum = { workspace = true }

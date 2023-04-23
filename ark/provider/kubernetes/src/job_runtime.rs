@@ -6,7 +6,8 @@ use std::{
     time::Duration,
 };
 
-use ark_actor_api::{
+use ark_api::{package::ArkUserSpec, NamespaceAny};
+use ark_provider_api::{
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
         ApplicationDeviceGpu, ApplicationDeviceGpuNvidia, ApplicationDeviceIpc,
@@ -15,7 +16,6 @@ use ark_actor_api::{
     },
     package::Package,
 };
-use ark_api::{package::ArkUserSpec, NamespaceAny};
 use ipis::{
     async_trait::async_trait,
     core::anyhow::Result,

@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use dash_actor::storage::KubernetesStorageClient;
 use dash_api::{
     kube::{
         api::{Patch, PatchParams},
@@ -10,6 +9,7 @@ use dash_api::{
     serde_json::json,
     storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageState, ModelStorageStatus},
 };
+use dash_provider::storage::KubernetesStorageClient;
 use ipis::{
     async_trait::async_trait,
     core::{anyhow::Result, chrono::Utc},
