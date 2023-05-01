@@ -25,7 +25,7 @@ pub struct KissConfig {
 
 impl KissConfig {
     pub async fn try_default(kube: &Client) -> Result<Self> {
-        let ns = crate::consts::NAMESPACE;
+        let ns = ::kiss_api::consts::NAMESPACE;
         let api = Api::<ConfigMap>::namespaced(kube.clone(), ns);
         let config = api.get("kiss-config").await?;
 

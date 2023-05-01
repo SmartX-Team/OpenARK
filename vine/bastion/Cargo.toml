@@ -21,6 +21,11 @@ vine-rbac = { path = "../rbac" }
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }
 anyhow = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 uuid = { workspace = true }

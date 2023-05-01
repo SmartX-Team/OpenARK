@@ -21,6 +21,11 @@ vine-session = { path = "../session" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 tokio = { workspace = true }

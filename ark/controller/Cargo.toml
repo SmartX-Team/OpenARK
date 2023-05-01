@@ -26,7 +26,12 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 inflector = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }

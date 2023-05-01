@@ -22,7 +22,12 @@ async-trait = { workspace = true }
 ctrlc = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 strum = { workspace = true }
 tokio = { workspace = true, features = ["io-std"] }

@@ -24,7 +24,12 @@ dash-provider-api = { path = "../provider/api" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

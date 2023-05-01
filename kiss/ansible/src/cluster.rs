@@ -6,8 +6,7 @@ use kube::{api::ListParams, Api, Client, Error};
 use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-use crate::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
+use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
 
 pub struct ClusterState<'a> {
     owner_group: &'a BoxGroupSpec,

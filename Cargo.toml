@@ -19,6 +19,7 @@ members = [
     "dash/provider",
     "dash/provider/api",
     "dash/router",
+    "kiss/ansible",
     "kiss/api",
     "kiss/assets",
     "kiss/controller",
@@ -68,13 +69,7 @@ influxdb2-structmap = { version = "0.2" }
 ipnet = { version = "2.7", features = ["schemars", "serde"] }
 itertools = { version = "0.10" }
 k8s-openapi = { version = "0.18", features = ["schemars", "v1_26"] }
-kube = { version = "0.82", default-features = false, features = [
-    "client",
-    "derive",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { version = "0.82", default-features = false }
 language-tags = { version = "0.3", features = ["serde"] }
 log = { version = "0.4" }
 mime = { version = "0.3" }
@@ -122,7 +117,7 @@ strum = { version = "0.24", features = ["derive"] }
 tera = { version = "1.18" }
 tokio = { version = "1.28", features = ["macros", "rt"] }
 url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.2", features = ["serde", "v4"] }
+uuid = { version = "1.2", features = ["js", "serde", "v4"] }
 which = { version = "4.4" }
 
 [patch.crates-io]

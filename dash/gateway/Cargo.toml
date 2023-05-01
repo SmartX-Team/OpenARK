@@ -22,5 +22,10 @@ dash-provider-api = { path = "../provider/api", features = ["actix-web"] }
 anyhow = { workspace = true }
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 serde_json = { workspace = true }

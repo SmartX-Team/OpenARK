@@ -20,6 +20,11 @@ kiss-api = { path = "../api" }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 serde_json = { workspace = true }

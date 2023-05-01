@@ -5,10 +5,8 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::api::batch::v1::Job;
-use kiss_api::{
-    ansible::AnsibleClient,
-    r#box::{BoxCrd, BoxState},
-};
+use kiss_ansible::AnsibleClient;
+use kiss_api::r#box::{BoxCrd, BoxState};
 use kube::{
     api::{Patch, PatchParams},
     runtime::controller::Action,

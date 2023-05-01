@@ -22,7 +22,7 @@ email_address = { workspace = true }
 inflector = { workspace = true }
 ipnet = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = ["derive"] }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

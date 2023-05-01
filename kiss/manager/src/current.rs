@@ -8,7 +8,7 @@ use k8s_openapi::{
     },
     Resource,
 };
-use kiss_api::ansible::AnsibleClient;
+use kiss_ansible::AnsibleClient;
 use kube::{
     api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
     core::ObjectMeta,
@@ -184,7 +184,7 @@ impl Handler {
                         ..Default::default()
                     }),
                     spec: Some(PodSpec {
-                        affinity: Some(::kiss_api::job::affinity()),
+                        affinity: Some(::kiss_ansible::job::affinity()),
                         restart_policy: Some("OnFailure".into()),
                         service_account: Some("kiss-system".into()),
                         containers: vec![Container {

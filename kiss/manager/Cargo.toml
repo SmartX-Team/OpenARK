@@ -15,11 +15,17 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-core = { path = "../../ark/core" }
+kiss-ansible = { path = "../ansible" }
 kiss-api = { path = "../api" }
 
 anyhow = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 log = { workspace = true }
 octocrab = { workspace = true }
 semver = { workspace = true }

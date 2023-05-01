@@ -1,3 +1,7 @@
+mod cluster;
+mod config;
+pub mod job;
+
 use anyhow::Result;
 use inflector::Inflector;
 use k8s_openapi::{
@@ -11,6 +15,7 @@ use k8s_openapi::{
     },
     apimachinery::pkg::api::resource::Quantity,
 };
+use kiss_api::r#box::{BoxCrd, BoxGroupSpec, BoxPowerType, BoxState};
 use kube::{
     api::{DeleteParams, ListParams, PostParams},
     core::ObjectMeta,
@@ -18,14 +23,8 @@ use kube::{
 };
 use log::info;
 
-use crate::{
-    cluster::ClusterState,
-    config::KissConfig,
-    r#box::{BoxCrd, BoxGroupSpec, BoxPowerType, BoxState},
-};
-
 pub struct AnsibleClient {
-    pub kiss: KissConfig,
+    pub kiss: self::config::KissConfig,
 }
 
 impl AnsibleClient {
@@ -35,12 +34,12 @@ impl AnsibleClient {
 
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
-            kiss: KissConfig::try_default(kube).await?,
+            kiss: self::config::KissConfig::try_default(kube).await?,
         })
     }
 
     pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<bool, Error> {
-        let ns = crate::consts::NAMESPACE;
+        let ns = ::kiss_api::consts::NAMESPACE;
         let box_name = job.r#box.spec.machine.uuid.to_string();
         let box_status = job.r#box.status.as_ref();
         let name = format!("box-{}-{}", &job.task, &box_name);
@@ -75,7 +74,7 @@ impl AnsibleClient {
         }
 
         // realize mutual exclusivity (QUEUE)
-        let cluster_state = ClusterState::load(kube, &job.r#box.spec).await?;
+        let cluster_state = self::cluster::ClusterState::load(kube, &job.r#box.spec).await?;
         if matches!(job.new_state, BoxState::Joining) && !cluster_state.is_joinable() {
             info!(
                 "Cluster is not ready: {} {} {} -> {}",

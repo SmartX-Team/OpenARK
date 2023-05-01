@@ -4,10 +4,8 @@ use anyhow::Result;
 use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
-use kiss_api::{
-    ansible::{AnsibleClient, AnsibleJob},
-    r#box::{BoxCrd, BoxGroupRole, BoxState},
-};
+use kiss_ansible::{AnsibleClient, AnsibleJob};
+use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxState};
 use kube::{
     api::{Patch, PatchParams},
     runtime::controller::Action,
