@@ -16,6 +16,7 @@ members = [
     "dash/client",
     "dash/controller",
     "dash/gateway",
+    "dash/openapi",
     "dash/provider",
     "dash/provider/api",
     "dash/router",
