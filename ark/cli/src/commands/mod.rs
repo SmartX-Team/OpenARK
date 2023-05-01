@@ -2,9 +2,9 @@ mod add;
 mod del;
 mod run;
 
+use anyhow::Result;
 use ark_provider_api::PackageManager;
 use clap::Subcommand;
-use ipis::core::anyhow::Result;
 
 #[derive(Subcommand)]
 pub(crate) enum Command {

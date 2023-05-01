@@ -1,27 +1,24 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use ark_api::package::{ArkPackageCrd, ArkPackageState};
-use ipis::{
-    async_trait::async_trait,
-    core::{anyhow::Result, chrono::Utc},
-    log::{info, warn},
+use ark_core_k8s::manager::Manager;
+use async_trait::async_trait;
+use chrono::Utc;
+use k8s_openapi::api::batch::v1::Job;
+use kube::{
+    api::{Patch, PatchParams},
+    runtime::controller::Action,
+    Api, Client, CustomResourceExt, Error, ResourceExt,
 };
-use kiss_api::{
-    k8s_openapi::api::batch::v1::Job,
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, Client, CustomResourceExt, Error, ResourceExt,
-    },
-    manager::Manager,
-    serde_json::json,
-};
+use log::{info, warn};
+use serde_json::json;
 
 #[derive(Default)]
 pub struct Ctx {}
 
 #[async_trait]
-impl ::kiss_api::manager::Ctx for Ctx {
+impl ::ark_core_k8s::manager::Ctx for Ctx {
     type Data = Job;
 
     const NAME: &'static str = crate::consts::NAME;
@@ -29,7 +26,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -84,7 +81,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         // when the ansible job is not finished yet
         else {
             Ok(Action::requeue(
-                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
             ))
         }
     }
@@ -151,7 +148,7 @@ impl<'a> UpdateStateCtx<'a> {
                             "last_updated": Utc::now(),
                         },
                     }));
-                    let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
+                    let pp = PatchParams::apply(<Ctx as ::ark_core_k8s::manager::Ctx>::NAME);
                     api.patch_status(package_name, &pp, &patch).await?;
 
                     info!("Updated package state: {name} ({package_name} => {state})");

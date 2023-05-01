@@ -15,10 +15,14 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 dash-api = { path = "../../dash/api" }
-ipis = { workspace = true }
 netai-api = { path = "../../netai/api" }
 netai-client = { path = "../../netai/client" }
 proxyx-storage-influxdb = { path = "../storage/influxdb" }
 
+anyhow = { workspace = true }
+chrono = { workspace = true }
+itertools = { workspace = true }
+language-tags = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }

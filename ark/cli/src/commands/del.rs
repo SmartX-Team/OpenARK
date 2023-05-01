@@ -1,6 +1,6 @@
+use anyhow::Result;
 use ark_provider_api::PackageManager;
 use clap::Parser;
-use ipis::core::anyhow::Result;
 
 #[derive(Parser)]
 pub(crate) struct Args {

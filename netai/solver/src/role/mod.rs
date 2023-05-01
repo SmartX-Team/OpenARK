@@ -2,7 +2,7 @@ pub mod nlp;
 
 use std::str::FromStr;
 
-use ipis::core::anyhow::Result;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use strum::{Display, ParseError};
 

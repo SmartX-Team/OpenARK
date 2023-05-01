@@ -1,13 +1,10 @@
 use core::{future::Future, time::Duration};
 use std::sync::Arc;
 
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::Result,
-    futures::{self, StreamExt},
-    log::{info, warn},
-    logger,
-};
+use anyhow::Result;
+use ark_core::logger;
+use async_trait::async_trait;
+use futures::StreamExt;
 use k8s_openapi::{
     apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
     NamespaceResourceScope,
@@ -17,6 +14,7 @@ use kube::{
     runtime::{controller::Action, watcher::Config, Controller},
     Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
 };
+use log::{info, warn};
 use serde::de::DeserializeOwned;
 
 pub struct Manager<C> {

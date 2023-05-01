@@ -1,8 +1,6 @@
+use anyhow::{Error, Result};
 use ark_api::package::{ArkPermissionKind, ArkUserSpec};
-use ipis::{
-    core::anyhow::{Error, Result},
-    env,
-};
+use ark_core::env;
 
 use crate::{
     args::ActorArgs,

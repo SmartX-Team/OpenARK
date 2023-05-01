@@ -1,18 +1,14 @@
 use std::path::PathBuf;
 
 use actix_web::{dev::Payload, http::header, HttpRequest, HttpResponse};
-use ipis::{
-    core::{
-        anyhow::{bail, Result},
-        ndarray::IxDyn,
-    },
-    env,
-    tokio::fs,
-};
+use anyhow::{bail, Result};
+use ark_core::env;
+use ndarray::IxDyn;
 use ort::{
     tensor::{DynOrtTensor, InputTensor},
     Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
 };
+use tokio::fs;
 
 use crate::{
     io::{Request, Response},

@@ -1,7 +1,7 @@
 mod ctx;
 
-use ipis::tokio::{self, join};
-use kiss_api::manager::Ctx;
+use ark_core_k8s::manager::Ctx;
+use tokio::join;
 
 pub(crate) mod consts {
     pub const NAME: &str = "ark-controller";

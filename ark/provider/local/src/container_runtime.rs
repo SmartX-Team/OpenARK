@@ -1,5 +1,6 @@
 use std::{fs, io::Cursor, path::PathBuf, process::Stdio};
 
+use anyhow::{bail, Result};
 use ark_api::package::ArkUserSpec;
 use ark_provider_api::{
     args::{ActorArgs, ContainerRuntimeKind},
@@ -12,13 +13,10 @@ use ark_provider_api::{
     package::Package,
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::{bail, Result},
-    tokio::{
-        io::{self, AsyncWriteExt},
-        process::Command,
-    },
+use async_trait::async_trait;
+use tokio::{
+    io::{self, AsyncWriteExt},
+    process::Command,
 };
 
 use crate::template::Template;

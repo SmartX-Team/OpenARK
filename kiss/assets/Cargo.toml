@@ -14,10 +14,18 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { workspace = true }
+ark-core = { path = "../../ark/core" }
 kiss-api = { path = "../api" }
 
 actix-web = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
 http-cache-reqwest = { workspace = true }
+log = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }

@@ -1,46 +1,40 @@
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 
+use anyhow::Result;
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageSpec, ArkPackageState},
     NamespaceAny,
 };
+use ark_core::env;
+use ark_core_k8s::manager::Manager;
 use ark_provider_api::{args::ActorArgs, repo::RepositoryManager, runtime::ApplicationRuntime};
 use ark_provider_kubernetes::{consts::JobKind, PackageManager};
 use ark_provider_local::template::TemplateManager;
-use ipis::{
-    async_trait::async_trait,
-    core::{
-        anyhow::Result,
-        chrono::{DateTime, NaiveDateTime, Utc},
-    },
-    env,
-    log::{info, warn},
-    tokio::{time, try_join},
-};
-use kiss_api::{
-    k8s_openapi::{
-        api::{
-            batch::v1::{Job, JobSpec},
-            core::v1::{
-                Affinity, ConfigMap, ConfigMapVolumeSource, Container, EmptyDirVolumeSource,
-                EnvVar, NodeAffinity, NodeSelectorRequirement, NodeSelectorTerm, Pod,
-                PodSecurityContext, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
-                ResourceRequirements, Volume, VolumeMount,
-            },
+use async_trait::async_trait;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use k8s_openapi::{
+    api::{
+        batch::v1::{Job, JobSpec},
+        core::v1::{
+            Affinity, ConfigMap, ConfigMapVolumeSource, Container, EmptyDirVolumeSource, EnvVar,
+            NodeAffinity, NodeSelectorRequirement, NodeSelectorTerm, Pod, PodSecurityContext,
+            PodSpec, PodTemplateSpec, PreferredSchedulingTerm, ResourceRequirements, Volume,
+            VolumeMount,
         },
-        apimachinery::pkg::api::resource::Quantity,
-        serde::{de::DeserializeOwned, Serialize},
-        NamespaceResourceScope,
     },
-    kube::{
-        api::{ListParams, Patch, PatchParams, PostParams},
-        core::ObjectMeta,
-        runtime::controller::Action,
-        Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
-    },
-    manager::Manager,
-    serde_json::json,
+    apimachinery::pkg::api::resource::Quantity,
+    serde::{de::DeserializeOwned, Serialize},
+    NamespaceResourceScope,
 };
+use kube::{
+    api::{ListParams, Patch, PatchParams, PostParams},
+    core::ObjectMeta,
+    runtime::controller::Action,
+    Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
+};
+use log::{info, warn};
+use serde_json::json;
+use tokio::{time, try_join};
 
 pub struct Ctx {
     app: ApplicationRuntime<()>,
@@ -50,7 +44,7 @@ pub struct Ctx {
 }
 
 #[async_trait]
-impl ::kiss_api::manager::TryDefault for Ctx {
+impl ::ark_core_k8s::manager::TryDefault for Ctx {
     async fn try_default() -> Result<Self> {
         Ok(Self {
             app: ApplicationRuntime::try_default()?,
@@ -62,7 +56,7 @@ impl ::kiss_api::manager::TryDefault for Ctx {
 }
 
 #[async_trait]
-impl ::kiss_api::manager::Ctx for Ctx {
+impl ::ark_core_k8s::manager::Ctx for Ctx {
     type Data = ArkPackageCrd;
 
     const NAME: &'static str = crate::consts::NAME;
@@ -71,7 +65,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -115,7 +109,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     rebuild().await
                 } else {
                     match Self::TIMEOUT_BUILDING
-                        .and_then(|timeout| ::ipis::core::chrono::Duration::from_std(timeout).ok())
+                        .and_then(|timeout| ::chrono::Duration::from_std(timeout).ok())
                     {
                         Some(timeout) => match data
                             .labels()
@@ -162,7 +156,7 @@ impl Ctx {
 
 struct BuildArgs<'a> {
     manager: &'a Manager<Ctx>,
-    data: &'a <Ctx as ::kiss_api::manager::Ctx>::Data,
+    data: &'a <Ctx as ::ark_core_k8s::manager::Ctx>::Data,
 }
 
 async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Action, Error> {
@@ -186,14 +180,18 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
         Ok(package) => package,
         Err(e) => {
             warn!("failed to find package: {namespace} -> {name}: {e}");
-            return Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK));
+            return Ok(Action::requeue(
+                <Ctx as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            ));
         }
     };
     let template = match manager.ctx.template.render_build(&package) {
         Ok(template) => template.text,
         Err(e) => {
             warn!("failed to render template: {namespace} -> {name}: {e}");
-            return Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK));
+            return Ok(Action::requeue(
+                <Ctx as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            ));
         }
     };
     let config_map = ConfigMap {
@@ -344,7 +342,9 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
     let lp = list_jobs(&name, JobKind::Add);
     if let Err(e) = super::try_delete_all::<Pod>(&manager.kube, &namespace, &lp).await {
         warn!("failed to delete previous pods: {namespace} -> {name}: {e}");
-        return Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK));
+        return Ok(Action::requeue(
+            <Ctx as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+        ));
     }
 
     match try_join!(
@@ -365,14 +365,16 @@ async fn begin_build(BuildArgs { manager, data }: &BuildArgs<'_>) -> Result<Acti
         }
         Err(e) => {
             warn!("failed to begin building: {namespace} -> {name}: {e}");
-            Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK))
+            Ok(Action::requeue(
+                <Ctx as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            ))
         }
     }
 }
 
 async fn cancel_build(
     manager: &Manager<Ctx>,
-    data: &<Ctx as ::kiss_api::manager::Ctx>::Data,
+    data: &<Ctx as ::ark_core_k8s::manager::Ctx>::Data,
     reason: &str,
 ) -> Result<Action, Error> {
     let name = data.name_any();
@@ -397,7 +399,9 @@ async fn cancel_build(
         }
         Err(e) => {
             warn!("failed to cancel building: {namespace} -> {name}: {e}");
-            Ok(Action::requeue(<Ctx as ::kiss_api::manager::Ctx>::FALLBACK))
+            Ok(Action::requeue(
+                <Ctx as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            ))
         }
     }
 }
@@ -438,9 +442,11 @@ impl<'a> UpdateStateCtx<'a> {
             timestamp,
         } = self;
 
-        let api =
-            Api::<<Ctx as ::kiss_api::manager::Ctx>::Data>::namespaced((*kube).clone(), namespace);
-        let crd = <Ctx as ::kiss_api::manager::Ctx>::Data::api_resource();
+        let api = Api::<<Ctx as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
+            (*kube).clone(),
+            namespace,
+        );
+        let crd = <Ctx as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
         let job_kind = None;
 
         let patch = Patch::Merge(json!({
@@ -455,7 +461,7 @@ impl<'a> UpdateStateCtx<'a> {
                 "lastUpdated": timestamp.unwrap_or_else(Utc::now),
             },
         }));
-        let pp = PatchParams::apply(<Ctx as ::kiss_api::manager::Ctx>::NAME);
+        let pp = PatchParams::apply(<Ctx as ::ark_core_k8s::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
         api.patch(name, &pp, &patch).await?;
         Ok(())

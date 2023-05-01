@@ -1,28 +1,27 @@
 use std::sync::Arc;
 
-use ipis::{
-    async_trait::async_trait,
-    core::{anyhow::Result, chrono::Utc},
-    log::{info, warn},
-};
+use anyhow::Result;
+use ark_core_k8s::manager::Manager;
+use async_trait::async_trait;
+use chrono::Utc;
+use k8s_openapi::api::batch::v1::Job;
 use kiss_api::{
     ansible::AnsibleClient,
-    k8s_openapi::api::batch::v1::Job,
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, CustomResourceExt, Error, ResourceExt,
-    },
-    manager::Manager,
     r#box::{BoxCrd, BoxState},
-    serde_json::json,
 };
+use kube::{
+    api::{Patch, PatchParams},
+    runtime::controller::Action,
+    Api, CustomResourceExt, Error, ResourceExt,
+};
+use log::{info, warn};
+use serde_json::json;
 
 #[derive(Default)]
 pub struct Ctx {}
 
 #[async_trait]
-impl ::kiss_api::manager::Ctx for Ctx {
+impl ::ark_core_k8s::manager::Ctx for Ctx {
     type Data = Job;
 
     const NAME: &'static str = crate::consts::NAME;
@@ -30,7 +29,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -68,7 +67,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
             else {
                 info!("Skipping updating box state: {name} ({box_name})");
                 Ok(Action::requeue(
-                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
         }
@@ -83,7 +82,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
         // when the ansible job is not finished yet
         else {
             Ok(Action::requeue(
-                <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
             ))
         }
     }
@@ -92,7 +91,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 impl Ctx {
     async fn update_box_state(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
         state: BoxState,
     ) -> Result<Action, Error>
     where
@@ -119,15 +118,15 @@ impl Ctx {
 
         info!("Updated box state: {} -> {}", &box_name, &state);
         Ok(Action::requeue(
-            <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
         ))
     }
 
-    fn get_box_name(data: &<Self as ::kiss_api::manager::Ctx>::Data) -> Option<String> {
+    fn get_box_name(data: &<Self as ::ark_core_k8s::manager::Ctx>::Data) -> Option<String> {
         Self::get_label(data, AnsibleClient::LABEL_BOX_NAME)
     }
 
-    fn get_label<T>(data: &<Self as ::kiss_api::manager::Ctx>::Data, label: &str) -> Option<T>
+    fn get_label<T>(data: &<Self as ::ark_core_k8s::manager::Ctx>::Data, label: &str) -> Option<T>
     where
         T: ::core::str::FromStr + Send,
         <T as ::core::str::FromStr>::Err: ::core::fmt::Display + Send,

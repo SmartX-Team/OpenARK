@@ -15,7 +15,7 @@ mod impl_multipart_form_for_qustion_word_inputs {
         Field, MultipartError,
     };
     use actix_web::HttpRequest;
-    use ipis::futures::future::LocalBoxFuture;
+    use futures::future::LocalBoxFuture;
 
     #[derive(MultipartForm)]
     struct Template {

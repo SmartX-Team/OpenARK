@@ -1,6 +1,7 @@
 use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
-use ipis::log::error;
-use vine_api::{kube::Client, user_auth::UserAuthResponse};
+use kube::Client;
+use log::error;
+use vine_api::user_auth::UserAuthResponse;
 
 #[get("/auth")]
 pub async fn get(request: HttpRequest, client: Data<Client>) -> impl Responder {

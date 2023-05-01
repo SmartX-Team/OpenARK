@@ -14,8 +14,10 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { workspace = true }
+ark-core = { path = "../../ark/core" }
 netai-solver = { path = "../solver" }
 
 actix-multipart = { workspace = true }
 actix-web = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }

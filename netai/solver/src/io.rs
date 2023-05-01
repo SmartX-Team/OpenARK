@@ -3,10 +3,8 @@ use actix_multipart::{
     Field, MultipartError,
 };
 use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
-use ipis::{
-    core::anyhow::{anyhow, bail, Result},
-    futures::{future::LocalBoxFuture, FutureExt, TryFutureExt},
-};
+use anyhow::{anyhow, bail, Result};
+use futures::{future::LocalBoxFuture, FutureExt, TryFutureExt};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub struct Request {

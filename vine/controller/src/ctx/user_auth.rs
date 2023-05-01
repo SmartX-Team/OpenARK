@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use ipis::{async_trait::async_trait, core::anyhow::Result};
-use kiss_api::manager::Manager;
-use vine_api::{
-    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
-    kube::{runtime::controller::Action, CustomResourceExt, Error},
-    user_auth::UserAuthCrd,
-};
+use anyhow::Result;
+use ark_core_k8s::manager::Manager;
+use async_trait::async_trait;
+use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+use kube::{runtime::controller::Action, CustomResourceExt, Error};
+use vine_api::user_auth::UserAuthCrd;
 
 #[derive(Default)]
 pub struct Ctx {}
 
 #[async_trait]
-impl ::kiss_api::manager::Ctx for Ctx {
+impl ::ark_core_k8s::manager::Ctx for Ctx {
     type Data = UserAuthCrd;
 
     const NAME: &'static str = crate::consts::NAME;
@@ -33,14 +32,14 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
     {
         // If no events were received, check back after a few minutes
         Ok(Action::requeue(
-            <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
         ))
     }
 }

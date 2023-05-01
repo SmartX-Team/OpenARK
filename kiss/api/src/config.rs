@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use ipis::core::anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Error, Result};
 use ipnet::Ipv4Net;
 use k8s_openapi::api::core::v1::ConfigMap;
 use kube::{Api, Client};

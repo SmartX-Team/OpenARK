@@ -1,26 +1,22 @@
 use std::collections::BTreeMap;
 
-use ipis::{
-    core::anyhow::{anyhow, bail, Result},
-    log::{info, warn},
-};
-use kiss_api::{
-    ansible::AnsibleClient,
-    k8s_openapi::{
-        api::{
-            batch::v1::{Job, JobSpec},
-            core::v1::{ConfigMap, Container, EnvVar, PodSpec, PodTemplateSpec},
-        },
-        Resource,
+use anyhow::{anyhow, bail, Result};
+use k8s_openapi::{
+    api::{
+        batch::v1::{Job, JobSpec},
+        core::v1::{ConfigMap, Container, EnvVar, PodSpec, PodTemplateSpec},
     },
-    kube::{
-        api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
-        core::ObjectMeta,
-        Api, Client, ResourceExt,
-    },
-    serde_json::json,
+    Resource,
 };
+use kiss_api::ansible::AnsibleClient;
+use kube::{
+    api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
+    core::ObjectMeta,
+    Api, Client, ResourceExt,
+};
+use log::{info, warn};
 use semver::Version;
+use serde_json::json;
 
 pub struct Handler {
     api_config: Api<ConfigMap>,

@@ -1,25 +1,23 @@
+use anyhow::{bail, Result};
 use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
-    k8s_openapi::{
-        api::core::v1::ConfigMap,
-        apiextensions_apiserver::pkg::apis::apiextensions::v1::{
-            CustomResourceDefinition, CustomResourceDefinitionVersion,
-        },
-    },
-    kube::{
-        api::ListParams,
-        core::{object::HasStatus, DynamicObject},
-        discovery, Api, Client, ResourceExt,
-    },
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
-    serde_json::{self, Value},
     storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
 };
-use ipis::{
-    core::anyhow::{bail, Result},
-    itertools::Itertools,
+use itertools::Itertools;
+use k8s_openapi::{
+    api::core::v1::ConfigMap,
+    apiextensions_apiserver::pkg::apis::apiextensions::v1::{
+        CustomResourceDefinition, CustomResourceDefinitionVersion,
+    },
 };
+use kube::{
+    api::ListParams,
+    core::{object::HasStatus, DynamicObject},
+    discovery, Api, Client, ResourceExt,
+};
+use serde_json::Value;
 
 use crate::input::{InputFieldValue, ItemTemplate};
 
@@ -258,7 +256,7 @@ fn convert_model_item(item: DynamicObject, parsed: &ModelFieldsNativeSpec) -> Re
     let mut template = ItemTemplate::new_empty(parsed);
     template.update_field_value(InputFieldValue {
         name: "/".to_string(),
-        value: serde_json::to_value(item)?,
+        value: ::serde_json::to_value(item)?,
     })?;
     template.finalize()
 }

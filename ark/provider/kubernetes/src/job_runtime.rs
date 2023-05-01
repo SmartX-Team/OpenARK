@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Result;
 use ark_api::{package::ArkUserSpec, NamespaceAny};
 use ark_provider_api::{
     builder::{
@@ -16,12 +17,7 @@ use ark_provider_api::{
     },
     package::Package,
 };
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::Result,
-    log::{info, warn},
-    tokio::{join, spawn, time::sleep},
-};
+use async_trait::async_trait;
 use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
@@ -38,6 +34,8 @@ use kube::{
     core::ObjectMeta,
     Api, Client,
 };
+use log::{info, warn};
+use tokio::{join, spawn, time::sleep};
 
 use crate::consts::JobKind;
 

@@ -4,8 +4,10 @@ pub mod login {
         web::{Data, Path, Redirect},
         HttpRequest, HttpResponse, Responder,
     };
-    use ipis::{core::uuid::Uuid, log::error};
-    use vine_api::{kube::Client, user_auth::UserLoginResponse};
+    use kube::Client;
+    use log::error;
+    use uuid::Uuid;
+    use vine_api::user_auth::UserLoginResponse;
 
     #[get("/box/{name}/login")]
     pub async fn get(

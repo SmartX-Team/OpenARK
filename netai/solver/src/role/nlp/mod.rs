@@ -3,14 +3,9 @@ pub mod zero_shot_classification;
 
 use std::borrow::Cow;
 
-use ipis::{
-    core::{
-        anyhow::{bail, Result},
-        ndarray,
-    },
-    futures::TryFutureExt,
-    itertools::Itertools,
-};
+use anyhow::{bail, Result};
+use futures::TryFutureExt;
+use itertools::Itertools;
 use netai_api::nlp::{QuestionWord, QuestionWordInput};
 use ort::tensor::InputTensor;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
@@ -146,7 +141,7 @@ impl Tokenizer {
             max_len: usize,
             pad: i64,
             f: impl Fn(&'a TokenizedInput) -> TIter,
-        ) -> ::ipis::core::anyhow::Result<ndarray::Array<i64, ndarray::Ix2>>
+        ) -> ::anyhow::Result<ndarray::Array<i64, ndarray::Ix2>>
         where
             T: 'a + Copy + Into<i64>,
             TIter: IntoIterator<Item = T>,

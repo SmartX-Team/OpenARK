@@ -1,23 +1,19 @@
 use std::collections::BTreeMap;
 
+use anyhow::{anyhow, bail, Error, Result};
+use async_trait::async_trait;
+use futures::{future::try_join_all, TryFutureExt};
 use image::{imageops::FilterType, GenericImageView, Pixel};
-use ipis::{
-    async_trait::async_trait,
-    core::{
-        anyhow::{anyhow, bail, Error, Result},
-        ndarray::{self, Array, Array1, ArrayBase, ArrayView, Axis, IxDyn},
-    },
-    futures::{future::try_join_all, TryFutureExt},
-    itertools::Itertools,
-    log::warn,
-    tokio::{self, io::AsyncReadExt},
-};
+use itertools::Itertools;
+use log::warn;
+use ndarray::{Array, Array1, ArrayBase, ArrayView, Axis, IxDyn};
 use ort::{
     session::{Input, Output},
     tensor::{InputTensor, OrtOwnedTensor, TensorElementDataType},
 };
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
+use tokio::io::AsyncReadExt;
 
 use crate::primitive::AsPrimitive;
 
@@ -168,7 +164,7 @@ impl ToTensor for ::actix_multipart::form::tempfile::TempFile {
         self,
         field: &<Self as ToTensor>::Field,
     ) -> Result<<Self as ToTensor>::Output> {
-        let mut file = tokio::fs::File::from_std(self.file.into_file());
+        let mut file = ::tokio::fs::File::from_std(self.file.into_file());
         let mut buf = Default::default();
         file.read_to_end(&mut buf).await?;
 

@@ -21,6 +21,7 @@ pub mod consts {
 
 use std::fmt;
 
+use anyhow::{bail, Result};
 use ark_api::{
     package::{ArkPackageCrd, ArkPackageState},
     NamespaceAny,
@@ -31,13 +32,8 @@ use ark_provider_api::{
     repo::RepositoryManager,
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::{bail, Result},
-    futures::StreamExt,
-    log::info,
-    tokio::io,
-};
+use async_trait::async_trait;
+use futures::StreamExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Pod},
     serde::{de::DeserializeOwned, Serialize},
@@ -47,6 +43,8 @@ use kube::{
     core::WatchEvent,
     Api, Client, Resource, ResourceExt,
 };
+use log::info;
+use tokio::io;
 
 pub struct PackageManager {
     app: ApplicationRuntime<self::job_runtime::JobApplicationBuilderFactory>,

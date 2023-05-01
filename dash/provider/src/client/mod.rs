@@ -1,11 +1,11 @@
 use actix_web::HttpResponse;
-use dash_api::{function::FunctionActorSpec, kube::Client, serde_json::Value};
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::{anyhow, Result},
-    futures::TryFutureExt,
-};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use dash_api::function::FunctionActorSpec;
+use futures::TryFutureExt;
+use kube::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{
     input::{InputField, InputTemplate},

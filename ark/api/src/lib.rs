@@ -12,7 +12,7 @@ pub mod consts {
 pub trait NamespaceAny {
     fn namespace_any(&self) -> String;
 
-    fn get_session_ref(&self) -> ::ipis::core::anyhow::Result<SessionRef>;
+    fn get_session_ref(&self) -> ::anyhow::Result<SessionRef>;
 }
 
 impl<T> NamespaceAny for T
@@ -23,7 +23,7 @@ where
         self.namespace().unwrap_or_else(|| "default".into())
     }
 
-    fn get_session_ref(&self) -> ::ipis::core::anyhow::Result<SessionRef> {
+    fn get_session_ref(&self) -> ::anyhow::Result<SessionRef> {
         let name = self.name_any();
 
         let labels = self.labels();
@@ -32,46 +32,42 @@ where
             .map(AsRef::as_ref)
             != Some("true")
         {
-            ::ipis::core::anyhow::bail!("session is not binded: {name:?}")
+            ::anyhow::bail!("session is not binded: {name:?}")
         }
 
-        let duration_session_start = ::ipis::core::chrono::Duration::seconds(5);
+        let duration_session_start = ::chrono::Duration::seconds(5);
         match labels
             .get(self::consts::LABEL_BIND_TIMESTAMP)
             .and_then(|timestamp| {
                 let timestamp: i64 = timestamp.parse().ok()?;
-                let naive_date_time =
-                    ::ipis::core::chrono::NaiveDateTime::from_timestamp_millis(timestamp)?;
-                Some(
-                    ::ipis::core::chrono::DateTime::<::ipis::core::chrono::Utc>::from_utc(
-                        naive_date_time,
-                        ::ipis::core::chrono::Utc,
-                    ),
-                )
+                let naive_date_time = ::chrono::NaiveDateTime::from_timestamp_millis(timestamp)?;
+                Some(::chrono::DateTime::<::chrono::Utc>::from_utc(
+                    naive_date_time,
+                    ::chrono::Utc,
+                ))
             }) {
-            Some(timestamp)
-                if ::ipis::core::chrono::Utc::now() - timestamp >= duration_session_start => {}
+            Some(timestamp) if ::chrono::Utc::now() - timestamp >= duration_session_start => {}
             Some(_) => {
-                ::ipis::core::anyhow::bail!(
+                ::anyhow::bail!(
                     "session is in starting (timeout: {duration_session_start}): {name:?}"
                 )
             }
             None => {
-                ::ipis::core::anyhow::bail!("session timestamp is missing: {name:?}")
+                ::anyhow::bail!("session timestamp is missing: {name:?}")
             }
         }
 
         let node_name = match labels.get(self::consts::LABEL_BIND_NODE) {
             Some(node_name) => node_name,
             None => {
-                ::ipis::core::anyhow::bail!("session nodename is missing: {name:?}")
+                ::anyhow::bail!("session nodename is missing: {name:?}")
             }
         };
 
         let user_name = match labels.get(self::consts::LABEL_BIND_BY_USER) {
             Some(user_name) => user_name,
             None => {
-                ::ipis::core::anyhow::bail!("session username is missing: {name:?}")
+                ::anyhow::bail!("session username is missing: {name:?}")
             }
         };
 

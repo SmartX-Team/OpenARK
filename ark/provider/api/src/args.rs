@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use anyhow::{bail, Result};
 use clap::Parser;
-use ipis::core::anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 

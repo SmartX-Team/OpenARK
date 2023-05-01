@@ -1,12 +1,13 @@
 use std::env;
 
+use anyhow::Result;
+use ark_core::logger;
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_api::{kube::Client, serde_json};
 use dash_provider::{
     client::{FunctionSession, SessionContextMetadata, SessionResult},
     input::InputFieldString,
 };
-use ipis::{core::anyhow::Result, logger, tokio};
+use kube::Client;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

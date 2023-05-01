@@ -3,8 +3,9 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
-use ipis::{core::anyhow::Result, env::infer, logger};
-use vine_api::kube::Client;
+use anyhow::Result;
+use ark_core::{env::infer, logger};
+use kube::Client;
 
 #[get("/health")]
 async fn health() -> impl Responder {

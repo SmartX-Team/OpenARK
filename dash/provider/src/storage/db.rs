@@ -1,20 +1,17 @@
 use std::{borrow::Borrow, collections::BTreeMap, fmt};
 
+use anyhow::{anyhow, bail, Result};
+use chrono::{NaiveDateTime, Utc};
 use dash_api::{
-    kube::ResourceExt,
     model::{
         ModelCrd, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec,
         ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec, ModelState,
     },
-    serde_json::{self, Value},
     storage::db::{
         ModelStorageDatabaseExternalSpec, ModelStorageDatabaseNativeSpec, ModelStorageDatabaseSpec,
     },
 };
-use ipis::core::{
-    anyhow::{anyhow, bail, Result},
-    chrono::{NaiveDateTime, Utc},
-};
+use kube::ResourceExt;
 use sea_orm::{
     sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
     ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
@@ -22,6 +19,7 @@ use sea_orm::{
     EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, Schema, Statement,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 pub struct DatabaseStorageClient<'model> {
@@ -107,12 +105,12 @@ impl<'model> DatabaseStorageClient<'model> {
 
     fn get_model_fields_to_json_value(&self) -> Result<Value> {
         self.get_model_fields()
-            .and_then(|fields| serde_json::to_value(fields).map_err(Into::into))
+            .and_then(|fields| ::serde_json::to_value(fields).map_err(Into::into))
     }
 
     fn get_model_fields_to_json_vec(&self) -> Result<Vec<u8>> {
         self.get_model_fields()
-            .and_then(|fields| serde_json::to_vec(fields).map_err(Into::into))
+            .and_then(|fields| ::serde_json::to_vec(fields).map_err(Into::into))
     }
 
     fn get_model_columns(&self) -> Result<Columns> {
@@ -144,7 +142,7 @@ impl<'model> DatabaseStorageClient<'model> {
                 {
                     Ok(Some(table)) => if model_version == table.model_version {
                         if model_hash.as_ref() == table.model_hash.as_str() {
-                            serde_json::from_value(table.model_value).map_err(Into::into)
+                            ::serde_json::from_value(table.model_value).map_err(Into::into)
                         } else {
                             let table_hash = table.model_hash;
                             bail!("validation error: model nonce mismatch ({name:?}): expected {model_hash:?}, but given {table_hash:?}")

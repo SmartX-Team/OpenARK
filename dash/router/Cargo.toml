@@ -15,4 +15,3 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 dash-api = { path = "../api" }
-ipis = { workspace = true }

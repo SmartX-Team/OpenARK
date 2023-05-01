@@ -15,9 +15,12 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-api = { path = "../../api" }
+ark-core = { path = "../../core" }
 ark-provider-api = { path = "../api" }
-ipis = { workspace = true }
 
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 gethostname = { workspace = true }
 serde = { workspace = true }
 tera = { workspace = true }
+tokio = { workspace = true }

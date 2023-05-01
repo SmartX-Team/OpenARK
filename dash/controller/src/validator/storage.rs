@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
     storage::{
@@ -6,7 +7,6 @@ use dash_api::{
     },
 };
 use dash_provider::storage::{DatabaseStorageClient, KubernetesStorageClient};
-use ipis::core::anyhow::{bail, Result};
 
 pub struct ModelStorageValidator<'a> {
     pub kubernetes_storage: KubernetesStorageClient<'a>,

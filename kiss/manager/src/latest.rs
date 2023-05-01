@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
-use ipis::{
-    core::anyhow::{bail, Result},
-    env::infer,
-    log::warn,
-};
+use anyhow::{bail, Result};
+use ark_core::env::infer;
+use log::warn;
 use octocrab::Octocrab;
 use semver::Version;
 

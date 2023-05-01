@@ -1,7 +1,5 @@
-use ipis::{
-    core::anyhow::{bail, Result},
-    env,
-};
+use anyhow::{bail, Result};
+use ark_core::env;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct Client {
@@ -37,7 +35,7 @@ impl Client {
 }
 
 mod nlp {
-    use ipis::core::anyhow::Result;
+    use anyhow::Result;
 
     impl super::Client {
         pub async fn call_question_answering(

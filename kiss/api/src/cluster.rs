@@ -1,8 +1,9 @@
 use std::{collections::BTreeSet, net::IpAddr};
 
-use ipis::{itertools::Itertools, log::info};
+use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use kube::{api::ListParams, Api, Client, Error};
+use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

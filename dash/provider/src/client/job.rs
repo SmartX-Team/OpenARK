@@ -1,15 +1,12 @@
 use std::future::Future;
 
-use dash_api::{
-    function::FunctionActorJobSpec,
-    kube::{
-        api::{DeleteParams, Patch, PatchParams, PostParams},
-        core::DynamicObject,
-        discovery, Api, Client, ResourceExt,
-    },
-    serde_yaml,
+use anyhow::{bail, Result};
+use dash_api::function::FunctionActorJobSpec;
+use kube::{
+    api::{DeleteParams, Patch, PatchParams, PostParams},
+    core::DynamicObject,
+    discovery, Api, Client, ResourceExt,
 };
-use ipis::core::anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
@@ -180,7 +177,7 @@ impl FunctionActorJobClient {
     {
         let context = Context::from_serialize(input)?;
         let templates = self.tera.render(name, &context)?;
-        let templates: Vec<DynamicObject> = serde_yaml::Deserializer::from_str(&templates)
+        let templates: Vec<DynamicObject> = ::serde_yaml::Deserializer::from_str(&templates)
             .map(::serde::Deserialize::deserialize)
             .collect::<Result<_, _>>()?;
 

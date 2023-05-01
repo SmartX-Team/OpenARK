@@ -1,7 +1,7 @@
+use anyhow::Result;
 use dash_api::{
     model::ModelSpec, model_storage_binding::ModelStorageBindingSpec, storage::ModelStorageSpec,
 };
-use ipis::core::anyhow::Result;
 
 use super::{model::ModelValidator, storage::ModelStorageValidator};
 

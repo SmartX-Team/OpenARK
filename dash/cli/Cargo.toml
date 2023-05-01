@@ -18,9 +18,12 @@ name = "dash"
 path = "./src/main.rs"
 
 [dependencies]
-dash-api = { path = "../api" }
+ark-core = { path = "../../ark/core" }
 dash-provider = { path = "../provider" }
-ipis = { workspace = true }
 
+anyhow = { workspace = true }
 clap = { workspace = true }
+kube = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }

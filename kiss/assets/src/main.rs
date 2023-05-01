@@ -1,3 +1,5 @@
+mod proxy;
+
 use std::net::SocketAddr;
 
 use actix_web::{
@@ -5,14 +7,10 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use ark_core::{env::infer, logger};
+use futures::StreamExt;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
-use ipis::{
-    env::infer,
-    futures::StreamExt,
-    log::{info, warn},
-    logger,
-};
-use kiss_api::proxy::ProxyConfig;
+use log::{info, warn};
 use reqwest::{
     header::{HeaderName, HOST, ORIGIN, REFERER},
     Client, Method,
@@ -34,7 +32,7 @@ async fn resolve(
     method: Method,
     mut payload: Payload,
     client: Data<ClientWithMiddleware>,
-    config: Data<ProxyConfig>,
+    config: Data<crate::proxy::ProxyConfig>,
     path: Path<(String, String)>,
 ) -> impl Responder {
     let (site, path) = path.into_inner();
@@ -103,11 +101,11 @@ async fn resolve(
 
 #[actix_web::main]
 async fn main() {
-    async fn try_main() -> ::ipis::core::anyhow::Result<()> {
+    async fn try_main() -> ::anyhow::Result<()> {
         // Initialize config
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
-        let config = Data::new(ProxyConfig::load().await?);
+        let config = Data::new(crate::proxy::ProxyConfig::load().await?);
 
         // Initialize client
         let client = Data::new({

@@ -15,8 +15,15 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-api = { path = "../../ark/api" }
+ark-core = { path = "../../ark/core" }
 dash-provider = { path = "../../dash/provider" }
-ipis = { workspace = true }
 vine-api = { path = "../api" }
 
+anyhow = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }

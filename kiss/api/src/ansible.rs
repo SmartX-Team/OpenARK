@@ -1,5 +1,5 @@
+use anyhow::Result;
 use inflector::Inflector;
-use ipis::{core::anyhow::Result, log::info};
 use k8s_openapi::{
     api::{
         batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
@@ -16,6 +16,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, Error,
 };
+use log::info;
 
 use crate::{
     cluster::ClusterState,

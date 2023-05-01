@@ -3,23 +3,19 @@ use std::{
     fmt,
 };
 
-use dash_api::{
-    k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
-        CustomResourceDefinitionVersion, JSONSchemaProps,
-    },
-    model::{
-        ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
-        ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec,
-        ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
-    },
+use anyhow::{bail, Result};
+use dash_api::model::{
+    ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
+    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,
+    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
 };
 use dash_provider::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use inflector::Inflector;
-use ipis::{
-    core::anyhow::{bail, Result},
-    itertools::Itertools,
-    log::warn,
+use itertools::Itertools;
+use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
+    CustomResourceDefinitionVersion, JSONSchemaProps,
 };
+use log::warn;
 use regex::Regex;
 
 pub struct ModelValidator<'a> {

@@ -1,15 +1,13 @@
 use std::collections::BTreeMap;
 
-use dash_api::{
-    model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec},
-    serde_json::Value,
-};
-use ipis::{
-    core::{anyhow::Result, chrono::Duration, value::text::LanguageTag},
-    itertools::Itertools,
-};
+use anyhow::Result;
+use chrono::Duration;
+use dash_api::model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec};
+use itertools::Itertools;
+use language_tags::LanguageTag;
 use netai_api::nlp::QuestionWordInputRef;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use storage::{DynamicQuery, DynamicValue};
 
 pub struct Client {
@@ -192,5 +190,15 @@ impl Field {
             },
             value: query.value,
         }
+    }
+}
+
+trait LanguageTagTemplate {
+    fn new_en_us() -> Self;
+}
+
+impl LanguageTagTemplate for LanguageTag {
+    fn new_en_us() -> Self {
+        "en-us".parse().unwrap()
     }
 }

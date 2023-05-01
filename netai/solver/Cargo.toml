@@ -14,18 +14,25 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { workspace = true }
+ark-core = { path = "../../ark/core" }
 netai-api = { path = "../api", features = ["actix"] }
 
 actix-multipart = { workspace = true }
 actix-web = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 bytes = { workspace = true }
+futures = { workspace = true }
 half = { workspace = true }
 image = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
 mime = { workspace = true }
+ndarray = { workspace = true }
 ort = { workspace = true }
 reqwest = { workspace = true }
 rust-tokenizers = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
+tokio = { workspace = true }

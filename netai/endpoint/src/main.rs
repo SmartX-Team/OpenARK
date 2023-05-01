@@ -5,7 +5,8 @@ use actix_web::{
     web::{Data, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use ipis::{env::infer, log::warn, logger};
+use ark_core::{env::infer, logger};
+use log::warn;
 use netai_solver::session::Session;
 
 #[get("/")]
@@ -36,7 +37,7 @@ mod metadata {
         text_to_response(session.model().get_readme().await)
     }
 
-    fn text_to_response(result: ::ipis::core::anyhow::Result<Option<String>>) -> impl Responder {
+    fn text_to_response(result: ::anyhow::Result<Option<String>>) -> impl Responder {
         match result {
             Result::Ok(Some(value)) => HttpResponse::Ok().body(value),
             Result::Ok(None) => HttpResponse::NotFound().finish(),
@@ -50,7 +51,7 @@ mod metadata {
 
 #[actix_web::main]
 async fn main() {
-    async fn try_main() -> ::ipis::core::anyhow::Result<()> {
+    async fn try_main() -> ::anyhow::Result<()> {
         // Initialize config
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());

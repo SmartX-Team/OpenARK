@@ -14,9 +14,12 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
-ipis = { workspace = true }
 
+anyhow = { workspace = true }
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }
+kube = { workspace = true }
+serde_json = { workspace = true }

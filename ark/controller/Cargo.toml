@@ -15,11 +15,19 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-api = { path = "../api" }
+ark-core = { path = "../core" }
+ark-core-k8s = { path = "../core/k8s" }
 ark-provider-api = { path = "../provider/api" }
 ark-provider-kubernetes = { path = "../provider/kubernetes" }
 ark-provider-local = { path = "../provider/local" }
-ipis = { workspace = true }
-kiss-api = { path = "../../kiss/api" }
 
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 inflector = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+log = { workspace = true }
 regex = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }

@@ -4,11 +4,11 @@ use std::{
     marker::PhantomData,
 };
 
+use anyhow::Result;
+use ark_core::env;
 use bytes::{BufMut, Bytes, BytesMut};
-use dash_api::{
-    model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec},
-    serde_json::Value,
-};
+use chrono::{DateTime, Duration, FixedOffset, Utc};
+use dash_api::model::{ModelFieldKindNativeSpec, ModelFieldNativeSpec};
 use influxdb2::{
     api::write::TimestampPrecision,
     models::{Query, WriteDataPoint},
@@ -16,15 +16,9 @@ use influxdb2::{
 };
 use influxdb2_derive::{FromDataPoint, WriteDataPoint};
 use influxdb2_structmap::GenericMap;
-use ipis::{
-    core::{
-        anyhow::Result,
-        chrono::{DateTime, Duration, FixedOffset, Utc},
-    },
-    env,
-};
 use paste::paste;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub struct Client {
     api: ::influxdb2::Client,

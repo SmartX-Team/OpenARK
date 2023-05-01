@@ -14,11 +14,15 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { workspace = true }
 kiss-api = { path = "../../kiss/api" }
 vine-api = { path = "../api" }
 vine-session = { path = "../session" }
 
 actix-web = { workspace = true }
+anyhow = { workspace = true }
 base64 = { workspace = true }
+chrono = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+log = { workspace = true }
 serde_json = { workspace = true }

@@ -16,7 +16,6 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ark-api = { path = "../api" }
 ark-provider = { package = "ark-provider-kubernetes", path = "../provider/kubernetes" }
-ipis = { workspace = true }
 
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }

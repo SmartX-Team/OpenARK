@@ -1,8 +1,10 @@
 use std::env;
 
+use anyhow::Result;
+use ark_core::logger;
 use ark_provider_api::{args::ActorArgs, PackageManager};
 use clap::{value_parser, ArgAction, Parser};
-use ipis::{core::anyhow::Result, futures::TryFutureExt, logger};
+use futures::TryFutureExt;
 use strum::{Display, EnumString};
 
 type BoxPackageManager = Box<dyn PackageManager + 'static + Send + Sync>;

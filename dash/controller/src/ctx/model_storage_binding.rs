@@ -1,25 +1,24 @@
 use std::{sync::Arc, time::Duration};
 
+use anyhow::Result;
+use ark_core_k8s::manager::Manager;
+use async_trait::async_trait;
+use chrono::Utc;
 use dash_api::{
-    kube::{
-        api::{Patch, PatchParams},
-        runtime::controller::Action,
-        Api, Client, CustomResourceExt, Error, ResourceExt,
-    },
     model::ModelSpec,
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStatus,
     },
-    serde_json::json,
     storage::ModelStorageSpec,
 };
 use dash_provider::storage::KubernetesStorageClient;
-use ipis::{
-    async_trait::async_trait,
-    core::{anyhow::Result, chrono::Utc},
-    log::{info, warn},
+use kube::{
+    api::{Patch, PatchParams},
+    runtime::controller::Action,
+    Api, Client, CustomResourceExt, Error, ResourceExt,
 };
-use kiss_api::manager::Manager;
+use log::{info, warn};
+use serde_json::json;
 
 use crate::validator::{
     model::ModelValidator, model_storage_binding::ModelStorageBindingValidator,
@@ -30,7 +29,7 @@ use crate::validator::{
 pub struct Ctx {}
 
 #[async_trait]
-impl ::kiss_api::manager::Ctx for Ctx {
+impl ::ark_core_k8s::manager::Ctx for Ctx {
     type Data = ModelStorageBindingCrd;
 
     const NAME: &'static str = crate::consts::NAME;
@@ -39,7 +38,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::kiss_api::manager::Ctx>::Data>,
+        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
@@ -70,7 +69,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                             Err(e) => {
                                 warn!("failed to update model storage binding state {name:?}: {e}");
                                 Ok(Action::requeue(
-                                    <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                                 ))
                             }
                         }
@@ -78,7 +77,7 @@ impl ::kiss_api::manager::Ctx for Ctx {
                     Err(e) => {
                         warn!("failed to validate model storage binding: {name:?}: {e}");
                         Ok(Action::requeue(
-                            <Self as ::kiss_api::manager::Ctx>::FALLBACK,
+                            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                         ))
                     }
                 }
@@ -98,8 +97,8 @@ impl Ctx {
         model: ModelSpec,
         storage: ModelStorageSpec,
     ) -> Result<()> {
-        let api = Api::<<Self as ::kiss_api::manager::Ctx>::Data>::all(kube.clone());
-        let crd = <Self as ::kiss_api::manager::Ctx>::Data::api_resource();
+        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::all(kube.clone());
+        let crd = <Self as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
 
         let patch = Patch::Merge(json!({
             "apiVersion": crd.api_version,
@@ -111,7 +110,7 @@ impl Ctx {
                 last_updated: Utc::now(),
             },
         }));
-        let pp = PatchParams::apply(<Self as ::kiss_api::manager::Ctx>::NAME);
+        let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
         Ok(())
     }

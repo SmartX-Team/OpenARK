@@ -1,8 +1,6 @@
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::{bail, Result},
-    futures::TryFutureExt,
-};
+use anyhow::{bail, Result};
+use async_trait::async_trait;
+use futures::TryFutureExt;
 use netai_api::nlp::zero_shot_classification::{Inputs, Outputs};
 
 pub struct Solver {

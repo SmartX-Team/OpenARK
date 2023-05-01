@@ -18,9 +18,8 @@ default = []
 actix = ["actix-multipart", "actix-web"]
 
 [dependencies]
-ipis = { workspace = true }
-
 actix-multipart = { workspace = true, optional = true }
 actix-web = { workspace = true, optional = true }
+futures = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }

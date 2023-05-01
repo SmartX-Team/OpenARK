@@ -1,7 +1,6 @@
 mod ctx;
 
-use ipis::tokio;
-use kiss_api::manager::Ctx;
+use ark_core_k8s::manager::Ctx;
 
 pub(crate) mod consts {
     pub const NAME: &str = "kiss-controller";

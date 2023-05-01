@@ -1,4 +1,4 @@
-use ipis::core::chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

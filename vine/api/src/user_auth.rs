@@ -1,13 +1,11 @@
 use std::{ops::Deref, str::FromStr};
 
-use ipis::core::{
-    anyhow::{bail, Result},
-    uuid::Uuid,
-};
+use anyhow::{bail, Result};
 use kiss_api::r#box::BoxSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     user::{EmailAddress, UserSpec},

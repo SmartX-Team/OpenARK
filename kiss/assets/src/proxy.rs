@@ -1,11 +1,9 @@
 use std::path::PathBuf;
 
-use ipis::{
-    core::anyhow::{anyhow, bail, Result},
-    env,
-    tokio::fs,
-};
+use anyhow::{anyhow, bail, Result};
+use ark_core::env;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,10 +17,10 @@ impl ProxyConfig {
 
         match path.extension().and_then(|e| e.to_str()) {
             Some("json") => {
-                serde_json::from_str(&fs::read_to_string(path).await?).map_err(Into::into)
+                ::serde_json::from_str(&fs::read_to_string(path).await?).map_err(Into::into)
             }
             Some("yaml") => {
-                serde_yaml::from_str(&fs::read_to_string(path).await?).map_err(Into::into)
+                ::serde_yaml::from_str(&fs::read_to_string(path).await?).map_err(Into::into)
             }
             Some(_) => bail!("unsupported extension: {path:?}"),
             None => bail!("cannot infer the extension: {path:?}"),

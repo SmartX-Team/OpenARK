@@ -2,7 +2,8 @@ pub mod huggingface;
 
 use std::path::Path;
 
-use ipis::{async_trait::async_trait, core::anyhow::Result};
+use anyhow::Result;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 

@@ -1,7 +1,7 @@
+use anyhow::Result;
 use dash_api::model::{
     ModelFieldKindNativeSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec,
 };
-use ipis::{core::anyhow::Result, tokio};
 use proxyx_api::client::Client;
 
 #[tokio::main]

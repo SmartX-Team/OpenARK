@@ -1,13 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use ipis::{
-    async_trait::async_trait,
-    core::anyhow::{bail, Result},
-    futures::{StreamExt, TryFutureExt},
-    tokio::{fs, io, process::Command},
-};
+use anyhow::{bail, Result};
+use async_trait::async_trait;
+use futures::{StreamExt, TryFutureExt};
 use reqwest::Response;
 use serde::de::DeserializeOwned;
+use tokio::{fs, io, process::Command};
 
 use crate::role::Role;
 

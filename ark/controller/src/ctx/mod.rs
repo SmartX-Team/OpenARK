@@ -3,16 +3,14 @@ pub mod package;
 
 use std::fmt;
 
-use ipis::core::anyhow::Result;
-use kiss_api::{
-    k8s_openapi::{
-        serde::{de::DeserializeOwned, Serialize},
-        NamespaceResourceScope,
-    },
-    kube::{
-        api::{DeleteParams, ListParams},
-        Api, Client, Resource, ResourceExt,
-    },
+use anyhow::Result;
+use k8s_openapi::{
+    serde::{de::DeserializeOwned, Serialize},
+    NamespaceResourceScope,
+};
+use kube::{
+    api::{DeleteParams, ListParams},
+    Api, Client, Resource, ResourceExt,
 };
 
 async fn try_delete<K>(kube: &Client, namespace: &str, name: &str) -> Result<()>

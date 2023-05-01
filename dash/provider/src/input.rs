@@ -7,24 +7,18 @@ use std::{
 };
 
 use actix_web::dev::ResourcePath;
-use dash_api::{
-    model::{
-        ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
-        ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec,
-    },
-    serde_json::{Map, Value},
+use anyhow::{anyhow, bail, Error, Result};
+use async_recursion::async_recursion;
+use chrono::{DateTime, Utc};
+use dash_api::model::{
+    ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec, ModelFieldSpec,
+    ModelFieldsNativeSpec, ModelFieldsSpec,
 };
 use inflector::Inflector;
-use ipis::{
-    async_recursion::async_recursion,
-    core::{
-        anyhow::{anyhow, bail, Error, Result},
-        chrono::{DateTime, Utc},
-        uuid::Uuid,
-    },
-};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use uuid::Uuid;
 
 use crate::storage::StorageClient;
 

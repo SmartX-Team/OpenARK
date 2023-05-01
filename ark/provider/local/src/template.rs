@@ -3,15 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Error, Result};
 use ark_api::package::ArkPackageCrd;
+use ark_core::env;
 use ark_provider_api::{args::ActorArgs, package::Package};
-use ipis::{
-    core::anyhow::{Error, Result},
-    env,
-    tokio::fs,
-};
 use serde::Serialize;
 use tera::{Context, Tera, Value};
+use tokio::fs;
 
 pub struct TemplateManager {
     default_context: DefaultContext<'static>,

@@ -14,5 +14,4 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipis = { git = "https://github.com/ulagbulag/ipis" }
 ipwis-kernel-common = { git = "https://github.com/ulagbulag/ipwis" }

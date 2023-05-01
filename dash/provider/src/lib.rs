@@ -3,11 +3,9 @@ pub mod input;
 pub mod storage;
 
 pub mod imp {
+    use anyhow::{anyhow, bail, Result};
     use dash_api::model::ModelFieldKindStringSpec;
-    use ipis::{
-        core::anyhow::{anyhow, bail, Result},
-        itertools::Itertools,
-    };
+    use itertools::Itertools;
     use std::{fmt, str::FromStr};
 
     pub fn assert_contains<'a, List, Item>(
@@ -32,8 +30,8 @@ pub mod imp {
                         .map(|list_item| format!("{list_item:?}"))
                         .join(", ");
                     bail!(
-                    "{item_label} value {item:?} should be one of {list_label} ({items}): {name:?}",
-                )
+                        "{item_label} value {item:?} should be one of {list_label} ({items}): {name:?}",
+                    )
                 }
             }
             _ => Ok(()),

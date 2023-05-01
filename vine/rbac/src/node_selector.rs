@@ -1,4 +1,4 @@
-use vine_api::k8s_openapi::{
+use k8s_openapi::{
     api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
 };
 

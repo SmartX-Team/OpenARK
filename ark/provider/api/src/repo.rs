@@ -3,11 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ipis::{
-    core::anyhow::{bail, Error, Result},
-    env,
-    tokio::fs,
-};
+use anyhow::{bail, Error, Result};
+use ark_core::env;
+use tokio::fs;
 
 use crate::{args::ActorArgs, package::Package};
 

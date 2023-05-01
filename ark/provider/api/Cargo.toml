@@ -15,11 +15,14 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-api = { path = "../../api" }
-ipis = { workspace = true }
+ark-core = { path = "../../core" }
 kiss-api = { path = "../../../kiss/api" }
 
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 strum = { workspace = true }
+tokio = { workspace = true }
 which = { workspace = true }

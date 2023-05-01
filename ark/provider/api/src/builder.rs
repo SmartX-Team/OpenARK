@@ -1,5 +1,6 @@
+use anyhow::Result;
 use ark_api::package::ArkUserSpec;
-use ipis::{async_trait::async_trait, core::anyhow::Result};
+use async_trait::async_trait;
 use kiss_api::r#box::BoxGroupRole;
 
 #[async_trait]

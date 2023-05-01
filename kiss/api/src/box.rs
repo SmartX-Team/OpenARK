@@ -1,13 +1,11 @@
 use std::net::IpAddr;
 
-use ipis::core::{
-    chrono::{DateTime, Duration, Utc},
-    uuid::Uuid,
-};
+use chrono::{DateTime, Duration, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
+use uuid::Uuid;
 
 impl BoxCrd {
     pub fn last_updated(&self) -> Option<&DateTime<Utc>> {

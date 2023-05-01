@@ -3,11 +3,8 @@ mod latest;
 
 use std::{cmp::Ordering, time::Duration};
 
-use ipis::{
-    core::anyhow::Result,
-    log::{info, warn},
-    tokio,
-};
+use anyhow::Result;
+use log::{info, warn};
 
 async fn sync_cluster(
     current_handler: &self::current::Handler,
@@ -40,7 +37,7 @@ async fn sync_cluster(
 #[tokio::main]
 async fn main() -> Result<()> {
     // initialize logger
-    ::ipis::logger::init_once();
+    ::ark_core::logger::init_once();
 
     // create the handlers
     let current = self::current::Handler::try_default().await?;
@@ -49,6 +46,6 @@ async fn main() -> Result<()> {
     // sync the cluster periodically
     loop {
         sync_cluster(&current, &latest).await?;
-        tokio::time::sleep(Duration::from_secs(5 * 60)).await;
+        ::tokio::time::sleep(Duration::from_secs(5 * 60)).await;
     }
 }

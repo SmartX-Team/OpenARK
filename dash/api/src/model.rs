@@ -1,7 +1,5 @@
-use ipis::core::{
-    anyhow::{bail, Result},
-    chrono::{DateTime, Utc},
-};
+use anyhow::{bail, Result};
+use chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
