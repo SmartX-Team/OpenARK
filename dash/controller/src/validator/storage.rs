@@ -23,7 +23,7 @@ impl<'a> ModelStorageValidator<'a> {
     }
 
     async fn validate_model_storage_database(&self, spec: &ModelStorageDatabaseSpec) -> Result<()> {
-        DatabaseStorageClient::load_storage(spec).await.map(|_| ())
+        DatabaseStorageClient::try_new(spec).await.map(|_| ())
     }
 
     fn validate_model_storage_kubernetes(&self, spec: &ModelStorageKubernetesSpec) -> Result<()> {
@@ -51,8 +51,11 @@ impl<'a> ModelStorageValidator<'a> {
         storage: &ModelStorageDatabaseSpec,
         model: &ModelCrd,
     ) -> Result<()> {
-        let database_storage = DatabaseStorageClient::try_new(storage, model).await?;
-        database_storage.create_table().await
+        DatabaseStorageClient::try_new(storage)
+            .await?
+            .get_session(model)
+            .create_table()
+            .await
     }
 
     fn bind_model_to_kubernetes(

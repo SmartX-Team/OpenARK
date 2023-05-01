@@ -16,31 +16,26 @@ use sea_orm::{
     sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
     ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
-    EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, Schema, Statement,
+    EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, QueryResult, Schema, Statement,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
-pub struct DatabaseStorageClient<'model> {
+pub struct DatabaseStorageClient {
     db: DatabaseConnection,
-    model: &'model ModelCrd,
 }
 
-impl<'model> DatabaseStorageClient<'model> {
+impl<'model> DatabaseStorageClient {
     const NATIVE_URL: &'static str = "postgres://dash-postgres/dash";
 
-    pub async fn try_new(
-        storage: &ModelStorageDatabaseSpec,
-        model: &'model ModelCrd,
-    ) -> Result<DatabaseStorageClient<'model>> {
+    pub async fn try_new(storage: &ModelStorageDatabaseSpec) -> Result<Self> {
         Ok(Self {
             db: Self::load_storage(storage).await?,
-            model,
         })
     }
 
-    pub async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
+    async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
         let db = match storage {
             ModelStorageDatabaseSpec::Native(storage) => {
                 Self::load_storage_by_native(storage).await?
@@ -73,11 +68,31 @@ impl<'model> DatabaseStorageClient<'model> {
     }
 }
 
-impl<'model> DatabaseStorageClient<'model> {
+impl DatabaseStorageClient {
+    pub fn get_session<'model>(&self, model: &'model ModelCrd) -> DatabaseStorageSession<'model> {
+        DatabaseStorageSession {
+            db: self.db.clone(),
+            model,
+        }
+    }
+}
+
+pub struct DatabaseStorageSession<'model> {
+    db: DatabaseConnection,
+    model: &'model ModelCrd,
+}
+
+impl<'model> DatabaseStorageSession<'model> {
     fn get_table_name(&self) -> (String, RuntimeIden) {
         let name = self.model.name_any();
         let iden = RuntimeIden::from_str(&name);
         (name, iden)
+    }
+
+    fn get_model_name_column(&self) -> Result<String> {
+        // TODO: to be implemented (maybe in ModelCRD?)
+        let (name, _) = self.get_table_name();
+        bail!("cannot infer name column: {name:?}")
     }
 
     fn get_model_hash(&self) -> Result<RuntimeIden> {
@@ -127,6 +142,42 @@ impl<'model> DatabaseStorageClient<'model> {
         );
 
         Ok(self.db.execute(statement).await.is_ok())
+    }
+
+    pub async fn get(&self, ref_name: &str) -> Result<Option<Value>> {
+        let (_, table_name) = self.get_table_name();
+        let column_name = self.get_model_name_column()?;
+        let statement = Statement::from_string(
+            self.db.get_database_backend(),
+            format!(
+                r#"SELECT * FROM "{table_name}" WHERE "{table_name}"."{column_name}" = {ref_name} LIMIT 1"#
+            ),
+        );
+
+        let row = self.db.query_one(statement).await?;
+        let fields = self.get_model_fields()?;
+
+        match row {
+            Some(row) => parse_query_result(&row, fields).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn get_list(&self) -> Result<Vec<Value>> {
+        const LIMIT: usize = 30;
+
+        let (_, table_name) = self.get_table_name();
+        let statement = Statement::from_string(
+            self.db.get_database_backend(),
+            format!(r#"SELECT * FROM "{table_name}" LIMIT {LIMIT}"#),
+        );
+
+        let rows = self.db.query_all(statement).await?;
+        let fields = self.get_model_fields()?;
+
+        rows.into_iter()
+            .map(|row| parse_query_result(&row, fields))
+            .collect()
     }
 
     pub async fn get_current_table_fields(&self) -> Result<Option<ModelFieldsNativeSpec>> {
@@ -566,7 +617,53 @@ fn convert_field_to_column(
             }
         }
         ModelFieldKindNativeSpec::ObjectArray { children: _ } => {
-            bail!("ObjectArray is not supported yet: {name:?}");
+            // attribute: type
+            column.json();
+            Ok(Some(column))
+        }
+    }
+}
+
+fn parse_query_result(row: &QueryResult, fields: &[ModelFieldNativeSpec]) -> Result<Value> {
+    let mut value = Map::default();
+    for field in fields {
+        value.insert(field.name.clone(), parse_query_result_column(row, field)?);
+    }
+    Ok(Value::Object(value))
+}
+
+fn parse_query_result_column(row: &QueryResult, field: &ModelFieldNativeSpec) -> Result<Value> {
+    match &field.kind {
+        // BEGIN primitive types
+        ModelFieldKindNativeSpec::None { .. } => Ok(Value::Null),
+        ModelFieldKindNativeSpec::Boolean { .. } => row
+            .try_get_by::<bool, _>(field.name.as_str())
+            .map(Into::into)
+            .map_err(Into::into),
+        ModelFieldKindNativeSpec::Integer { .. } => row
+            .try_get_by::<i64, _>(field.name.as_str())
+            .map(Into::into)
+            .map_err(Into::into),
+        ModelFieldKindNativeSpec::Number { .. } => row
+            .try_get_by::<f64, _>(field.name.as_str())
+            .map(Into::into)
+            .map_err(Into::into),
+        ModelFieldKindNativeSpec::String { .. } | ModelFieldKindNativeSpec::OneOfStrings { .. } => {
+            row.try_get_by::<String, _>(field.name.as_str())
+                .map(Into::into)
+                .map_err(Into::into)
+        }
+        // BEGIN string formats
+        ModelFieldKindNativeSpec::DateTime { .. }
+        | ModelFieldKindNativeSpec::Ip { .. }
+        | ModelFieldKindNativeSpec::Uuid { .. } => row
+            .try_get_by::<String, _>(field.name.as_str())
+            .map(Into::into)
+            .map_err(Into::into),
+        // BEGIN string formats
+        ModelFieldKindNativeSpec::Object { .. } | ModelFieldKindNativeSpec::ObjectArray { .. } => {
+            row.try_get_by::<Value, _>(field.name.as_str())
+                .map_err(Into::into)
         }
     }
 }
