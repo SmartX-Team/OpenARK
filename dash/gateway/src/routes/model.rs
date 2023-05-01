@@ -32,12 +32,12 @@ pub async fn get_list(kube: Data<Client>) -> impl Responder {
 }
 
 #[get("/model/{name}/item/{item}/")]
-pub async fn get_item(kube: Data<Client>, name: Path<(Name, Name)>) -> impl Responder {
+pub async fn get_item(kube: Data<Client>, name: Path<(Name, String)>) -> impl Responder {
     let client = StorageClient {
         namespace: "vine", // TODO: to be implemented
         kube: &kube,
     };
-    let result = client.get_by_model(&name.0 .0, &name.1 .0).await;
+    let result = client.get_by_model(&name.0 .0, &name.1).await;
     HttpResponse::from(SessionResult::from(result))
 }
 
