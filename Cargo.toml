@@ -13,6 +13,7 @@ members = [
     "ark/provider/local",
     "dash/api",
     "dash/cli",
+    "dash/client",
     "dash/controller",
     "dash/gateway",
     "dash/provider",
