@@ -17,6 +17,7 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/provider",
+    "dash/provider/api",
     "dash/router",
     "kiss/api",
     "kiss/assets",

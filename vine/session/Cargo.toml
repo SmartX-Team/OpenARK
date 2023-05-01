@@ -17,6 +17,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 ark-api = { path = "../../ark/api" }
 ark-core = { path = "../../ark/core" }
 dash-provider = { path = "../../dash/provider" }
+dash-provider-api = { path = "../../dash/provider/api" }
 vine-api = { path = "../api" }
 
 anyhow = { workspace = true }

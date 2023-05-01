@@ -17,6 +17,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
+dash-provider-api = { path = "../provider/api", features = ["actix-web"] }
 
 anyhow = { workspace = true }
 actix-web = { workspace = true }

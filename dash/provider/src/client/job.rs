@@ -2,12 +2,13 @@ use std::future::Future;
 
 use anyhow::{bail, Result};
 use dash_api::function::FunctionActorJobSpec;
+use dash_provider_api::job::{FunctionChannelKindJob, TemplateRef};
 use kube::{
     api::{DeleteParams, Patch, PatchParams, PostParams},
     core::DynamicObject,
     discovery, Api, Client, ResourceExt,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tera::{Context, Tera};
 
 use crate::storage::KubernetesStorageClient;
@@ -217,17 +218,6 @@ impl FunctionActorJobClient {
         }
         Ok(apis)
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FunctionChannelKindJob {
-    pub templates: Vec<TemplateRef>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TemplateRef {
-    pub name: String,
 }
 
 struct Template {

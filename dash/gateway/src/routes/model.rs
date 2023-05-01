@@ -4,10 +4,10 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use dash_provider::{
-    client::SessionResult,
     input::Name,
     storage::{KubernetesStorageClient, StorageClient},
 };
+use dash_provider_api::SessionResult;
 use kube::Client;
 
 #[get("/model/{name}/")]

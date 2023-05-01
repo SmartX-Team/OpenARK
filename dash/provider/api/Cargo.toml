@@ -1,5 +1,5 @@
 [package]
-name = "dash-cli"
+name = "dash-provider-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,18 +13,6 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "dash"
-path = "./src/main.rs"
-
 [dependencies]
-ark-core = { path = "../../ark/core" }
-dash-provider = { path = "../provider" }
-dash-provider-api = { path = "../provider/api" }
-
-anyhow = { workspace = true }
-clap = { workspace = true }
-kube = { workspace = true }
+actix-web = { workspace = true, optional = true, default-features = false }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }

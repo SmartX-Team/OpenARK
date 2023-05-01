@@ -4,10 +4,11 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use dash_provider::{
-    client::{FunctionSession, SessionContextMetadata, SessionResult},
+    client::FunctionSession,
     input::{InputField, Name},
     storage::KubernetesStorageClient,
 };
+use dash_provider_api::{SessionContextMetadata, SessionResult};
 use kube::Client;
 use serde_json::Value;
 

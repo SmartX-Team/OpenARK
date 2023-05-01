@@ -4,7 +4,8 @@ use anyhow::{bail, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
 use ark_core::env;
 use chrono::Utc;
-use dash_provider::client::{job::FunctionActorJobClient, SessionContextMetadata};
+use dash_provider::client::job::FunctionActorJobClient;
+use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Node},
@@ -208,7 +209,7 @@ impl SessionManager {
     }
 }
 
-pub type SessionContext<'a> = ::dash_provider::client::SessionContext<&'a SessionContextSpec<'a>>;
+pub type SessionContext<'a> = ::dash_provider_api::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

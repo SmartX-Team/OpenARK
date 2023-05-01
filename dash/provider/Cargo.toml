@@ -19,6 +19,7 @@ i-want-to-cleanup-all-before-running-for-my-testing = []
 
 [dependencies]
 dash-api = { path = "../api" }
+dash-provider-api = { path = "./api" }
 
 actix-web = { workspace = true, default-features = false }
 anyhow = { workspace = true }

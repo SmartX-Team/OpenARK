@@ -3,10 +3,8 @@ use std::env;
 use anyhow::Result;
 use ark_core::logger;
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_provider::{
-    client::{FunctionSession, SessionContextMetadata, SessionResult},
-    input::InputFieldString,
-};
+use dash_provider::{client::FunctionSession, input::InputFieldString};
+use dash_provider_api::{SessionContextMetadata, SessionResult};
 use kube::Client;
 
 #[derive(Parser)]
