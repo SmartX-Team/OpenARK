@@ -41,14 +41,16 @@ impl<'model> DatabaseStorageClient<'model> {
     }
 
     pub async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
-        match storage {
+        let db = match storage {
             ModelStorageDatabaseSpec::Native(storage) => {
-                Self::load_storage_by_native(storage).await
+                Self::load_storage_by_native(storage).await?
             }
             ModelStorageDatabaseSpec::External(storage) => {
-                Self::load_storage_by_external(storage).await
+                Self::load_storage_by_external(storage).await?
             }
-        }
+        };
+
+        Entity::init(&db).await.map(|()| db).map_err(Into::into)
     }
 
     async fn load_storage_by_native(
@@ -159,7 +161,7 @@ impl<'model> DatabaseStorageClient<'model> {
             }
             #[cfg(feature = "i-want-to-cleanup-all-before-running-for-my-testing")]
             None => {
-                self.drop_table(db).await?;
+                self.delete_table().await?;
                 Ok(None)
             }
             #[cfg(not(feature = "i-want-to-cleanup-all-before-running-for-my-testing"))]
@@ -384,8 +386,8 @@ impl RuntimeIden {
         // read hash digest and consume hasher
         let hash = hasher.finalize();
 
-        // encode to base64 foramt
-        Self(format!("{hash:x?}"))
+        // encode to base64 format
+        Self(format!("{hash:x}"))
     }
 
     fn from_str(s: impl AsRef<str>) -> Self {
@@ -398,8 +400,8 @@ impl RuntimeIden {
         // read hash digest and consume hasher
         let hash = hasher.finalize();
 
-        // encode to base64 foramt
-        Self(format!("{hash:x?}"))
+        // encode to base64 format
+        Self(format!("{hash:x}"))
     }
 }
 
