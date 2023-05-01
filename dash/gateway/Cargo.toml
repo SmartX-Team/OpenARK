@@ -20,6 +20,7 @@ dash-provider = { path = "../provider" }
 dash-provider-api = { path = "../provider/api", features = ["actix-web"] }
 
 anyhow = { workspace = true }
+actix-cors = { workspace = true }
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }
 kube = { workspace = true, features = [

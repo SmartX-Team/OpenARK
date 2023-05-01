@@ -2,6 +2,7 @@ mod routes;
 
 use std::net::SocketAddr;
 
+use actix_cors::Cors;
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
 use anyhow::Result;
 use ark_core::{env::infer, logger};
@@ -27,6 +28,11 @@ async fn main() {
 
         // Start web server
         HttpServer::new(move || {
+            let cors = Cors::default()
+                .allow_any_header()
+                .allow_any_method()
+                .allow_any_origin();
+
             App::new()
                 .app_data(Data::clone(&client))
                 .service(index)
@@ -39,6 +45,7 @@ async fn main() {
                 .service(crate::routes::model::get_item)
                 .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list)
+                .wrap(cors)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
