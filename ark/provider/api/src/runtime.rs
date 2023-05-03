@@ -100,7 +100,7 @@ where
                     builder.add(ApplicationResource::Volume(ApplicationVolume {
                         src: ApplicationVolumeSource::HostPath(None),
                         dst_path: "/dev/snd",
-                        read_only: true,
+                        read_only: false,
                     }))?;
                     builder.add(ApplicationResource::Volume(ApplicationVolume {
                         src: ApplicationVolumeSource::HostPath(None),
