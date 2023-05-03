@@ -7,8 +7,8 @@ use crate::{
     builder::{
         ApplicationBuilder, ApplicationBuilderArgs, ApplicationBuilderFactory, ApplicationDevice,
         ApplicationDeviceGpu, ApplicationDeviceGpuNvidia, ApplicationDeviceIpc,
-        ApplicationEnvironmentVariable, ApplicationResource, ApplicationUserGroup,
-        ApplicationVolume, ApplicationVolumeSource,
+        ApplicationDevicePath, ApplicationEnvironmentVariable, ApplicationResource,
+        ApplicationUserGroup, ApplicationVolume, ApplicationVolumeSource,
     },
     package::Package,
 };
@@ -97,11 +97,9 @@ where
                     builder.add(ApplicationResource::UserGroup(ApplicationUserGroup::Name(
                         "audio",
                     )))?;
-                    builder.add(ApplicationResource::Volume(ApplicationVolume {
-                        src: ApplicationVolumeSource::HostPath(None),
-                        dst_path: "/dev/snd",
-                        read_only: false,
-                    }))?;
+                    builder.add(ApplicationResource::Device(ApplicationDevice::Path(
+                        ApplicationDevicePath { src: "/dev/snd" },
+                    )))?;
                     builder.add(ApplicationResource::Volume(ApplicationVolume {
                         src: ApplicationVolumeSource::HostPath(None),
                         dst_path: "/etc/pulse",
@@ -145,11 +143,9 @@ where
                             value: &format!("/run/user/{uid}"),
                         },
                     ))?;
-                    builder.add(ApplicationResource::Volume(ApplicationVolume {
-                        src: ApplicationVolumeSource::HostPath(None),
-                        dst_path: "/dev/dri",
-                        read_only: true,
-                    }))?;
+                    builder.add(ApplicationResource::Device(ApplicationDevice::Path(
+                        ApplicationDevicePath { src: "/dev/dri" },
+                    )))?;
                     builder.add(ApplicationResource::Volume(ApplicationVolume {
                         src: ApplicationVolumeSource::UserHome(Some(&format!(
                             "./.local/share/ark/{name}/"

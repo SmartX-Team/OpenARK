@@ -194,6 +194,13 @@ impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
                         Ok(())
                     }
                 },
+                ApplicationDevice::Path(path) => {
+                    self.add(ApplicationResource::Volume(ApplicationVolume {
+                        src: ApplicationVolumeSource::HostPath(None),
+                        dst_path: path.src,
+                        read_only: false,
+                    }))
+                }
             },
             ApplicationResource::EnvironmentVariable(ApplicationEnvironmentVariable {
                 key,

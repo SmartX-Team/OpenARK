@@ -32,16 +32,21 @@ pub trait ApplicationBuilder {
 
 pub enum ApplicationResource<'a> {
     Box(BoxGroupRole),
-    Device(ApplicationDevice),
+    Device(ApplicationDevice<'a>),
     EnvironmentVariable(ApplicationEnvironmentVariable<'a>),
     NodeName(&'a str),
     UserGroup(ApplicationUserGroup<'a>),
     Volume(ApplicationVolume<'a>),
 }
 
-pub enum ApplicationDevice {
+pub enum ApplicationDevice<'a> {
     Gpu(ApplicationDeviceGpu),
     Ipc(ApplicationDeviceIpc),
+    Path(ApplicationDevicePath<'a>),
+}
+
+pub struct ApplicationDevicePath<'a> {
+    pub src: &'a str,
 }
 
 pub enum ApplicationDeviceGpu {

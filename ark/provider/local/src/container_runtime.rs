@@ -283,6 +283,17 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                             Ok(())
                         }
                     },
+                    ApplicationDevice::Path(path) => match (&self.args.manager.kind, path.src) {
+                        (ContainerRuntimeKind::Podman, "/dev/dri") => {
+                            // do not mount /dev/dri directly on Podman
+                            Ok(())
+                        }
+                        _ => self.add(ApplicationResource::Volume(ApplicationVolume {
+                            src: ApplicationVolumeSource::HostPath(None),
+                            dst_path: path.src,
+                            read_only: false,
+                        })),
+                    },
                 },
                 ApplicationResource::EnvironmentVariable(ApplicationEnvironmentVariable {
                     key,
