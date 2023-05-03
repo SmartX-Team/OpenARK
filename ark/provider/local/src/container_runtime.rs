@@ -297,31 +297,34 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                     src,
                     dst_path,
                     read_only,
-                }) => match src {
-                    ApplicationVolumeSource::HostPath(src_path) => {
-                        let src_path = src_path.unwrap_or(dst_path);
+                }) => {
+                    let mut mount = |src_path: &str, dst_path: &str, read_only: bool| {
                         let permission = if read_only { "ro" } else { "rw" };
 
                         self.command.arg("--volume");
                         self.command
                             .arg(format!("{src_path}:{dst_path}:{permission}"));
                         Ok(())
-                    }
-                    ApplicationVolumeSource::UserHome(src_path) => {
-                        let home = ::std::env::var("HOME")?; // TODO: enable to use virtualized home
-                        let src_path = src_path.unwrap_or(dst_path);
-                        let src_path = format!("{home}/{src_path}");
-                        let permission = if read_only { "ro" } else { "" };
+                    };
 
-                        // make a user-level directory if not exists
-                        fs::create_dir_all(&src_path)?;
+                    match src {
+                        ApplicationVolumeSource::HostPath(src_path) => {
+                            let src_path = src_path.unwrap_or(dst_path);
 
-                        self.command.arg("--volume");
-                        self.command
-                            .arg(format!("{src_path}:{dst_path}:{permission}"));
-                        Ok(())
+                            mount(src_path, dst_path, read_only)
+                        }
+                        ApplicationVolumeSource::UserHome(src_path) => {
+                            let home = ::std::env::var("HOME")?; // TODO: enable to use virtualized home
+                            let src_path = src_path.unwrap_or(dst_path);
+                            let src_path = format!("{home}/{src_path}");
+
+                            // make a user-level directory if not exists
+                            fs::create_dir_all(&src_path)?;
+
+                            mount(&src_path, dst_path, read_only)
+                        }
                     }
-                },
+                }
             },
         }
     }
