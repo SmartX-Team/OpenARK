@@ -250,11 +250,18 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                 ApplicationResource::Device(device) => match device {
                     ApplicationDevice::Gpu(gpu) => match gpu {
                         ApplicationDeviceGpu::Nvidia(nvidia) => match nvidia {
-                            ApplicationDeviceGpuNvidia::All => {
-                                self.command.arg("--gpus");
-                                self.command.arg("all");
-                                Ok(())
-                            }
+                            ApplicationDeviceGpuNvidia::All => match &self.args.manager.kind {
+                                ContainerRuntimeKind::Docker => {
+                                    self.command.arg("--gpus");
+                                    self.command.arg("all");
+                                    Ok(())
+                                }
+                                ContainerRuntimeKind::Podman => {
+                                    self.command.arg("--device");
+                                    self.command.arg("nvidia.com/gpu=all");
+                                    Ok(())
+                                }
+                            },
                         },
                     },
                     ApplicationDevice::Ipc(ipc) => match ipc {
@@ -293,11 +300,11 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                 }) => match src {
                     ApplicationVolumeSource::HostPath(src_path) => {
                         let src_path = src_path.unwrap_or(dst_path);
-                        let permission = if read_only { "ro" } else { "" };
+                        let read_only = if read_only { ",readonly" } else { "" };
 
-                        self.command.arg("--volume");
+                        self.command.arg("--mount");
                         self.command
-                            .arg(format!("{src_path}:{dst_path}:{permission}"));
+                            .arg(format!("src={src_path},dst={dst_path}{read_only}"));
                         Ok(())
                     }
                     ApplicationVolumeSource::UserHome(src_path) => {
