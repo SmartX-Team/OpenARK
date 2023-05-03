@@ -314,7 +314,12 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                             mount(src_path, dst_path, read_only)
                         }
                         ApplicationVolumeSource::UserHome(src_path) => {
-                            let home = ::std::env::var("HOME")?; // TODO: enable to use virtualized home
+                            let home = ::home::home_dir();
+                            let home = home
+                                .as_ref()
+                                .and_then(|path| path.to_str())
+                                .unwrap_or_default();
+
                             let src_path = src_path.unwrap_or(dst_path);
                             let src_path = format!("{home}/{src_path}");
 

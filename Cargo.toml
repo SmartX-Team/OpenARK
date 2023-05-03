@@ -62,6 +62,7 @@ email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.4" }
 half = { version = "2.2" }
+home = { version = "0.5" }
 http-cache-reqwest = { version = "0.9", features = ["manager-cacache"] }
 image = { version = "0.24" }
 inflector = { package = "Inflector", version = "0.11" }
