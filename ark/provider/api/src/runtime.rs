@@ -87,6 +87,12 @@ where
             )
             .await?;
 
+        let dst_home = if builder.is_target_user_root() {
+            "/root".into()
+        } else {
+            format!("/home/{username}")
+        };
+
         if let Some(node_name) = node_name {
             builder.add(ApplicationResource::NodeName(node_name))?;
         }
@@ -150,7 +156,7 @@ where
                         src: ApplicationVolumeSource::UserHome(Some(&format!(
                             "./.local/share/ark/{name}/"
                         ))),
-                        dst_path: &format!("/home/{username}"),
+                        dst_path: &dst_home,
                         read_only: false,
                     }))?;
                     builder.add(ApplicationResource::Volume(ApplicationVolume {

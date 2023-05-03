@@ -25,6 +25,8 @@ pub struct ApplicationBuilderArgs<'a> {
 
 #[async_trait]
 pub trait ApplicationBuilder {
+    fn is_target_user_root(&self) -> bool;
+
     fn add(&mut self, resource: ApplicationResource) -> Result<()>;
 
     async fn spawn(self, sync: bool) -> Result<()>;
