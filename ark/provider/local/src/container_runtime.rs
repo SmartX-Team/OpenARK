@@ -300,11 +300,11 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                 }) => match src {
                     ApplicationVolumeSource::HostPath(src_path) => {
                         let src_path = src_path.unwrap_or(dst_path);
-                        let read_only = if read_only { ",readonly" } else { "" };
+                        let permission = if read_only { "ro" } else { "rw" };
 
-                        self.command.arg("--mount");
+                        self.command.arg("--volume");
                         self.command
-                            .arg(format!("src={src_path},dst={dst_path}{read_only}"));
+                            .arg(format!("{src_path}:{dst_path}:{permission}"));
                         Ok(())
                     }
                     ApplicationVolumeSource::UserHome(src_path) => {
