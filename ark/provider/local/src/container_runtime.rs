@@ -206,19 +206,31 @@ impl<'args> ApplicationBuilderFactory<'args> for ContainerApplicationBuilderFact
     where
         'builder: 'args,
     {
+        fn attach_user<T>(command: &mut Command, uid: T, gid: T)
+        where
+            T: ToString,
+        {
+            command
+                .arg("--group-add")
+                .arg(gid.to_string())
+                .arg("--user")
+                .arg(uid.to_string());
+        }
+
         Ok(ContainerApplicationBuilder {
             command: match &args.manager.kind {
-                ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
+                ContainerRuntimeKind::Docker => {
                     let ArkUserSpec { uid, gid, .. } = user;
 
                     let mut command = Command::new(&args.manager.program);
+                    command.arg("run").arg("--rm");
+                    attach_user(&mut command, uid, gid);
                     command
-                        .arg("run")
-                        .arg("--rm")
-                        .arg("--group-add")
-                        .arg(gid.to_string())
-                        .arg("--user")
-                        .arg(uid.to_string());
+                }
+                ContainerRuntimeKind::Podman => {
+                    let mut command = Command::new(&args.manager.program);
+                    command.arg("run").arg("--rm");
+                    attach_user(&mut command, 0, 0); // rootless mode
                     command
                 }
             },
