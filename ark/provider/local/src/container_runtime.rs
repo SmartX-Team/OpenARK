@@ -255,10 +255,6 @@ struct ContainerApplicationBuilderArgs<'args> {
 
 #[async_trait]
 impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
-    fn is_target_user_root(&self) -> bool {
-        matches!(&self.args.manager.kind, ContainerRuntimeKind::Podman)
-    }
-
     fn add(&mut self, resource: ApplicationResource) -> Result<()> {
         match &self.args.manager.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => match resource {

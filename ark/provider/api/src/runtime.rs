@@ -75,6 +75,8 @@ where
             ..
         } = &resource.spec.user;
 
+        let dst_home = format!("/home/{username}");
+
         let mut builder = self
             .builder
             .create_builder(
@@ -87,15 +89,17 @@ where
             )
             .await?;
 
-        let dst_home = if builder.is_target_user_root() {
-            "/root".into()
-        } else {
-            format!("/home/{username}")
-        };
-
         if let Some(node_name) = node_name {
             builder.add(ApplicationResource::NodeName(node_name))?;
         }
+
+        // specify home directory
+        builder.add(ApplicationResource::EnvironmentVariable(
+            ApplicationEnvironmentVariable {
+                key: "HOME",
+                value: &dst_home,
+            },
+        ))?;
 
         for permission in &resource.spec.permissions {
             match &permission.name {

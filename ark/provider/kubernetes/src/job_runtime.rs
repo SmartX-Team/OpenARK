@@ -163,10 +163,6 @@ pub(crate) struct JobApplicationBuilderArgs<'args> {
 
 #[async_trait]
 impl<'args> ApplicationBuilder for JobApplicationBuilder<'args> {
-    fn is_target_user_root(&self) -> bool {
-        false
-    }
-
     fn add(&mut self, resource: ApplicationResource) -> Result<()> {
         match resource {
             ApplicationResource::Box(r#box) => {
