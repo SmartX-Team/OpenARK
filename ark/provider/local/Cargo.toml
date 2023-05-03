@@ -21,6 +21,7 @@ ark-provider-api = { path = "../api" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 gethostname = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
 tera = { workspace = true }
 tokio = { workspace = true, features = ["io-std", "process"] }

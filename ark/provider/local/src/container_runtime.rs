@@ -14,6 +14,7 @@ use ark_provider_api::{
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
 use async_trait::async_trait;
+use log::{debug, info};
 use tokio::{
     io::{self, AsyncWriteExt},
     process::Command,
@@ -56,8 +57,11 @@ impl ContainerRuntimeManager {
                 .arg("image")
                 .arg("ls")
                 .arg("--quiet")
-                .arg(image_name),
+                .arg(&image_name),
         };
+
+        info!("Checking image ({image_name})...");
+        debug!("Checking image ({image_name}): {command:?}");
 
         command
             .stdin(Stdio::null())
@@ -78,9 +82,12 @@ impl ContainerRuntimeManager {
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
-                command.arg("pull").arg(image_name)
+                command.arg("pull").arg(&image_name)
             }
         };
+
+        info!("Trying to pull image ({image_name})...");
+        debug!("Trying to pull image ({image_name}): {command:?}");
 
         command
             .stdin(Stdio::null())
@@ -104,9 +111,12 @@ impl ContainerRuntimeManager {
         let mut command = Command::new(&self.program);
         let command = match &self.kind {
             ContainerRuntimeKind::Docker | ContainerRuntimeKind::Podman => {
-                command.arg("build").arg("--tag").arg(image_name).arg("-")
+                command.arg("build").arg("--tag").arg(&image_name).arg("-")
             }
         };
+
+        info!("Building image ({image_name})...");
+        debug!("Building image ({image_name}): {command:?}");
 
         let mut process =
             apply_sync_on_command(command.stdin(Stdio::piped()), self.sync).spawn()?;
@@ -134,8 +144,11 @@ impl ContainerRuntimeManager {
                 .arg("image")
                 .arg("rm")
                 .arg("--force")
-                .arg(image_name),
+                .arg(&image_name),
         };
+
+        info!("Removing image ({image_name})...");
+        debug!("Removing image ({image_name}): {command:?}");
 
         if command
             .stdin(Stdio::null())
@@ -318,6 +331,16 @@ impl<'args> ApplicationBuilder for ContainerApplicationBuilder<'args> {
                     .args(self.command_line_arguments);
             }
         }
+
+        info!(
+            "Spawning a container ({image_name})...",
+            image_name = &self.image_name,
+        );
+        debug!(
+            "Spawning a container ({image_name}): {command:?}",
+            image_name = &self.image_name,
+            command = &self.command,
+        );
 
         let mut process = apply_sync_on_command(self.command.stdin(Stdio::null()), sync).spawn()?;
 
