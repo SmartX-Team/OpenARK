@@ -209,7 +209,7 @@ data:
       done
     fi
 
-    # Allow asswordless sudo command
+    # Allow passwordless sudo command
     cat <<EOF >/etc/sudoers.d/10-wheel
     ENV_USERNAME ALL=(ALL) NOPASSWD: ALL
     EOF
