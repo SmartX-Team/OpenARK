@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fmt, fs, path::PathBuf};
 
 use anyhow::{bail, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
@@ -7,17 +7,14 @@ use chrono::Utc;
 use dash_provider::client::job::FunctionActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
-use k8s_openapi::{
-    api::core::v1::{Namespace, Node},
-    serde_json::Value,
-    Resource,
-};
+use k8s_openapi::{api::core::v1::Node, serde_json::Value, Metadata, Resource};
 use kube::{
     api::{Patch, PatchParams},
+    core::ObjectMeta,
     Api, Client, ResourceExt,
 };
 use log::info;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use vine_api::{user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
@@ -58,7 +55,7 @@ impl SessionManager {
     pub async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx: SessionContext = spec.into();
 
-        self.label_user(ctx.spec.node, Some(ctx.spec.user_name))
+        self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
             .and_then(|()| self.delete_cleanup(&ctx))
             .and_then(|()| self.create_template(&ctx))
@@ -71,7 +68,7 @@ impl SessionManager {
         self.label_namespace(&ctx, None)
             .and_then(|()| self.delete_template(&ctx))
             .and_then(|()| self.create_cleanup(&ctx))
-            .and_then(|()| self.label_user(ctx.spec.node, None))
+            .and_then(|()| self.label_node(ctx.spec.node, None))
             .await
     }
 
@@ -165,44 +162,35 @@ impl SessionManager {
     ) -> Result<()> {
         self.create_namespace(ctx).await?;
 
-        let api: Api<Namespace> = Api::<Namespace>::all(self.client.kube.clone());
-        let name: String = ctx.spec.node.name_any();
-        let pp = PatchParams {
-            field_manager: Some(self::consts::NAME.into()),
-            force: true,
-            ..Default::default()
-        };
-
-        let patch = Patch::Apply(json!({
-            "apiVersion": Namespace::API_VERSION,
-            "kind": Namespace::KIND,
-            "metadata": {
-                "labels": get_label(&name, user_name),
-            },
-        }));
-        api.patch(&name, &pp, &patch)
-            .await
-            .map(|_| ())
-            .map_err(Into::into)
+        let name = ctx.spec.namespace();
+        self.label::<Node>(&name, ctx.spec.node, user_name).await
     }
 
-    async fn label_user(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
-        let api = Api::<Node>::all(self.client.kube.clone());
+    async fn label_node(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
         let name = node.name_any();
+        self.label::<Node>(&name, node, user_name).await
+    }
+
+    async fn label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
+    where
+        K: Clone + fmt::Debug + DeserializeOwned + Metadata<Ty = ObjectMeta>,
+    {
+        let api = Api::<K>::all(self.client.kube.clone());
         let pp = PatchParams {
             field_manager: Some(self::consts::NAME.into()),
             force: true,
             ..Default::default()
         };
 
+        let node_name = node.name_any();
         let patch = Patch::Apply(json!({
             "apiVersion": Node::API_VERSION,
             "kind": Node::KIND,
             "metadata": {
-                "labels": get_label(&name, user_name),
+                "labels": get_label(&node_name, user_name),
             },
         }));
-        api.patch(&name, &pp, &patch)
+        api.patch(name, &pp, &patch)
             .await
             .map(|_| ())
             .map_err(Into::into)
@@ -225,10 +213,16 @@ impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
         SessionContext {
             metadata: SessionContextMetadata {
                 name: "".to_string(), // not used
-                namespace: format!("vine-session-{}", &spec.user_name),
+                namespace: spec.namespace(),
             },
             spec,
         }
+    }
+}
+
+impl<'a> SessionContextSpec<'a> {
+    fn namespace(&self) -> String {
+        format!("vine-session-{}", &self.user_name)
     }
 }
 
