@@ -38,7 +38,7 @@ impl DashClient {
     }
 
     pub async fn post_function(&self, name: &str, value: &Value) -> Result<FunctionChannel> {
-        self.post(format!("/function/{name}"), Some(value)).await
+        self.post(format!("/function/{name}/"), Some(value)).await
     }
 }
 
