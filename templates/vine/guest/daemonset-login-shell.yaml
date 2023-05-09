@@ -61,13 +61,6 @@ spec:
               value: /run/user/2000
           workingDir: /home/user
           volumeMounts:
-            - name: dev
-              mountPath: /dev
-            - name: dev-dri
-              mountPath: /dev/dri
-            - name: egl-icd-loader
-              mountPath: /etc/glvnd/egl_vendor.d
-              readOnly: true
             - name: home
               mountPath: /home/user
             - name: machine-id
@@ -75,17 +68,10 @@ spec:
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
-            - name: runtime-dbus
-              mountPath: /run/dbus
-            - name: runtime-user
-              mountPath: /run/user/2000
             - name: tmp
               mountPath: /tmp
             - name: vine
               mountPath: /tmp/.vine
-            - name: vulkan-icd-loader
-              mountPath: /etc/vulkan/icd.d
-              readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
       securityContext:
@@ -93,18 +79,6 @@ spec:
         fsGroup: 2000
       terminationGracePeriodSeconds: 30
       volumes:
-        - name: dev
-          hostPath:
-            path: /dev
-            type: Directory
-        - name: dev-dri
-          hostPath:
-            path: /dev/dri
-            type: Directory
-        - name: egl-icd-loader
-          hostPath:
-            path: /usr/share/glvnd/egl_vendor.d
-            type: Directory
         - name: home
           emptyDir: {}
         - name: machine-id
@@ -115,24 +89,12 @@ spec:
           hostPath:
             path: /tmp/.ICE-unix
             type: Directory
-        - name: runtime-dbus
-          hostPath:
-            path: /run/dbus
-            type: Directory
-        - name: runtime-user
-          hostPath:
-            path: /run/user/2000
-            type: Directory
         - name: tmp
           emptyDir: {}
         - name: vine
           hostPath:
             path: /tmp/.vine
             type: DirectoryOrCreate
-        - name: vulkan-icd-loader
-          hostPath:
-            path: /usr/share/vulkan/icd.d
-            type: Directory
         - name: x11
           hostPath:
             path: /tmp/.X11-unix
