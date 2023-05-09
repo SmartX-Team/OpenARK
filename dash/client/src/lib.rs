@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use anyhow::{anyhow, Result};
 use dash_api::{function::FunctionCrd, model::ModelCrd};
 use dash_provider_api::{FunctionChannel, SessionResult};
@@ -8,6 +10,22 @@ use serde_json::Value;
 pub struct DashClient {
     client: Client,
     host: Url,
+}
+
+impl DashClient {
+    pub fn new(client: Client, host: Url) -> Self {
+        Self { client, host }
+    }
+
+    pub fn with_host<Host>(host: Host) -> Result<Self>
+    where
+        Host: TryInto<Url>,
+        <Host as TryInto<Url>>::Error: 'static + Send + Sync + Error,
+    {
+        host.try_into()
+            .map(|host| Self::new(Default::default(), host))
+            .map_err(Into::into)
+    }
 }
 
 impl DashClient {
