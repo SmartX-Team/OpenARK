@@ -68,6 +68,7 @@ spec:
               mountPath: /tmp/.vine
             - name: x11
               mountPath: /tmp/.X11-unix
+      hostIPC: true
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
