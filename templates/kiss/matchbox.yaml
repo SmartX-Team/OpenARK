@@ -308,7 +308,6 @@ data:
 
     [Service]
     Type=oneshot
-    Restart=on-failure
     ExecStart=/bin/bash -c " \
       ADDRESS=\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1) ;\
       UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
@@ -321,6 +320,22 @@ data:
     WantedBy=multi-user.target
     EOF
     ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+
+    # VINE Configuration
+    cat <<EOF >/etc/systemd/system/vine-cleanup.service
+    [Unit]
+    Description=Cleanup all VINE sessions after reboot.
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    Type=oneshot
+    ExecStart=/bin/rm -rf /tmp/.vine/.login.lock/
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+    ln -sf /etc/systemd/system/vine-cleanup.service /etc/systemd/system/multi-user.target.wants/vine-cleanup.service
 
     # Sysctl Configuration
     mkdir -p /etc/sysctl.d/
@@ -674,6 +689,23 @@ data:
 
               [Install]
               WantedBy=multi-user.target
+        - path: /etc/systemd/system/vine-cleanup.service
+          filesystem: root
+          overwrite: true
+          mode: 0444
+          contents:
+            inline: |
+              [Unit]
+              Description=Cleanup all VINE sessions after reboot.
+              Wants=network-online.target
+              After=network-online.target
+
+              [Service]
+              Type=oneshot
+              ExecStart=/bin/rm -rf /tmp/.vine/.login.lock/
+
+              [Install]
+              WantedBy=multi-user.target
         - path: /etc/systemd/timesyncd.conf
           filesystem: root
           overwrite: true
@@ -734,6 +766,11 @@ data:
       links:
         - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
           target: /etc/systemd/system/notify-new-box.service
+          filesystem: root
+          overwrite: true
+          hard: false
+        - path: /etc/systemd/system/multi-user.target.wants/vine-cleanup.service
+          target: /etc/systemd/system/vine-cleanup.service
           filesystem: root
           overwrite: true
           hard: false
