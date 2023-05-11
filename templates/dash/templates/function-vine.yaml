@@ -1,0 +1,68 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: box
+spec:
+  customResourceDefinitionRef:
+    name: boxes.kiss.ulagbulag.io/v1alpha1
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: user
+spec:
+  customResourceDefinitionRef:
+    name: users.vine.ulagbulag.io/v1alpha1
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: kubernetes
+spec:
+  kubernetes: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: box-from-kubernetes
+spec:
+  model: box
+  storage: kubernetes
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: user-from-kubernetes
+spec:
+  model: user
+  storage: kubernetes
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Function
+metadata:
+  name: vine-login
+  annotations:
+    dash.ulagbulag.io/title: vine-login
+    dash.ulagbulag.io/subject: box
+    dash.ulagbulag.io/subject-path: /box/
+spec:
+  input:
+    - name: /box/
+      model:
+        name: box
+    - name: /type/
+      oneOfStrings:
+        default: "login"
+        choices:
+          - "login"
+          - "logout"
+    - name: /user/
+      model:
+        name: user
+  actor:
+    job:
+      configMapRef:
+        name: vine-template-session
+        namespace: vine
+        path: dash.yaml.j2

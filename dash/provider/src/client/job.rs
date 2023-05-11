@@ -193,17 +193,23 @@ impl FunctionActorJobClient {
                 None => bail!("untyped document is not supported: {name}"),
             };
 
-            let api_group = {
+            let (api_group, version) = {
                 let mut iter = types.api_version.split('/');
                 match (iter.next(), iter.next()) {
-                    (Some(api_group), Some(_)) => api_group,
-                    (Some(_), None) | (None, _) => "",
+                    (Some(api_group), Some(version)) => (api_group, Some(version)),
+                    (Some(_), None) | (None, _) => ("", None),
                 }
             };
 
             // Discover most stable version variant of document
             let apigroup = discovery::group(&self.kube, api_group).await?;
-            let (ar, _caps) = apigroup.recommended_kind(&types.kind).unwrap();
+            let (ar, _caps) = match version {
+                Some(version) => apigroup.versioned_resources(version),
+                None => apigroup.recommended_resources(),
+            }
+            .into_iter()
+            .find(|(ar, _)| ar.kind == types.kind)
+            .unwrap();
 
             // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
             let api: Api<DynamicObject> = match &namespace {

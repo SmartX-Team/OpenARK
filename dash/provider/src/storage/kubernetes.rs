@@ -56,10 +56,16 @@ impl<'a> KubernetesStorageClient<'a> {
         resource_name: &str,
     ) -> Result<Option<Value>> {
         let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
+        let plural = spec.name.split('.').next().unwrap();
 
         // Discover most stable version variant of document
         let apigroup = discovery::group(self.kube, &api_group).await?;
-        let ar = match apigroup.versioned_resources(&def.name).pop() {
+
+        let ar = match apigroup
+            .versioned_resources(&def.name)
+            .into_iter()
+            .find(|(ar, _)| ar.plural == plural)
+        {
             Some((ar, _)) => ar,
             None => {
                 let model_name = &spec.name;

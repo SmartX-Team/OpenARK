@@ -56,9 +56,19 @@ impl InputTemplate {
         storage: &StorageClient<'_, '_>,
         input: InputFieldString,
     ) -> Result<()> {
+        self.update_field_string_impl(storage, input, false).await
+    }
+
+    async fn update_field_string_impl(
+        &mut self,
+        storage: &StorageClient<'_, '_>,
+        input: InputFieldString,
+        optional: bool,
+    ) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = self.get_field(&name)?;
+        let optional = optional || base_field.parsed.attribute.optional;
 
         match &base_field.parsed.kind {
             // BEGIN primitive types
@@ -157,23 +167,33 @@ impl InputTemplate {
                     name,
                     value: storage.get(base_field.original.as_ref(), &value).await?,
                 };
-                self.update_field_value(storage, input).await
+                self.update_field_value_impl(storage, input, optional).await
             }
             ModelFieldKindNativeSpec::ObjectArray { .. } => {
-                assert_optional(&name, &value, &base_field.parsed)
+                assert_optional(&name, &value, &base_field.parsed, optional)
             }
         }
     }
 
-    #[async_recursion]
     pub async fn update_field_value(
         &mut self,
         storage: &StorageClient<'_, '_>,
         input: InputFieldValue,
     ) -> Result<()> {
+        self.update_field_value_impl(storage, input, false).await
+    }
+
+    #[async_recursion]
+    async fn update_field_value_impl(
+        &mut self,
+        storage: &StorageClient<'_, '_>,
+        input: InputFieldValue,
+        optional: bool,
+    ) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = self.get_field(&name)?;
+        let optional = optional || base_field.parsed.attribute.optional;
 
         match &base_field.parsed.kind {
             // BEGIN primitive types
@@ -186,7 +206,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 } else {
-                    assert_optional(&name, &value, &base_field.parsed)
+                    assert_optional(&name, &value, &base_field.parsed, optional)
                 }
             }
             ModelFieldKindNativeSpec::Integer {
@@ -215,7 +235,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::Number {
                 default: _,
@@ -243,7 +263,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::String { default: _, kind } => match value.as_str() {
                 Some(value_str) => {
@@ -251,7 +271,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::OneOfStrings {
                 default: _,
@@ -268,7 +288,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             // BEGIN string formats
             ModelFieldKindNativeSpec::DateTime { default: _ } => match value.as_str() {
@@ -277,7 +297,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::Ip {} => match value.as_str() {
                 Some(value_string) => {
@@ -285,7 +305,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::Uuid {} => match value.as_str() {
                 Some(value_string) => {
@@ -293,7 +313,7 @@ impl InputTemplate {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, &base_field.parsed),
+                None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             // BEGIN aggregation types
             ModelFieldKindNativeSpec::Object {
@@ -305,26 +325,28 @@ impl InputTemplate {
                         name,
                         value: storage.get(base_field.original.as_ref(), &ref_name).await?,
                     };
-                    self.update_field_value(storage, input).await
+                    self.update_field_value_impl(storage, input, optional).await
                 }
                 Value::Object(children) => {
                     for (child, value) in children.into_iter() {
                         let child = InputField::sub_object(&name, &child, value);
-                        self.update_field_value(storage, child).await?;
+                        self.update_field_value_impl(storage, child, optional)
+                            .await?;
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, &base_field.parsed),
+                value => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
                 Value::Array(children) => {
                     for (index, value) in children.into_iter().enumerate() {
                         let child = InputField::sub_array(&name, index, value);
-                        self.update_field_value(storage, child).await?;
+                        self.update_field_value_impl(storage, child, optional)
+                            .await?;
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, &base_field.parsed),
+                value => assert_optional(&name, &value, &base_field.parsed, optional),
             },
         }
     }
@@ -579,12 +601,17 @@ impl<'a> ItemTemplate<'a> {
     }
 
     pub fn update_field_value(&mut self, input: InputFieldValue) -> Result<()> {
+        self.update_field_value_impl(input, false)
+    }
+
+    fn update_field_value_impl(&mut self, input: InputFieldValue, optional: bool) -> Result<()> {
         let InputField { name, value } = input;
 
         let (base_field, field) = match self.try_get_field(&name)? {
             Some((base_field, field)) => (base_field, field),
             None => return Ok(()),
         };
+        let optional = optional || base_field.attribute.optional;
 
         match &base_field.kind {
             // BEGIN primitive types
@@ -597,7 +624,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 } else {
-                    assert_optional(&name, &value, base_field)
+                    assert_optional(&name, &value, base_field, optional)
                 }
             }
             ModelFieldKindNativeSpec::Integer {
@@ -626,7 +653,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::Number {
                 default: _,
@@ -654,7 +681,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::String { default: _, kind } => match value.as_str() {
                 Some(value_str) => {
@@ -662,7 +689,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::OneOfStrings {
                 default: _,
@@ -679,7 +706,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             // BEGIN string formats
             ModelFieldKindNativeSpec::DateTime { default: _ } => match value.as_str() {
@@ -688,7 +715,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::Ip {} => match value.as_str() {
                 Some(value_string) => {
@@ -696,7 +723,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::Uuid {} => match value.as_str() {
                 Some(value_string) => {
@@ -704,7 +731,7 @@ impl<'a> ItemTemplate<'a> {
                     *field = value;
                     Ok(())
                 }
-                None => assert_optional(&name, &value, base_field),
+                None => assert_optional(&name, &value, base_field, optional),
             },
             // BEGIN aggregation types
             ModelFieldKindNativeSpec::Object {
@@ -714,21 +741,21 @@ impl<'a> ItemTemplate<'a> {
                 Value::Object(children) => {
                     for (child, value) in children.into_iter() {
                         let child = InputField::sub_object(&name, &child, value);
-                        self.update_field_value(child)?;
+                        self.update_field_value_impl(child, optional)?;
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, base_field),
+                value => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
                 Value::Array(children) => {
                     for (index, value) in children.into_iter().enumerate() {
                         let child = InputField::sub_array(&name, index, value);
-                        self.update_field_value(child)?;
+                        self.update_field_value_impl(child, optional)?;
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, base_field),
+                value => assert_optional(&name, &value, base_field, optional),
             },
         }
     }
@@ -1149,11 +1176,16 @@ fn assert_fill_optional(name: &str, optional: bool, spec: &ModelFieldNativeSpec)
     }
 }
 
-fn assert_optional<Value>(name: &str, value: Value, spec: &ModelFieldNativeSpec) -> Result<()>
+fn assert_optional<Value>(
+    name: &str,
+    value: Value,
+    spec: &ModelFieldNativeSpec,
+    optional: bool,
+) -> Result<()>
 where
     Value: fmt::Debug + IsDefault,
 {
-    if spec.attribute.optional && value.is_default() {
+    if optional && value.is_default() {
         Ok(())
     } else {
         let type_ = spec.kind.to_type();

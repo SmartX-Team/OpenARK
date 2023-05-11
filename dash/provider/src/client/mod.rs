@@ -29,7 +29,7 @@ pub trait FunctionSessionUpdateFields<Value> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
-        inputs: InputField<Value>,
+        input: InputField<Value>,
     ) -> Result<()>;
 }
 
@@ -38,12 +38,12 @@ impl<'a> FunctionSessionUpdateFields<String> for FunctionSession<'a> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
-        inputs: InputField<String>,
+        input: InputField<String>,
     ) -> Result<()> {
         self.input
-            .update_field_string(storage, inputs)
+            .update_field_string(storage, input)
             .await
-            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.metadata.name))
+            .map_err(|e| anyhow!("failed to parse input {:?}: {e}", &self.metadata.name))
     }
 }
 
@@ -52,12 +52,12 @@ impl<'a> FunctionSessionUpdateFields<Value> for FunctionSession<'a> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
-        inputs: InputField<Value>,
+        input: InputField<Value>,
     ) -> Result<()> {
         self.input
-            .update_field_value(storage, inputs)
+            .update_field_value(storage, input)
             .await
-            .map_err(|e| anyhow!("failed to parse inputs {:?}: {e}", &self.metadata.name))
+            .map_err(|e| anyhow!("failed to parse input {:?}: {e}", &self.metadata.name))
     }
 }
 
