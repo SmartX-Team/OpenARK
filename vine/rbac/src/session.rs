@@ -15,17 +15,16 @@ use vine_api::{
     user_role::UserRoleCrd,
     user_role_binding::UserRoleBindingCrd,
 };
-use vine_session::{SessionContextSpec, SessionManager};
+use vine_session::{SessionContextSpecOwned, SessionManager};
 
-pub async fn execute_with<F, Fut>(
+pub async fn execute_with<'f, Fut>(
     client: &Client,
     box_name: &str,
     user_name: &str,
-    f: F,
+    f: impl FnOnce(SessionManager, SessionContextSpecOwned) -> Fut,
 ) -> Result<UserSessionResponse>
 where
-    F: for<'a> FnOnce(SessionManager, SessionContextSpec<'a>) -> Fut,
-    Fut: Future<Output = Result<()>>,
+    Fut: 'f + Future<Output = Result<()>>,
 {
     // get current time
     let now = Utc::now();
@@ -150,11 +149,11 @@ where
         // Login Successed!
         Some(box_quota) => {
             let session_manager = SessionManager::try_new(client.clone()).await?;
-            let spec = SessionContextSpec {
-                box_quota: box_quota.as_ref(),
-                node: &node,
-                role: Some(&role),
-                user_name: &user.name_any(),
+            let spec = SessionContextSpecOwned {
+                box_quota: box_quota.clone(),
+                node,
+                role: Some(role),
+                user_name: user.name_any(),
             };
 
             f(session_manager, spec)
