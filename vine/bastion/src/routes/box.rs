@@ -7,16 +7,23 @@ pub mod login {
     use kube::Client;
     use log::error;
     use uuid::Uuid;
-    use vine_api::user_auth::UserLoginResponse;
+    use vine_api::user_auth::UserSessionResponse;
 
-    #[get("/box/{name}/login")]
+    #[get("/box/{box_name}/login")]
     pub async fn get(
         request: HttpRequest,
         client: Data<Client>,
-        name: Path<Uuid>,
+        box_name: Path<Uuid>,
     ) -> impl Responder {
-        match ::vine_rbac::login::execute(&request, &name.to_string(), client).await {
-            Ok(response) if matches!(response, UserLoginResponse::Accept { .. }) => {
+        match {
+            match crate::auth::get_user_name(&request) {
+                Ok(user_name) => {
+                    ::vine_rbac::login::execute(&client, &box_name.to_string(), &user_name).await
+                }
+                Err(response) => Ok(response.into()),
+            }
+        } {
+            Ok(response) if matches!(response, UserSessionResponse::Accept { .. }) => {
                 Redirect::to("../../")
                     .temporary()
                     .respond_to(&request)

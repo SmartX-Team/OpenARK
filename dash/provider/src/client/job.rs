@@ -220,6 +220,7 @@ impl FunctionActorJobClient {
     }
 }
 
+#[derive(Debug)]
 struct Template {
     api: Api<DynamicObject>,
     name: String,

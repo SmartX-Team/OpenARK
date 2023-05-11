@@ -89,26 +89,41 @@ pub enum UserAuthResponse {
         box_quota_bindings: Vec<UserBoxQuotaBindingSpec<UserBoxQuotaSpec>>,
         user: UserSpec,
     },
-    AuthorizationTokenMalformed,
-    AuthorizationTokenNotFound,
-    PrimaryKeyMalformed,
-    UserNotRegistered,
+    AuthError(UserAuthError),
+}
+
+impl From<UserAuthError> for UserAuthResponse {
+    fn from(error: UserAuthError) -> Self {
+        Self::AuthError(error)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
-pub enum UserLoginResponse {
+pub enum UserSessionResponse {
     Accept {
         box_quota: Option<UserBoxQuotaSpec>,
         user: UserSpec,
     },
-    AuthorizationTokenMalformed,
-    AuthorizationTokenNotFound,
+    AuthError(UserAuthError),
     BoxNotFound,
     BoxNotInCluster,
     Deny {
         user: UserSpec,
     },
+}
+
+impl From<UserAuthError> for UserSessionResponse {
+    fn from(error: UserAuthError) -> Self {
+        Self::AuthError(error)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", tag = "status", content = "data")]
+pub enum UserAuthError {
+    AuthorizationTokenMalformed,
+    AuthorizationTokenNotFound,
     PrimaryKeyMalformed,
     UserNotRegistered,
 }

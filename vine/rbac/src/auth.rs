@@ -1,75 +1,35 @@
 use std::collections::BTreeMap;
 
-use actix_web::{web::Data, HttpRequest};
-use anyhow::{bail, Error, Result};
-use base64::Engine;
+use anyhow::Result;
 use chrono::Utc;
 use kiss_api::r#box::{BoxCrd, BoxState};
 use kube::{api::ListParams, Api, Client, ResourceExt};
 use log::{info, warn};
 use vine_api::{
     user::UserCrd,
-    user_auth::{UserAuthPayload, UserAuthResponse},
+    user_auth::{UserAuthError, UserAuthResponse},
     user_box_binding::{UserBoxBindingCrd, UserBoxBindingSpec},
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::{UserBoxQuotaBindingCrd, UserBoxQuotaBindingSpec},
 };
 
-pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<UserAuthResponse> {
+pub async fn execute(client: &Client, user_name: &str) -> Result<UserAuthResponse> {
     // get current time
     let now = Utc::now();
 
-    // parse the Authorization token
-    let payload: UserAuthPayload = match request.headers().get("Authorization") {
-        Some(token) => match token.to_str().map_err(Error::from).and_then(|token| {
-            match token
-                .strip_prefix("Bearer ")
-                .and_then(|token| token.split('.').nth(1))
-            {
-                Some(payload) => {
-                    let payload = ::base64::engine::general_purpose::STANDARD_NO_PAD
-                        .decode(payload)
-                        .unwrap();
-                    let payload = ::serde_json::from_slice(&payload).unwrap();
-                    Ok(payload)
-                }
-                None => bail!("[{now}] the Authorization token is not a Bearer token"),
-            }
-        }) {
-            Ok(payload) => payload,
-            Err(e) => {
-                warn!("[{now}] failed to parse the token: {token:?}: {e}");
-                return Ok(UserAuthResponse::AuthorizationTokenMalformed);
-            }
-        },
-        None => {
-            warn!("[{now}] failed to get the token: Authorization");
-            return Ok(UserAuthResponse::AuthorizationTokenNotFound);
-        }
-    };
-
-    // get the user primary key
-    let primary_key = match payload.primary_key() {
-        Ok(key) => key,
-        Err(e) => {
-            warn!("[{now}] failed to parse the user's primary key: {payload:?}: {e}");
-            return Ok(UserAuthResponse::PrimaryKeyMalformed);
-        }
-    };
-
     // get the user CR
-    let api = Api::<UserCrd>::all((**client).clone());
-    let user = match api.get_opt(&primary_key).await? {
+    let api = Api::<UserCrd>::all(client.clone());
+    let user = match api.get_opt(user_name).await? {
         Some(user) => user.spec,
         None => {
-            warn!("[{now}] failed to find an user: {primary_key:?}");
-            return Ok(UserAuthResponse::UserNotRegistered);
+            warn!("[{now}] failed to find an user: {user_name:?}");
+            return Ok(UserAuthError::UserNotRegistered.into());
         }
     };
 
     // get available boxes
     let boxes = {
-        let api = Api::<BoxCrd>::all((**client).clone());
+        let api = Api::<BoxCrd>::all(client.clone());
         let lp = ListParams::default();
         api.list(&lp)
             .await?
@@ -83,7 +43,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     };
 
     let box_bindings = {
-        let api = Api::<UserBoxBindingCrd>::all((**client).clone());
+        let api = Api::<UserBoxBindingCrd>::all(client.clone());
         let lp = ListParams::default();
         api.list(&lp)
             .await?
@@ -109,7 +69,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
 
     // get available quotas
     let quotas = {
-        let api = Api::<UserBoxQuotaCrd>::all((**client).clone());
+        let api = Api::<UserBoxQuotaCrd>::all(client.clone());
         let lp = ListParams::default();
         api.list(&lp)
             .await?
@@ -120,7 +80,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     };
 
     let box_quota_bindings = {
-        let api = Api::<UserBoxQuotaBindingCrd>::all((**client).clone());
+        let api = Api::<UserBoxQuotaBindingCrd>::all(client.clone());
         let lp = ListParams::default();
         api.list(&lp)
             .await?
@@ -144,7 +104,7 @@ pub async fn execute(request: &HttpRequest, client: Data<Client>) -> Result<User
     };
 
     // Login Successed!
-    info!("[{now}] login accepted: {primary_key:?}");
+    info!("[{now}] auth accepted: {user_name:?}");
     Ok(UserAuthResponse::Accept {
         box_bindings,
         box_quota_bindings,

@@ -36,6 +36,7 @@ members = [
     "proxyx/storage/influxdb", # exclude(alpine)
     "vine/api",
     "vine/bastion",
+    "vine/cli",
     "vine/controller",
     "vine/rbac",
     "vine/session",

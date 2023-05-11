@@ -187,6 +187,7 @@ impl SessionManager {
             "apiVersion": Node::API_VERSION,
             "kind": Node::KIND,
             "metadata": {
+                "name": name,
                 "labels": get_label(&node_name, user_name),
             },
         }));

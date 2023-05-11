@@ -11,7 +11,7 @@ pub async fn execute(
         client,
         box_name,
         user_name,
-        |session_manager, spec| async move { session_manager.create(&spec).await },
+        |session_manager, spec| async move { session_manager.delete(&spec).await },
     )
     .await
 }

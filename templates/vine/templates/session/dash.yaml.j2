@@ -1,0 +1,72 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+  namespace: vine
+  labels:
+    name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+    vineService: "false"
+    serviceType: dash
+spec:
+  ttlSecondsAfterFinished: 1
+  template:
+    metadata:
+      labels:
+        name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+        vineService: "false"
+        serviceType: dash
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: vine-system
+      containers:
+        - name: vine-login
+          image: quay.io/ulagbulag/openark:latest
+          imagePullPolicy: Always
+          command:
+            - vine-cli
+          args:
+            - {{ spec.type }}
+          env:
+            - name: RUST_LOG
+              value: INFO
+            - name: VINE_SESSION_BOX
+              value: "{{ spec.box.metadata.name }}"
+            - name: VINE_SESSION_TEMPLATES_HOME
+              value: /opt/vine/controller/templates
+            - name: VINE_SESSION_USER
+              value: "{{ spec.user.metadata.name }}"
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - name: templates
+              mountPath: /opt/vine/controller/templates
+      volumes:
+        - name: templates
+          configMap:
+            name: vine-template-session
+            defaultMode: 0444
