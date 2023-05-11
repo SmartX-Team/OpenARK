@@ -2,10 +2,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+  name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
   namespace: vine
   labels:
-    name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+    name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
     vineService: "false"
     serviceType: dash
 spec:
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        name: "vine-login-{{ spec.box.metadata.name }}-{{ spec.type }}"
+        name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
         vineService: "false"
         serviceType: dash
     spec:
@@ -39,7 +39,7 @@ spec:
           type: RuntimeDefault
       serviceAccount: vine-system
       containers:
-        - name: vine-login
+        - name: vine-session
           image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:

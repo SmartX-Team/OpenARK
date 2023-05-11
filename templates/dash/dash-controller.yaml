@@ -3,10 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller
-  namespace: vine
+  namespace: dash
   labels:
     name: controller
-    vineService: "true"
+    dashService: "true"
     serviceType: internal
 spec:
   replicas: 1
@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         name: controller
-        vineService: "true"
+        dashService: "true"
         serviceType: internal
     spec:
       affinity:
@@ -42,18 +42,16 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: vine-system
+      serviceAccount: dash-system
       containers:
         - name: controller
           image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:
-            - vine-controller
+            - dash-controller
           env:
             - name: RUST_LOG
               value: INFO
-            - name: VINE_SESSION_TEMPLATES_HOME
-              value: /opt/vine/controller/templates
           resources:
             requests:
               cpu: 30m
@@ -61,11 +59,3 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
-          volumeMounts:
-            - name: templates
-              mountPath: /opt/vine/controller/templates
-      volumes:
-        - name: templates
-          configMap:
-            name: vine-template-session
-            defaultMode: 444

@@ -41,9 +41,9 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Function
 metadata:
-  name: vine-login
+  name: vine-session
   annotations:
-    dash.ulagbulag.io/title: vine-login
+    dash.ulagbulag.io/title: vine-session
     dash.ulagbulag.io/subject: box
     dash.ulagbulag.io/subject-path: /box/
 spec:

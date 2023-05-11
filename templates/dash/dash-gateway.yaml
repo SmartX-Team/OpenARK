@@ -2,11 +2,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bastion
-  namespace: vine
+  name: gateway
+  namespace: dash
   labels:
-    name: bastion
-    vineService: "true"
+    name: gateway
     serviceType: internal
 spec:
   replicas: 1
@@ -15,12 +14,11 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: bastion
+      name: gateway
   template:
     metadata:
       labels:
-        name: bastion
-        vineService: "true"
+        name: gateway
         serviceType: internal
     spec:
       affinity:
@@ -42,18 +40,18 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: vine-system
+      serviceAccount: dash-system
       containers:
-        - name: bastion
+        - name: gateway
           image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:
-            - vine-bastion
+            - dash-gateway
           env:
             - name: RUST_LOG
               value: INFO
             - name: VINE_SESSION_TEMPLATES_HOME
-              value: /opt/vine/bastion/templates
+              value: /opt/dash/gateway/templates
           ports:
             - name: http
               protocol: TCP
@@ -65,23 +63,15 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
-          volumeMounts:
-            - name: templates
-              mountPath: /opt/vine/bastion/templates
-      volumes:
-        - name: templates
-          configMap:
-            name: vine-template-session
-            defaultMode: 444
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: bastion
-  namespace: vine
+  name: gateway
+  namespace: dash
 spec:
   selector:
-    name: bastion
+    name: gateway
   ports:
     - name: http
       port: 80
@@ -91,8 +81,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: bastion
-  namespace: vine
+  name: gateway
+  namespace: dash
   annotations:
     cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
     kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.openark
@@ -115,38 +105,10 @@ spec:
     - host: ingress-nginx-controller.vine.svc.ops.openark
       http:
         paths:
-          - path: /bastion(/|$)(.*)
+          - path: /dash/api(/|$)(.*)
             pathType: Prefix
             backend:
               service:
-                name: bastion
-                port:
-                  number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: bastion-print
-  namespace: vine
-  annotations:
-    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
-    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.openark
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    vine.ulagbulag.io/is-service: "true"
-    vine.ulagbulag.io/is-service-public: "false"
-    vine.ulagbulag.io/is-service-system: "true"
-    vine.ulagbulag.io/service-kind: Bastion Print
-spec:
-  rules:
-    - host: ingress-nginx-controller.vine.svc.ops.openark
-      http:
-        paths:
-          - path: /bastion(/)(print/.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: bastion
+                name: gateway
                 port:
                   number: 80
