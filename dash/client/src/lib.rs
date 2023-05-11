@@ -103,8 +103,13 @@ impl DashClient {
     }
 
     fn get_url(&self, path: impl AsRef<str>) -> Url {
+        let path = path.as_ref();
+
         let mut url = self.host.clone();
-        url.set_path(path.as_ref());
+        match url.path() {
+            "/" => url.set_path(path),
+            prefix => url.set_path(&format!("{prefix}{path}")),
+        }
         url
     }
 }
