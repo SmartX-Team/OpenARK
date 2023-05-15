@@ -17,7 +17,7 @@
 
 - name: Enable primary interfaces | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[:1] }}"
+  with_items: "{{ [interface_primary] }}"
   template:
     src: ./template_network-manager_10-enable.nmconnection.j2
     dest: /etc/NetworkManager/system-connections/10-kiss-enable-{{ item.name }}.nmconnection
