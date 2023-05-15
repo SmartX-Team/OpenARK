@@ -1,13 +1,13 @@
 ---
-- name: List all network configurations | NetworkManager
+- name: List all network configurations | link | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   find:
     paths:
-      - /etc/NetworkManager/system-connections/
-    pattern: "*.nmconnection"
+      - /etc/udev/rules.d/
+    pattern: "70-kiss-*.rules"
   register: results
 
-- name: Remove all network configurations | NetworkManager
+- name: Remove all network configurations | link | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   file:
     path: "{{ item.path }}"
@@ -15,7 +15,30 @@
     force: true
   with_items: "{{ results.files }}"
 
-- name: Enable primary interfaces | NetworkManager
+- name: Remove all network configurations | network | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  file:
+    path: "{{ item.path }}"
+    state: absent
+    force: true
+  with_items: "{{ results.files }}"
+
+- name: List all network configurations | network | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  find:
+    paths:
+      - /etc/NetworkManager/system-connections/
+    pattern: "*.nmconnection"
+  register: results
+
+- name: Enable primary interfaces | link | systemd-networkd
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  with_items: "{{ [interface_primary] }}"
+  template:
+    src: ./template_network-manager_70-enable.rules.j2
+    dest: /etc/udev/rules.d/70-kiss-net-setup-link-{{ item.name }}.rules
+
+- name: Enable primary interfaces | network | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   with_items: "{{ [interface_primary] }}"
   template:
