@@ -78,5 +78,5 @@
 
 - name: Enable primary interfaces now | systemd-networkd
   when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ interfaces[:1] }}"
+  with_items: "{{ [interface_primary] }}"
   command: nmcli connection up 10-kiss-enable-{{ item.name }}

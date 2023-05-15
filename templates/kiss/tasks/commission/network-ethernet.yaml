@@ -166,7 +166,7 @@
 
 - name: Unmanage interface networks from DHCP - Subnet Gateway
   when: not interface_primary_is_current
-  with_items: "{{ interfaces[:1] }}"
+  with_items: "{{ [interface_primary] }}"
   command: >
     ip route del {{ item.address_ipv4_gateway }}
     dev {{ item.name }}
@@ -175,7 +175,7 @@
 
 - name: Unmanage interface networks from DHCP - Default Gateway
   when: not interface_primary_is_current
-  with_items: "{{ interfaces[:1] }}"
+  with_items: "{{ [interface_primary] }}"
   command: >
     ip route del default
     via {{ item.address_ipv4_gateway }}
@@ -185,7 +185,7 @@
 
 - name: Modify MTU - {{ item.mtu }} Bytes
   when: not interface_primary_is_current
-  with_items: "{{ interfaces[:1] }}"
+  with_items: "{{ [interface_primary] }}"
   command: ip link set {{ item.name }} mtu {{ item.mtu }}
   ignore_errors: true
 
