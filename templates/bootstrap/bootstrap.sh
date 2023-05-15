@@ -14,7 +14,7 @@ set -e
 CONTAINER_RUNTIME_DEFAULT="docker"
 INSTLLAER_TYPE_DEFAULT="container" # One of: container (default), iso
 IPCALC_IMAGE_DEFAULT="docker.io/debber/ipcalc:latest"
-ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/images/boot.iso"
+ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/$(uname -m)/os/images/boot.iso"
 KISS_BOOTSTRAPPER_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh"
 KISS_CONFIG_PATH_DEFAULT="$(pwd)/config/kiss-config.yaml"
 KISS_CONFIG_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/kiss-config.yaml"
@@ -635,8 +635,9 @@ EOF
     fi
 
     echo "- Patching ISO ..."
-    INSTALLER_PATH="$(pwd)/config/installer.iso"
+    INSTALLER_PATH="$(pwd)/config/OpenARK-$(date -u +%y.%m-%d)-server-$(uname -m).iso"
     rm -f "${INSTALLER_PATH}"
+    ln -sf "${INSTALLER_PATH}" "${INSTALLER_PATH}/../installer.iso" 2>/dev/null || true
     "${CONTAINER_RUNTIME}" run --rm \
         --volume "${ISO_BASE_PATH}/..:/img/src" \
         --volume "${INSTALLER_PATH}/..:/img/dst" \
