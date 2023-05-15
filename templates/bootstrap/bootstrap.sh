@@ -13,6 +13,7 @@ set -e
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
 INSTLLAER_TYPE_DEFAULT="container" # One of: container (default), iso
+IPCALC_IMAGE_DEFAULT="docker.io/debber/ipcalc:latest"
 ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/images/boot.iso"
 KISS_BOOTSTRAPPER_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh"
 KISS_CONFIG_PATH_DEFAULT="$(pwd)/config/kiss-config.yaml"
@@ -23,6 +24,7 @@ YQ_IMAGE_DEFAULT="docker.io/mikefarah/yq:latest"
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
 INSTLLAER_TYPE="${INSTLLAER_TYPE:-$INSTLLAER_TYPE_DEFAULT}"
+IPCALC_IMAGE="${IPCALC_IMAGE:-$IPCALC_IMAGE_DEFAULT}"
 ISO_BASE_URL="${ISO_BASE_URL:-$ISO_BASE_URL_DEFAULT}"
 KISS_BOOTSTRAPPER_URL="${KISS_BOOTSTRAPPER_URL:-$KISS_BOOTSTRAPPER_URL_DEFAULT}"
 KISS_CONFIG_PATH="${KISS_CONFIG_PATH:-$KISS_CONFIG_PATH_DEFAULT}"
@@ -484,9 +486,20 @@ function build_installer_iso() {
     set -o pipefail
 
     # Define variables
+    local BOOT_IPXE_FILE='boot-rocky9.ipxe'
+    local BOOT_KICKSTART_FILE='rocky9.ks'
     local KUBESPRAY_CONFIG_TEMPLATE='/etc/openark/kiss/'
 
     # Parse variables
+    local BOOT_NETWORK_IPV4_ADDRESS="$(kiss_config 'bootstrapper_network_ipv4_address')"
+    local BOOT_NETWORK_IPV4_GATEWAY="$(kiss_config 'network_ipv4_gateway')"
+    local BOOT_NETWORK_IPV4_NETMASK="$(
+        docker run --rm "${IPCALC_IMAGE}" "$(kiss_config 'network_ipv4_subnet')" |
+            grep -Po 'Netmask\: +\K[0-9\.]+'
+    )"
+    local BOOT_NETWORK_DNS_SERVER_NS1="$(kiss_config 'bootstrapper_network_dns_server_ns1')"
+    local BOOT_NETWORK_DNS_SERVER_NS2="$(kiss_config 'bootstrapper_network_dns_server_ns2')"
+    local BOOT_NETWORK_MTU="$(kiss_config 'network_interface_mtu_size')"
     local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
 
     # Update variables
@@ -508,7 +521,7 @@ function build_installer_iso() {
 
     echo "- Parsing boot scripts ..."
     local re_url='[0-9a-zA-Z:/\.\$\{\}]*'
-    local boot_dist_repo="$(cat ./boot-rocky9.ipxe | grep -Po "inst.repo=\K${re_url}")"
+    local boot_dist_repo="$(cat "${BOOT_IPXE_FILE}" | grep -Po "inst.repo=\K${re_url}")"
 
     echo "- Removing unneeded scripts ..."
     rm -rf ${ROOTFS}/*.ipxe
@@ -517,9 +530,15 @@ function build_installer_iso() {
     sed -i "s/ENV_USERNAME/$(kiss_config 'auth_ssh_username')/g" ./*
     sed -i "s/ENV_SSH_AUTHORIZED_KEYS/$(kiss_config 'auth_ssh_key_id_ed25519_public')/g" ./*
 
+    echo "- Enabling static network interface ..."
+    sed -i "s/^\(network .*\)$/\#\1\nnetwork --activate --bootproto=static --ip=${BOOT_NETWORK_IPV4_ADDRESS} --netmask=${BOOT_NETWORK_IPV4_NETMASK} --gateway=${BOOT_NETWORK_IPV4_GATEWAY} --nameserver=${BOOT_NETWORK_DNS_SERVER_NS1},${BOOT_NETWORK_DNS_SERVER_NS2} --mtu=${BOOT_NETWORK_MTU}/g" "${ROOTFS}/${BOOT_KICKSTART_FILE}"
+
     echo "- Enabling auto-deployment of KISS cluster ..."
-    sed -i 's/^\(\%end \+\)#\( \+\)SCRIPT_END$/\#\1\#\2SCRIPT_CONTINUE/g' "${ROOTFS}/rocky9.ks"
-    cat <<EOF >>"${ROOTFS}/rocky9.ks"
+    sed -i 's/^\(\%end \+\)#\( \+\)SCRIPT_END$/\#\1\#\2SCRIPT_CONTINUE/g' "${ROOTFS}/${BOOT_KICKSTART_FILE}"
+    cat <<EOF >>"${ROOTFS}/${BOOT_KICKSTART_FILE}"
+
+# Disable Box Discovery
+rm /etc/systemd/system/multi-user.target.wants/notify-new-box.service
 
 # KISS Cluster Installation Script
 cat <<__EOF__ >/etc/systemd/system/init-new-cluster.service
@@ -530,8 +549,9 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+Environment="CONTAINER_RUNTIME=${CONTAINER_RUNTIME}"
 Environment="INSTLLAER_TYPE=container"
-Environment="KUBESPRAY_CONFIG_TEMPLATE=${KUBESPRAY_CONFIG_TEMPLATE}"
+Environment="KISS_CONFIG_PATH=${KUBESPRAY_CONFIG_TEMPLATE}/$(basename "${KISS_CONFIG_PATH}")"
 ExecStart=/bin/bash -c " \
     ls /etc/systemd/system/multi-user.target.wants/kubelet.service >/dev/null || \
         curl --retry 5 --retry-delay 5 -sS "${KISS_BOOTSTRAPPER_URL}" | bash \
@@ -586,7 +606,7 @@ insmod ext2
 
 set timeout=3
 
-linuxefi /images/pxeboot/vmlinuz inst.ks=cdrom:/EFI/BOOT/rocky9.ks
+linuxefi /images/pxeboot/vmlinuz inst.ks=cdrom:/EFI/BOOT/${BOOT_KICKSTART_FILE}
 initrdefi /images/pxeboot/initrd.img
 boot
 
@@ -600,7 +620,7 @@ timeout 3
 display boot.msg
 
 kernel vmlinuz
-append initrd=initrd.img inst.ks=cdrom:/EFI/BOOT/rocky9.ks
+append initrd=initrd.img inst.ks=cdrom:/EFI/BOOT/${BOOT_KICKSTART_FILE}
 boot
 
 EOF

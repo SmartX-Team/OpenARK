@@ -32,6 +32,9 @@ data:
   bootstrapper_kubespray_config_path: ./config/bootstrap/defaults/all.yaml
   bootstrapper_kubespray_config_all_path: ./config/bootstrap/defaults/all.yaml
   bootstrapper_kubespray_config_template_path: ./config/
+  bootstrapper_network_dns_server_ns1: 8.8.8.8
+  bootstrapper_network_dns_server_ns2: 1.1.1.1
+  bootstrapper_network_ipv4_address: 10.47.0.1
   bootstrapper_node_data_kubernetes_path: /opt/kiss/
   bootstrapper_node_image: quay.io/ulagbulag/openark-bootstrap-node:latest
   bootstrapper_node_name: node1.master
