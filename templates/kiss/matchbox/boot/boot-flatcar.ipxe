@@ -1,0 +1,8 @@
+#!ipxe
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Retry automatic configuration indefinitely until it succeeds
+:boot
+chain /ipxe?mac=${mac:hexhyp}&chip=${chip}&domain=${domain}&hostname=${hostname}&uuid=${uuid}&manufacturer=${manufacturer}&product=${product}&serial=${serial}&buildarch=${buildarch}&cpumodel=${cpumodel}&cpuvendor=${cpuvendor}&platform=${platform} || goto boot

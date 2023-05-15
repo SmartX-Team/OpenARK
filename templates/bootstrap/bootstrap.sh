@@ -12,14 +12,22 @@ set -e
 
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
+INSTLLAER_TYPE_DEFAULT="container" # One of: container (default), iso
+ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/images/boot.iso"
+KISS_BOOTSTRAPPER_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh"
 KISS_CONFIG_PATH_DEFAULT="$(pwd)/config/kiss-config.yaml"
 KISS_CONFIG_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/kiss-config.yaml"
+XORRISO_IMAGE_DEFAULT="docker.io/codeocean/xorriso:latest"
 YQ_IMAGE_DEFAULT="docker.io/mikefarah/yq:latest"
 
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
+INSTLLAER_TYPE="${INSTLLAER_TYPE:-$INSTLLAER_TYPE_DEFAULT}"
+ISO_BASE_URL="${ISO_BASE_URL:-$ISO_BASE_URL_DEFAULT}"
+KISS_BOOTSTRAPPER_URL="${KISS_BOOTSTRAPPER_URL:-$KISS_BOOTSTRAPPER_URL_DEFAULT}"
 KISS_CONFIG_PATH="${KISS_CONFIG_PATH:-$KISS_CONFIG_PATH_DEFAULT}"
 KISS_CONFIG_URL="${KISS_CONFIG_URL:-$KISS_CONFIG_URL_DEFAULT}"
+XORRISO_IMAGE="${XORRISO_IMAGE:-$XORRISO_IMAGE_DEFAULT}"
 YQ_IMAGE="${YQ_IMAGE:-$YQ_IMAGE_DEFAULT}"
 
 ###########################################################
@@ -35,11 +43,30 @@ function __kiss_parse() {
     # try to parse from cache
     if [ -z "${!var_key+x}" ]; then
         # resolve data
-        declare $var_key=$(cat "${KISS_CONFIG_PATH}" |
-            "${CONTAINER_RUNTIME}" run --interactive --rm "${YQ_IMAGE}" \
-                ". | select(.kind == \"${kind}\") | .${data}.${key}")
+        declare $var_key="$(
+            cat "${KISS_CONFIG_PATH}" |
+                "${CONTAINER_RUNTIME}" run --interactive --rm "${YQ_IMAGE}" \
+                    "select(.kind == \"${kind}\") | .${data}.${key}"
+        )"
     fi
     echo "${!var_key}"
+}
+
+function __kiss_patch() {
+    local kind="$1"
+    local data="$2"
+    local key="$3"
+    local value="$4"
+
+    # patched file
+    local patched_file="${KISS_CONFIG_PATH}.patched"
+
+    # patch data
+    cat "${KISS_CONFIG_PATH}" |
+        "${CONTAINER_RUNTIME}" run --interactive --rm "${YQ_IMAGE}" \
+            "(select(.kind == \"${kind}\") | .${data}.${key}) = ${value}" \
+            >"${patched_file}"
+    mv "${patched_file}" "${KISS_CONFIG_PATH}"
 }
 
 function kiss_validate_config_file() {
@@ -47,7 +74,13 @@ function kiss_validate_config_file() {
         echo "- Downloading default KISS configuration file to \"${KISS_CONFIG_PATH}\"..."
         mkdir -p "$(dirname "${KISS_CONFIG_PATH}")"
         curl -o "${KISS_CONFIG_PATH}" "${KISS_CONFIG_URL}"
+
+        echo "- NOTE: Please configure the file and try it agait; Aborting."
+        exit 1
     fi
+
+    # Set default cluster name
+    kiss_patch_config 'kiss_cluster_name' "\"default\""
 
     # Define dynamic environment variables
     export KUBESPRAY_NODES="$(kiss_config 'bootstrapper_node_name') "
@@ -61,6 +94,18 @@ function kiss_config() {
 function kiss_secret() {
     local key="$1"
     __kiss_parse "Secret" "stringData" "${key}"
+}
+
+function kiss_patch_config() {
+    local key="$1"
+    local value="$2"
+    __kiss_patch "ConfigMap" "data" "${key}" "${value}"
+}
+
+function kiss_patch_secret() {
+    local key="$1"
+    local value="$2"
+    __kiss_patch "Secret" "stringData" "${key}" "${value}"
 }
 
 ###########################################################
@@ -80,6 +125,15 @@ function generate_ssh_keypair() {
         mkdir -p "$(dirname ${key_file})"
         ssh-keygen -q -t ed25519 -f "${key_file}" -N ''
     fi
+
+    # Patch configs
+    kiss_patch_config 'auth_ssh_key_id_ed25519_public' "\"$(
+        cat "${key_file}.pub" |
+            awk '{print $1 " " $2}'
+    )\""
+    kiss_patch_secret 'auth_ssh_key_id_ed25519' "\"$(
+        cat "${key_file}"
+    )\n\""
 }
 
 ###########################################################
@@ -422,6 +476,126 @@ function install_kiss_cluster() {
 }
 
 ###########################################################
+#   Build an Installer ISO                                #
+###########################################################
+
+function build_installer_iso() {
+    # Prehibit errors
+    set -o pipefail
+
+    ROOTFS="$(pwd)/config/rootfs"
+    echo "- Create and Enter into a rootfs directory ..."
+    rm -rf "${ROOTFS}"
+    mkdir -p "${ROOTFS}"
+    pushd "${ROOTFS}" >/dev/null
+
+    SCRIPTS_HOME="$(pwd)/../../../kiss/matchbox/boot/"
+    echo "- Copying install scripts from \"${SCRIPTS_HOME}\" ..."
+    cp -arp ${SCRIPTS_HOME}/* "${ROOTFS}"
+
+    echo "- Parsing boot scripts ..."
+    local re_url='[0-9a-zA-Z:/\.\$\{\}]*'
+    local boot_dist_repo="$(cat ./boot-rocky9.ipxe | grep -Po "inst.repo=\K${re_url}")"
+
+    echo "- Removing unneeded scripts ..."
+    rm -rf ${ROOTFS}/*.ipxe
+
+    echo "- Applying SSH Keys into scripts ..."
+    sed -i "s/ENV_USERNAME/$(kiss_config 'auth_ssh_username')/g" ./*
+    sed -i "s/ENV_SSH_AUTHORIZED_KEYS/$(kiss_config 'auth_ssh_key_id_ed25519_public')/g" ./*
+
+    echo "- Enabling auto-deployment of KISS cluster ..."
+    cat <<EOF >>"${ROOTFS}/boot-rocky9.ipxe"
+
+cat <<__EOF__ >/etc/systemd/system/init-new-cluster.service
+[Unit]
+Description=Create a new KISS cluster.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c " \
+    ls /etc/systemd/system/multi-user.target.wants/kubelet.service >/dev/null || \
+        curl --retry 5 --retry-delay 5 -sS "https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh" | \
+            env INSTLLAER_TYPE=container bash \
+"
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+__EOF__
+
+ln -sf /usr/lib/systemd/system/init-new-cluster.service /etc/systemd/system/multi-user.target.wants/init-new-cluster.service
+
+EOF
+
+    echo "- Adding grub.cfg ..."
+    cat <<EOF >"${ROOTFS}/grub.cfg"
+set default="1"
+
+function load_video {
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod all_video
+}
+
+load_video
+set gfxpayload=keep
+insmod gzio
+insmod part_gpt
+insmod ext2
+
+set timeout=3
+
+linuxefi /images/pxeboot/vmlinuz inst.ks=cdrom:/EFI/BOOT/rocky9.ks
+initrdefi /images/pxeboot/initrd.img
+boot
+
+EOF
+
+    echo "- Adding isolinux.cfg ..."
+    cat <<EOF >"${ROOTFS}/isolinux.cfg"
+default vesamenu.c32
+timeout 3
+
+display boot.msg
+
+kernel vmlinuz
+append initrd=initrd.img inst.ks=cdrom:/EFI/BOOT/rocky9.ks
+boot
+
+EOF
+
+    echo "- Finished Patching!"
+    popd
+
+    ISO_BASE_PATH="$(pwd)/config/base.iso"
+    echo "- Downloading base ISO ..."
+    if [ ! -f "${ISO_BASE_PATH}" ]; then
+        curl -o "${ISO_BASE_PATH}" "${ISO_BASE_URL}"
+    fi
+
+    echo "- Patching ISO ..."
+    INSTALLER_PATH="$(pwd)/config/installer.iso"
+    rm -f "${INSTALLER_PATH}"
+    "${CONTAINER_RUNTIME}" run --rm \
+        --volume "${ISO_BASE_PATH}/..:/img/src" \
+        --volume "${INSTALLER_PATH}/..:/img/dst" \
+        --volume "${ROOTFS}:/src" \
+        "${XORRISO_IMAGE}" xorriso \
+        -boot_image isolinux patch \
+        -indev "/img/src/$(basename "${ISO_BASE_PATH}")" \
+        -outdev "/img/dst/$(basename "${INSTALLER_PATH}")" \
+        -map "/src/" "/EFI/BOOT/" \
+        -map "/src/isolinux.cfg" "/isolinux/isolinux.cfg" \
+        -rm "/EFI/BOOT/isolinux.cfg"
+}
+
+###########################################################
 #   Main Function                                         #
 ###########################################################
 
@@ -430,24 +604,42 @@ function main() {
     # Validate Configurations
     kiss_validate_config_file
 
-    # Configure Host
-    configure_linux_kernel
-    generate_ssh_keypair
+    case "${INSTLLAER_TYPE}" in
+    "container")
+        # Configure Host
+        configure_linux_kernel
+        generate_ssh_keypair
 
-    # Spawn k8s cluster nodes
-    export nodes # results
-    for name in ${KUBESPRAY_NODES}; do
-        spawn_node "${name}"
-    done
+        # Spawn k8s cluster nodes
+        export nodes # results
+        for name in ${KUBESPRAY_NODES}; do
+            spawn_node "${name}"
+        done
 
-    # Install a k8s cluster within nodes
-    install_k8s_cluster ${KUBESPRAY_NODES}
+        # Install a k8s cluster within nodes
+        install_k8s_cluster ${KUBESPRAY_NODES}
 
-    # Install a KISS cluster within k8s cluster
-    install_kiss_cluster ${KUBESPRAY_NODES}
+        # Install a KISS cluster within k8s cluster
+        install_kiss_cluster ${KUBESPRAY_NODES}
 
-    # Finished!
-    echo "Installed!"
+        # Finished!
+        echo "Installed!"
+        ;;
+    "iso")
+        # Configure Host
+        generate_ssh_keypair
+
+        # Build an Installer ISO
+        build_installer_iso
+
+        # Finished!
+        echo "Finished!"
+        ;;
+    *)
+        echo "Unsupported installer type: ${INSTLLAER_TYPE}; Aborting." >&2
+        exit 1
+        ;;
+    esac
 }
 
 # Execute main function

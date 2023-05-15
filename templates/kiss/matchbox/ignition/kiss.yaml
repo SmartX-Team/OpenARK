@@ -1,0 +1,181 @@
+---
+variant: flatcar
+version: 1.0.0
+kernel_arguments:
+passwd:
+  users:
+    - name: ENV_USERNAME
+      ssh_authorized_keys:
+        - ENV_SSH_AUTHORIZED_KEYS
+      groups:
+        - sudo
+        - docker
+storage:
+  directories:
+    - path: /etc/systemd/system/docker.service.d
+      filesystem: root
+      overwrite: true
+  files:
+    - path: /etc/docker/daemon.json
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          {
+            "insecure-registries": [
+              "registry.kiss.svc.ops.openark"
+            ]
+          }
+    - path: /etc/flatcar/update.conf
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          REBOOT_STRATEGY=off
+    - path: /etc/modules-load.d/10-gpu-nvidia-driver.conf
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          loop
+          i2c_core
+          ipmi_msghandler
+    - path: /etc/sysctl.d/50-hugepages.conf
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          vm.nr_hugepages=8192
+    - path: /etc/sysctl.d/90-reverse-path-filter.conf
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          net.ipv4.conf.all.rp_filter=0
+          net.ipv4.conf.default.rp_filter=0
+    - path: /etc/systemd/system/notify-new-box.service
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          [Unit]
+          Description=Notify to the kiss cluster that a new (this) box has been appeared.
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash -c " \
+              ADDRESS=$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1) ;\
+              UUID=$(cat /sys/class/dmi/id/product_uuid) ;\
+              curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.openark/new?address=$ADDRESS&uuid=$UUID\" ;\
+          "
+          Restart=on-failure
+          RestartSec=30
+
+          [Install]
+          WantedBy=multi-user.target
+    - path: /etc/systemd/system/vine-cleanup.service
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          [Unit]
+          Description=Cleanup all VINE sessions after reboot.
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/rm -rf /tmp/.vine/.login.lock/
+
+          [Install]
+          WantedBy=multi-user.target
+    - path: /etc/systemd/timesyncd.conf
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          [Time]
+          #NTP=ntp.kiss.svc.ops.openark
+    - path: /opt/bin/python
+      filesystem: root
+      overwrite: true
+      mode: 0555
+      contents:
+        inline: |
+          #!/usr/bin/bash
+          # origin: https://github.com/kubernetes-sigs/kubespray/blob/release-2.19/roles/bootstrap-os/files/bootstrap.sh
+          set -e
+
+          ARCH=$(uname -m)
+          BINDIR="/opt/bin"
+
+          case $ARCH in
+            "x86_64")
+              PYPY_ARCH=linux64
+              PYPI_HASH=46818cb3d74b96b34787548343d266e2562b531ddbaf330383ba930ff1930ed5
+              ;;
+            "aarch64")
+              PYPY_ARCH=aarch64
+              PYPI_HASH=2e1ae193d98bc51439642a7618d521ea019f45b8fb226940f7e334c548d2b4b9
+              ;;
+            *)
+              echo "Unsupported Architecture: ${ARCH}"
+              exit 1
+          esac
+
+          PYTHON_VERSION=3.9
+          PYPY_VERSION=7.3.9
+          PYPY_FILENAME="pypy${PYTHON_VERSION}-v${PYPY_VERSION}-${PYPY_ARCH}"
+          PYPI_URL="https://downloads.python.org/pypy/${PYPY_FILENAME}.tar.bz2"
+
+          # provision a python binary
+          if [[ ! -e /opt/pypy3/bin/pypy3 ]]; then
+            TAR_FILE="${BINDIR}/pyp.tar.bz2"
+            sudo wget --tries=5 -O "${TAR_FILE}" "${PYPI_URL}"
+            echo "${PYPI_HASH} ${TAR_FILE}" | sha256sum -c -
+            sudo tar -xjf "${TAR_FILE}" && sudo rm "${TAR_FILE}"
+            sudo mv -n "${PYPY_FILENAME}" "${BINDIR}/../pypy3"
+          fi
+
+          # execute python
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/pypy3/lib
+          exec /opt/pypy3/bin/pypy3 "${@:1}"
+    - path: /opt/bin/.bootstrapped
+      filesystem: root
+      mode: 0444
+      contents:
+        inline: ""
+  links:
+    - path: /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+      target: /etc/systemd/system/notify-new-box.service
+      filesystem: root
+      overwrite: true
+      hard: false
+    - path: /etc/systemd/system/multi-user.target.wants/vine-cleanup.service
+      target: /etc/systemd/system/vine-cleanup.service
+      filesystem: root
+      overwrite: true
+      hard: false
+systemd:
+  units:
+    - name: docker.service
+      enable: true
+      dropins:
+        - name: 30-increase-ulimit.conf
+          contents: |
+            [Service]
+            LimitMEMLOCK=infinity
+    - name: ntpd.service
+      enable: false
+    - name: systemd-timesyncd.service
+      enable: true

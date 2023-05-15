@@ -1,0 +1,12 @@
+#!ipxe
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+:kernel
+kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/ inst.ks=http://matchbox.kiss.svc.ops.openark/assets/boot/rocky9.ks || goto kernel
+
+:initrd
+initrd http://download.rockylinux.org/pub/rocky/9/BaseOS/${buildarch}/os/images/pxeboot/initrd.img || goto initrd
+
+boot

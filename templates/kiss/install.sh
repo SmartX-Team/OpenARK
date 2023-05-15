@@ -38,6 +38,9 @@ function install_kiss_cluster() {
         # ansible tasks
         pushd "tasks" && ./install.sh && popd
 
+        # matchbox
+        pushd "matchbox" && ./install.sh && popd
+
         # kiss service
         kubectl apply -R -f "./kiss-*.yaml"
     else
