@@ -29,6 +29,11 @@
     loop_var: modules
   include: network-ethernet-map.yaml
 
+- name: Define default interfaces list
+  set_fact:
+    all_interfaces: []
+    interfaces: []
+
 - name: Collect network inteface informations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
@@ -40,7 +45,7 @@
     and ansible_facts[item].type == 'ether'
   set_fact:
     all_interfaces: >
-      {{ all_interfaces|default([]) + [{
+      {{ all_interfaces + [{
         'name': item,
         'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item]['module'],
@@ -73,7 +78,7 @@
     and ansible_facts[item].type == 'ether'
   set_fact:
     interfaces: >
-      {{ interfaces|default([]) + [{
+      {{ interfaces + [{
         'name': item,
         'address_ipv4': ansible_facts[item].ipv4.address,
         'address_ipv4_netmask': kiss_network_ipv4_subnet_mask_prefix,
@@ -121,18 +126,21 @@
 
 - name: Configure network interfaces | NetworkManager
   when:
+    - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
   include: network-ethernet-conf-network-manager.yaml
 
 - name: Configure network interfaces | systemd-networkd
   when:
+    - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'systemd-networkd'
   include: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Ping from primary interface to the gateway
   when:
+    - interfaces | length > 0
     - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   command: >
@@ -146,18 +154,23 @@
 
 - name: Update SSH access IP
   when:
+    - interfaces | length > 0
     - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   set_fact:
     ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
 
 - name: Show about the primary inteface
-  when: interface_primary is defined
+  when:
+    - interfaces | length > 0
+    - interface_primary is defined
   debug:
     var: interface_primary
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
-  when: not interface_primary_is_current
+  when:
+    - interfaces | length > 0
+    - not interface_primary_is_current
   command: >
     ip route del {{ kiss_network_nameserver_incluster_ipv4 }}
     dev {{ item.name }}
@@ -165,7 +178,9 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Subnet Gateway
-  when: not interface_primary_is_current
+  when:
+    - interfaces | length > 0
+    - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
   command: >
     ip route del {{ item.address_ipv4_gateway }}
@@ -174,7 +189,9 @@
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Default Gateway
-  when: not interface_primary_is_current
+  when:
+    - interfaces | length > 0
+    - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
   command: >
     ip route del default
@@ -184,13 +201,16 @@
   ignore_errors: true
 
 - name: Modify MTU - {{ item.mtu }} Bytes
-  when: not interface_primary_is_current
+  when:
+    - interfaces | length > 0
+    - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
   command: ip link set {{ item.name }} mtu {{ item.mtu }}
   ignore_errors: true
 
 - name: Wait for primary interface to be linked up
   when:
+    - interfaces | length > 0
     - interface_primary_address_ipv4 is defined
   command: >
     ping -4 -c 4
@@ -204,12 +224,14 @@
 
 - name: Configure network interfaces now | NetworkManager
   when:
+    - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
   include: network-ethernet-conf-network-manager-post.yaml
 
 - name: Restart NetworkManager
   when:
+    - interfaces | length > 0
     - interface_primary is defined
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
@@ -220,6 +242,7 @@
 
 - name: Restart systemd-networkd
   when:
+    - interfaces | length > 0
     - interface_primary is defined
     - not interface_primary_is_current
     - kiss_network_service == 'systemd-networkd'
