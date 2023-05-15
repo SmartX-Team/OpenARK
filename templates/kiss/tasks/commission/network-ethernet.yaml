@@ -83,7 +83,10 @@
     interfaces: >
       {{ interfaces + [{
         'name': item,
-        'address_ipv4': ansible_facts.default_ipv4.address if item == ansible_facts.default_ipv4.interface else ansible_facts[item].ipv4.address,
+        'address_ipv4':
+          ansible_facts.default_ipv4.address
+          if item == ansible_facts.default_ipv4.interface
+          else ansible_facts[item].ipv4.address,
         'address_ipv4_netmask': kiss_network_ipv4_subnet_mask_prefix,
         'address_ipv4_gateway': ansible_default_ipv4.gateway,
         'dns': [
