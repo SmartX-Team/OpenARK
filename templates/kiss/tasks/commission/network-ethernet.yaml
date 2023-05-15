@@ -1,4 +1,7 @@
 ---
+- name: Populate facts
+  setup:
+
 - name: Populate service facts
   service_facts:
 
