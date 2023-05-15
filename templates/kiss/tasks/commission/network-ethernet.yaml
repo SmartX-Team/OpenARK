@@ -1,7 +1,4 @@
 ---
-- name: Populate facts
-  setup:
-
 - name: Populate service facts
   service_facts:
 
@@ -69,21 +66,24 @@
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
     item in ansible_facts
+    and (
+      item == ansible_facts.default_ipv4.interface
+      or 'ipv4' in ansible_facts[item]
+      and 'netmask' in ansible_facts[item].ipv4
+      and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
+      and 'network' in ansible_facts[item].ipv4
+      and ansible_facts[item].ipv4.network == kiss_network_ipv4_subnet_address
+    )
     and ansible_facts[item].active
-    and 'ipv4' in ansible_facts[item]
     and 'macaddress' in ansible_facts[item]
     and 'module' in ansible_facts[item]
-    and 'netmask' in ansible_facts[item].ipv4
-    and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
-    and 'network' in ansible_facts[item].ipv4
-    and ansible_facts[item].ipv4.network == kiss_network_ipv4_subnet_address
     and 'type' in ansible_facts[item]
     and ansible_facts[item].type == 'ether'
   set_fact:
     interfaces: >
       {{ interfaces + [{
         'name': item,
-        'address_ipv4': ansible_facts[item].ipv4.address,
+        'address_ipv4': ansible_facts.default_ipv4.address if item == ansible_facts.default_ipv4.interface else ansible_facts[item].ipv4.address,
         'address_ipv4_netmask': kiss_network_ipv4_subnet_mask_prefix,
         'address_ipv4_gateway': ansible_default_ipv4.gateway,
         'dns': [
