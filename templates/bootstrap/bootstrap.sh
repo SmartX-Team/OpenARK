@@ -483,6 +483,19 @@ function build_installer_iso() {
     # Prehibit errors
     set -o pipefail
 
+    # Define variables
+    local KUBESPRAY_CONFIG_TEMPLATE='/etc/openark/kiss/'
+
+    # Parse variables
+    local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
+
+    # Update variables
+    kiss_patch_config 'bootstrapper_auth_ssh_key_path' "\"${KUBESPRAY_CONFIG_TEMPLATE}/id_ed25519\""
+    kiss_patch_config 'bootstrapper_kubernetes_config_path' "\"/root/.kube\""
+    kiss_patch_config 'bootstrapper_kubespray_config_all_path' "\"${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/defaults/all.yaml\""
+    kiss_patch_config 'bootstrapper_kubespray_config_path' "\"${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/defaults/all.yaml\""
+    kiss_patch_config 'bootstrapper_kubespray_config_template_path' "\"${KUBESPRAY_CONFIG_TEMPLATE}\""
+
     ROOTFS="$(pwd)/config/rootfs"
     echo "- Create and Enter into a rootfs directory ..."
     rm -rf "${ROOTFS}"
@@ -505,8 +518,10 @@ function build_installer_iso() {
     sed -i "s/ENV_SSH_AUTHORIZED_KEYS/$(kiss_config 'auth_ssh_key_id_ed25519_public')/g" ./*
 
     echo "- Enabling auto-deployment of KISS cluster ..."
-    cat <<EOF >>"${ROOTFS}/boot-rocky9.ipxe"
+    sed -i 's/^\(\%end \+\)#\( \+\)SCRIPT_END$/\#\1\#\2SCRIPT_CONTINUE/g' "${ROOTFS}/rocky9.ks"
+    cat <<EOF >>"${ROOTFS}/rocky9.ks"
 
+# KISS Cluster Installation Script
 cat <<__EOF__ >/etc/systemd/system/init-new-cluster.service
 [Unit]
 Description=Create a new KISS cluster.
@@ -515,10 +530,11 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+Environment="INSTLLAER_TYPE=container"
+Environment="KUBESPRAY_CONFIG_TEMPLATE=${KUBESPRAY_CONFIG_TEMPLATE}"
 ExecStart=/bin/bash -c " \
     ls /etc/systemd/system/multi-user.target.wants/kubelet.service >/dev/null || \
-        curl --retry 5 --retry-delay 5 -sS "https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh" | \
-            env INSTLLAER_TYPE=container bash \
+        curl --retry 5 --retry-delay 5 -sS "${KISS_BOOTSTRAPPER_URL}" | bash \
 "
 Restart=on-failure
 RestartSec=30
@@ -526,10 +542,29 @@ RestartSec=30
 [Install]
 WantedBy=multi-user.target
 __EOF__
-
 ln -sf /usr/lib/systemd/system/init-new-cluster.service /etc/systemd/system/multi-user.target.wants/init-new-cluster.service
 
+# KISS Cluster Configuration File
+mkdir -p "${KUBESPRAY_CONFIG_TEMPLATE}"
+chmod 700 "${KUBESPRAY_CONFIG_TEMPLATE}"
+cat <<__EOF__ >${KUBESPRAY_CONFIG_TEMPLATE}/$(basename "${KISS_CONFIG_PATH}")
+$(cat "${KISS_CONFIG_PATH}")
+__EOF__
+
+# KISS Keyfile
+cat <<__EOF__ >${KUBESPRAY_CONFIG_TEMPLATE}/$(basename "${SSH_KEYFILE}")
+$(cat "${SSH_KEYFILE}")
+__EOF__
+
+%end  # SCRIPT_END
+
 EOF
+
+    echo "- Adding KISS Cluster Configuration File ..."
+    cp "${KISS_CONFIG_PATH}" ./
+
+    echo "- Adding Keyfile ..."
+    cp "${SSH_KEYFILE}" ./
 
     echo "- Adding grub.cfg ..."
     cat <<EOF >"${ROOTFS}/grub.cfg"

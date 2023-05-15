@@ -559,4 +559,4 @@ if which dkms >/dev/null 2>/dev/null; then
     dkms autoinstall -k "$(ls /lib/modules/)"
 fi
 
-%end
+%end  # SCRIPT_END
