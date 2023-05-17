@@ -349,7 +349,7 @@ impl InputTemplate {
             },
             ModelFieldKindNativeSpec::Object {
                 children: _,
-                dynamic: _,
+                dynamic,
             } => match value {
                 Value::String(ref_name) => {
                     let input = InputFieldValue {
@@ -359,12 +359,17 @@ impl InputTemplate {
                     self.update_field_value_impl(storage, input, optional).await
                 }
                 Value::Object(children) => {
-                    for (child, value) in children.into_iter() {
-                        let child = InputField::sub_object(&name, &child, value);
-                        self.update_field_value_impl(storage, child, optional)
-                            .await?;
+                    if *dynamic {
+                        *field = Value::Object(children);
+                        Ok(())
+                    } else {
+                        for (child, value) in children.into_iter() {
+                            let child = InputField::sub_object(&name, &child, value);
+                            self.update_field_value_impl(storage, child, optional)
+                                .await?;
+                        }
+                        Ok(())
                     }
-                    Ok(())
                 }
                 value => assert_optional(&name, &value, &base_field.parsed, optional),
             },
@@ -788,14 +793,19 @@ impl<'a> ItemTemplate<'a> {
             },
             ModelFieldKindNativeSpec::Object {
                 children: _,
-                dynamic: _,
+                dynamic,
             } => match value {
                 Value::Object(children) => {
-                    for (child, value) in children.into_iter() {
-                        let child = InputField::sub_object(&name, &child, value);
-                        self.update_field_value_impl(child, optional)?;
+                    if *dynamic {
+                        *field = Value::Object(children);
+                        Ok(())
+                    } else {
+                        for (child, value) in children.into_iter() {
+                            let child = InputField::sub_object(&name, &child, value);
+                            self.update_field_value_impl(child, optional)?;
+                        }
+                        Ok(())
                     }
-                    Ok(())
                 }
                 value => assert_optional(&name, &value, base_field, optional),
             },
