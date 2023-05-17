@@ -16,26 +16,26 @@ use serde::{Deserialize, Serialize};
     printcolumn = r#"{
         "name": "real name",
         "type": "string",
-        "description":"user's real name",
-        "jsonPath":".spec.name"
+        "description": "user's real name",
+        "jsonPath": ".spec.name"
     }"#,
     printcolumn = r#"{
         "name": "email",
         "type": "string",
-        "description":"email address",
-        "jsonPath":".spec.contact.email"
+        "description": "email address",
+        "jsonPath": ".spec.contact.email"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#,
     printcolumn = r#"{
         "name": "updated-at",
         "type": "date",
-        "description":"updated time",
-        "jsonPath":".status.lastUpdated"
+        "description": "updated time",
+        "jsonPath": ".status.lastUpdated"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

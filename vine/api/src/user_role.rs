@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

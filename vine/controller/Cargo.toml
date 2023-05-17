@@ -28,4 +28,4 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 log = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

@@ -13,14 +13,14 @@ use serde::{Deserialize, Serialize};
     printcolumn = r#"{
         "name": "amount",
         "type": "number",
-        "description":"the number of allowed boxes",
-        "jsonPath":".spec.amount"
+        "description": "the number of allowed boxes",
+        "jsonPath": ".spec.amount"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
