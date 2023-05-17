@@ -30,4 +30,4 @@ log = { workspace = true }
 octocrab = { workspace = true }
 semver = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

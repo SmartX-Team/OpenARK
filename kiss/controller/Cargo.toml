@@ -29,4 +29,4 @@ kube = { workspace = true, features = [
 ] }
 log = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

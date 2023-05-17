@@ -17,7 +17,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 proxyx-api = { path = "../api" }
 
 anyhow = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 
 # TEST
 dash-api = { path = "../../dash/api" }

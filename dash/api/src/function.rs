@@ -17,14 +17,14 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the function",
-        "jsonPath":".status.state"
+        "description": "state of the function",
+        "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

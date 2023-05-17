@@ -20,20 +20,20 @@ use strum::{Display, EnumString};
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the model storage",
-        "jsonPath":".status.state"
+        "description": "state of the model storage",
+        "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#,
     printcolumn = r#"{
         "name": "updated-at",
         "type": "date",
-        "description":"updated time",
-        "jsonPath":".status.lastUpdated"
+        "description": "updated time",
+        "jsonPath": ".status.lastUpdated"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

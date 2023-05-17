@@ -25,52 +25,58 @@ impl BoxCrd {
     status = "BoxStatus",
     shortname = "box",
     printcolumn = r#"{
+        "name": "alias",
+        "type": "string",
+        "description": "dash alias",
+        "jsonPath": ".metadata.annotations.\"dash.ulagbulag.io/alias\"",
+    }"#,
+    printcolumn = r#"{
         "name": "address",
         "type": "string",
-        "description":"access address of the box",
-        "jsonPath":".status.access.primary.address"
+        "description": "access address of the box",
+        "jsonPath": ".status.access.primary.address",
     }"#,
     printcolumn = r#"{
         "name": "power",
         "type": "string",
-        "description":"power address of the box",
-        "jsonPath":".spec.power.address"
+        "description": "power address of the box",
+        "jsonPath": ".spec.power.address",
     }"#,
     printcolumn = r#"{
         "name": "cluster",
         "type": "string",
-        "description":"cluster name where the box is located",
-        "jsonPath":".spec.group.clusterName"
+        "description": "cluster name where the box is located",
+        "jsonPath": ".spec.group.clusterName",
     }"#,
     printcolumn = r#"{
         "name": "role",
         "type": "string",
-        "description":"role of the box",
-        "jsonPath":".spec.group.role"
+        "description": "role of the box",
+        "jsonPath": ".spec.group.role",
     }"#,
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the box",
-        "jsonPath":".status.state"
+        "description": "state of the box",
+        "jsonPath": ".status.state",
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time of the box",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time of the box",
+        "jsonPath": ".metadata.creationTimestamp",
     }"#,
     printcolumn = r#"{
         "name": "updated-at",
         "type": "date",
-        "description":"updated time of the box",
-        "jsonPath":".status.lastUpdated"
+        "description": "updated time of the box",
+        "jsonPath": ".status.lastUpdated",
     }"#,
     printcolumn = r#"{
         "name": "network-speed",
         "type": "string",
-        "description":"network interface link speed (Unit: Mbps)",
-        "jsonPath":".status.access.primary.speedMbps"
+        "description": "network interface link speed (Unit: Mbps)",
+        "jsonPath": ".status.access.primary.speedMbps",
     }"#
 )]
 #[serde(rename_all = "camelCase")]

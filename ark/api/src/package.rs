@@ -16,14 +16,14 @@ use strum::{Display, EnumString};
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the package",
-        "jsonPath":".status.state"
+        "description": "state of the package",
+        "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

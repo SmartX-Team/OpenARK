@@ -17,20 +17,20 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description":"state of the binding",
-        "jsonPath":".status.state"
+        "description": "state of the binding",
+        "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
-        "description":"created time",
-        "jsonPath":".metadata.creationTimestamp"
+        "description": "created time",
+        "jsonPath": ".metadata.creationTimestamp"
     }"#,
     printcolumn = r#"{
         "name": "updated-at",
         "type": "date",
-        "description":"updated time",
-        "jsonPath":".status.lastUpdated"
+        "description": "updated time",
+        "jsonPath": ".status.lastUpdated"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
