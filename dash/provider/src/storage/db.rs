@@ -604,6 +604,11 @@ fn convert_field_to_column(
             Ok(Some(column))
         }
         // BEGIN aggregation types
+        ModelFieldKindNativeSpec::StringArray {} => {
+            // attribute: type
+            column.json();
+            Ok(Some(column))
+        }
         ModelFieldKindNativeSpec::Object {
             children: _,
             dynamic,
@@ -661,6 +666,10 @@ fn parse_query_result_column(row: &QueryResult, field: &ModelFieldNativeSpec) ->
             .map(Into::into)
             .map_err(Into::into),
         // BEGIN string formats
+        ModelFieldKindNativeSpec::StringArray { .. } => row
+            .try_get_by::<Value, _>(field.name.as_str())
+            .map(Into::into)
+            .map_err(Into::into),
         ModelFieldKindNativeSpec::Object { .. } | ModelFieldKindNativeSpec::ObjectArray { .. } => {
             row.try_get_by::<Value, _>(field.name.as_str())
                 .map_err(Into::into)

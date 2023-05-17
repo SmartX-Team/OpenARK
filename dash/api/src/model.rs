@@ -189,6 +189,7 @@ mod _impl_jsonschema_for_model_field_kind_spec {
             Ip {},
             Uuid {},
             // BEGIN aggregation types
+            StringArray {},
             Object {
                 #[serde(default)]
                 children: &'a Vec<String>,
@@ -248,6 +249,9 @@ mod _impl_jsonschema_for_model_field_kind_spec {
                         super::ModelFieldKindNativeSpec::Ip {} => ModelFieldKindSpec::Ip {},
                         super::ModelFieldKindNativeSpec::Uuid {} => ModelFieldKindSpec::Uuid {},
                         // BEGIN aggregation types
+                        super::ModelFieldKindNativeSpec::StringArray {} => {
+                            ModelFieldKindSpec::StringArray {}
+                        }
                         super::ModelFieldKindNativeSpec::Object { children, dynamic } => {
                             ModelFieldKindSpec::Object { children, dynamic }
                         }
@@ -488,6 +492,7 @@ pub enum ModelFieldKindNativeSpec {
     Ip {},
     Uuid {},
     // BEGIN aggregation types
+    StringArray {},
     Object {
         #[serde(default)]
         children: Vec<String>,
@@ -521,6 +526,7 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
+            Self::StringArray { .. } => None,
             Self::Object { children, .. } | Self::ObjectArray { children, .. } => Some(children),
         }
     }
@@ -539,6 +545,7 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => None,
             Self::Uuid { .. } => None,
             // BEGIN aggregation types
+            Self::StringArray { .. } => None,
             Self::Object { children, .. } | Self::ObjectArray { children, .. } => Some(children),
         }
     }
@@ -557,6 +564,7 @@ impl ModelFieldKindNativeSpec {
             Self::Ip { .. } => ModelFieldKindNativeType::Ip,
             Self::Uuid { .. } => ModelFieldKindNativeType::Uuid,
             // BEGIN aggregation types
+            Self::StringArray { .. } => ModelFieldKindNativeType::StringArray,
             Self::Object { .. } => ModelFieldKindNativeType::Object,
             Self::ObjectArray { .. } => ModelFieldKindNativeType::ObjectArray,
         }
@@ -647,6 +655,7 @@ pub enum ModelFieldKindNativeType {
     Ip,
     Uuid,
     // BEGIN aggregation types
+    StringArray,
     Object,
     ObjectArray,
 }
@@ -654,14 +663,18 @@ pub enum ModelFieldKindNativeType {
 impl ModelFieldKindNativeType {
     pub fn to_natural(&self) -> &'static str {
         match self {
+            // BEGIN primitive types
             Self::None => "None",
             Self::Boolean => "Boolean",
             Self::Integer => "Integer",
             Self::Number => "Number",
             Self::String | Self::OneOfStrings => "String",
+            // BEGIN string formats
             Self::DateTime => "DateTime",
             Self::Ip => "Ip",
             Self::Uuid => "Uuid",
+            // BEGIN aggregation types
+            Self::StringArray => "String[]",
             Self::Object => "Object",
             Self::ObjectArray => "Object[]",
         }
@@ -711,6 +724,12 @@ pub enum ModelFieldDateTimeDefaultType {
 #[serde(rename_all = "camelCase")]
 pub struct ModelCustomResourceDefinitionRefSpec {
     pub name: String,
+}
+
+impl ModelCustomResourceDefinitionRefSpec {
+    pub fn plural(&self) -> &str {
+        self.name.split('.').next().unwrap()
+    }
 }
 
 #[derive(

@@ -228,8 +228,23 @@ impl ModelFieldsParser {
         let spec = ModelFieldNativeSpec {
             name: name.to_string(),
             kind: ModelFieldKindNativeSpec::Object {
-                children: vec!["/metadata/name/".into()],
+                children: vec![
+                    "/metadata/annotations/".into(),
+                    "/metadata/labels/".into(),
+                    "/metadata/name/".into(),
+                ],
                 dynamic: false,
+            },
+            attribute: ModelFieldAttributeSpec { optional: false },
+        };
+        self.insert_field(name.to_string(), name, spec)?;
+
+        let name = "/metadata/annotations/";
+        let spec = ModelFieldNativeSpec {
+            name: name.to_string(),
+            kind: ModelFieldKindNativeSpec::Object {
+                children: vec![],
+                dynamic: true,
             },
             attribute: ModelFieldAttributeSpec { optional: false },
         };
@@ -241,6 +256,17 @@ impl ModelFieldsParser {
             kind: ModelFieldKindNativeSpec::String {
                 default: None,
                 kind: ModelFieldKindStringSpec::Dynamic {},
+            },
+            attribute: ModelFieldAttributeSpec { optional: false },
+        };
+        self.insert_field(name.to_string(), name, spec)?;
+
+        let name = "/metadata/labels/";
+        let spec = ModelFieldNativeSpec {
+            name: name.to_string(),
+            kind: ModelFieldKindNativeSpec::Object {
+                children: vec![],
+                dynamic: true,
             },
             attribute: ModelFieldAttributeSpec { optional: false },
         };
@@ -335,6 +361,7 @@ impl ModelFieldsParser {
             ModelFieldKindNativeSpec::Ip {} => {}
             ModelFieldKindNativeSpec::Uuid {} => {}
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray {} => {}
             ModelFieldKindNativeSpec::Object {
                 children,
                 dynamic: _,

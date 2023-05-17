@@ -330,6 +330,7 @@ macro_rules! define_data {
                             )?
                         )*
                         // BEGIN aggregation types
+                        ModelFieldKindNativeSpec::StringArray { .. } => None,
                         ModelFieldKindNativeSpec::Object { .. } => None,
                         ModelFieldKindNativeSpec::ObjectArray { .. } => None,
                     }

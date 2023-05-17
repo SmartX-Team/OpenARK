@@ -162,6 +162,13 @@ impl InputTemplate {
                 Ok(())
             }
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray { .. } => {
+                let input = InputFieldValue {
+                    name,
+                    value: Value::String(value),
+                };
+                self.update_field_value_impl(storage, input, optional).await
+            }
             ModelFieldKindNativeSpec::Object { .. } => {
                 let input = InputFieldValue {
                     name,
@@ -316,6 +323,30 @@ impl InputTemplate {
                 None => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray {} => match value {
+                Value::String(value) => {
+                    *field = Value::Array(
+                        value
+                            .split(',')
+                            .map(|value| Value::String(value.into()))
+                            .collect(),
+                    );
+                    Ok(())
+                }
+                Value::Array(children) => {
+                    *field = Value::Array(
+                        children
+                            .into_iter()
+                            .filter_map(|value| match value {
+                                Value::String(value) => Some(Value::String(value)),
+                                _ => None,
+                            })
+                            .collect(),
+                    );
+                    Ok(())
+                }
+                value => assert_optional(&name, &value, &base_field.parsed, optional),
+            },
             ModelFieldKindNativeSpec::Object {
                 children: _,
                 dynamic: _,
@@ -532,6 +563,12 @@ impl InputTemplate {
                 }
             }
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray {} => {
+                if field.is_null() {
+                    *field = Value::Array(Default::default());
+                }
+                Ok(())
+            }
             ModelFieldKindNativeSpec::Object {
                 children,
                 dynamic: _,
@@ -734,6 +771,21 @@ impl<'a> ItemTemplate<'a> {
                 None => assert_optional(&name, &value, base_field, optional),
             },
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray {} => match value {
+                Value::Array(children) => {
+                    *field = Value::Array(
+                        children
+                            .into_iter()
+                            .filter_map(|value| match value {
+                                Value::String(value) => Some(Value::String(value)),
+                                _ => None,
+                            })
+                            .collect(),
+                    );
+                    Ok(())
+                }
+                value => assert_optional(&name, &value, base_field, optional),
+            },
             ModelFieldKindNativeSpec::Object {
                 children: _,
                 dynamic: _,
@@ -946,6 +998,12 @@ impl<'a> ItemTemplate<'a> {
                 }
             }
             // BEGIN aggregation types
+            ModelFieldKindNativeSpec::StringArray {} => {
+                if field.is_null() {
+                    *field = Value::Array(Default::default());
+                }
+                Ok(())
+            }
             ModelFieldKindNativeSpec::Object {
                 children,
                 dynamic: _,
