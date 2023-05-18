@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use dash_api::function::FunctionActorSpec;
 use dash_provider_api::{
-    FunctionChannel, FunctionChannelKind, SessionContext, SessionContextMetadata, SessionResult,
+    FunctionChannel, FunctionChannelKind, SessionContext, SessionContextMetadata, 
 };
 use futures::TryFutureExt;
 use kube::Client;
@@ -100,14 +100,13 @@ impl<'a> FunctionSession<'a> {
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
-    ) -> SessionResult<bool>
+    ) -> Result<bool>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
             .and_then(|session| session.try_exists_raw(inputs))
             .await
-            .into()
     }
 
     async fn try_exists_raw<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
@@ -132,14 +131,13 @@ impl<'a> FunctionSession<'a> {
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
-    ) -> SessionResult
+    ) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
             .and_then(|session| session.try_create_raw(inputs))
             .await
-            .into()
     }
 
     async fn try_create_raw<Value>(
@@ -167,14 +165,13 @@ impl<'a> FunctionSession<'a> {
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
-    ) -> SessionResult
+    ) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
             .and_then(|session| session.try_delete_raw(inputs))
             .await
-            .into()
     }
 
     async fn try_delete_raw<Value>(

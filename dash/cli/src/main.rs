@@ -62,6 +62,7 @@ enum Commands {
     Create(CommandSession),
     Delete(CommandSession),
     Exists(CommandSession),
+    Restart(CommandSession),
 }
 
 impl Commands {
@@ -72,15 +73,16 @@ impl Commands {
         };
 
         match self {
-            Self::Create(command) => command.create(kube).await,
-            Self::Delete(command) => command.delete(kube).await,
-            Self::Exists(command) => command.exists(kube).await,
+            Self::Create(command) => command.create(kube).await.into(),
+            Self::Delete(command) => command.delete(kube).await.into(),
+            Self::Exists(command) => command.exists(kube).await.into(),
+            Self::Restart(command) => command.restart(kube).await.into(),
         }
     }
 }
 
 /// Create a resource from a file or from stdin.
-#[derive(Parser)]
+#[derive(Clone, Parser)]
 struct CommandSession {
     /// Set a function name
     #[arg(short, long, env = "DASH_FUNCTION", value_name = "NAME")]
@@ -96,10 +98,10 @@ struct CommandSession {
 }
 
 impl CommandSession {
-    async fn run<F, Fut, R>(self, kube: Client, f: F) -> SessionResult<Value>
+    async fn run<F, Fut, R>(self, kube: Client, f: F) -> Result<Value>
     where
         F: FnOnce(Client, SessionContextMetadata, Vec<InputFieldString>) -> Fut,
-        Fut: Future<Output = SessionResult<R>>,
+        Fut: Future<Output = Result<R>>,
         R: Serialize,
     {
         let metadata = SessionContextMetadata {
@@ -110,28 +112,33 @@ impl CommandSession {
         };
         f(kube, metadata, self.inputs)
             .await
-            .and_then(::serde_json::to_value)
+            .and_then(|value| ::serde_json::to_value(value).map_err(Into::into))
     }
 
-    async fn create(self, kube: Client) -> SessionResult<Value> {
+    async fn create(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
             FunctionSession::create_raw(kube, &metadata, inputs).await
         })
         .await
     }
 
-    async fn delete(self, kube: Client) -> SessionResult<Value> {
+    async fn delete(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
             FunctionSession::create_raw(kube, &metadata, inputs).await
         })
         .await
     }
 
-    async fn exists(self, kube: Client) -> SessionResult<Value> {
+    async fn exists(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
             FunctionSession::exists_raw(kube, &metadata, inputs).await
         })
         .await
+    }
+
+    async fn restart(self, kube: Client) -> Result<Value> {
+        self.clone().delete(kube.clone()).await?;
+        self.create(kube).await
     }
 }
 

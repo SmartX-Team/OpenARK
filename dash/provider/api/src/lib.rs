@@ -36,19 +36,6 @@ where
     }
 }
 
-impl<T> SessionResult<T> {
-    pub fn and_then<F, T2, E>(self, f: F) -> SessionResult<T2>
-    where
-        F: FnOnce(T) -> Result<T2, E>,
-        E: ToString,
-    {
-        match self {
-            Self::Ok(e) => f(e).into(),
-            Self::Err(e) => SessionResult::Err(e),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionChannel {

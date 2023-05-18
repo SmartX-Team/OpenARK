@@ -39,5 +39,5 @@ pub async fn post(kube: Data<Client>, name: Path<Name>, value: Json<Value>) -> i
     }];
 
     let result = FunctionSession::create_raw(kube, &metadata, inputs).await;
-    HttpResponse::from(result)
+    HttpResponse::from(SessionResult::from(result))
 }
