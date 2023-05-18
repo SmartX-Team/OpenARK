@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, future::Future};
 
 use anyhow::Result;
 use ark_core::logger;
@@ -6,6 +6,8 @@ use clap::{value_parser, ArgAction, Parser, Subcommand};
 use dash_provider::{client::FunctionSession, input::InputFieldString};
 use dash_provider_api::{SessionContextMetadata, SessionResult};
 use kube::Client;
+use serde::Serialize;
+use serde_json::Value;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -18,7 +20,7 @@ struct Args {
 }
 
 impl Args {
-    async fn run(self) -> SessionResult {
+    async fn run(self) -> SessionResult<Value> {
         match self.common.run() {
             Ok(()) => self.command.run().await,
             Err(e) => Err(e).into(),
@@ -57,25 +59,29 @@ impl ArgsCommon {
 
 #[derive(Subcommand)]
 enum Commands {
-    Create(CommandCreate),
+    Create(CommandSession),
+    Delete(CommandSession),
+    Exists(CommandSession),
 }
 
 impl Commands {
-    async fn run(self) -> SessionResult {
+    async fn run(self) -> SessionResult<Value> {
         let kube = match Client::try_default().await {
             Ok(kube) => kube,
             Err(e) => return Err(e).into(),
         };
 
         match self {
-            Self::Create(command) => command.run(kube).await,
+            Self::Create(command) => command.create(kube).await,
+            Self::Delete(command) => command.delete(kube).await,
+            Self::Exists(command) => command.exists(kube).await,
         }
     }
 }
 
 /// Create a resource from a file or from stdin.
 #[derive(Parser)]
-struct CommandCreate {
+struct CommandSession {
     /// Set a function name
     #[arg(short, long, env = "DASH_FUNCTION", value_name = "NAME")]
     function: String,
@@ -83,15 +89,49 @@ struct CommandCreate {
     /// Set values by manual
     #[arg(short = 'v', long = "value")]
     inputs: Vec<InputFieldString>,
+
+    /// Set a target namespace
+    #[arg(long, env = "DASH_NAMESPACE", value_name = "NAMESPACE")]
+    namespace: Option<String>,
 }
 
-impl CommandCreate {
-    async fn run(self, kube: Client) -> SessionResult {
+impl CommandSession {
+    async fn run<F, Fut, R>(self, kube: Client, f: F) -> SessionResult<Value>
+    where
+        F: FnOnce(Client, SessionContextMetadata, Vec<InputFieldString>) -> Fut,
+        Fut: Future<Output = SessionResult<R>>,
+        R: Serialize,
+    {
         let metadata = SessionContextMetadata {
             name: self.function,
-            namespace: kube.default_namespace().to_string(),
+            namespace: self
+                .namespace
+                .unwrap_or_else(|| kube.default_namespace().to_string()),
         };
-        FunctionSession::create_raw(kube, &metadata, self.inputs).await
+        f(kube, metadata, self.inputs)
+            .await
+            .and_then(::serde_json::to_value)
+    }
+
+    async fn create(self, kube: Client) -> SessionResult<Value> {
+        self.run(kube, |kube, metadata, inputs| async move {
+            FunctionSession::create_raw(kube, &metadata, inputs).await
+        })
+        .await
+    }
+
+    async fn delete(self, kube: Client) -> SessionResult<Value> {
+        self.run(kube, |kube, metadata, inputs| async move {
+            FunctionSession::create_raw(kube, &metadata, inputs).await
+        })
+        .await
+    }
+
+    async fn exists(self, kube: Client) -> SessionResult<Value> {
+        self.run(kube, |kube, metadata, inputs| async move {
+            FunctionSession::exists_raw(kube, &metadata, inputs).await
+        })
+        .await
     }
 }
 

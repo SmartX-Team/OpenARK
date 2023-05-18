@@ -96,6 +96,38 @@ impl<'a> FunctionSession<'a> {
         Ok(())
     }
 
+    pub async fn exists_raw<Value>(
+        kube: Client,
+        metadata: &'a SessionContextMetadata,
+        inputs: Vec<InputField<Value>>,
+    ) -> SessionResult<bool>
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
+        Self::load(kube, metadata)
+            .and_then(|session| session.try_exists_raw(inputs))
+            .await
+            .into()
+    }
+
+    async fn try_exists_raw<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
+        let input = SessionContext {
+            metadata: self.metadata.clone(),
+            spec: {
+                self.update_fields(inputs).await?;
+                self.input.finalize()?
+            },
+        };
+
+        self.client
+            .exists_raw(&input)
+            .await
+            .map_err(|e| anyhow!("failed to check function {:?}: {e}", &self.metadata.name))
+    }
+
     pub async fn create_raw<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
@@ -130,6 +162,41 @@ impl<'a> FunctionSession<'a> {
             .await
             .map_err(|e| anyhow!("failed to create function {:?}: {e}", &self.metadata.name))
     }
+
+    pub async fn delete_raw<Value>(
+        kube: Client,
+        metadata: &'a SessionContextMetadata,
+        inputs: Vec<InputField<Value>>,
+    ) -> SessionResult
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
+        Self::load(kube, metadata)
+            .and_then(|session| session.try_delete_raw(inputs))
+            .await
+            .into()
+    }
+
+    async fn try_delete_raw<Value>(
+        mut self,
+        inputs: Vec<InputField<Value>>,
+    ) -> Result<FunctionChannel>
+    where
+        Self: FunctionSessionUpdateFields<Value>,
+    {
+        let input = SessionContext {
+            metadata: self.metadata.clone(),
+            spec: {
+                self.update_fields(inputs).await?;
+                self.input.finalize()?
+            },
+        };
+
+        self.client
+            .delete_raw(&input)
+            .await
+            .map_err(|e| anyhow!("failed to delete function {:?}: {e}", &self.metadata.name))
+    }
 }
 
 pub enum FunctionActorClient {
@@ -152,6 +219,15 @@ impl FunctionActorClient {
         }
     }
 
+    pub async fn exists_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
+    where
+        Spec: Serialize,
+    {
+        match self {
+            Self::Job(client) => client.exists_raw(input).await,
+        }
+    }
+
     pub async fn create_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
     where
         Spec: Serialize,
@@ -161,6 +237,21 @@ impl FunctionActorClient {
             actor: match self {
                 Self::Job(client) => client
                     .create_raw(input)
+                    .await
+                    .map(FunctionChannelKind::Job)?,
+            },
+        })
+    }
+
+    pub async fn delete_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
+    where
+        Spec: Serialize,
+    {
+        Ok(FunctionChannel {
+            metadata: input.metadata.clone(),
+            actor: match self {
+                Self::Job(client) => client
+                    .delete_raw(input)
                     .await
                     .map(FunctionChannelKind::Job)?,
             },
