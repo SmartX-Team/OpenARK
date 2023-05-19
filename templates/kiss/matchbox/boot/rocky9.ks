@@ -217,6 +217,7 @@ if lspci | grep 'NVIDIA'; then
             dkms \
             kmod-nvidia-latest-dkms \
             "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
+            "nvidia-fabric-manager" \
             "nvidia-driver-libs.${ARCH_WIN32}" \
             "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
             "nvidia-driver-NVML.${ARCH_WIN32}"
