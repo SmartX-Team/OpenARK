@@ -124,7 +124,7 @@ impl CommandSession {
 
     async fn delete(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::create_raw(kube, &metadata, inputs).await
+            FunctionSession::delete_raw(kube, &metadata, inputs).await
         })
         .await
     }
