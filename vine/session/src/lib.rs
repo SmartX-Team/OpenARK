@@ -7,7 +7,11 @@ use chrono::Utc;
 use dash_provider::client::job::FunctionActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
-use k8s_openapi::{api::core::v1::Node, serde_json::Value, Metadata, Resource};
+use k8s_openapi::{
+    api::core::v1::{Namespace, Node},
+    serde_json::Value,
+    Metadata, Resource,
+};
 use kube::{
     api::{Patch, PatchParams},
     core::ObjectMeta,
@@ -163,7 +167,8 @@ impl SessionManager {
         self.create_namespace(ctx).await?;
 
         let name = ctx.spec.namespace();
-        self.label::<Node>(&name, ctx.spec.node, user_name).await
+        self.label::<Namespace>(&name, ctx.spec.node, user_name)
+            .await
     }
 
     async fn label_node(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
