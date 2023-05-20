@@ -27,7 +27,7 @@ pub struct KubernetesStorageClient<'a> {
 }
 
 impl<'a> KubernetesStorageClient<'a> {
-    const ANNOTATION_SUBJECT: &'static str = "dash.ulagbulag.io/subject";
+    const LABEL_SUBJECT: &'static str = "dash.ulagbulag.io/subject";
 
     pub async fn load_config_map<'f>(
         &self,
@@ -255,8 +255,8 @@ impl<'a> KubernetesStorageClient<'a> {
             })
             .filter(|function| {
                 function
-                    .annotations()
-                    .get(Self::ANNOTATION_SUBJECT)
+                    .labels()
+                    .get(Self::LABEL_SUBJECT)
                     .map(|name| name == model_name)
                     .unwrap_or_default()
             })

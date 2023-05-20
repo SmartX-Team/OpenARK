@@ -12,10 +12,9 @@ p = inflect.engine()
 
 def get_function_title(item: object) -> str:
     metadata = item['metadata']
-    annotations = metadata.get('annotations')
-    title = annotations.get(
-        'dash.ulagbulag.io/title') if annotations else item['metadata']['name']
-    return title.title().replace('-', ' ')
+    labels = metadata.get('labels')
+    alias = labels.get('dash.ulagbulag.io/alias') if labels else item['metadata']['name']
+    return alias.title().replace('-', ' ')
 
 
 def draw_page(*, model_name: str):

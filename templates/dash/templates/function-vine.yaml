@@ -43,9 +43,10 @@ kind: Function
 metadata:
   name: vine-session
   annotations:
-    dash.ulagbulag.io/title: vine-session
-    dash.ulagbulag.io/subject: box
     dash.ulagbulag.io/subject-path: /box/
+  labels:
+    dash.ulagbulag.io/alias: vine-session
+    dash.ulagbulag.io/subject: box
 spec:
   input:
     - name: /box/
