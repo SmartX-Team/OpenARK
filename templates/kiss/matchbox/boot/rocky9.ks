@@ -29,8 +29,10 @@ timezone Asia/Seoul --utc
 # Install Packages
 %packages
 @^minimal-environment
+bluez
 kernel
 lvm2
+NetworkManager-bluetooth
 NetworkManager-wifi
 pciutils
 podman-docker
@@ -192,6 +194,9 @@ cat <<EOF >/etc/sudoers.d/10-wheel
 ENV_USERNAME ALL=(ALL) NOPASSWD: ALL
 EOF
 chmod 440 /etc/sudoers.d/10-wheel
+
+# Bluetooth Configuration
+systemctl enable bluetooth.service
 
 # Driver Configuration
 ## GPU - NVIDIA
