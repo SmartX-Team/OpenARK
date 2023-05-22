@@ -178,11 +178,16 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
 
 # Install desktop environment dependencies
 RUN dnf install -y --enablerepo raven \
+    bluez \
     code \
     dbus-x11 \
     file-roller \
+    gnome-bluetooth \
     ibus-hangul \
+    NetworkManager-bluetooth \
+    NetworkManager-wifi \
     network-manager-applet \
+    nm-connection-editor \
     openssh-askpass \
     picom \
     plank \
@@ -197,6 +202,31 @@ RUN dnf install -y --enablerepo raven \
     && rm /etc/xdg/autostart/xfce-polkit.desktop \
     && rm /usr/libexec/xfce-polkit \
     # Cleanup
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+# Install blueman dependencies
+ARG BLUEMAN_REPO="https://github.com/blueman-project/blueman/releases/download"
+ARG BLUEMAN_VERSION="2.2.1"
+RUN dnf install -y \
+    bluez-libs-devel \
+    iproute \
+    pygobject3-devel \
+    python3-Cython \
+    python3-devel \
+    # Download
+    && BLUEMAN_SRC_FILENAME="blueman-${BLUEMAN_VERSION}.tar.xz" \
+    && BLUEMAN_SRC_FILE="/opt/${BLUEMAN_SRC_FILENAME}.tar.xz" \
+    && BLUEMAN_SRC_HOME="/opt/${BLUEMAN_SRC_FILENAME%.tar.xz}" \
+    && wget -O "${BLUEMAN_SRC_FILE}" "${BLUEMAN_REPO}/${BLUEMAN_VERSION}/${BLUEMAN_SRC_FILENAME}" \
+    # Decompress the downloaded file
+    && tar -x -C "$(dirname "${BLUEMAN_SRC_HOME}")" -f "${BLUEMAN_SRC_FILE}" \
+    # Build
+    && pushd "${BLUEMAN_SRC_HOME}" \
+    && ./configure && make && make install \
+    && popd \
+    # Cleanup
+    && rm -rf "${BLUEMAN_SRC_FILE}" "${BLUEMAN_SRC_HOME}" \
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
