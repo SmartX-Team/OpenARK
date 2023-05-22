@@ -189,8 +189,8 @@ impl SessionManager {
 
         let node_name = node.name_any();
         let patch = Patch::Apply(json!({
-            "apiVersion": Node::API_VERSION,
-            "kind": Node::KIND,
+            "apiVersion": K::API_VERSION,
+            "kind": K::KIND,
             "metadata": {
                 "name": name,
                 "labels": get_label(&node_name, user_name),
