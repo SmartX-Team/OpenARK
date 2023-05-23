@@ -1,4 +1,7 @@
 ---
+# -- Namespace of the main rook operator
+# operatorNamespace: csi-rook-ceph
+
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment

@@ -92,6 +92,7 @@ helm upgrade --install "rook-ceph-cluster" \
     "${NAMESPACE}/rook-ceph-cluster" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
+    --set "operatorNamespace=${NAMESPACE}" \
     --values "./values-cluster.yaml"
 
 ###########################################################
@@ -169,6 +170,7 @@ if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
                 "${NAMESPACE}/rook-ceph-cluster" \
                 --create-namespace \
                 --namespace "${NAMESPACE}" \
+                --set "operatorNamespace=${NAMESPACE}" \
                 --values "./values-cluster.yaml"
             wait_ceph_cluster
         fi
