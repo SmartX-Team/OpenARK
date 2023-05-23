@@ -1,0 +1,39 @@
+---
+# TAO Toolkit API container info
+# image: nvcr.io/nvidia/tao/tao-toolkit:4.0.0-api
+# imagePullSecret: imagepullsecret
+# imagePullPolicy: Always
+
+# Optional HTTPS settings for ingress controller
+# host: ingress-nginx-controller.vine.svc.ops.openark
+# tlsSecret: tls-secret
+# corsOrigin: '"*"'
+
+# Shared storage info
+storageClassName: ceph-block
+storageAccessMode: ReadWriteMany
+storageSize: 100Gi
+ephemeral-storage: 8Gi
+limits.ephemeral-storage: 8Gi
+requests.ephemeral-storage: 4Gi
+
+# Starting TAO Toolkit jobs info
+backend: local-k8s
+numGpus: 1
+# imageTf: nvcr.io/nvidia/tao/tao-toolkit:4.0.0-tf1.15.5
+# imagePyt: nvcr.io/nvidia/tao/tao-toolkit:4.0.0-pyt
+# imageDnv2: nvcr.io/nvidia/tao/tao-toolkit:4.0.0-tf1.15.5
+# imageDefault: nvcr.io/nvidia/tao/tao-toolkit:4.0.0-tf1.15.5
+
+# To opt out of providing anonymous telemetry data to NVIDIA
+telemetryOptOut: no
+#
+# Optional MLOPS setting for Weights And Biases
+#wandbApiKey: cf23df2207d99a74fbe169e3eba035e633b63d13
+
+# Optional MLOPS setting for ClearML
+#clearMlWebHost: https://app.clear.ml
+#clearMlApiHost: https://api.clear.ml
+#clearMlFilesHost: https://files.clear.ml
+#clearMlApiAccessKey: TL2R884JDQWG11P29N0G
+#clearMlApiSecretKey: Z04nTRD79CYS8FR5MeQ4HIPcZsa25beN5K76OtDcEX8JfdcIYi
