@@ -10,7 +10,7 @@
 # corsOrigin: '"*"'
 
 # Shared storage info
-storageClassName: ceph-block
+storageClassName: ceph-filesystem
 storageAccessMode: ReadWriteMany
 storageSize: 100Gi
 ephemeral-storage: 8Gi
