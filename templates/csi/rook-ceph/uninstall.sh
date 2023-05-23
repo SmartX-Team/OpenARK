@@ -35,13 +35,26 @@ kubectl --namespace "${NAMESPACE}" patch cephcluster "${NAMESPACE}" \
     -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
 
 ###########################################################
+#   Remove Rook Ceph Cluster                              #
+###########################################################
+
+echo "- Removing Rook Ceph Cluster ... "
+
+helm uninstall --namespace "${NAMESPACE}" "rook-ceph-cluster"
+
+echo "- Waiting for removing Rook Ceph Cluster ... "
+sleep 60
+
+###########################################################
 #   Remove Rook Ceph                                      #
 ###########################################################
 
 echo "- Removing Rook Ceph ... "
 
-helm uninstall --namespace "${NAMESPACE}" "rook-ceph-cluster"
 helm uninstall --namespace "${NAMESPACE}" "rook-ceph"
+
+echo "- Waiting for removing Rook Ceph ... "
+sleep 60
 
 ###########################################################
 #   Checking if Operator is already installed             #
