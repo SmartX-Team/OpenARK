@@ -33,17 +33,21 @@ echo "- Patching CephCluster ... "
 kubectl --namespace "${NAMESPACE}" patch cephcluster "${NAMESPACE}" \
     --type merge \
     -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
+sleep 1
 
 ###########################################################
 #   Remove Rook Ceph Cluster                              #
 ###########################################################
 
+echo "- Waiting for removing Rook Ceph Cluster ... "
+sleep 60
+
+kubectl -n csi-rook-ceph delete cephcluster --all
+sleep 60
+
 echo "- Removing Rook Ceph Cluster ... "
 
 helm uninstall --namespace "${NAMESPACE}" "rook-ceph-cluster"
-
-echo "- Waiting for removing Rook Ceph Cluster ... "
-sleep 60
 
 ###########################################################
 #   Remove Rook Ceph                                      #
