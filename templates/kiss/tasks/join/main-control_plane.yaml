@@ -1,4 +1,11 @@
 ---
+- hosts: kube_control_plane
+  tasks:
+    - name: Remove legacy APIServices
+      command: >
+        {{ bin_dir }}/kubectl delete APIServices v1beta1.metrics.k8s.io
+      ignore_errors: true
+
 - import_playbook: ./add-node-as-control_plane.yaml
 - import_playbook: ./add-node-as-bgp-peer.yaml
 - import_playbook: ./add-node-role.yaml
