@@ -553,14 +553,20 @@ impl AnsibleClient {
         ResourceRequirements {
             claims: None,
             requests: Some(
-                vec![("memory".into(), Quantity("20Mi".into()))]
-                    .into_iter()
-                    .collect(),
+                vec![
+                    ("cpu".into(), Quantity("1".into())),
+                    ("memory".into(), Quantity("20Mi".into())),
+                ]
+                .into_iter()
+                .collect(),
             ),
             limits: Some(
-                vec![("memory".into(), Quantity("500Mi".into()))]
-                    .into_iter()
-                    .collect(),
+                vec![
+                    ("cpu".into(), Quantity("2".into())),
+                    ("memory".into(), Quantity("500Mi".into())),
+                ]
+                .into_iter()
+                .collect(),
             ),
         }
     }
