@@ -10,7 +10,7 @@ use futures::TryFutureExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Node},
     serde_json::Value,
-    Metadata, Resource,
+    Metadata,
 };
 use kube::{
     api::{Patch, PatchParams},
