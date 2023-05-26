@@ -1,0 +1,81 @@
+---
+- name: Get latest utility versions
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+  uri:
+    url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
+    method: POST
+    return_content: true
+    body_format: form-urlencoded
+    body:
+      action: get_versions
+  register: result_versions
+  until: result_versions.status == 200
+  retries: 5
+  delay: 5
+
+- name: Get latest utility download URL
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+  uri:
+    url: https://downloaders.azurewebsites.net/downloaders/mlxup_downloader/helper.php
+    method: POST
+    return_content: true
+    body_format: form-urlencoded
+    body:
+      action: get_download_info
+      version: "{{ result_versions.json.latest }}"
+      os: Linux
+      arch: "{{ mellanox_architectures[ansible_architecture] }}"
+  register: result_urls
+  until: result_urls.status == 200
+  retries: 5
+  delay: 5
+
+- name: Download Mellanox online update utility
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+  get_url:
+    url: "{{ result_urls.json.files[0].url }}"
+    dest: /tmp/mlxup
+    mode: "0550"
+    force: true
+    timeout: 30
+  register: result_download
+  until: result_download is succeeded
+  retries: 10
+  delay: 5
+
+- name: Flash all Mellanox NIC if old
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+  command: /tmp/mlxup -y
+  register: result
+
+- name: Reboot the boxes if flashed (The task will be restarted)
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+    - "'Restart needed' in result.stdout"
+  reboot:
+    reboot_timeout: 3600 # 1h (booting can take a long time)
+
+- name: Assert rebooting
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+    - "'Restart needed' in result.stdout"
+  fail:
+    msg: The nodes should be rebooted!
+
+- name: Cleanup
+  when:
+    - kiss_allow_critical_commands | default(False)
+    - ansible_architecture in mellanox_architectures
+  file:
+    path: /tmp/mlxup
+    state: absent
