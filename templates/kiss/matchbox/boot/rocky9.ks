@@ -69,7 +69,7 @@ set -e
 set -x
 
 # Minimum size of disk needed specified in GIBIBYTES
-MINSIZE=20
+MINSIZE=200
 
 BLOCKDEV="/sys/block"
 ROOTDEV=""
@@ -102,7 +102,7 @@ cat <<EOF >/tmp/kiss-config
 # Write partition table
 part /boot/efi --fstype=efi --size=200 --ondisk=${ROOTDEV}
 part /boot --fstype=ext4 --size=512 --ondisk=${ROOTDEV}
-part / --fstype=ext4 --size=$((${MINSIZE} * 2 ** 10)) --ondisk=${ROOTDEV}
+part / --fstype=ext4 --size=$((${MINSIZE} * 2 ** 10)) --ondisk=${ROOTDEV} --grow
 
 # Bootloader Configuration
 bootloader --boot-drive ${ROOTDEV}

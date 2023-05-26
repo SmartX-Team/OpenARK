@@ -80,6 +80,7 @@ impl<'a> ClusterState<'a> {
         self.control_planes
             .iter()
             .filter(|node| node.is_running || node.name == self.owner_uuid)
+            .sorted_by(|a, b| (&a.created_at, a).cmp(&(&b.created_at, b)))
             .collect()
     }
 
