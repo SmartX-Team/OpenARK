@@ -2,23 +2,29 @@ use std::{collections::BTreeSet, net::IpAddr};
 
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
+use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
 use kube::{api::ListParams, Api, Client, Error};
 use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
+
+use crate::config::KissConfig;
 
 pub struct ClusterState<'a> {
+    config: &'a KissConfig,
     owner_group: &'a BoxGroupSpec,
     owner_uuid: String,
     control_planes: BTreeSet<ClusterBoxState>,
 }
 
 impl<'a> ClusterState<'a> {
-    const MAX_ETCD_NODES: Option<usize> = Some(5);
-
-    pub async fn load(kube: &'a Client, owner: &'a BoxSpec) -> Result<ClusterState<'a>, Error> {
+    pub async fn load(
+        kube: &'a Client,
+        config: &'a KissConfig,
+        owner: &'a BoxSpec,
+    ) -> Result<ClusterState<'a>, Error> {
         Ok(Self {
+            config,
             owner_group: &owner.group,
             owner_uuid: owner.machine.uuid.to_string(),
             // load the current control planes
@@ -88,14 +94,18 @@ impl<'a> ClusterState<'a> {
         let mut nodes = self.get_control_planes_running_as_vec();
 
         // estimate the number of default nodes
-        let num_default_nodes = usize::from(self.owner_group.is_default());
+        let num_default_nodes = if self.owner_group.is_default() {
+            self.config.bootstrapper_node_size
+        } else {
+            0
+        };
 
-        // truncate the number of nodes to MAX_ETCD_NODES
-        if let Some(max_etcd_nodes) = Self::MAX_ETCD_NODES {
-            nodes.truncate(if max_etcd_nodes < num_default_nodes {
+        // truncate the number of nodes to `etcd_nodes_max`
+        if self.config.etcd_nodes_max > 0 {
+            nodes.truncate(if self.config.etcd_nodes_max < num_default_nodes {
                 0
             } else {
-                max_etcd_nodes - num_default_nodes
+                self.config.etcd_nodes_max - num_default_nodes
             });
         }
 

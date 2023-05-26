@@ -74,7 +74,8 @@ impl AnsibleClient {
         }
 
         // realize mutual exclusivity (QUEUE)
-        let cluster_state = self::cluster::ClusterState::load(kube, &job.r#box.spec).await?;
+        let cluster_state =
+            self::cluster::ClusterState::load(kube, &self.kiss, &job.r#box.spec).await?;
         if matches!(job.new_state, BoxState::Joining) && !cluster_state.is_joinable() {
             info!(
                 "Cluster is not ready: {} {} {} -> {}",
