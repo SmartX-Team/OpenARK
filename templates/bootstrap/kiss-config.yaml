@@ -40,6 +40,7 @@ data:
   bootstrapper_node_name: node1.master
   bootstrapper_node_reuse_container: "true"
   bootstrapper_node_reuse_data_kubernetes: "false"
+  bootstrapper_node_size: "1"
 
   ###########################################################################
   # Domain Configuration
@@ -48,6 +49,11 @@ data:
   # domain_dns_server_ns1: 1.1.1.1
   # domain_dns_server_ns2: 2.2.2.2
   # domain_ingress_server: 3.3.3.3
+
+  ###########################################################################
+  # ETCD Cluster Configuration
+  ###########################################################################
+  etcd_nodes_max: "5"
 
   ###########################################################################
   # KISS Configuration
