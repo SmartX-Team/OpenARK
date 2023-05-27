@@ -49,7 +49,7 @@ echo "- Installing Registry Account ... "
 if
     ! kubectl get secret --no-headers \
         --namespace "${NAMESPACE}" \
-        "private" \
+        "ark-registry" \
         >/dev/null 2>/dev/null
 then
     kubectl create secret docker-registry "ark-registry" \
