@@ -44,3 +44,8 @@ enableDiscoveryDaemon: true
 #         - matchExpressions:
 #             - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
 #               operator: DoesNotExist
+
+monitoring:
+  # -- Enable monitoring. Requires Prometheus to be pre-installed.
+  # Enabling will also create RBAC rules to allow Operator to create ServiceMonitors
+  enabled: true

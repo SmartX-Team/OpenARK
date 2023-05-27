@@ -22,6 +22,13 @@ toolbox:
   #             - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
   #               operator: DoesNotExist
 
+monitoring:
+  # -- Enable Prometheus integration, will also create necessary RBAC rules to allow Operator to create ServiceMonitors.
+  # Monitoring requires Prometheus to be pre-installed
+  enabled: true
+  # -- Whether to create the Prometheus rules for Ceph alerts
+  createPrometheusRules: true
+
 # All values below are taken from the CephCluster CRD
 # More information can be found at [Ceph Cluster CRD](/Documentation/CRDs/ceph-cluster-crd.md)
 cephClusterSpec:
