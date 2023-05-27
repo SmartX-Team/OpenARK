@@ -12,7 +12,7 @@
 # Shared storage info
 storageClassName: ceph-filesystem
 storageAccessMode: ReadWriteMany
-storageSize: 100Gi
+storageSize: 1Ti
 ephemeral-storage: 8Gi
 limits.ephemeral-storage: 8Gi
 requests.ephemeral-storage: 4Gi
