@@ -177,5 +177,18 @@ if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
     fi
 fi
 
+###########################################################
+#   Patch Service Monitor                                 #
+###########################################################
+
+echo "- Patching Service Monitor ... "
+
+kubectl get servicemonitor 'rook-ceph-mgr' \
+    --namespace "${NAMESPACE}" \
+    --output yaml |
+    yq 'del(.spec.selector.matchLabels.mgr_role)' |
+    yq ".spec.selector.matchLabels.rook_cluster=\"${NAMESPACE}\"" |
+    kubectl replace -f -
+
 # Finished!
 echo "Installed!"
