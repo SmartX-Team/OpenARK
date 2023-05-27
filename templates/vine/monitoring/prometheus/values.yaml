@@ -131,6 +131,19 @@ grafana:
   ##
   dashboards:
     default:
+      # CSI - Rook-Ceph
+      ceph-cluster:
+        gnetId: 2842
+        revision: 16
+        datasource: Prometheus
+      ceph-osd-single:
+        gnetId: 5336
+        revision: 9
+        datasource: Prometheus
+      ceph-pools:
+        gnetId: 5342
+        revision: 9
+        datasource: Prometheus
       # GPU - NVIDIA
       nvidia-dcgm-exporter-dashboard:
         gnetId: 12239
