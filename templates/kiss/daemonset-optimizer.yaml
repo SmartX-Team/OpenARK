@@ -1,0 +1,39 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-optimizer
+  namespace: kiss
+spec:
+  selector:
+    matchLabels:
+      name: node-optimizer
+  template:
+    metadata:
+      labels:
+        name: node-optimizer
+    spec:
+      hostNetwork: true
+      containers:
+        - name: disable-thp
+          image: docker.io/library/busybox:latest
+          command:
+            - sh
+            - -c
+          args:
+            - >
+              echo madvise >/host/sys/kernel/mm/transparent_hugepage/enabled
+              && echo 0 > /host/proc/sys/vm/nr_hugepages
+              && exec sleep infinity
+          volumeMounts:
+            - name: host-proc
+              mountPath: /host/proc
+            - name: host-sys
+              mountPath: /host/sys
+      volumes:
+        - name: host-proc
+          hostPath:
+            path: /proc
+        - name: host-sys
+          hostPath:
+            path: /sys
