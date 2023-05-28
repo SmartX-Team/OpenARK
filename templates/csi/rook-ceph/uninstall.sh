@@ -39,15 +39,15 @@ sleep 1
 #   Remove Rook Ceph Cluster                              #
 ###########################################################
 
+echo "- Removing Rook Ceph Cluster ... "
+
+helm uninstall --namespace "${NAMESPACE}" "rook-ceph-cluster"
+
 echo "- Waiting for removing Rook Ceph Cluster ... "
 sleep 60
 
 kubectl -n csi-rook-ceph delete cephcluster --all
 sleep 60
-
-echo "- Removing Rook Ceph Cluster ... "
-
-helm uninstall --namespace "${NAMESPACE}" "rook-ceph-cluster"
 
 ###########################################################
 #   Remove Rook Ceph                                      #
