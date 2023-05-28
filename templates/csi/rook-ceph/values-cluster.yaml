@@ -304,6 +304,33 @@ cephFileSystems:
             cpu: "1000m"
             memory: "4Gi"
         priorityClassName: system-cluster-critical
+        placement:
+          all:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - preference:
+                    matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Storage
+                  weight: 1
+                - preference:
+                    matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Gateway
+                  weight: 2
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Compute
+                          - Gateway
+                          - Storage
     storageClass:
       enabled: true
       isDefault: false
@@ -381,7 +408,33 @@ cephObjectStores:
         # sslCertificateRef:
         instances: 3
         priorityClassName: system-cluster-critical
-
+        placement:
+          all:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - preference:
+                    matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Storage
+                  weight: 1
+                - preference:
+                    matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Gateway
+                  weight: 2
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: node-role.kubernetes.io/kiss
+                        operator: In
+                        values:
+                          - Compute
+                          - Gateway
+                          - Storage
     storageClass:
       enabled: true
       isDefault: true
