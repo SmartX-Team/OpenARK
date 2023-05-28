@@ -13,7 +13,6 @@ spec:
       labels:
         name: node-optimizer
     spec:
-      hostNetwork: true
       containers:
         - name: disable-thp
           image: docker.io/library/busybox:latest
