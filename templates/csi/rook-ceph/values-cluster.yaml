@@ -6,6 +6,8 @@
 toolbox:
   # Enable Ceph debugging pod deployment
   enabled: true
+  # -- Toolbox image, defaults to the image used by the Ceph cluster
+  image: quay.io/ceph/ceph:v17.2.5
   # affinity:
   #   nodeAffinity:
   #     # KISS normal control plane nodes should be preferred
@@ -32,6 +34,26 @@ monitoring:
 # All values below are taken from the CephCluster CRD
 # More information can be found at [Ceph Cluster CRD](/Documentation/CRDs/ceph-cluster-crd.md)
 cephClusterSpec:
+  # This cluster spec example is for a converged cluster where all the Ceph daemons are running locally,
+  # as in the host-based example (cluster.yaml). For a different configuration such as a
+  # PVC-based cluster (cluster-on-pvc.yaml), external cluster (cluster-external.yaml),
+  # or stretch cluster (cluster-stretched.yaml), replace this entire `cephClusterSpec`
+  # with the specs from those examples.
+
+  # For more details, check https://rook.io/docs/rook/v1.10/CRDs/Cluster/ceph-cluster-crd/
+  cephVersion:
+    # The container image used to launch the Ceph daemon pods (mon, mgr, osd, mds, rgw).
+    # v16 is Pacific, v17 is Quincy.
+    # RECOMMENDATION: In production, use a specific version tag instead of the general v16 flag, which pulls the latest release and could result in different
+    # versions running within the cluster. See tags available at https://hub.docker.com/r/ceph/ceph/tags/.
+    # If you want to be more precise, you can always use a timestamp tag such quay.io/ceph/ceph:v15.2.11-20200419
+    # This tag might not contain a new Ceph version, just security fixes from the underlying operating system, which will reduce vulnerabilities
+    image: quay.io/ceph/ceph:v17.2.5
+    # Whether to allow unsupported versions of Ceph. Currently `pacific` and `quincy` are supported.
+    # Future versions such as `reef` (v18) would require this to be set to `true`.
+    # Do not set to true in production.
+    allowUnsupported: false
+
   mon:
     # Set the number of mons to be started. Generally recommended to be 3.
     # For highest availability, an odd number of mons should be specified.
@@ -60,19 +82,13 @@ cephClusterSpec:
   placement:
     all:
       nodeAffinity:
-        # KISS normal control plane nodes should be preferred
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 1
-            preference:
-              matchExpressions:
-                - key: node-role.kubernetes.io/control-plane
-                  operator: Exists
-        # KISS ephemeral control plane nodes should be excluded
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-                - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
-                  operator: DoesNotExist
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - Storage
   resources:
     osd:
       limits:
@@ -86,6 +102,8 @@ cephClusterSpec:
   removeOSDsIfOutAndSafeToRemove: false
 
   storage: # cluster level storage configuration and selection
+    useAllNodes: true
+    useAllDevices: true
     config:
       osdsPerDevice: "1" # this value can be overridden at the node or device level
       encryptedDevice: "false" # the default value for this option is "false"

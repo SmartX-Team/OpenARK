@@ -3,13 +3,16 @@
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
+# Prehibit errors
+set -e -o pipefail
+
 ###########################################################
 #   Configuration                                         #
 ###########################################################
 
 # Configure default environment variables
 SCRIPT_DST_DEFAULT="/tmp/patch-$(date -u +'%Y%m%dT%H%M%SZ').sh"
-SCRIPT_PATH_DEFAULT="./patch.sh"
+SCRIPT_PATH_DEFAULT="./patch-template.sh"
 SSH_KEYFILE_PATH_DEFAULT="${HOME}/.ssh/kiss"
 
 # Configure environment variables
@@ -28,11 +31,11 @@ for address in $(kubectl get box -o jsonpath='{.items[*].status.access.primary.a
 
     if
         ping -c 1 -W 3 "${address}" >/dev/null 2>/dev/null &&
-            ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${address}" echo "Connected" 2>/dev/null \
+            ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" echo "Connected" 2>/dev/null \
             ;
     then
-        scp -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${SCRIPT_PATH}" "${address}:${SCRIPT_DST}"
-        ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${address}" sudo bash "${SCRIPT_DST}"
+        scp -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${SCRIPT_PATH}" "kiss@${address}:${SCRIPT_DST}"
+        ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" sudo bash "${SCRIPT_DST}"
         echo "OK"
     else
         echo "Skipped"
