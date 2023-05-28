@@ -183,12 +183,22 @@ fi
 
 echo "- Patching Service Monitor ... "
 
-kubectl get servicemonitor 'rook-ceph-mgr' \
-    --namespace "${NAMESPACE}" \
-    --output yaml |
-    yq 'del(.spec.selector.matchLabels.mgr_role)' |
-    yq ".spec.selector.matchLabels.rook_cluster=\"${NAMESPACE}\"" |
-    kubectl replace -f -
+while :; do
+    if ! kubectl get servicemonitor 'rook-ceph-mgr' \
+        --namespace "${NAMESPACE}" \
+        >/dev/null 2>/dev/null; then
+        continue
+    fi
+
+    kubectl get servicemonitor 'rook-ceph-mgr' \
+        --namespace "${NAMESPACE}" \
+        --output yaml |
+        yq 'del(.spec.selector.matchLabels.mgr_role)' |
+        yq ".spec.selector.matchLabels.rook_cluster=\"${NAMESPACE}\"" |
+        kubectl replace -f -
+
+    break
+done
 
 # Finished!
 echo "Installed!"
