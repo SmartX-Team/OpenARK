@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, future::Future};
 
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Node;
 use kiss_api::r#box::BoxCrd;
 use kube::{api::ListParams, Api, Client, ResourceExt};
@@ -15,7 +15,7 @@ use vine_api::{
     user_role::UserRoleCrd,
     user_role_binding::UserRoleBindingCrd,
 };
-use vine_session::{SessionContextSpecOwned, SessionManager};
+use vine_session::{AllocationState, SessionContextSpecOwned, SessionManager};
 
 pub async fn execute_with<'f, Fut>(
     client: &Client,
@@ -27,14 +27,17 @@ where
     Fut: 'f + Future<Output = Result<()>>,
 {
     // get current time
-    let now = Utc::now();
+    let now: DateTime<Utc> = Utc::now();
 
     // get the user CR
     let api = Api::<UserCrd>::all(client.clone());
     let user = match api.get_opt(user_name).await? {
-        Some(user) => user,
+        Some(user) => match assert_allocable(&user, box_name, user_name, now) {
+            Some(error) => return Ok(error),
+            None => user,
+        },
         None => {
-            warn!("[{now}] failed to find an user: {user_name:?}");
+            warn!("[{now}] failed to find an user: {user_name:?} => {box_name:?}");
             return Ok(UserAuthError::UserNotRegistered.into());
         }
     };
@@ -49,13 +52,18 @@ where
     // get the box as a node
     let api = Api::<Node>::all(client.clone());
     let node = match api.get_opt(box_name).await? {
-        Some(node) => node,
+        Some(node) => match assert_allocable(&node, box_name, user_name, now) {
+            Some(error) => return Ok(error),
+            None => node,
+        },
         None => return Ok(UserSessionResponse::BoxNotInCluster),
     };
-    let node_capacity = node
+
+    // get available resources
+    let available_resources = node
         .status
         .as_ref()
-        .and_then(|status| status.capacity.as_ref());
+        .and_then(|status| status.allocatable.as_ref());
 
     // parse box quota
     let box_quota = {
@@ -107,7 +115,9 @@ where
                 })
                 .filter(|item| item.spec.user == user_name)
                 .filter_map(|item| quotas.get(&item.spec.quota).cloned())
-                .filter(|item| crate::node_selector::is_affordable(node_capacity, &item.compute))
+                .filter(|item| {
+                    crate::node_selector::is_affordable(available_resources, &item.compute)
+                })
                 .map(Some)
                 .next()
         }
@@ -166,6 +176,32 @@ where
         None => {
             warn!("[{now}] login denied: {user_name:?} => {box_name:?}");
             Ok(UserSessionResponse::Deny { user: user.spec })
+        }
+    }
+}
+
+fn assert_allocable<T>(
+    object: &T,
+    box_name: &str,
+    user_name: &str,
+    now: DateTime<Utc>,
+) -> Option<UserSessionResponse>
+where
+    T: ResourceExt,
+{
+    match ::vine_session::is_allocable(object.labels(), box_name, user_name) {
+        AllocationState::AllocatedByMyself | AllocationState::NotAllocated => None,
+        AllocationState::AllocatedByOtherNode { node_name } => {
+            warn!("[{now}] the user is already allocated to {node_name:?}: {user_name:?}");
+            Some(UserSessionResponse::AlreadyLoggedInByNode {
+                node_name: node_name.into(),
+            })
+        }
+        AllocationState::AllocatedByOtherUser { user_name } => {
+            warn!("[{now}] the node is already allocated by {user_name:?}: {user_name:?}");
+            Some(UserSessionResponse::AlreadyLoggedInByUser {
+                user_name: user_name.into(),
+            })
         }
     }
 }

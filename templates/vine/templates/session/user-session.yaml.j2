@@ -1,23 +1,18 @@
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: "desktop-{{ spec.node.metadata.name }}"
   namespace: "{{ metadata.namespace }}"
 spec:
-  replicas: 1
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 1
-  selector:
-    matchLabels:
-      name: desktop
+  backoffLimit: 1
+  suspend: false
+  ttlSecondsAfterFinished: 1
   template:
     metadata:
       labels:
         name: desktop
     spec:
-      nodeName: "{{ spec.node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
@@ -37,6 +32,12 @@ spec:
             - bash
             - -c
           args:
+            # - |
+            #   set -e -x -o pipefail
+            #   chown user:user /home/user /mnt/shared
+            #   chmod 700 /home/user
+            #   chmod 777 /mnt/shared
+            #   exec true
             - |
               set -e -x -o pipefail
               chown user:user /home/user
@@ -85,6 +86,11 @@ spec:
               value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
+          ports:
+            - name: http
+              containerPort: 8080
+          lifecycle:
+            terminationGracePeriodSeconds: 5
           securityContext:
             capabilities:
               add:
@@ -129,11 +135,11 @@ spec:
 {% endif %}
 {% endif %}
       hostIPC: true
+      restartPolicy: Never
       securityContext:
         runAsNonRoot: false
         runAsUser: 2000
         fsGroup: 2000
-      terminationGracePeriodSeconds: 1
       volumes:
         - name: dev
           hostPath:
@@ -152,12 +158,18 @@ spec:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-          # emptyDir: {}
-          hostPath:
-            path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
-            type: DirectoryOrCreate
-          # persistentVolumeClaim:
-          #   claimName: "desktop-{{ spec.node.metadata.name }}"
+{% if spec.boxQuota is object and spec.boxQuota.storage is object %}
+          persistentVolumeClaim:
+            claimName: desktop
+{% else %}
+          emptyDir: {}
+          # hostPath:
+          #   path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
+          #   type: DirectoryOrCreate
+{% endif %}
+        # - name: home-shared
+        #   persistentVolumeClaim:
+        #     claimName: desktop-shared
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -329,3 +341,35 @@ spec:
           #       name: "novnc-{{ spec.node.metadata.name }}"
           #       port:
           #         number: 5900
+{% if spec.boxQuota is object and spec.boxQuota.storage is object %}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: desktop
+  namespace: "{{ metadata.namespace }}"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources: {{ spec.boxQuota.storage | json_encode() | safe }}
+{% if spec.boxQuota.storageClassName is string %}
+  storageClassName: "{{ spec.boxQuota.storageClassName }}"
+{% endif %}
+{% endif %}
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: desktop-shared
+#   namespace: "{{ metadata.namespace }}"
+# spec:
+#   accessModes:
+#     - ReadWriteMany
+#   dataSourceRef:
+#     apiGroup: v1
+#     kind: PersistentVolumeClaim
+#     name: desktop-shared
+#     namespace: vine-guest
+#   resources:
+#     requests:
+#       storage: 1Ti

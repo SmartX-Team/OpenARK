@@ -105,6 +105,12 @@ pub enum UserSessionResponse {
         box_quota: Option<UserBoxQuotaSpec>,
         user: UserSpec,
     },
+    AlreadyLoggedInByNode {
+        node_name: String,
+    },
+    AlreadyLoggedInByUser {
+        user_name: String,
+    },
     AuthError(UserAuthError),
     BoxNotFound,
     BoxNotInCluster,

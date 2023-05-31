@@ -1,4 +1,4 @@
-use std::{fmt, fs, path::PathBuf};
+use std::{collections::BTreeMap, fmt, fs, path::PathBuf};
 
 use anyhow::{bail, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
@@ -10,17 +10,15 @@ use futures::TryFutureExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Node},
     serde_json::Value,
-    Metadata,
 };
 use kube::{
     api::{Patch, PatchParams},
-    core::ObjectMeta,
-    Api, Client, ResourceExt,
+    Api, Client, Resource, ResourceExt,
 };
 use log::info;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
-use vine_api::{user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
+use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
 pub(crate) mod consts {
     pub const NAME: &str = "vine-session";
@@ -61,6 +59,7 @@ impl SessionManager {
 
         self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
+            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
             .and_then(|()| self.delete_cleanup(&ctx))
             .and_then(|()| self.create_template(&ctx))
             .await
@@ -71,6 +70,7 @@ impl SessionManager {
 
         self.label_namespace(&ctx, None)
             .and_then(|()| self.delete_template(&ctx))
+            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
             .and_then(|()| self.create_cleanup(&ctx))
             .and_then(|()| self.label_node(ctx.spec.node, None))
             .await
@@ -176,9 +176,14 @@ impl SessionManager {
         self.label::<Node>(&name, node, user_name).await
     }
 
+    async fn label_user(&self, node: &Node, user_name: &str, create: bool) -> Result<()> {
+        self.label::<UserCrd>(user_name, node, if create { Some(user_name) } else { None })
+            .await
+    }
+
     async fn label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
     where
-        K: Clone + fmt::Debug + DeserializeOwned + Metadata<Ty = ObjectMeta>,
+        K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
     {
         let api = Api::<K>::all(self.client.kube.clone());
         let pp = PatchParams {
@@ -189,8 +194,8 @@ impl SessionManager {
 
         let node_name = node.name_any();
         let patch = Patch::Apply(json!({
-            "apiVersion": K::API_VERSION,
-            "kind": K::KIND,
+            "apiVersion": K::api_version(&()),
+            "kind": K::kind(&()),
             "metadata": {
                 "name": name,
                 "labels": get_label(&node_name, user_name),
@@ -259,4 +264,29 @@ fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
         ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
         ::ark_api::consts::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
     })
+}
+
+pub fn is_allocable<'a>(
+    labels: &'a BTreeMap<String, String>,
+    node_name: &str,
+    user_name: &str,
+) -> AllocationState<'a> {
+    let check_by_key = |key, value| labels.get(key).filter(|&label_value| label_value != value);
+
+    if check_by_key(::ark_api::consts::LABEL_BIND_STATUS, "false").is_none() {
+        AllocationState::NotAllocated
+    } else if let Some(node_name) = check_by_key(::ark_api::consts::LABEL_BIND_NODE, node_name) {
+        AllocationState::AllocatedByOtherNode { node_name }
+    } else if let Some(user_name) = check_by_key(::ark_api::consts::LABEL_BIND_BY_USER, user_name) {
+        AllocationState::AllocatedByOtherUser { user_name }
+    } else {
+        AllocationState::AllocatedByMyself
+    }
+}
+
+pub enum AllocationState<'a> {
+    AllocatedByMyself,
+    AllocatedByOtherNode { node_name: &'a str },
+    AllocatedByOtherUser { user_name: &'a str },
+    NotAllocated,
 }

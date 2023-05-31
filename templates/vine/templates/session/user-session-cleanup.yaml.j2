@@ -11,26 +11,26 @@ spec:
       labels:
         name: desktop
     spec:
-      nodeName: "{{ spec.node.metadata.name }}"
       affinity:
         nodeAffinity:
           # KISS ephemeral control plane nodes should be excluded
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: node-role.kubernetes.io/kiss
-                    operator: In
-                    values:
-                      - Desktop
-              - matchExpressions:
                   - key: kubernetes.io/hostname
                     operator: In
                     values:
                       - "{{ spec.node.metadata.name }}"
       restartPolicy: OnFailure
+      initContainers:
+        - name: init-delay
+          image: docker.io/library/busybox:latest
+          command:
+            - sleep
+            - "5"
       containers:
         - name: desktop-environment-cleanup
-          image: docker.io/library/alpine:latest
+          image: docker.io/library/busybox:latest
           command:
             - /bin/rm
           args:
