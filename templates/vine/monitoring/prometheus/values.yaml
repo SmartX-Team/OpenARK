@@ -48,6 +48,8 @@ grafana:
     annotations:
       nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
       nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
+      nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+      nginx.ingress.kubernetes.io/enable-cors: "true"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/rewrite-target: /$1
@@ -183,6 +185,10 @@ grafana:
     auth.basic:
       # NOTE: it is needed to be 'true' to create a default grafana user
       enabled: true
+
+    security:
+      # set to true if you want to allow browsers to render Grafana in a <frame>, <iframe>, <embed> or <object>. default is false.
+      allow_embedding: true
 
     # grafana Authentication can be enabled with the following values on grafana.ini
     server:
