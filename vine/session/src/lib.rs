@@ -113,6 +113,7 @@ impl SessionManager {
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
             .and_then(|()| self.delete_cleanup(&ctx))
+            .and_then(|()| self.create_shared_pvc(&ctx))
             .and_then(|()| self.create_template(&ctx))
             .await
     }
@@ -137,6 +138,12 @@ impl SessionManager {
     async fn create_namespace(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .create_raw_named(Self::TEMPLATE_NAMESPACE_FILENAME, ctx)
+            .await
+            .map(|_| ())
+    }
+
+    async fn create_shared_pvc(&self, ctx: &SessionContext<'_>) -> Result<()> {
+        ::vine_storage::get_or_create_shared_pvcs(&self.client.kube, &ctx.metadata.namespace)
             .await
             .map(|_| ())
     }
