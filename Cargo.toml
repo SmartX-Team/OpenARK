@@ -40,6 +40,7 @@ members = [
     "vine/controller",
     "vine/rbac",
     "vine/session",
+    "vine/storage",
 ]
 
 [workspace.dependencies]
