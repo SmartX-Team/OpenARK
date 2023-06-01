@@ -144,7 +144,7 @@ async fn clone_pv(
     let api = Api::<PersistentVolume>::all(kube.clone());
     let target_name = format!("{source_name}-{target_namespace}");
     if let Some(pv) = api.get_opt(&target_name).await? {
-        return Ok(pv);
+        return release_pv(&api, pv, pp).await;
     }
 
     // get original PV
@@ -218,6 +218,29 @@ async fn clone_pv(
     api.create(pp, &pv)
         .await
         .map_err(|error| anyhow!("failed to create a PV ({source_name} => {target_name}): {error}"))
+}
+
+async fn release_pv(
+    api: &Api<PersistentVolume>,
+    mut pv: PersistentVolume,
+    pp: &PostParams,
+) -> Result<PersistentVolume> {
+    if let Some(spec) = &mut pv.spec {
+        // apply patch
+        if spec.claim_ref.take().is_none() {
+            // skip if already patched
+            return Ok(pv);
+        }
+    }
+
+    // save
+    let name = pv.name_any();
+    match api.replace(&name, pp, &pv).await {
+        Ok(_) => Ok(pv),
+        Err(error) => {
+            bail!("failed to release the PV ({name}): {error}")
+        }
+    }
 }
 
 /// On this PV, change the `persistentVolumeReclaimPolicy` parameter to `Retain`
