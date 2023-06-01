@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use dash_api::function::FunctionActorSpec;
 use dash_provider_api::{
-    FunctionChannel, FunctionChannelKind, SessionContext, SessionContextMetadata, 
+    FunctionChannel, FunctionChannelKind, SessionContext, SessionContextMetadata,
 };
 use futures::TryFutureExt;
 use kube::Client;
