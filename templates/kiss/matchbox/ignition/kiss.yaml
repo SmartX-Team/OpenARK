@@ -49,7 +49,7 @@ storage:
       mode: 0444
       contents:
         inline: |
-          vm.nr_hugepages=8192
+          vm.nr_hugepages=0
     - path: /etc/sysctl.d/90-reverse-path-filter.conf
       filesystem: root
       overwrite: true

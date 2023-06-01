@@ -68,4 +68,4 @@ spec:
         - name: templates
           configMap:
             name: vine-template-session
-            defaultMode: 444
+            defaultMode: 292

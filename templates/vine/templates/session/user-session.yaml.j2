@@ -86,11 +86,11 @@ spec:
               value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
+          lifecycle:
+            terminationGracePeriodSeconds: 5
           ports:
             - name: http
               containerPort: 8080
-          lifecycle:
-            terminationGracePeriodSeconds: 5
           securityContext:
             capabilities:
               add:
@@ -118,6 +118,9 @@ spec:
               mountPath: /run/dbus
             - name: runtime-user
               mountPath: /run/user/2000
+            # - name: scripts
+            #   mountPath: /opt/scripts
+            #   readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: vine
@@ -186,6 +189,10 @@ spec:
           hostPath:
             path: /run/user/2000
             type: Directory
+        # - name: scripts
+        #   configMap:
+        #     name: vine-desktop-scripts
+        #     defaultMode: 365
         - name: tmp
           emptyDir: {}
         - name: vine
@@ -244,6 +251,8 @@ spec:
               value: "false"
             - name: X11VNC_XKB
               value: "true"
+          lifecycle:
+            terminationGracePeriodSeconds: 30
           ports:
             - name: vnc
               protocol: TCP
@@ -264,6 +273,8 @@ spec:
           env:
             - name: NOVNC_VNC_PATH
               value: "/box/vnc/{{ spec.node.metadata.name }}/"
+          lifecycle:
+            terminationGracePeriodSeconds: 30
           ports:
             - name: http
               protocol: TCP
@@ -279,7 +290,6 @@ spec:
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
-      terminationGracePeriodSeconds: 30
       volumes:
         - name: x11
           hostPath:

@@ -41,6 +41,8 @@ all:
         ## Also this makes possible to use different container manager for etcd nodes.
         container_manager: containerd
 
+        containerd_base_runtime_spec_rlimit_nofile: 524288
+
         # Containerd conf default dir
         containerd_storage_dir: "/var/lib/containerd"
 

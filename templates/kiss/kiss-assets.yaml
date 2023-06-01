@@ -107,7 +107,7 @@ spec:
         - name: config
           configMap:
             name: assets-config
-            defaultMode: 0400
+            defaultMode: 256
         - name: data
           hostPath:
             path: /var/lib/proxy_cache

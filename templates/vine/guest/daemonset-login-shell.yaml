@@ -62,6 +62,9 @@ spec:
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
+            - name: scripts
+              mountPath: /opt/scripts
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: vine
@@ -72,7 +75,7 @@ spec:
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 5
       volumes:
         - name: home
           emptyDir: {}
@@ -84,6 +87,10 @@ spec:
           hostPath:
             path: /tmp/.ICE-unix
             type: Directory
+        - name: scripts
+          configMap:
+            name: vine-desktop-scripts
+            defaultMode: 365
         - name: tmp
           emptyDir: {}
         - name: vine

@@ -37,7 +37,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
         let name = data.name_any();
 
-        match session_manager.try_unbind(&data).await {
+        match session_manager.try_delete(&data).await {
             Ok(Some(user_name)) => {
                 info!("unbinded node: {name:?} => {user_name:?}");
             }

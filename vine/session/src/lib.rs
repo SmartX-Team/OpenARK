@@ -54,29 +54,17 @@ impl SessionManager {
     const TEMPLATE_NAMESPACE_FILENAME: &'static str = "user-session-namespace.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
 
-    pub async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
-        let ctx: SessionContext = spec.into();
-
-        self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
-            .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
-            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
-            .and_then(|()| self.delete_cleanup(&ctx))
-            .and_then(|()| self.create_template(&ctx))
-            .await
+    pub async fn try_create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
+        match self.create(spec).await {
+            Ok(()) => Ok(()),
+            Err(error_create) => match self.delete(spec).await {
+                Ok(()) => Err(error_create),
+                Err(error_revert) => bail!("{error_create}\n{error_revert}"),
+            },
+        }
     }
 
-    pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
-        let ctx: SessionContext = spec.into();
-
-        self.label_namespace(&ctx, None)
-            .and_then(|()| self.delete_template(&ctx))
-            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
-            .and_then(|()| self.create_cleanup(&ctx))
-            .and_then(|()| self.label_node(ctx.spec.node, None))
-            .await
-    }
-
-    pub async fn try_unbind(&self, node: &Node) -> Result<Option<String>> {
+    pub async fn try_delete(&self, node: &Node) -> Result<Option<String>> {
         match node.get_session_ref() {
             Ok(SessionRef { user_name, .. }) => {
                 let spec = SessionContextSpec {
@@ -116,6 +104,28 @@ impl SessionManager {
                 Ok(None)
             }
         }
+    }
+
+    async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
+        let ctx: SessionContext = spec.into();
+
+        self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
+            .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
+            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
+            .and_then(|()| self.delete_cleanup(&ctx))
+            .and_then(|()| self.create_template(&ctx))
+            .await
+    }
+
+    async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
+        let ctx: SessionContext = spec.into();
+
+        self.label_namespace(&ctx, None)
+            .and_then(|()| self.delete_template(&ctx))
+            .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
+            .and_then(|()| self.create_cleanup(&ctx))
+            .and_then(|()| self.label_node(ctx.spec.node, None))
+            .await
     }
 
     async fn exists_template(&self, ctx: &SessionContext<'_>) -> Result<bool> {

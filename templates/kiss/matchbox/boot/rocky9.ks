@@ -324,7 +324,7 @@ ln -sf /etc/systemd/system/vine-cleanup.service /etc/systemd/system/multi-user.t
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/
 cat <<EOF >/etc/sysctl.d/50-hugepages.conf
-vm.nr_hugepages=8192
+vm.nr_hugepages=0
 EOF
 cat <<EOF >/etc/sysctl.d/90-reverse-path-filter.conf
 net.ipv4.conf.all.rp_filter=0

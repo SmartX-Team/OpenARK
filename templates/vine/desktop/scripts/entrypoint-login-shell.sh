@@ -14,11 +14,8 @@ xset s off
 # Get the screen size
 # SCREEN_WIDTH="$(xwininfo -root | grep -Po '^ +Width\: \K[0-9]+$')"
 # SCREEN_HEIGHT="$(xwininfo -root | grep -Po '^ +Height\: \K[0-9]+$')"
-SCREEN_WIDTH="800"
-SCREEN_HEIGHT="600"
-
-# Define variables
-IS_REFRESH="0"
+SCREEN_WIDTH="640"
+SCREEN_HEIGHT="480"
 
 # Configure firefox window
 function update_window() {
@@ -37,10 +34,15 @@ while :; do
     done
 
     echo "Fixing screen size..."
-    if [ "${IS_REFRESH}" == "0" ]; then
+    until [ "$(
+        xrandr --current |
+            grep ' connected' |
+            grep -Po '[0-9]+x[0-9]+' |
+            head -n1
+    )" == "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" ]; do
         xrandr --size "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
-        sleep 3
-    fi
+        sleep 1
+    done
 
     echo "Executing a login shell..."
     firefox \
@@ -61,14 +63,12 @@ while :; do
     update_window 'Navigator'
 
     echo "Waiting until login is succeeded..."
-    IS_REFRESH=0
     until [ -d "/tmp/.vine/.login.lock" ]; do
         # Session Timeout
         NOW=$(date -u +%s)
         TIMEOUT_SECS="300" # 5 minutes
         if ((NOW - TIMESTAMP > TIMEOUT_SECS)); then
             echo "Session timeout ($(date))"
-            IS_REFRESH=1
             break
         fi
 

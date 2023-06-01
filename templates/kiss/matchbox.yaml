@@ -150,21 +150,21 @@ spec:
         - name: boot-raw
           configMap:
             name: matchbox-boot
-            defaultMode: 0400
+            defaultMode: 256
         - name: groups
           configMap:
             name: matchbox-groups
-            defaultMode: 0400
+            defaultMode: 256
         - name: ignition
           emptyDir: {}
         - name: ignition-raw
           configMap:
             name: matchbox-ignition
-            defaultMode: 0400
+            defaultMode: 256
         - name: profiles
           configMap:
             name: matchbox-profiles
-            defaultMode: 0400
+            defaultMode: 256
         - name: tmp
           emptyDir: {}
 ---

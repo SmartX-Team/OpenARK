@@ -62,5 +62,12 @@ pushd "monitoring/prometheus" && ./install.sh && popd
 # templates
 pushd "templates" && ./install.sh && popd
 
+###########################################################
+#   Install VINE Desktop Scripts                          #
+###########################################################
+
+# templates
+pushd "desktop" && ./install-scripts.sh && popd
+
 # Finished!
 echo "Installed!"

@@ -142,7 +142,7 @@ spec:
             type: Directory
         - name: scripts
           configMap:
-            defaultMode: 0555
+            defaultMode: 365
             name: desktop-scripts
         - name: tmp
           emptyDir: {}
