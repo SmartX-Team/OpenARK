@@ -32,16 +32,11 @@ spec:
             - bash
             - -c
           args:
-            # - |
-            #   set -e -x -o pipefail
-            #   chown user:user /home/user /mnt/shared
-            #   chmod 700 /home/user
-            #   chmod 777 /mnt/shared
-            #   exec true
             - |
               set -e -x -o pipefail
-              chown user:user /home/user
+              chown user:user /home/user /mnt/public
               chmod 700 /home/user
+              chmod 777 /mnt/public
               exec true
           securityContext:
             privileged: true
@@ -49,6 +44,8 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/user
+            - name: home-public
+              mountPath: /mnt/public
       containers:
         - name: desktop-environment
           image: quay.io/ulagbulag/openark-vine-desktop:latest
@@ -86,8 +83,6 @@ spec:
               value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: /run/user/2000
-          lifecycle:
-            terminationGracePeriodSeconds: 5
           ports:
             - name: http
               containerPort: 8080
@@ -109,6 +104,8 @@ spec:
               readOnly: true
             - name: home
               mountPath: /home/user
+            - name: home-public
+              mountPath: /mnt/public
             - name: machine-id
               mountPath: /etc/machine-id
               readOnly: true
@@ -143,6 +140,7 @@ spec:
         runAsNonRoot: false
         runAsUser: 2000
         fsGroup: 2000
+      terminationGracePeriodSeconds: 5
       volumes:
         - name: dev
           hostPath:
@@ -170,9 +168,9 @@ spec:
           #   path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
           #   type: DirectoryOrCreate
 {% endif %}
-        # - name: home-shared
-        #   persistentVolumeClaim:
-        #     claimName: desktop-shared
+        - name: home-public
+          persistentVolumeClaim:
+            claimName: desktop-public
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -251,8 +249,6 @@ spec:
               value: "false"
             - name: X11VNC_XKB
               value: "true"
-          lifecycle:
-            terminationGracePeriodSeconds: 30
           ports:
             - name: vnc
               protocol: TCP
@@ -273,8 +269,6 @@ spec:
           env:
             - name: NOVNC_VNC_PATH
               value: "/box/vnc/{{ spec.node.metadata.name }}/"
-          lifecycle:
-            terminationGracePeriodSeconds: 30
           ports:
             - name: http
               protocol: TCP
@@ -290,6 +284,7 @@ spec:
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
+      terminationGracePeriodSeconds: 30
       volumes:
         - name: x11
           hostPath:

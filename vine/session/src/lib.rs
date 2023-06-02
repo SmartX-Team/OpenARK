@@ -8,11 +8,11 @@ use dash_provider::client::job::FunctionActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
 use k8s_openapi::{
-    api::core::v1::{Namespace, Node},
+    api::core::v1::{Namespace, Node, Pod},
     serde_json::Value,
 };
 use kube::{
-    api::{Patch, PatchParams},
+    api::{DeleteParams, ListParams, Patch, PatchParams},
     Api, Client, Resource, ResourceExt,
 };
 use log::info;
@@ -118,11 +118,12 @@ impl SessionManager {
             .await
     }
 
-    async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
+    pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx: SessionContext = spec.into();
 
         self.label_namespace(&ctx, None)
             .and_then(|()| self.delete_template(&ctx))
+            .and_then(|()| self.delete_pods(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
             .and_then(|()| self.create_cleanup(&ctx))
             .and_then(|()| self.label_node(ctx.spec.node, None))
@@ -160,6 +161,19 @@ impl SessionManager {
             .delete_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
             .map(|_| ())
+    }
+
+    async fn delete_pods(&self, ctx: &SessionContext<'_>) -> Result<()> {
+        let api = Api::<Pod>::namespaced(self.client.kube.clone(), &ctx.metadata.namespace);
+        let dp = DeleteParams::background();
+        let lp = ListParams {
+            label_selector: Some("name=desktop".into()),
+            ..Default::default()
+        };
+        api.delete_collection(&dp, &lp)
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
     }
 
     async fn create_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
