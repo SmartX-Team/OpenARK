@@ -19,5 +19,5 @@ dash-provider-api = { path = "../provider/api" }
 
 anyhow = { workspace = true }
 reqwest = { workspace = true }
-serde = { workspace = true, default-features = false }
+serde = { workspace = true, features = [] }
 serde_json = { workspace = true }
