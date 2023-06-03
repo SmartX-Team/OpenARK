@@ -13,24 +13,20 @@ function _mount_overlayfs() {
     local dst=$2
     local read_only="$3"
 
-    local src_name="$(basename "${src}")"
+    if [[ "${read_only}" != 'true' ]]; then
+        rm -rf "${dst}/"
+        ln -sf "${src}" "${dst}"
+        return
+    fi
+
     local src_name="$(basename "${src}")"
 
     local lowerdir="${src}"
-    if [[ "${read_only}" == 'true' ]]; then
-        local upperdir="/tmp/${src_name}/upperdir"
-    else
-        local upperdir="${dst}"
-    fi
+    local upperdir="/tmp/${src_name}/upperdir"
     local workdir="/tmp/${src_name}/workdir"
 
-    if [[ "${read_only}" == 'true' ]]; then
-        rm -rf "${upperdir}"
-    fi
-    mkdir -p "${upperdir}"
-
-    rm -rf "${workdir}"
-    mkdir -p "${workdir}"
+    rm -rf "${upperdir}" "${workdir}"
+    mkdir -p "${upperdir}" "${workdir}"
 
     fuse-overlayfs -o "auto_unmount,lowerdir=${lowerdir},upperdir=${upperdir},workdir=${workdir}" "${dst}"
 }
