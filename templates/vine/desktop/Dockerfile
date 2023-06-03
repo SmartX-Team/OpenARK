@@ -437,6 +437,10 @@ RUN chmod 644 \
 ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
 ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
 
+# Add read-only shared directory
+RUN mkdir -p /opt/public/ \
+    && chown -R "${USER_UID}:${USER_GID}" /opt/public/
+
 # Add scripts
 ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*

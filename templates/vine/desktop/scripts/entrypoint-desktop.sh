@@ -18,5 +18,8 @@ trap "echo 'Terminated.'; exit" EXIT
 # Initialize desktop podman environment
 "$(dirname "$0")/init-desktop-podman.sh"
 
+# Initialize desktop storage environment
+"$(dirname "$0")/init-desktop-storage.sh"
+
 # Execute a desktop environment
 "$(dirname "$0")/init-desktop-xfce4.sh"

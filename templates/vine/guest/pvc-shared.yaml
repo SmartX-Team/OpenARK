@@ -2,6 +2,21 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  name: desktop-static
+  namespace: vine-guest
+  labels:
+    vine.ulagbulag.io/shared: "true"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: ceph-filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
   name: desktop-public
   namespace: vine-guest
   labels:

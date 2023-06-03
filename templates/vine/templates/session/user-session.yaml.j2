@@ -104,6 +104,9 @@ spec:
               readOnly: true
             - name: home
               mountPath: /home/user
+            - name: home-static
+              mountPath: /mnt/static
+              readOnly: true
             - name: home-public
               mountPath: /mnt/public
             - name: machine-id
@@ -167,6 +170,9 @@ spec:
           #   path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
           #   type: DirectoryOrCreate
 {% endif %}
+        - name: home-static
+          persistentVolumeClaim:
+            claimName: desktop-static
         - name: home-public
           persistentVolumeClaim:
             claimName: desktop-public
