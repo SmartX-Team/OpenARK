@@ -19,6 +19,8 @@ vine-rbac = { path = "../rbac" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
+csv = { workspace = true }
+futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",

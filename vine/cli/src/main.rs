@@ -3,8 +3,9 @@ use std::env;
 use anyhow::Result;
 use ark_core::logger;
 use clap::{value_parser, ArgAction, Parser, Subcommand};
+use futures::future::try_join_all;
 use kube::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -55,7 +56,9 @@ impl ArgsCommon {
 #[derive(Subcommand)]
 enum Commands {
     Login(CommandSession),
+    LoginBatch(BatchCommandSession),
     Logout(CommandSession),
+    LogoutBatch(BatchCommandSession),
 }
 
 impl Commands {
@@ -80,17 +83,55 @@ impl Commands {
             }) => ::vine_rbac::login::execute(&kube, &box_name, &user_name)
                 .await
                 .and_then(show_output),
+            Self::LoginBatch(BatchCommandSession { csv }) => {
+                let mut rdr = ::csv::Reader::from_path(csv)?;
+                try_join_all(rdr.deserialize().map(|result| {
+                    let kube = kube.clone();
+                    async move {
+                        match result {
+                            Ok(CommandSession {
+                                box_name,
+                                user_name,
+                            }) => ::vine_rbac::login::execute(&kube, &box_name, &user_name)
+                                .await
+                                .and_then(show_output),
+                            Err(e) => Err(e.into()),
+                        }
+                    }
+                }))
+                .await
+                .map(|_| ())
+            }
             Self::Logout(CommandSession {
                 box_name,
                 user_name,
             }) => ::vine_rbac::logout::execute(&kube, &box_name, &user_name)
                 .await
                 .and_then(show_output),
+            Self::LogoutBatch(BatchCommandSession { csv }) => {
+                let mut rdr = ::csv::Reader::from_path(csv)?;
+                try_join_all(rdr.deserialize().map(|result| {
+                    let kube = kube.clone();
+                    async move {
+                        match result {
+                            Ok(CommandSession {
+                                box_name,
+                                user_name,
+                            }) => ::vine_rbac::logout::execute(&kube, &box_name, &user_name)
+                                .await
+                                .and_then(show_output),
+                            Err(e) => Err(e.into()),
+                        }
+                    }
+                }))
+                .await
+                .map(|_| ())
+            }
         }
     }
 }
 
-#[derive(Parser)]
+#[derive(Parser, Serialize, Deserialize)]
 struct CommandSession {
     /// Set a box name
     #[arg(short, long, env = "VINE_SESSION_BOX", value_name = "BOX")]
@@ -99,6 +140,13 @@ struct CommandSession {
     /// Set a user name
     #[arg(short, long, env = "VINE_SESSION_USER", value_name = "USER")]
     user_name: String,
+}
+
+#[derive(Parser)]
+struct BatchCommandSession {
+    /// Set a box name
+    #[arg(short, long, env = "VINE_SESSION_BATCH_CSV", value_name = "FILE")]
+    csv: String,
 }
 
 #[tokio::main]
