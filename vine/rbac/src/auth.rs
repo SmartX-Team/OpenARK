@@ -15,7 +15,7 @@ use vine_api::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UserSessionRef {
-    pub box_name: String,
+    pub box_name: Option<String>,
     pub namespace: String,
     pub user: UserSpec,
     pub user_name: String,
@@ -39,15 +39,12 @@ impl UserSessionRef {
         execute(client, &user_name)
             .await
             .and_then(|response| match response {
-                UserAuthResponse::Accept { box_name, user, .. } => match box_name {
-                    Some(box_name) => Ok(Self {
-                        box_name,
-                        namespace,
-                        user,
-                        user_name,
-                    }),
-                    None => bail!("user is not logged in: {user_name}"),
-                },
+                UserAuthResponse::Accept { box_name, user, .. } => Ok(Self {
+                    box_name,
+                    namespace,
+                    user,
+                    user_name,
+                }),
                 UserAuthResponse::Error(error) => bail!("failed to auth user: {error}"),
             })
     }

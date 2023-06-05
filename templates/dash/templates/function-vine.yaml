@@ -71,5 +71,4 @@ spec:
     job:
       configMapRef:
         name: vine-template-session
-        namespace: vine
         path: dash.yaml.j2
