@@ -25,17 +25,16 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
-        let namespace = data.namespace().unwrap();
-
-        let session_manager = match SessionManager::try_new(namespace, manager.kube.clone()).await {
-            Ok(session_manager) => session_manager,
-            Err(e) => {
-                warn!("failed to creata a SessionManager: {e}");
-                return Ok(Action::requeue(
-                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                ));
-            }
-        };
+        let session_manager =
+            match SessionManager::try_new(Self::NAMESPACE.into(), manager.kube.clone()).await {
+                Ok(session_manager) => session_manager,
+                Err(e) => {
+                    warn!("failed to creata a SessionManager: {e}");
+                    return Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    ));
+                }
+            };
 
         let name = data.name_any();
 
