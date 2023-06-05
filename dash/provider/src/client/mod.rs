@@ -65,12 +65,13 @@ impl<'a> FunctionSession<'a> {
     pub async fn load(
         kube: Client,
         metadata: &'a SessionContextMetadata,
+        function_name: &str,
     ) -> Result<FunctionSession<'a>> {
         let storage = KubernetesStorageClient {
             namespace: &metadata.namespace,
             kube: &kube,
         };
-        let function = storage.load_function(&metadata.name).await?;
+        let function = storage.load_function(function_name).await?;
 
         let origin = &function.spec.input;
         let parsed = &function.get_native_spec().input;
@@ -103,12 +104,13 @@ impl<'a> FunctionSession<'a> {
     pub async fn exists<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
+        function_name: &str,
         inputs: Vec<InputField<Value>>,
     ) -> Result<bool>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata)
+        Self::load(kube, metadata, function_name)
             .and_then(|session| session.try_exists(inputs))
             .await
     }
@@ -134,12 +136,13 @@ impl<'a> FunctionSession<'a> {
     pub async fn create<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
+        function_name: &str,
         inputs: Vec<InputField<Value>>,
     ) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata)
+        Self::load(kube, metadata, function_name)
             .and_then(|session| session.try_create(inputs))
             .await
     }
@@ -165,12 +168,13 @@ impl<'a> FunctionSession<'a> {
     pub async fn delete<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
+        function_name: &str,
         inputs: Vec<InputField<Value>>,
     ) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata)
+        Self::load(kube, metadata, function_name)
             .and_then(|session| session.try_delete(inputs))
             .await
     }

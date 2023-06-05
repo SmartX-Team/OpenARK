@@ -13,13 +13,19 @@ pub struct DashJobValidator<'namespace, 'kube> {
 
 impl<'namespace, 'kube> DashJobValidator<'namespace, 'kube> {
     pub async fn create(&self, job: DashJobCrd) -> Result<()> {
+        let function_name = job.spec.function.clone();
+
         self.execute(job, |kube, metadata, inputs| async move {
-            match FunctionSession::create(kube.clone(), &metadata, inputs.clone()).await {
+            match FunctionSession::create(kube.clone(), &metadata, &function_name, inputs.clone())
+                .await
+            {
                 Ok(_) => Ok(()),
-                Err(error_create) => match FunctionSession::delete(kube, &metadata, inputs).await {
-                    Ok(_) => Err(error_create),
-                    Err(error_revert) => bail!("{error_create}\n{error_revert}"),
-                },
+                Err(error_create) => {
+                    match FunctionSession::delete(kube, &metadata, &function_name, inputs).await {
+                        Ok(_) => Err(error_create),
+                        Err(error_revert) => bail!("{error_create}\n{error_revert}"),
+                    }
+                }
             }
         })
         .await
@@ -27,15 +33,19 @@ impl<'namespace, 'kube> DashJobValidator<'namespace, 'kube> {
     }
 
     pub async fn is_running(&self, job: DashJobCrd) -> Result<bool> {
+        let function_name = job.spec.function.clone();
+
         self.execute(job, |kube, metadata, inputs| async move {
-            FunctionSession::exists(kube, &metadata, inputs).await
+            FunctionSession::exists(kube, &metadata, &function_name, inputs).await
         })
         .await
     }
 
     pub async fn delete(&self, job: DashJobCrd) -> Result<()> {
+        let function_name = job.spec.function.clone();
+
         self.execute(job, |kube, metadata, inputs| async move {
-            FunctionSession::delete(kube, &metadata, inputs).await
+            FunctionSession::delete(kube, &metadata, &function_name, inputs).await
         })
         .await
         .map(|_| ())
