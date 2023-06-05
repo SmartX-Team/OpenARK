@@ -51,18 +51,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     },
                 };
                 match validator.validate_model(data.spec.clone()).await {
-                    Ok(fields) => match Self::update_fields(&manager.kube, &name, fields).await {
-                        Ok(()) => {
-                            info!("model is ready: {name}");
-                            Ok(Action::await_change())
-                        }
-                        Err(e) => {
-                            warn!("failed to update model state {name:?}: {e}");
-                            Ok(Action::requeue(
-                                <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                            ))
-                        }
-                    },
+                    Ok(fields) => {
+                        Self::update_fields_or_requeue(&namespace, &manager.kube, &name, fields)
+                            .await
+                    }
                     Err(e) => {
                         warn!("failed to validate model: {name:?}: {e}");
                         Ok(Action::requeue(
@@ -80,8 +72,38 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 }
 
 impl Ctx {
-    async fn update_fields(kube: &Client, name: &str, fields: ModelFieldsNativeSpec) -> Result<()> {
-        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::all(kube.clone());
+    async fn update_fields_or_requeue(
+        namespace: &str,
+        kube: &Client,
+        name: &str,
+        fields: ModelFieldsNativeSpec,
+    ) -> Result<Action, Error> {
+        match Self::update_fields(namespace, kube, name, fields).await {
+            Ok(()) => {
+                info!("model is ready: {name}");
+                Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ))
+            }
+            Err(e) => {
+                warn!("failed to validate model ({name}): {e}");
+                Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ))
+            }
+        }
+    }
+
+    async fn update_fields(
+        namespace: &str,
+        kube: &Client,
+        name: &str,
+        fields: ModelFieldsNativeSpec,
+    ) -> Result<()> {
+        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
+            kube.clone(),
+            namespace,
+        );
         let crd = <Self as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
 
         let patch = Patch::Merge(json!({

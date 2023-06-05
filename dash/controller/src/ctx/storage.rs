@@ -54,19 +54,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 };
                 match validator.validate_model_storage(&data.spec).await {
                     Ok(()) => {
-                        match Self::update_state(&manager.kube, &name, data.spec.kind.clone()).await
-                        {
-                            Ok(()) => {
-                                info!("model storage is ready: {name}");
-                                Ok(Action::await_change())
-                            }
-                            Err(e) => {
-                                warn!("failed to update model storage state {name:?}: {e}");
-                                Ok(Action::requeue(
-                                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                                ))
-                            }
-                        }
+                        Self::update_state_or_requeue(
+                            &namespace,
+                            &manager.kube,
+                            &name,
+                            data.spec.kind.clone(),
+                        )
+                        .await
                     }
                     Err(e) => {
                         warn!("failed to validate model storage: {name:?}: {e}");
@@ -85,8 +79,38 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 }
 
 impl Ctx {
-    async fn update_state(kube: &Client, name: &str, kind: ModelStorageKindSpec) -> Result<()> {
-        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::all(kube.clone());
+    async fn update_state_or_requeue(
+        namespace: &str,
+        kube: &Client,
+        name: &str,
+        kind: ModelStorageKindSpec,
+    ) -> Result<Action, Error> {
+        match Self::update_state(namespace, kube, name, kind).await {
+            Ok(()) => {
+                info!("model storage is ready: {name}");
+                Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ))
+            }
+            Err(e) => {
+                warn!("failed to update model storage state ({name}): {e}");
+                Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ))
+            }
+        }
+    }
+
+    async fn update_state(
+        namespace: &str,
+        kube: &Client,
+        name: &str,
+        kind: ModelStorageKindSpec,
+    ) -> Result<()> {
+        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
+            kube.clone(),
+            namespace,
+        );
         let crd = <Self as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
 
         let patch = Patch::Merge(json!({

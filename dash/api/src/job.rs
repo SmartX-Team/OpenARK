@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -31,7 +33,7 @@ use strum::{Display, EnumString};
 pub struct DashJobSpec {
     pub function: String,
     #[serde(default)]
-    pub value: Value,
+    pub value: BTreeMap<String, Value>,
 }
 
 impl DashJobCrd {

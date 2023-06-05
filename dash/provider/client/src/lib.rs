@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
     function::FunctionCrd,
@@ -29,7 +31,11 @@ impl<'a> DashProviderClient<'a> {
         }
     }
 
-    pub async fn create(&self, function_name: &str, value: Value) -> Result<DashJobCrd> {
+    pub async fn create(
+        &self,
+        function_name: &str,
+        value: BTreeMap<String, Value>,
+    ) -> Result<DashJobCrd> {
         let storage = KubernetesStorageClient {
             namespace: &self.session.namespace,
             kube: &self.client,
@@ -38,7 +44,11 @@ impl<'a> DashProviderClient<'a> {
         self.create_raw(&function, value).await
     }
 
-    pub async fn create_raw(&self, function: &FunctionCrd, value: Value) -> Result<DashJobCrd> {
+    pub async fn create_raw(
+        &self,
+        function: &FunctionCrd,
+        value: BTreeMap<String, Value>,
+    ) -> Result<DashJobCrd> {
         let function_name = function.name_any();
         let job_name = format!(
             "{name}-{uuid}",

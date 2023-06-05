@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use actix_web::{
     delete, get, post,
     web::{Data, Json, Path},
@@ -81,7 +83,7 @@ pub async fn post(
     request: HttpRequest,
     kube: Data<Client>,
     function_name: Path<Name>,
-    value: Json<Value>,
+    value: Json<BTreeMap<String, Value>>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {

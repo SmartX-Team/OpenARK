@@ -52,7 +52,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         {
             DashJobState::Pending => match validator.create(data.as_ref().clone()).await {
                 Ok(()) => {
-                    Self::update_spec_or_requeue(&manager.kube, &name, DashJobState::Running).await
+                    Self::update_spec_or_requeue(
+                        &namespace,
+                        &manager.kube,
+                        &name,
+                        DashJobState::Running,
+                    )
+                    .await
                 }
                 Err(e) => {
                     warn!("failed to spawn dash jobs: {name:?}: {e}");
@@ -67,8 +73,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 )),
                 Ok(false) => match validator.delete(data.as_ref().clone()).await {
                     Ok(()) => {
-                        Self::update_spec_or_requeue(&manager.kube, &name, DashJobState::Completed)
-                            .await
+                        Self::update_spec_or_requeue(
+                            &namespace,
+                            &manager.kube,
+                            &name,
+                            DashJobState::Completed,
+                        )
+                        .await
                     }
                     Err(e) => {
                         warn!("failed to delete dash job: {name:?}: {e}");
@@ -91,11 +102,12 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
 impl Ctx {
     async fn update_spec_or_requeue(
+        namespace: &str,
         kube: &Client,
         name: &str,
         state: DashJobState,
     ) -> Result<Action, Error> {
-        match Self::update_spec(kube, name, state).await {
+        match Self::update_spec(namespace, kube, name, state).await {
             Ok(()) => {
                 info!("dash job is {state}: {name}");
                 Ok(Action::requeue(
@@ -111,8 +123,16 @@ impl Ctx {
         }
     }
 
-    async fn update_spec(kube: &Client, name: &str, state: DashJobState) -> Result<()> {
-        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::all(kube.clone());
+    async fn update_spec(
+        namespace: &str,
+        kube: &Client,
+        name: &str,
+        state: DashJobState,
+    ) -> Result<()> {
+        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
+            kube.clone(),
+            namespace,
+        );
         let crd = <Self as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
 
         let patch = Patch::Merge(json!({
