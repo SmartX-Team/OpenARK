@@ -26,16 +26,6 @@ pub struct UserRoleSpec {
     pub is_admin: bool,
 }
 
-impl ops::BitAnd for UserRoleSpec {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            is_admin: self.is_admin && rhs.is_admin,
-        }
-    }
-}
-
 impl ops::BitOr for UserRoleSpec {
     type Output = Self;
 

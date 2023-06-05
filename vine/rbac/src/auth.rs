@@ -131,7 +131,7 @@ pub(crate) async fn get_user_namespace_with(
                         .collect::<BTreeMap<_, _>>()
                 };
 
-                let role = {
+                let role: UserRoleSpec = {
                     let api = Api::<UserRoleBindingCrd>::all(client.clone());
                     let lp = ListParams::default();
                     api.list(&lp)
@@ -148,7 +148,8 @@ pub(crate) async fn get_user_namespace_with(
                                 .unwrap_or(true)
                         })
                         .filter_map(|item| roles.get(&item.spec.role))
-                        .fold(UserRoleSpec::default(), |a, b| (a | *b))
+                        .copied()
+                        .sum()
                 };
 
                 if role.is_admin {
