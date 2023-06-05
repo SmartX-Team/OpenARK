@@ -138,6 +138,7 @@ impl From<UserAuthError> for UserSessionError {
 pub enum UserAuthError {
     AuthorizationTokenMalformed,
     AuthorizationTokenNotFound,
+    NamespaceNotAllowed,
     NamespaceTokenMalformed,
     PrimaryKeyMalformed,
     UserNotRegistered,

@@ -15,6 +15,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-core = { path = "../../ark/core" }
+ark-api = { path = "../../ark/api" }
 dash-api = { path = "../api" }
 
 anyhow = { workspace = true }

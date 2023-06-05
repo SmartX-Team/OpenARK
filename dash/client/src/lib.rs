@@ -7,24 +7,38 @@ use reqwest::{Client, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 
+#[derive(Clone, Debug)]
 pub struct DashClient {
     client: Client,
     host: Url,
+    namespace: Option<String>,
 }
 
 impl DashClient {
-    pub fn new(client: Client, host: Url) -> Self {
-        Self { client, host }
+    pub fn new(client: Client, host: Url, namespace: impl Into<Option<String>>) -> Self {
+        Self {
+            client,
+            host,
+            namespace: namespace.into(),
+        }
     }
 
-    pub fn with_host<Host>(host: Host) -> Result<Self>
+    pub fn with_host<Host>(host: Host, namespace: impl Into<Option<String>>) -> Result<Self>
     where
         Host: TryInto<Url>,
         <Host as TryInto<Url>>::Error: 'static + Send + Sync + Error,
     {
         host.try_into()
-            .map(|host| Self::new(Default::default(), host))
+            .map(|host| Self::new(Default::default(), host, namespace))
             .map_err(Into::into)
+    }
+
+    pub fn to_namespaced(&self, namespace: impl Into<Option<String>>) -> Self {
+        Self {
+            client: self.client.clone(),
+            host: self.host.clone(),
+            namespace: namespace.into(),
+        }
     }
 }
 
@@ -39,9 +53,38 @@ impl DashClient {
 }
 
 impl DashClient {
+    pub async fn delete_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
+        self.delete(format!("/function/{function_name}/job/{job_name}/"))
+            .await
+    }
+
+    pub async fn get_job(&self, function_name: &str, job_name: &str) -> Result<Option<DashJobCrd>> {
+        self.get(format!("/function/{function_name}/job/{job_name}/"))
+            .await
+    }
+
+    pub async fn get_job_list(&self) -> Result<Vec<DashJobCrd>> {
+        self.get("/job/").await
+    }
+
+    pub async fn get_job_list_with_function_name(
+        &self,
+        function_name: &str,
+    ) -> Result<Vec<DashJobCrd>> {
+        self.get(format!("/function/{function_name}/job/")).await
+    }
+
     pub async fn post_job(&self, function_name: &str, value: &Value) -> Result<DashJobCrd> {
         self.post(format!("/function/{function_name}/job/"), Some(value))
             .await
+    }
+
+    pub async fn restart_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
+        self.post(
+            format!("/function/{function_name}/job/{job_name}/restart/"),
+            Option::<&()>::None,
+        )
+        .await
     }
 }
 
@@ -68,6 +111,13 @@ impl DashClient {
 }
 
 impl DashClient {
+    async fn delete<Res>(&self, path: impl AsRef<str>) -> Result<Res>
+    where
+        Res: DeserializeOwned,
+    {
+        self.request::<(), _>(Method::DELETE, path, None).await
+    }
+
     async fn get<Res>(&self, path: impl AsRef<str>) -> Result<Res>
     where
         Res: DeserializeOwned,
@@ -96,6 +146,9 @@ impl DashClient {
         let mut request = self.client.request(method, self.get_url(path));
         if let Some(data) = data {
             request = request.json(data);
+        }
+        if let Some(namespace) = &self.namespace {
+            request = request.header(::ark_api::consts::HEADER_NAMESPACE, namespace);
         }
 
         let response = request.send().await?;

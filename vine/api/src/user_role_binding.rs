@@ -36,9 +36,9 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct UserRoleBindingSpec {
+pub struct UserRoleBindingSpec<Role = String> {
     pub user: String,
-    pub role: String,
+    pub role: Role,
     #[serde(default)]
     pub expired_timestamp: Option<DateTime<Utc>>,
 }

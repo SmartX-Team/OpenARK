@@ -32,7 +32,8 @@ impl UserSessionRef {
         let user_name =
             get_user_name(request).map_err(|error| anyhow!("failed to get user name: {error}"))?;
 
-        let namespace = get_user_namespace_with(request, &user_name)
+        let namespace = get_user_namespace_with(client, request, &user_name)
+            .await
             .map_err(|error| anyhow!("failed to get user namespace: {error}"))?;
 
         execute(client, &user_name)
@@ -95,24 +96,71 @@ pub fn get_user_name(request: &::actix_web::HttpRequest) -> Result<String, UserA
 }
 
 #[cfg(feature = "actix")]
-pub fn get_user_namespace(request: &::actix_web::HttpRequest) -> Result<String, UserAuthError> {
-    get_user_name(request).and_then(|user_name| get_user_namespace_with(request, &user_name))
+pub async fn get_user_namespace(
+    client: &::kube::Client,
+    request: &::actix_web::HttpRequest,
+) -> Result<String, UserAuthError> {
+    get_user_namespace_with(client, request, &get_user_name(request)?).await
 }
 
 #[cfg(feature = "actix")]
-pub(crate) fn get_user_namespace_with(
+pub(crate) async fn get_user_namespace_with(
+    client: &::kube::Client,
     request: &::actix_web::HttpRequest,
     user_name: &str,
 ) -> Result<String, UserAuthError> {
     use anyhow::Error;
+    use vine_api::{
+        user_role::{UserRoleCrd, UserRoleSpec},
+        user_role_binding::UserRoleBindingCrd,
+    };
 
-    match request.headers().get("X-ARK-NAMESPACE") {
+    // get current time
+    let now = Utc::now();
+
+    match request.headers().get(::ark_api::consts::HEADER_NAMESPACE) {
         Some(token) => match token.to_str().map_err(Error::from) {
-            Ok(namespace) => Ok(namespace.into()),
-            Err(e) => {
-                // get current time
-                let now = Utc::now();
+            Ok(namespace) => {
+                // get available roles
+                let roles = {
+                    let api = Api::<UserRoleCrd>::all(client.clone());
+                    let lp = ListParams::default();
+                    api.list(&lp)
+                        .await
+                        .map(|list| list.items)
+                        .unwrap_or_else(|_| Default::default())
+                        .into_iter()
+                        .map(|item| (item.name_any(), item.spec))
+                        .collect::<BTreeMap<_, _>>()
+                };
 
+                let role = {
+                    let api = Api::<UserRoleBindingCrd>::all(client.clone());
+                    let lp = ListParams::default();
+                    api.list(&lp)
+                        .await
+                        .map(|list| list.items)
+                        .unwrap_or_else(|_| Default::default())
+                        .into_iter()
+                        .filter(|item| item.spec.user == user_name)
+                        .filter(|item| {
+                            item.spec
+                                .expired_timestamp
+                                .as_ref()
+                                .map(|timestamp| timestamp < &now)
+                                .unwrap_or(true)
+                        })
+                        .filter_map(|item| roles.get(&item.spec.role))
+                        .fold(UserRoleSpec::default(), |a, b| (a & *b))
+                };
+
+                if role.is_admin {
+                    Ok(namespace.into())
+                } else {
+                    Err(UserAuthError::NamespaceNotAllowed)
+                }
+            }
+            Err(e) => {
                 warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 Err(UserAuthError::NamespaceTokenMalformed)
             }
@@ -162,6 +210,7 @@ pub async fn execute(client: &Client, user_name: &str) -> Result<UserAuthRespons
             .await?
             .items
             .into_iter()
+            .filter(|item| item.spec.user == user_name)
             .filter(|item| {
                 item.spec
                     .expired_timestamp
@@ -199,6 +248,7 @@ pub async fn execute(client: &Client, user_name: &str) -> Result<UserAuthRespons
             .await?
             .items
             .into_iter()
+            .filter(|item| item.spec.user == user_name)
             .filter(|item| {
                 item.spec
                     .expired_timestamp

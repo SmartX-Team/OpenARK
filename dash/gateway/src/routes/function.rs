@@ -10,7 +10,7 @@ use kube::Client;
 #[get("/function/{name}/")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -26,7 +26,7 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
 #[get("/function/")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };

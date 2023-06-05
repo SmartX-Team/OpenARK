@@ -7,6 +7,8 @@ pub mod consts {
     pub const LABEL_BIND_NODE: &str = "ark.ulagbulag.io/bind.node";
     pub const LABEL_BIND_STATUS: &str = "ark.ulagbulag.io/bind";
     pub const LABEL_BIND_TIMESTAMP: &str = "ark.ulagbulag.io/bind.timestamp";
+
+    pub const HEADER_NAMESPACE: &str = "X-ARK-NAMESPACE";
 }
 
 pub trait NamespaceAny {

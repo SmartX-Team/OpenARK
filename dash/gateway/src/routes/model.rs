@@ -13,7 +13,7 @@ use kube::Client;
 #[get("/model/{name}/")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -33,7 +33,7 @@ pub async fn get_function_list(
     name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -49,7 +49,7 @@ pub async fn get_function_list(
 #[get("/model/")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -69,7 +69,7 @@ pub async fn get_item(
     name: Path<(Name, String)>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -89,7 +89,7 @@ pub async fn get_item_list(
     name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(&request) {
+    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
         Ok(namespace) => namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };

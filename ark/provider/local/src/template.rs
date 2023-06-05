@@ -63,7 +63,7 @@ impl TemplateManager {
     }
 
     pub fn render_build(&self, Package { name, resource }: &Package) -> Result<Template> {
-        let context = Context::from_serialize(&BuildContext {
+        let context = Context::from_serialize(BuildContext {
             default: &self.default_context,
             resource,
         })?;

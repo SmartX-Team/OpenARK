@@ -76,6 +76,7 @@ where
             .await?
             .items
             .into_iter()
+            .filter(|item| item.spec.user == user_name)
             .filter(|item| {
                 item.spec
                     .expired_timestamp
@@ -83,7 +84,6 @@ where
                     .map(|timestamp| timestamp < &now)
                     .unwrap_or(true)
             })
-            .filter(|item| item.spec.user == user_name)
             .map(|_| None)
             .next()
     };
@@ -109,6 +109,7 @@ where
                 .await?
                 .items
                 .into_iter()
+                .filter(|item| item.spec.user == user_name)
                 .filter(|item| {
                     item.spec
                         .expired_timestamp
@@ -116,7 +117,6 @@ where
                         .map(|timestamp| timestamp < &now)
                         .unwrap_or(true)
                 })
-                .filter(|item| item.spec.user == user_name)
                 .filter_map(|item| quotas.get(&item.spec.quota).cloned())
                 .filter(|item| {
                     crate::node_selector::is_affordable(available_resources, &item.compute)
@@ -146,6 +146,7 @@ where
             .await?
             .items
             .into_iter()
+            .filter(|item| item.spec.user == user_name)
             .filter(|item| {
                 item.spec
                     .expired_timestamp
@@ -153,7 +154,6 @@ where
                     .map(|timestamp| timestamp < &now)
                     .unwrap_or(true)
             })
-            .filter(|item| item.spec.user == user_name)
             .filter_map(|item| roles.get(&item.spec.role).cloned())
             .sum()
     };
