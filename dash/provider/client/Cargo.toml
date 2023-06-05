@@ -1,5 +1,5 @@
 [package]
-name = "ark-gateway"
+name = "dash-provider-client"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,15 +7,24 @@ authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-readme = "../README.md"
+readme = "../../../README.md"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-api = { path = "../api" }
-ark-provider = { package = "ark-provider-kubernetes", path = "../provider/kubernetes" }
+dash-api = { path = "../../api" }
+dash-provider = { path = ".." }
+vine-rbac = { path = "../../../vine/rbac" }
 
-actix-web = { workspace = true }
-actix-web-lab = { workspace = true }
+anyhow = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }

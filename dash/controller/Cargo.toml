@@ -7,7 +7,7 @@ authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-readme = "../README.md"
+readme = "../../README.md"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 
@@ -17,6 +17,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 ark-core-k8s = { path = "../../ark/core/k8s" }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
+dash-provider-api = { path = "../provider/api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

@@ -14,6 +14,7 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
     struct = "FunctionCrd",
     status = "FunctionStatus",
     shortname = "f",
+    namespaced,
     printcolumn = r#"{
         "name": "state",
         "type": "string",
@@ -59,18 +60,39 @@ pub enum FunctionActorSpec {
     Job(FunctionActorJobSpec),
 }
 
+impl FunctionActorSpec {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Job(spec) => spec.name(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum FunctionActorJobSpec {
     ConfigMapRef(FunctionActorSourceConfigMapRefSpec),
 }
 
+impl FunctionActorJobSpec {
+    fn name(&self) -> &str {
+        match self {
+            Self::ConfigMapRef(spec) => spec.name(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionActorSourceConfigMapRefSpec {
     pub name: String,
-    pub namespace: String,
     pub path: String,
+}
+
+impl FunctionActorSourceConfigMapRefSpec {
+    fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(

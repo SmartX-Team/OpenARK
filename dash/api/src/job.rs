@@ -1,24 +1,23 @@
-use chrono::{DateTime, Utc};
+use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use strum::{Display, EnumString};
-
-use crate::{model::ModelSpec, storage::ModelStorageSpec};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
-    kind = "ModelStorageBinding",
-    struct = "ModelStorageBindingCrd",
-    status = "ModelStorageBindingStatus",
-    shortname = "msb",
+    kind = "DashJob",
+    struct = "DashJobCrd",
+    status = "DashJobStatus",
+    shortname = "djob",
     namespaced,
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description": "state of the binding",
+        "description": "state of the dash job",
         "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
@@ -26,27 +25,23 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
         "type": "date",
         "description": "created time",
         "jsonPath": ".metadata.creationTimestamp"
-    }"#,
-    printcolumn = r#"{
-        "name": "updated-at",
-        "type": "date",
-        "description": "updated time",
-        "jsonPath": ".status.lastUpdated"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct ModelStorageBindingSpec {
-    pub model: String,
-    pub storage: String,
+pub struct DashJobSpec {
+    pub function: String,
+    #[serde(default)]
+    pub value: Value,
+}
+
+impl DashJobCrd {
+    pub const LABEL_TARGET_FUNCTION: &'static str = "dash.ulagbulag.io/target-function";
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelStorageBindingStatus {
+pub struct DashJobStatus {
     #[serde(default)]
-    pub state: ModelStorageBindingState,
-    pub model: Option<ModelSpec>,
-    pub storage: Option<ModelStorageSpec>,
+    pub state: DashJobState,
     pub last_updated: DateTime<Utc>,
 }
 
@@ -65,12 +60,13 @@ pub struct ModelStorageBindingStatus {
     Deserialize,
     JsonSchema,
 )]
-pub enum ModelStorageBindingState {
+pub enum DashJobState {
     Pending,
-    Ready,
+    Running,
+    Completed,
 }
 
-impl Default for ModelStorageBindingState {
+impl Default for DashJobState {
     fn default() -> Self {
         Self::Pending
     }

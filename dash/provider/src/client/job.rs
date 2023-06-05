@@ -18,20 +18,28 @@ use super::SessionContext;
 pub struct FunctionActorJobClient {
     pub kube: Client,
     name: String,
+    namespace: String,
     tera: Tera,
 }
 
 impl FunctionActorJobClient {
-    pub async fn try_new(kube: &Client, spec: &FunctionActorJobSpec) -> Result<Self> {
-        let client = KubernetesStorageClient { kube };
+    pub async fn try_new(
+        namespace: String,
+        kube: &Client,
+        spec: &FunctionActorJobSpec,
+    ) -> Result<Self> {
+        let client = KubernetesStorageClient {
+            namespace: &namespace,
+            kube,
+        };
         let (name, content) = match spec {
             FunctionActorJobSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
         };
 
-        Self::from_raw_content(kube.clone(), name, &content)
+        Self::from_raw_content(namespace, kube.clone(), name, &content)
     }
 
-    pub fn from_dir(kube: Client, path: &str) -> Result<Self> {
+    pub fn from_dir(namespace: String, kube: Client, path: &str) -> Result<Self> {
         let mut tera = match Tera::new(path) {
             Ok(tera) => tera,
             Err(e) => {
@@ -44,17 +52,24 @@ impl FunctionActorJobClient {
         Ok(Self {
             kube,
             name: Default::default(),
+            namespace,
             tera,
         })
     }
 
-    fn from_raw_content(kube: Client, name: &str, content: &str) -> Result<Self> {
+    fn from_raw_content(
+        namespace: String,
+        kube: Client,
+        name: &str,
+        content: &str,
+    ) -> Result<Self> {
         let mut tera = Tera::default();
         tera.add_raw_template(name, content)?;
 
         Ok(Self {
             kube,
             name: name.to_string(),
+            namespace,
             tera,
         })
     }
@@ -65,56 +80,32 @@ impl FunctionActorJobClient {
         &self.kube
     }
 
-    pub async fn exists_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
+    pub fn namespace(&self) -> &str {
+        self.namespace.as_str()
+    }
+
+    pub async fn exists<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
     {
-        self.exists_raw_named(&self.name, input).await
+        self.exists_named(&self.name, input).await
     }
 
-    pub async fn exists_raw_named<Spec>(
-        &self,
-        name: &str,
-        input: &SessionContext<Spec>,
-    ) -> Result<bool>
+    pub async fn exists_named<Spec>(&self, name: &str, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
     {
-        self.execute_raw_any_with(name, input).await
+        self.execute_any_with(name, input).await
     }
 
-    pub async fn create_raw<Spec>(
-        &self,
-        input: &SessionContext<Spec>,
-    ) -> Result<FunctionChannelKindJob>
+    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannelKindJob>
     where
         Spec: Serialize,
     {
-        self.create_raw_named(&self.name, input).await
+        self.create_named(&self.name, input).await
     }
 
-    pub async fn create_raw_named<Spec>(
-        &self,
-        name: &str,
-        input: &SessionContext<Spec>,
-    ) -> Result<FunctionChannelKindJob>
-    where
-        Spec: Serialize,
-    {
-        self.execute_raw_with(name, input, try_create).await
-    }
-
-    pub async fn delete_raw<Spec>(
-        &self,
-        input: &SessionContext<Spec>,
-    ) -> Result<FunctionChannelKindJob>
-    where
-        Spec: Serialize,
-    {
-        self.delete_raw_named(&self.name, input).await
-    }
-
-    pub async fn delete_raw_named<Spec>(
+    pub async fn create_named<Spec>(
         &self,
         name: &str,
         input: &SessionContext<Spec>,
@@ -122,10 +113,28 @@ impl FunctionActorJobClient {
     where
         Spec: Serialize,
     {
-        self.execute_raw_with(name, input, try_delete).await
+        self.execute_with(name, input, try_create).await
     }
 
-    async fn execute_raw_with<Spec, F, Fut>(
+    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannelKindJob>
+    where
+        Spec: Serialize,
+    {
+        self.delete_named(&self.name, input).await
+    }
+
+    pub async fn delete_named<Spec>(
+        &self,
+        name: &str,
+        input: &SessionContext<Spec>,
+    ) -> Result<FunctionChannelKindJob>
+    where
+        Spec: Serialize,
+    {
+        self.execute_with(name, input, try_delete).await
+    }
+
+    async fn execute_with<Spec, F, Fut>(
         &self,
         name: &str,
         input: &SessionContext<Spec>,
@@ -151,11 +160,7 @@ impl FunctionActorJobClient {
         Ok(result)
     }
 
-    async fn execute_raw_any_with<Spec>(
-        &self,
-        name: &str,
-        input: &SessionContext<Spec>,
-    ) -> Result<bool>
+    async fn execute_any_with<Spec>(&self, name: &str, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
     {
@@ -187,7 +192,11 @@ impl FunctionActorJobClient {
         let mut apis = vec![];
         for template in templates {
             let name = template.name_any();
-            let namespace = template.namespace();
+            let namespace = if template.metadata.namespace.is_some() {
+                Some(&self.namespace)
+            } else {
+                None
+            };
             let types = match template.types.as_ref() {
                 Some(types) => types,
                 None => bail!("untyped document is not supported: {name}"),
@@ -212,7 +221,7 @@ impl FunctionActorJobClient {
             .unwrap();
 
             // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
-            let api: Api<DynamicObject> = match &namespace {
+            let api: Api<DynamicObject> = match namespace {
                 Some(namespace) => Api::namespaced_with(self.kube.clone(), namespace, &ar),
                 None => Api::all_with(self.kube.clone(), &ar),
             };

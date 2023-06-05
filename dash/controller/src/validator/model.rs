@@ -18,11 +18,11 @@ use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
 use log::warn;
 use regex::Regex;
 
-pub struct ModelValidator<'a> {
-    pub kubernetes_storage: KubernetesStorageClient<'a>,
+pub struct ModelValidator<'namespace, 'kube> {
+    pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
 }
 
-impl<'a> ModelValidator<'a> {
+impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
     pub async fn validate_model(&self, spec: ModelSpec) -> Result<ModelFieldsNativeSpec> {
         match spec {
             ModelSpec::Fields(spec) => self.validate_fields(spec).await,

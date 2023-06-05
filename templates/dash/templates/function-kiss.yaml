@@ -3,6 +3,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
 metadata:
   name: box # 모델 이름
+  namespace: kiss
 spec:
   customResourceDefinitionRef: # 모델 종류
     name: boxes.kiss.ulagbulag.io/v1alpha1 # K8S CRD 이름 (예제에서는, Bare-metal Box)
@@ -11,6 +12,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorage
 metadata:
   name: kubernetes # 스토리지 이름
+  namespace: kiss
 spec:
   kubernetes: {} # 스토리지 종류 (예제에서는, 쿠버네티스 CRD)
 # ---
@@ -26,6 +28,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
 metadata:
   name: box-from-kubernetes # 스토리지 이름
+  namespace: kiss
 spec:
   model: box
   storage: kubernetes
@@ -34,6 +37,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Function
 metadata:
   name: box-power # 함수 이름
+  namespace: kiss
   annotations:
     dash.ulagbulag.io/subject-path: /box/ # input 내 모델 위치
   labels:

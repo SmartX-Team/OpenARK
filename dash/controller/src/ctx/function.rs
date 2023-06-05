@@ -37,6 +37,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         Self: Sized,
     {
         let name = data.name_any();
+        let namespace = data.namespace().unwrap();
 
         match data
             .status
@@ -46,6 +47,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         {
             FunctionState::Pending => {
                 let validator = FunctionValidator {
+                    namespace: &namespace,
                     kube: &manager.kube,
                 };
                 match validator.validate_function(data.spec.clone()).await {

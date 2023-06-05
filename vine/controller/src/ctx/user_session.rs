@@ -25,7 +25,9 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     where
         Self: Sized,
     {
-        let session_manager = match SessionManager::try_new(manager.kube.clone()).await {
+        let namespace = data.namespace().unwrap();
+
+        let session_manager = match SessionManager::try_new(namespace, manager.kube.clone()).await {
             Ok(session_manager) => session_manager,
             Err(e) => {
                 warn!("failed to creata a SessionManager: {e}");

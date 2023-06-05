@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, ops::Deref, str::FromStr};
 
 use chrono::{DateTime, Utc};
-use kube::CustomResource;
+use kube::{CustomResource, ResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +43,16 @@ pub struct UserSpec {
     pub name: String,
     pub contact: UserContact,
     pub detail: BTreeMap<String, String>,
+}
+
+impl UserCrd {
+    pub fn user_namespace(&self) -> String {
+        Self::user_namespace_with(&self.name_any())
+    }
+
+    pub fn user_namespace_with(user_name: &str) -> String {
+        format!("vine-session-{user_name}")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

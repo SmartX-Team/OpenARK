@@ -7,7 +7,7 @@ authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-readme = "../README.md"
+readme = "../../README.md"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 
@@ -30,7 +30,12 @@ futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 regex = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }

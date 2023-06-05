@@ -8,11 +8,11 @@ use dash_api::{
 };
 use dash_provider::storage::{DatabaseStorageClient, KubernetesStorageClient};
 
-pub struct ModelStorageValidator<'a> {
-    pub kubernetes_storage: KubernetesStorageClient<'a>,
+pub struct ModelStorageValidator<'namespace, 'kube> {
+    pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
 }
 
-impl<'a> ModelStorageValidator<'a> {
+impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     pub async fn validate_model_storage(&self, spec: &ModelStorageSpec) -> Result<()> {
         match &spec.kind {
             ModelStorageKindSpec::Database(spec) => {

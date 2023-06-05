@@ -1,10 +1,11 @@
 use std::{ops::Deref, str::FromStr};
 
 use anyhow::{bail, Result};
-use kiss_api::r#box::BoxSpec;
+use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 use uuid::Uuid;
 
 use crate::{
@@ -85,16 +86,17 @@ impl UserAuthPayload {
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserAuthResponse {
     Accept {
-        box_bindings: Vec<UserBoxBindingSpec<BoxSpec>>,
+        box_bindings: Vec<UserBoxBindingSpec<NodeSpec>>,
+        box_name: Option<String>,
         box_quota_bindings: Vec<UserBoxQuotaBindingSpec<UserBoxQuotaSpec>>,
         user: UserSpec,
     },
-    AuthError(UserAuthError),
+    Error(UserAuthError),
 }
 
 impl From<UserAuthError> for UserAuthResponse {
     fn from(error: UserAuthError) -> Self {
-        Self::AuthError(error)
+        Self::Error(error)
     }
 }
 
@@ -105,31 +107,38 @@ pub enum UserSessionResponse {
         box_quota: Option<UserBoxQuotaSpec>,
         user: UserSpec,
     },
-    AlreadyLoggedInByNode {
-        node_name: String,
-    },
-    AlreadyLoggedInByUser {
-        user_name: String,
-    },
-    AuthError(UserAuthError),
-    BoxNotFound,
-    BoxNotInCluster,
-    Deny {
-        user: UserSpec,
-    },
+    Error(UserSessionError),
 }
 
 impl From<UserAuthError> for UserSessionResponse {
+    fn from(error: UserAuthError) -> Self {
+        Self::Error(error.into())
+    }
+}
+
+#[derive(Clone, Debug, Display, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", tag = "status", content = "data")]
+pub enum UserSessionError {
+    AlreadyLoggedInByNode { node_name: String },
+    AlreadyLoggedInByUser { user_name: String },
+    AuthError(UserAuthError),
+    Deny { user: UserSpec },
+    NodeNotFound,
+    NodeNotInCluster,
+}
+
+impl From<UserAuthError> for UserSessionError {
     fn from(error: UserAuthError) -> Self {
         Self::AuthError(error)
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Display, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserAuthError {
     AuthorizationTokenMalformed,
     AuthorizationTokenNotFound,
+    NamespaceTokenMalformed,
     PrimaryKeyMalformed,
     UserNotRegistered,
 }

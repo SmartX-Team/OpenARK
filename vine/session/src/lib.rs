@@ -29,7 +29,7 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    pub async fn try_new(kube: Client) -> Result<Self> {
+    pub async fn try_new(namespace: String, kube: Client) -> Result<Self> {
         let templates_home = env::infer("VINE_SESSION_TEMPLATES_HOME").or_else(|_| {
             // local directory
             "../../templates/vine/templates/session"
@@ -41,7 +41,7 @@ impl SessionManager {
         match templates_home.to_str() {
             Some(templates_home) => {
                 let templates_home = format!("{templates_home}/*.yaml.j2");
-                let client = FunctionActorJobClient::from_dir(kube, &templates_home)?;
+                let client = FunctionActorJobClient::from_dir(namespace, kube, &templates_home)?;
                 Ok(Self { client })
             },
             None => bail!("failed to parse the environment variable: VINE_SESSION_TEMPLATES_HOME = {templates_home:?}"),
@@ -73,7 +73,7 @@ impl SessionManager {
                     role: None,
                     user_name,
                 };
-                let ctx: SessionContext = (&spec).into();
+                let ctx = self.get_context(&spec);
 
                 if
                 // If the node is not ready
@@ -107,7 +107,7 @@ impl SessionManager {
     }
 
     async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
-        let ctx: SessionContext = spec.into();
+        let ctx = self.get_context(spec);
 
         self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
@@ -119,7 +119,7 @@ impl SessionManager {
     }
 
     pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
-        let ctx: SessionContext = spec.into();
+        let ctx = self.get_context(spec);
 
         self.label_namespace(&ctx, None)
             .and_then(|()| self.delete_template(&ctx))
@@ -132,13 +132,13 @@ impl SessionManager {
 
     async fn exists_template(&self, ctx: &SessionContext<'_>) -> Result<bool> {
         self.client
-            .exists_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
+            .exists_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
     }
 
     async fn create_namespace(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
-            .create_raw_named(Self::TEMPLATE_NAMESPACE_FILENAME, ctx)
+            .create_named(Self::TEMPLATE_NAMESPACE_FILENAME, ctx)
             .await
             .map(|_| ())
     }
@@ -151,14 +151,14 @@ impl SessionManager {
 
     async fn create_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
-            .create_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
+            .create_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
             .map(|_| ())
     }
 
     async fn delete_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
-            .delete_raw_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
+            .delete_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
             .map(|_| ())
     }
@@ -178,14 +178,14 @@ impl SessionManager {
 
     async fn create_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
-            .create_raw_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
+            .create_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
             .await
             .map(|_| ())
     }
 
     async fn delete_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
-            .delete_raw_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
+            .delete_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
             .await
             .map(|_| ())
     }
@@ -197,8 +197,8 @@ impl SessionManager {
     ) -> Result<()> {
         self.create_namespace(ctx).await?;
 
-        let name = ctx.spec.namespace();
-        self.label::<Namespace>(&name, ctx.spec.node, user_name)
+        let name = self.client.namespace();
+        self.label::<Namespace>(name, ctx.spec.node, user_name)
             .await
     }
 
@@ -237,6 +237,16 @@ impl SessionManager {
             .map(|_| ())
             .map_err(Into::into)
     }
+
+    fn get_context<'a>(&self, spec: &'a SessionContextSpec<'a>) -> SessionContext<'a> {
+        SessionContext {
+            metadata: SessionContextMetadata {
+                name: "".to_string(), // not used
+                namespace: self.client.namespace().to_string(),
+            },
+            spec,
+        }
+    }
 }
 
 pub type SessionContext<'a> = ::dash_provider_api::SessionContext<&'a SessionContextSpec<'a>>;
@@ -268,24 +278,6 @@ pub struct SessionContextSpec<'a> {
     pub node: &'a Node,
     pub role: Option<&'a UserRoleSpec>,
     pub user_name: &'a str,
-}
-
-impl<'a> From<&'a SessionContextSpec<'a>> for SessionContext<'a> {
-    fn from(spec: &'a SessionContextSpec<'a>) -> Self {
-        SessionContext {
-            metadata: SessionContextMetadata {
-                name: "".to_string(), // not used
-                namespace: spec.namespace(),
-            },
-            spec,
-        }
-    }
-}
-
-impl<'a> SessionContextSpec<'a> {
-    fn namespace(&self) -> String {
-        format!("vine-session-{}", &self.user_name)
-    }
 }
 
 fn get_label(node_name: &str, user_name: Option<&str>) -> Value {

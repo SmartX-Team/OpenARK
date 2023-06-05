@@ -7,19 +7,26 @@ authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-readme = "../README.md"
+readme = "../../README.md"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+actix = ["actix-web", "base64", "serde_json"]
+
 [dependencies]
-kiss-api = { path = "../../kiss/api" }
+ark-api = { path = "../../ark/api" }
 vine-api = { path = "../api" }
 vine-session = { path = "../session" }
 
+actix-web = { workspace = true, default-features = false, optional = true }
 anyhow = { workspace = true }
+base64 = { workspace = true, optional = true }
 chrono = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
 log = { workspace = true }
+serde_json = { workspace = true, optional = true }

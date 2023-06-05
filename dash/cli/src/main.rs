@@ -1,10 +1,10 @@
 use std::{env, future::Future};
 
 use anyhow::Result;
-use ark_core::logger;
+use ark_core::{logger, result::Result as SessionResult};
 use clap::{value_parser, ArgAction, Parser, Subcommand};
 use dash_provider::{client::FunctionSession, input::InputFieldString};
-use dash_provider_api::{SessionContextMetadata, SessionResult};
+use dash_provider_api::SessionContextMetadata;
 use kube::Client;
 use serde::Serialize;
 use serde_json::Value;
@@ -117,21 +117,21 @@ impl CommandSession {
 
     async fn create(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::create_raw(kube, &metadata, inputs).await
+            FunctionSession::create(kube, &metadata, inputs).await
         })
         .await
     }
 
     async fn delete(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::delete_raw(kube, &metadata, inputs).await
+            FunctionSession::delete(kube, &metadata, inputs).await
         })
         .await
     }
 
     async fn exists(self, kube: Client) -> Result<Value> {
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::exists_raw(kube, &metadata, inputs).await
+            FunctionSession::exists(kube, &metadata, inputs).await
         })
         .await
     }

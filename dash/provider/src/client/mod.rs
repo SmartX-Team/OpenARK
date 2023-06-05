@@ -18,12 +18,6 @@ use self::job::FunctionActorJobClient;
 
 pub mod job;
 
-pub struct FunctionSession<'a> {
-    client: FunctionActorClient,
-    input: InputTemplate,
-    metadata: &'a SessionContextMetadata,
-}
-
 #[async_trait]
 pub trait FunctionSessionUpdateFields<Value> {
     async fn update_field(
@@ -61,19 +55,29 @@ impl<'a> FunctionSessionUpdateFields<Value> for FunctionSession<'a> {
     }
 }
 
+pub struct FunctionSession<'a> {
+    client: FunctionActorClient,
+    input: InputTemplate,
+    metadata: &'a SessionContextMetadata,
+}
+
 impl<'a> FunctionSession<'a> {
     pub async fn load(
         kube: Client,
         metadata: &'a SessionContextMetadata,
     ) -> Result<FunctionSession<'a>> {
-        let storage = KubernetesStorageClient { kube: &kube };
+        let storage = KubernetesStorageClient {
+            namespace: &metadata.namespace,
+            kube: &kube,
+        };
         let function = storage.load_function(&metadata.name).await?;
 
         let origin = &function.spec.input;
         let parsed = &function.get_native_spec().input;
 
         Ok(Self {
-            client: FunctionActorClient::try_new(&kube, &function.spec.actor).await?,
+            client: FunctionActorClient::try_new(&metadata.namespace, &kube, &function.spec.actor)
+                .await?,
             input: InputTemplate::new_empty(origin, parsed.clone()),
             metadata,
         })
@@ -96,7 +100,7 @@ impl<'a> FunctionSession<'a> {
         Ok(())
     }
 
-    pub async fn exists_raw<Value>(
+    pub async fn exists<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
@@ -105,11 +109,11 @@ impl<'a> FunctionSession<'a> {
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
-            .and_then(|session| session.try_exists_raw(inputs))
+            .and_then(|session| session.try_exists(inputs))
             .await
     }
 
-    async fn try_exists_raw<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
+    async fn try_exists<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
@@ -122,12 +126,12 @@ impl<'a> FunctionSession<'a> {
         };
 
         self.client
-            .exists_raw(&input)
+            .exists(&input)
             .await
             .map_err(|e| anyhow!("failed to check function {:?}: {e}", &self.metadata.name))
     }
 
-    pub async fn create_raw<Value>(
+    pub async fn create<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
@@ -136,14 +140,11 @@ impl<'a> FunctionSession<'a> {
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
-            .and_then(|session| session.try_create_raw(inputs))
+            .and_then(|session| session.try_create(inputs))
             .await
     }
 
-    async fn try_create_raw<Value>(
-        mut self,
-        inputs: Vec<InputField<Value>>,
-    ) -> Result<FunctionChannel>
+    async fn try_create<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
@@ -156,12 +157,12 @@ impl<'a> FunctionSession<'a> {
         };
 
         self.client
-            .create_raw(&input)
+            .create(&input)
             .await
             .map_err(|e| anyhow!("failed to create function {:?}: {e}", &self.metadata.name))
     }
 
-    pub async fn delete_raw<Value>(
+    pub async fn delete<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
         inputs: Vec<InputField<Value>>,
@@ -170,14 +171,11 @@ impl<'a> FunctionSession<'a> {
         Self: FunctionSessionUpdateFields<Value>,
     {
         Self::load(kube, metadata)
-            .and_then(|session| session.try_delete_raw(inputs))
+            .and_then(|session| session.try_delete(inputs))
             .await
     }
 
-    async fn try_delete_raw<Value>(
-        mut self,
-        inputs: Vec<InputField<Value>>,
-    ) -> Result<FunctionChannel>
+    async fn try_delete<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<FunctionChannel>
     where
         Self: FunctionSessionUpdateFields<Value>,
     {
@@ -190,7 +188,7 @@ impl<'a> FunctionSession<'a> {
         };
 
         self.client
-            .delete_raw(&input)
+            .delete(&input)
             .await
             .map_err(|e| anyhow!("failed to delete function {:?}: {e}", &self.metadata.name))
     }
@@ -201,12 +199,14 @@ pub enum FunctionActorClient {
 }
 
 impl FunctionActorClient {
-    pub async fn try_new(kube: &Client, spec: &FunctionActorSpec) -> Result<Self> {
+    pub async fn try_new(namespace: &str, kube: &Client, spec: &FunctionActorSpec) -> Result<Self> {
         match spec {
-            FunctionActorSpec::Job(spec) => FunctionActorJobClient::try_new(kube, spec)
-                .await
-                .map(Box::new)
-                .map(Self::Job),
+            FunctionActorSpec::Job(spec) => {
+                FunctionActorJobClient::try_new(namespace.into(), kube, spec)
+                    .await
+                    .map(Box::new)
+                    .map(Self::Job)
+            }
         }
     }
 
@@ -216,41 +216,35 @@ impl FunctionActorClient {
         }
     }
 
-    pub async fn exists_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
+    pub async fn exists<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
     {
         match self {
-            Self::Job(client) => client.exists_raw(input).await,
+            Self::Job(client) => client.exists(input).await,
         }
     }
 
-    pub async fn create_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
+    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
     where
         Spec: Serialize,
     {
         Ok(FunctionChannel {
             metadata: input.metadata.clone(),
             actor: match self {
-                Self::Job(client) => client
-                    .create_raw(input)
-                    .await
-                    .map(FunctionChannelKind::Job)?,
+                Self::Job(client) => client.create(input).await.map(FunctionChannelKind::Job)?,
             },
         })
     }
 
-    pub async fn delete_raw<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
+    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
     where
         Spec: Serialize,
     {
         Ok(FunctionChannel {
             metadata: input.metadata.clone(),
             actor: match self {
-                Self::Job(client) => client
-                    .delete_raw(input)
-                    .await
-                    .map(FunctionChannelKind::Job)?,
+                Self::Job(client) => client.delete(input).await.map(FunctionChannelKind::Job)?,
             },
         })
     }

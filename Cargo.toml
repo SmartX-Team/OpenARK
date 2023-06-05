@@ -7,7 +7,6 @@ members = [
     "ark/controller",
     "ark/core",
     "ark/core/k8s",
-    "ark/gateway",
     "ark/provider/api",
     "ark/provider/kubernetes",
     "ark/provider/local",
@@ -19,6 +18,7 @@ members = [
     "dash/openapi",
     "dash/provider",
     "dash/provider/api",
+    "dash/provider/client",
     "dash/router",
     "kiss/ansible",
     "kiss/api",
@@ -102,7 +102,7 @@ reqwest = { version = "0.11", default-features = false, features = [
     "rustls-tls",
     "stream",
 ] }
-reqwest-middleware = "0.2"
+reqwest-middleware = { version = "0.2" }
 rust-tokenizers = { package = "rust_tokenizers", version = "8.0" }
 schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
 sea-orm = { version = "0.11", features = [

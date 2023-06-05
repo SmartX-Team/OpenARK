@@ -1,4 +1,44 @@
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "desktop-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: "desktop-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+rules:
+  - apiGroups:
+      - ark.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+  - apiGroups:
+      - dash.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "desktop-{{ spec.node.metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "desktop-{{ spec.node.metadata.name }}"
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: "desktop-{{ spec.node.metadata.name }}"
+    namespace: "{{ metadata.namespace }}"
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -142,6 +182,7 @@ spec:
       securityContext:
         runAsNonRoot: false
         runAsUser: 2000
+      serviceAccount: "desktop-{{ spec.node.metadata.name }}"
       terminationGracePeriodSeconds: 5
       volumes:
         - name: dev

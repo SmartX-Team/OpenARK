@@ -35,6 +35,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         Self: Sized,
     {
         let name = data.name_any();
+        let namespace = data.namespace().unwrap();
 
         match data
             .status
@@ -45,6 +46,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             ModelState::Pending => {
                 let validator = ModelValidator {
                     kubernetes_storage: KubernetesStorageClient {
+                        namespace: &namespace,
                         kube: &manager.kube,
                     },
                 };

@@ -16,7 +16,7 @@ pub mod login {
         box_name: Path<Uuid>,
     ) -> impl Responder {
         match {
-            match crate::auth::get_user_name(&request) {
+            match ::vine_rbac::auth::get_user_name(&request) {
                 Ok(user_name) => {
                     ::vine_rbac::login::execute(&client, &box_name.to_string(), &user_name).await
                 }

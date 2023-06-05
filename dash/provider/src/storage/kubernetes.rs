@@ -22,29 +22,29 @@ use serde_json::Value;
 use crate::input::{InputFieldValue, ItemTemplate};
 
 #[derive(Copy, Clone)]
-pub struct KubernetesStorageClient<'a> {
-    pub kube: &'a Client,
+pub struct KubernetesStorageClient<'namespace, 'kube> {
+    pub namespace: &'namespace str,
+    pub kube: &'kube Client,
 }
 
-impl<'a> KubernetesStorageClient<'a> {
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     const LABEL_SUBJECT: &'static str = "dash.ulagbulag.io/subject";
 
     pub async fn load_config_map<'f>(
         &self,
         spec: &'f FunctionActorSourceConfigMapRefSpec,
     ) -> Result<(&'f str, String)> {
-        let FunctionActorSourceConfigMapRefSpec {
-            name,
-            namespace,
-            path,
-        } = spec;
+        let FunctionActorSourceConfigMapRefSpec { name, path } = spec;
 
-        let api = Api::<ConfigMap>::namespaced(self.kube.clone(), namespace);
+        let api = Api::<ConfigMap>::namespaced(self.kube.clone(), self.namespace);
         let config_map = api.get(name).await?;
 
         match config_map.data.and_then(|mut data| data.remove(path)) {
             Some(content) => Ok((path, content)),
-            None => bail!("no such file in ConfigMap: {path:?} in {namespace}::{name}"),
+            None => bail!(
+                "no such file in ConfigMap: {path:?} in {namespace}::{name}",
+                namespace = self.namespace,
+            ),
         }
     }
 
@@ -143,7 +143,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_model(&self, name: &str) -> Result<ModelCrd> {
-        let api = Api::<ModelCrd>::all(self.kube.clone());
+        let api = Api::<ModelCrd>::namespaced(self.kube.clone(), self.namespace);
         let model = api.get(name).await?;
 
         match &model.status {
@@ -156,7 +156,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_model_all(&self) -> Result<Vec<String>> {
-        let api = Api::<ModelCrd>::all(self.kube.clone());
+        let api = Api::<ModelCrd>::namespaced(self.kube.clone(), self.namespace);
         let lp = ListParams::default();
         let models = api.list(&lp).await?;
 
@@ -175,7 +175,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
-        let api = Api::<ModelStorageCrd>::all(self.kube.clone());
+        let api = Api::<ModelStorageCrd>::namespaced(self.kube.clone(), self.namespace);
         let storage = api.get(name).await?;
 
         match &storage.status {
@@ -188,7 +188,7 @@ impl<'a> KubernetesStorageClient<'a> {
         &self,
         model_name: &str,
     ) -> Result<Vec<ModelStorageSpec>> {
-        let api = Api::<ModelStorageBindingCrd>::all(self.kube.clone());
+        let api = Api::<ModelStorageBindingCrd>::namespaced(self.kube.clone(), self.namespace);
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
 
@@ -207,7 +207,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_function(&self, name: &str) -> Result<FunctionCrd> {
-        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
         let function = api.get(name).await?;
 
         match &function.status {
@@ -220,7 +220,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_function_all(&self) -> Result<Vec<String>> {
-        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
         let lp = ListParams::default();
         let functions = api.list(&lp).await?;
 
@@ -239,7 +239,7 @@ impl<'a> KubernetesStorageClient<'a> {
     }
 
     pub async fn load_function_all_by_model(&self, model_name: &str) -> Result<Vec<FunctionCrd>> {
-        let api = Api::<FunctionCrd>::all(self.kube.clone());
+        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
         let lp = ListParams::default();
         let functions = api.list(&lp).await?;
 

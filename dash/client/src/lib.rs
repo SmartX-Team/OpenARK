@@ -1,8 +1,8 @@
 use std::error::Error;
 
 use anyhow::{anyhow, Result};
-use dash_api::{function::FunctionCrd, model::ModelCrd};
-use dash_provider_api::{FunctionChannel, SessionResult};
+use ark_core::result::Result as SessionResult;
+use dash_api::{function::FunctionCrd, job::DashJobCrd, model::ModelCrd};
 use reqwest::{Client, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -36,9 +36,12 @@ impl DashClient {
     pub async fn get_function_list(&self) -> Result<Vec<String>> {
         self.get("/function/").await
     }
+}
 
-    pub async fn post_function(&self, name: &str, value: &Value) -> Result<FunctionChannel> {
-        self.post(format!("/function/{name}/"), Some(value)).await
+impl DashClient {
+    pub async fn post_job(&self, function_name: &str, value: &Value) -> Result<DashJobCrd> {
+        self.post(format!("/function/{function_name}/job/"), Some(value))
+            .await
     }
 }
 

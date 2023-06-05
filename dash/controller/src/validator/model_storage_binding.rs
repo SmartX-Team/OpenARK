@@ -5,12 +5,12 @@ use dash_api::{
 
 use super::{model::ModelValidator, storage::ModelStorageValidator};
 
-pub struct ModelStorageBindingValidator<'a> {
-    pub model: ModelValidator<'a>,
-    pub model_storage: ModelStorageValidator<'a>,
+pub struct ModelStorageBindingValidator<'namespace, 'kube> {
+    pub model: ModelValidator<'namespace, 'kube>,
+    pub model_storage: ModelStorageValidator<'namespace, 'kube>,
 }
 
-impl<'a> ModelStorageBindingValidator<'a> {
+impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
     pub async fn validate_model_storage_binding(
         &self,
         spec: &ModelStorageBindingSpec,

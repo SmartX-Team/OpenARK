@@ -30,7 +30,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             Some(ModelFieldKindSpec::Extended(kind)) => match kind {
                 // BEGIN reference types
                 ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    self.get_by_model(model_name, ref_name).await
+                    self.get_by_model(model_name.as_str(), ref_name).await
                 }
             },
         }
@@ -99,19 +99,28 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     ) -> Result<Option<Value>> {
         let parsed = get_model_fields_parsed(model);
 
-        let storage = KubernetesStorageClient { kube: self.kube };
+        let storage = KubernetesStorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
         storage
             .load_custom_resource(spec, parsed, self.namespace, ref_name)
             .await
     }
 
     async fn get_model(&self, model_name: &str) -> Result<ModelCrd> {
-        let storage = KubernetesStorageClient { kube: self.kube };
+        let storage = KubernetesStorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
         storage.load_model(model_name).await
     }
 
     async fn get_model_storage_bindings(&self, model_name: &str) -> Result<Vec<ModelStorageSpec>> {
-        let storage = KubernetesStorageClient { kube: self.kube };
+        let storage = KubernetesStorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
 
         let storages = storage.load_model_storage_bindings(model_name).await?;
         if storages.is_empty() {
@@ -130,7 +139,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             Some(ModelFieldKindSpec::Extended(kind)) => match kind {
                 // BEGIN reference types
                 ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    self.list_by_model(model_name).await
+                    self.list_by_model(model_name.as_str()).await
                 }
             },
         }
@@ -192,7 +201,10 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     ) -> Result<Vec<Value>> {
         let parsed = get_model_fields_parsed(model);
 
-        let storage = KubernetesStorageClient { kube: self.kube };
+        let storage = KubernetesStorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
         storage
             .load_custom_resource_all(spec, parsed, self.namespace)
             .await

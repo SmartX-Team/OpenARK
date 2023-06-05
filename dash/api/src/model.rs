@@ -13,6 +13,7 @@ use strum::{Display, EnumString};
     struct = "ModelCrd",
     status = "ModelStatus",
     shortname = "m",
+    namespaced,
     printcolumn = r#"{
         "name": "state",
         "type": "string",

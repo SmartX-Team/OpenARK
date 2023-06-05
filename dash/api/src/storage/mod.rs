@@ -17,6 +17,7 @@ use strum::{Display, EnumString};
     struct = "ModelStorageCrd",
     status = "ModelStorageStatus",
     shortname = "ms",
+    namespaced,
     printcolumn = r#"{
         "name": "state",
         "type": "string",

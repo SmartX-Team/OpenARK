@@ -5,17 +5,21 @@ use kube::Client;
 
 use super::model::ModelValidator;
 
-pub struct FunctionValidator<'a> {
-    pub kube: &'a Client,
+pub struct FunctionValidator<'namespace, 'kube> {
+    pub namespace: &'namespace str,
+    pub kube: &'kube Client,
 }
 
-impl<'a> FunctionValidator<'a> {
+impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
     pub async fn validate_function(
         &self,
         spec: FunctionSpec,
     ) -> Result<FunctionSpec<ModelFieldKindNativeSpec>> {
         let model_validator = ModelValidator {
-            kubernetes_storage: KubernetesStorageClient { kube: self.kube },
+            kubernetes_storage: KubernetesStorageClient {
+                namespace: self.namespace,
+                kube: self.kube,
+            },
         };
         let input = model_validator.validate_fields(spec.input).await?;
         let output = match spec.output {
@@ -24,7 +28,7 @@ impl<'a> FunctionValidator<'a> {
         };
 
         let actor = spec.actor;
-        if let Err(e) = FunctionActorClient::try_new(self.kube, &actor).await {
+        if let Err(e) = FunctionActorClient::try_new(self.namespace, self.kube, &actor).await {
             bail!("failed to validate function actor: {e}");
         }
 

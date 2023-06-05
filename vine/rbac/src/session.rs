@@ -3,12 +3,11 @@ use std::{collections::BTreeMap, future::Future};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Node;
-use kiss_api::r#box::BoxCrd;
 use kube::{api::ListParams, Api, Client, ResourceExt};
 use log::warn;
 use vine_api::{
     user::UserCrd,
-    user_auth::{UserAuthError, UserSessionResponse},
+    user_auth::{UserAuthError, UserSessionError, UserSessionResponse},
     user_box_binding::UserBoxBindingCrd,
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::UserBoxQuotaBindingCrd,
@@ -43,10 +42,10 @@ where
     };
 
     // check the box state
-    let api = Api::<BoxCrd>::all(client.clone());
+    let api = Api::<Node>::all(client.clone());
     match api.get_opt(box_name).await? {
         Some(_) => {}
-        None => return Ok(UserSessionResponse::BoxNotFound),
+        None => return Ok(UserSessionResponse::Error(UserSessionError::NodeNotFound)),
     }
 
     // get the box as a node
@@ -56,7 +55,11 @@ where
             Some(error) => return Ok(error),
             None => node,
         },
-        None => return Ok(UserSessionResponse::BoxNotInCluster),
+        None => {
+            return Ok(UserSessionResponse::Error(
+                UserSessionError::NodeNotInCluster,
+            ))
+        }
     };
 
     // get available resources
@@ -158,12 +161,14 @@ where
     match box_quota {
         // Login Successed!
         Some(box_quota) => {
-            let session_manager = SessionManager::try_new(client.clone()).await?;
+            let namespace = UserCrd::user_namespace_with(user_name);
+            let session_manager =
+                SessionManager::try_new(namespace.clone(), client.clone()).await?;
             let spec = SessionContextSpecOwned {
                 box_quota: box_quota.clone(),
                 node,
                 role: Some(role),
-                user_name: user.name_any(),
+                user_name: user_name.into(),
             };
 
             f(session_manager, spec)
@@ -175,7 +180,9 @@ where
         }
         None => {
             warn!("[{now}] login denied: {user_name:?} => {box_name:?}");
-            Ok(UserSessionResponse::Deny { user: user.spec })
+            Ok(UserSessionResponse::Error(UserSessionError::Deny {
+                user: user.spec,
+            }))
         }
     }
 }
@@ -193,15 +200,19 @@ where
         AllocationState::AllocatedByMyself | AllocationState::NotAllocated => None,
         AllocationState::AllocatedByOtherNode { node_name } => {
             warn!("[{now}] the user is already allocated to {node_name:?}: {user_name:?}");
-            Some(UserSessionResponse::AlreadyLoggedInByNode {
-                node_name: node_name.into(),
-            })
+            Some(UserSessionResponse::Error(
+                UserSessionError::AlreadyLoggedInByNode {
+                    node_name: node_name.into(),
+                },
+            ))
         }
         AllocationState::AllocatedByOtherUser { user_name } => {
             warn!("[{now}] the node is already allocated by {user_name:?}: {user_name:?}");
-            Some(UserSessionResponse::AlreadyLoggedInByUser {
-                user_name: user_name.into(),
-            })
+            Some(UserSessionResponse::Error(
+                UserSessionError::AlreadyLoggedInByUser {
+                    user_name: user_name.into(),
+                },
+            ))
         }
     }
 }

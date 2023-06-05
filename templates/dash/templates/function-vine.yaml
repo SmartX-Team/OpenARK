@@ -3,6 +3,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
 metadata:
   name: box
+  namespace: vine
 spec:
   customResourceDefinitionRef:
     name: boxes.kiss.ulagbulag.io/v1alpha1
@@ -11,6 +12,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
 metadata:
   name: user
+  namespace: vine
 spec:
   customResourceDefinitionRef:
     name: users.vine.ulagbulag.io/v1alpha1
@@ -19,6 +21,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorage
 metadata:
   name: kubernetes
+  namespace: vine
 spec:
   kubernetes: {}
 ---
@@ -26,6 +29,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
 metadata:
   name: box-from-kubernetes
+  namespace: vine
 spec:
   model: box
   storage: kubernetes
@@ -34,6 +38,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
 metadata:
   name: user-from-kubernetes
+  namespace: vine
 spec:
   model: user
   storage: kubernetes
@@ -42,6 +47,7 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Function
 metadata:
   name: vine-session
+  namespace: vine
   annotations:
     dash.ulagbulag.io/subject-path: /box/
   labels:
