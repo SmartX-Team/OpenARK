@@ -148,7 +148,7 @@ pub(crate) async fn get_user_namespace_with(
                                 .unwrap_or(true)
                         })
                         .filter_map(|item| roles.get(&item.spec.role))
-                        .fold(UserRoleSpec::default(), |a, b| (a & *b))
+                        .fold(UserRoleSpec::default(), |a, b| (a | *b))
                 };
 
                 if role.is_admin {
