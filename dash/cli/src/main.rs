@@ -116,22 +116,28 @@ impl CommandSession {
     }
 
     async fn create(self, kube: Client) -> Result<Value> {
+        let function_name = self.function.clone();
+
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::create(kube, &metadata, inputs).await
+            FunctionSession::create(kube, &metadata, &function_name, inputs).await
         })
         .await
     }
 
     async fn delete(self, kube: Client) -> Result<Value> {
+        let function_name = self.function.clone();
+
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::delete(kube, &metadata, inputs).await
+            FunctionSession::delete(kube, &metadata, &function_name, inputs).await
         })
         .await
     }
 
     async fn exists(self, kube: Client) -> Result<Value> {
+        let function_name = self.function.clone();
+
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::exists(kube, &metadata, inputs).await
+            FunctionSession::exists(kube, &metadata, &function_name, inputs).await
         })
         .await
     }
