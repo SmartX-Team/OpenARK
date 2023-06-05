@@ -10,6 +10,7 @@ metadata:
     ingress.kubernetes.io/secure-backends: "true"
     ingress.kubernetes.io/force-ssl-redirect: "true"
     kubernetes.io/ingress.class: example.com
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
     nginx.ingress.kubernetes.io/proxy-redirect-from: http://ingress-nginx-controller.vine.svc.ops.openark
     nginx.ingress.kubernetes.io/proxy-redirect-to: https://$host
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
