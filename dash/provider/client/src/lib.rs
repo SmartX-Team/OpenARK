@@ -191,7 +191,6 @@ impl<'a> DashProviderClient<'a> {
                         container: container.clone(),
                         follow: true,
                         pretty: true,
-                        previous: true,
                         ..Default::default()
                     };
                     api.log_stream(&pod_name, &lp).await.map_err(|error| {
