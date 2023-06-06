@@ -1,0 +1,10 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: DashJob
+metadata:
+  name: sleep
+  namespace: default
+  labels:
+    dash.ulagbulag.io/target-function: sleep
+spec:
+  function: sleep

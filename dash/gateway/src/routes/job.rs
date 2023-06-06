@@ -16,9 +16,9 @@ use vine_rbac::auth::UserSessionRef;
 pub async fn delete(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
-    job_name: Path<Name>,
+    path: Path<(Name, Name)>,
 ) -> impl Responder {
+    let (function_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -34,9 +34,9 @@ pub async fn delete(
 pub async fn get(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
-    job_name: Path<Name>,
+    path: Path<(Name, Name)>,
 ) -> impl Responder {
+    let (function_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -82,9 +82,9 @@ pub async fn get_list_with_function_name(
 pub async fn get_stream_logs(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
-    job_name: Path<Name>,
+    path: Path<(Name, Name)>,
 ) -> impl Responder {
+    let (function_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -120,9 +120,9 @@ pub async fn post(
 pub async fn post_restart(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
-    job_name: Path<Name>,
+    path: Path<(Name, Name)>,
 ) -> impl Responder {
+    let (function_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,

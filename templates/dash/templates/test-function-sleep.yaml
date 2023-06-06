@@ -1,0 +1,23 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Function
+metadata:
+  name: sleep
+  namespace: default
+  labels:
+    dash.ulagbulag.io/alias: sleep
+spec:
+  input:
+    - name: /
+      object:
+        children: []
+  actor:
+    job:
+      container: sleep
+      labelSelector:
+        matchLabels:
+          name: test-sleep
+      source:
+        configMapRef:
+          name: dash-template
+          path: test-sleep.yaml.j2

@@ -1,0 +1,36 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-sleep
+  namespace: default
+  labels:
+    name: test-sleep
+spec:
+  ttlSecondsAfterFinished: 1
+  template:
+    metadata:
+      labels:
+        name: test-sleep
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sleep
+          image: docker.io/library/busybox:latest
+          command:
+            - sh
+            - -c
+          args:
+            - while :; do sleep 3; date; done;
