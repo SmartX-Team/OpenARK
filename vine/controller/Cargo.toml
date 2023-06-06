@@ -15,6 +15,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s" }
+ark-api = { path = "../../ark/api" }
 vine-api = { path = "../api" }
 vine-session = { path = "../session" }
 
