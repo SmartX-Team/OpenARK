@@ -74,7 +74,7 @@ spec:
           args:
             - |
               set -e -x -o pipefail
-              chown user:user /home/user /mnt/public
+              chown user:user /home/user /home/user/.local/share/containers /mnt/public
               chmod 700 /home/user
               chmod 777 /mnt/public
               exec true
@@ -84,6 +84,8 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/user
+            - name: home-containers
+              mountPath: /home/user/.local/share/containers
             - name: home-public
               mountPath: /mnt/public
       containers:
@@ -144,6 +146,8 @@ spec:
               readOnly: true
             - name: home
               mountPath: /home/user
+            - name: home-containers
+              mountPath: /home/user/.local/share/containers
             - name: home-static
               mountPath: /mnt/static
               readOnly: true
@@ -211,6 +215,8 @@ spec:
           #   path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
           #   type: DirectoryOrCreate
 {% endif %}
+        - name: home-containers
+          emptyDir: {}
         - name: home-static
           persistentVolumeClaim:
             claimName: desktop-static
