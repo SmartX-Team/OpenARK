@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::job::{DashJobCrd, DashJobState, DashJobStatus};
 use dash_provider::storage::KubernetesStorageClient;
+use dash_provider_api::FunctionChannel;
 use kube::{
     api::{Patch, PatchParams},
     runtime::controller::Action,
@@ -51,11 +52,12 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .unwrap_or_default()
         {
             DashJobState::Pending => match validator.create(data.as_ref().clone()).await {
-                Ok(()) => {
+                Ok(channel) => {
                     Self::update_spec_or_requeue(
                         &namespace,
                         &manager.kube,
                         &name,
+                        channel,
                         DashJobState::Running,
                     )
                     .await
@@ -72,11 +74,12 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 )),
                 Ok(false) => match validator.delete(data.as_ref().clone()).await {
-                    Ok(()) => {
+                    Ok(channel) => {
                         Self::update_spec_or_requeue(
                             &namespace,
                             &manager.kube,
                             &name,
+                            channel,
                             DashJobState::Completed,
                         )
                         .await
@@ -105,9 +108,10 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
+        channel: FunctionChannel,
         state: DashJobState,
     ) -> Result<Action, Error> {
-        match Self::update_spec(namespace, kube, name, state).await {
+        match Self::update_spec(namespace, kube, name, channel, state).await {
             Ok(()) => {
                 info!("dash job is {state}: {name}");
                 Ok(Action::requeue(
@@ -127,6 +131,7 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
+        channel: FunctionChannel,
         state: DashJobState,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
@@ -139,6 +144,7 @@ impl Ctx {
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "status": DashJobStatus {
+                channel: Some(channel),
                 state,
                 last_updated: Utc::now(),
             },

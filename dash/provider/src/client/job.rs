@@ -1,8 +1,8 @@
 use std::future::Future;
 
 use anyhow::{bail, Result};
-use dash_api::function::FunctionActorJobSpec;
-use dash_provider_api::job::{FunctionChannelKindJob, TemplateRef};
+use dash_api::function::{FunctionActorJobSpec, FunctionActorSourceSpec};
+use dash_provider_api::job::{FunctionActorJobMetadata, FunctionChannelKindJob, TemplateRef};
 use kube::{
     api::{DeleteParams, Patch, PatchParams, PostParams},
     core::DynamicObject,
@@ -17,6 +17,7 @@ use super::SessionContext;
 
 pub struct FunctionActorJobClient {
     pub kube: Client,
+    metadata: FunctionActorJobMetadata,
     name: String,
     namespace: String,
     tera: Tera,
@@ -32,14 +33,25 @@ impl FunctionActorJobClient {
             namespace: &namespace,
             kube,
         };
-        let (name, content) = match spec {
-            FunctionActorJobSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
+        let (name, content) = match &spec.source {
+            FunctionActorSourceSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
         };
 
-        Self::from_raw_content(namespace, kube.clone(), name, &content)
+        Self::from_raw_content(
+            kube.clone(),
+            spec.metadata.clone(),
+            namespace,
+            name,
+            &content,
+        )
     }
 
-    pub fn from_dir(namespace: String, kube: Client, path: &str) -> Result<Self> {
+    pub fn from_dir(
+        metadata: FunctionActorJobMetadata,
+        namespace: String,
+        kube: Client,
+        path: &str,
+    ) -> Result<Self> {
         let mut tera = match Tera::new(path) {
             Ok(tera) => tera,
             Err(e) => {
@@ -51,6 +63,7 @@ impl FunctionActorJobClient {
 
         Ok(Self {
             kube,
+            metadata,
             name: Default::default(),
             namespace,
             tera,
@@ -58,8 +71,9 @@ impl FunctionActorJobClient {
     }
 
     fn from_raw_content(
-        namespace: String,
         kube: Client,
+        metadata: FunctionActorJobMetadata,
+        namespace: String,
         name: &str,
         content: &str,
     ) -> Result<Self> {
@@ -68,6 +82,7 @@ impl FunctionActorJobClient {
 
         Ok(Self {
             kube,
+            metadata,
             name: name.to_string(),
             namespace,
             tera,
@@ -147,6 +162,7 @@ impl FunctionActorJobClient {
     {
         let templates = self.load_template(name, input).await?;
         let result = FunctionChannelKindJob {
+            metadata: self.metadata.clone(),
             templates: templates.iter().map(Into::into).collect(),
         };
 

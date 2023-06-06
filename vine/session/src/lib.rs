@@ -40,8 +40,9 @@ impl SessionManager {
 
         match templates_home.to_str() {
             Some(templates_home) => {
+                let metadata = Default::default();
                 let templates_home = format!("{templates_home}/*.yaml.j2");
-                let client = FunctionActorJobClient::from_dir(namespace, kube, &templates_home)?;
+                let client = FunctionActorJobClient::from_dir(metadata, namespace, kube, &templates_home)?;
                 Ok(Self { client })
             },
             None => bail!("failed to parse the environment variable: VINE_SESSION_TEMPLATES_HOME = {templates_home:?}"),

@@ -69,6 +69,7 @@ spec:
         name: user
   actor:
     job:
-      configMapRef:
-        name: vine-template-session
-        path: dash.yaml.j2
+      source:
+        configMapRef:
+          name: vine-template-session
+          path: dash.yaml.j2

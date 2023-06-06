@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use dash_provider_api::FunctionChannel;
 use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -42,6 +43,8 @@ impl DashJobCrd {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct DashJobStatus {
+    #[serde(default)]
+    pub channel: Option<FunctionChannel>,
     #[serde(default)]
     pub state: DashJobState,
     pub last_updated: DateTime<Utc>,

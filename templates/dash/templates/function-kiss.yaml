@@ -56,6 +56,7 @@ spec:
           - "off"
   actor: # 함수 구현체 정보
     job: # 함수 구현체 종류 (예제에서는, 쿠버네티스 Job)
-      configMapRef: # 함수 구현체 출처 종류 (예제에서는, 쿠버네티스 ConfigMap)
-        name: dash-template # 함수 스크립트가 저장된 ConfigMap 이름
-        path: power.yaml.j2 # 함수 스크립트가 저장된 ConfigMap 내 파일명
+      source: # 함수 구현체 출처
+        configMapRef: # 함수 구현체 출처 종류 (예제에서는, 쿠버네티스 ConfigMap)
+          name: dash-template # 함수 스크립트가 저장된 ConfigMap 이름
+          path: power.yaml.j2 # 함수 스크립트가 저장된 ConfigMap 내 파일명

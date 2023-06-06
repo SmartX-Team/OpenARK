@@ -16,9 +16,14 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 dash-api = { path = "../../api" }
 dash-provider = { path = ".." }
+dash-provider-api = { path = "../api" }
 vine-rbac = { path = "../../../vine/rbac" }
 
 anyhow = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+k8s-openapi = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",

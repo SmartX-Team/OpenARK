@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use dash_provider_api::job::FunctionActorJobMetadata;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -70,11 +71,25 @@ impl FunctionActorSpec {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum FunctionActorJobSpec {
-    ConfigMapRef(FunctionActorSourceConfigMapRefSpec),
+pub struct FunctionActorJobSpec {
+    #[serde(default, flatten)]
+    pub metadata: FunctionActorJobMetadata,
+    pub source: FunctionActorSourceSpec,
 }
 
 impl FunctionActorJobSpec {
+    pub fn name(&self) -> &str {
+        self.source.name()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum FunctionActorSourceSpec {
+    ConfigMapRef(FunctionActorSourceConfigMapRefSpec),
+}
+
+impl FunctionActorSourceSpec {
     fn name(&self) -> &str {
         match self {
             Self::ConfigMapRef(spec) => spec.name(),

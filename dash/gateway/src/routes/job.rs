@@ -78,6 +78,26 @@ pub async fn get_list_with_function_name(
     HttpResponse::from(Result::from(result))
 }
 
+#[get("/function/{function_name}/job/{job_name}/logs/")]
+pub async fn get_stream_logs(
+    request: HttpRequest,
+    kube: Data<Client>,
+    function_name: Path<Name>,
+    job_name: Path<Name>,
+) -> impl Responder {
+    let kube = kube.as_ref().clone();
+    let session = match UserSessionRef::from_request(&kube, &request).await {
+        Ok(session) => session,
+        Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
+    };
+
+    let client = DashProviderClient::new(kube, &session);
+    match client.get_stream_logs(&function_name.0, &job_name.0).await {
+        Ok(stream) => HttpResponse::Ok().streaming(stream),
+        Err(error) => HttpResponse::Forbidden().body(error.to_string()),
+    }
+}
+
 #[post("/function/{function_name}/job/")]
 pub async fn post(
     request: HttpRequest,
@@ -97,7 +117,7 @@ pub async fn post(
 }
 
 #[post("/function/{function_name}/job/{job_name}/restart/")]
-pub async fn restart(
+pub async fn post_restart(
     request: HttpRequest,
     kube: Data<Client>,
     function_name: Path<Name>,

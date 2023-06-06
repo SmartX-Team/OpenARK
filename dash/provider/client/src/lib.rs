@@ -1,13 +1,21 @@
 use std::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Result};
+use bytes::Bytes;
 use dash_api::{
     function::FunctionCrd,
     job::{DashJobCrd, DashJobSpec},
 };
 use dash_provider::storage::KubernetesStorageClient;
+use dash_provider_api::{
+    job::{FunctionActorJobMetadata, FunctionChannelKindJob},
+    FunctionChannelKind,
+};
+use futures::Stream;
+use itertools::Itertools;
+use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    api::{DeleteParams, ListParams, PostParams},
+    api::{DeleteParams, ListParams, LogParams, PostParams},
     core::ObjectMeta,
     Api, Client, ResourceExt,
 };
@@ -137,6 +145,65 @@ impl<'a> DashProviderClient<'a> {
             .await
             .map(|list| list.items)
             .map_err(|error| anyhow!("failed to list jobs ({function_name}): {error}"))
+    }
+
+    pub async fn get_stream_logs(
+        &self,
+        function_name: &str,
+        job_name: &str,
+    ) -> Result<impl Stream<Item = Result<Bytes, ::kube::Error>>> {
+        match self.get(function_name, job_name).await? {
+            Some(job) => match job
+                .status
+                .and_then(|status| status.channel)
+                .map(|channel| channel.actor)
+            {
+                Some(FunctionChannelKind::Job(FunctionChannelKindJob {
+                    metadata:
+                        FunctionActorJobMetadata {
+                            container,
+                            label_selector,
+                        },
+                    ..
+                })) => {
+                    let api = Api::<Pod>::namespaced(self.client.clone(), &self.session.namespace);
+
+                    let lp = ListParams {
+                        label_selector: label_selector.match_labels.map(|match_labels| {
+                            match_labels
+                                .into_iter()
+                                .map(|(key, value)| format!("{key}={value}"))
+                                .join(",")
+                        }),
+                        ..Default::default()
+                    };
+                    let pod_name = match api.list(&lp).await {
+                        Ok(list) if !list.items.is_empty() => list.items[0].name_any(),
+                        Ok(_) => {
+                            bail!("no such jod's pod: {function_name:?} => {job_name:?}")
+                        }
+                        Err(error) => bail!(
+                            "failed to find job's pod ({function_name} => {job_name}): {error}"
+                        ),
+                    };
+
+                    let lp = LogParams {
+                        container: container.clone(),
+                        follow: true,
+                        pretty: true,
+                        previous: true,
+                        ..Default::default()
+                    };
+                    api.log_stream(&pod_name, &lp).await.map_err(|error| {
+                        anyhow!("failed to get job logs ({function_name} => {job_name}): {error}")
+                    })
+                }
+                None => {
+                    bail!("only the K8S job can be watched: {function_name:?} => {job_name:?}")
+                }
+            },
+            None => bail!("no such job: {function_name:?} => {job_name:?}"),
+        }
     }
 
     pub async fn restart(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
