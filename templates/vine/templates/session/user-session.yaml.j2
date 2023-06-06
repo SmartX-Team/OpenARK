@@ -74,7 +74,12 @@ spec:
           args:
             - |
               set -e -x -o pipefail
-              chown user:user /home/user /home/user/.local/share/containers /mnt/public
+              chown user:user \
+                /home/user \
+                /home/user/.local \
+                /home/user/.local/share \
+                /home/user/.local/share/containers \
+                /mnt/public
               chmod 700 /home/user
               chmod 777 /mnt/public
               exec true
