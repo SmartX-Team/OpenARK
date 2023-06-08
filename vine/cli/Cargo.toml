@@ -13,6 +13,10 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "vine"
+path = "./src/main.rs"
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 vine-rbac = { path = "../rbac" }
