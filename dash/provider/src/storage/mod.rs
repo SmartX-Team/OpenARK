@@ -103,9 +103,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             namespace: self.namespace,
             kube: self.kube,
         };
-        storage
-            .load_custom_resource(spec, parsed, self.namespace, ref_name)
-            .await
+        storage.load_custom_resource(spec, parsed, ref_name).await
     }
 
     async fn get_model(&self, model_name: &str) -> Result<ModelCrd> {
@@ -205,9 +203,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             namespace: self.namespace,
             kube: self.kube,
         };
-        storage
-            .load_custom_resource_all(spec, parsed, self.namespace)
-            .await
+        storage.load_custom_resource_all(spec, parsed).await
     }
 }
 

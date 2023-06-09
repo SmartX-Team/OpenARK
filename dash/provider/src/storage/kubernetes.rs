@@ -11,12 +11,14 @@ use k8s_openapi::{
     apiextensions_apiserver::pkg::apis::apiextensions::v1::{
         CustomResourceDefinition, CustomResourceDefinitionVersion,
     },
+    ClusterResourceScope, NamespaceResourceScope,
 };
 use kube::{
     api::ListParams,
     core::{object::HasStatus, DynamicObject},
-    discovery, Api, Client, ResourceExt,
+    discovery, Api, Client, Resource, ResourceExt,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::input::{InputFieldValue, ItemTemplate};
@@ -30,13 +32,68 @@ pub struct KubernetesStorageClient<'namespace, 'kube> {
 impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     const LABEL_SUBJECT: &'static str = "dash.ulagbulag.io/subject";
 
+    fn api_all<K>(&self) -> Api<K>
+    where
+        K: Resource<Scope = ClusterResourceScope>,
+        <K as Resource>::DynamicType: Default,
+    {
+        Api::all(self.kube.clone())
+    }
+
+    async fn api_custom_resource(
+        &self,
+        spec: &ModelCustomResourceDefinitionRefSpec,
+        resource_name: Option<&str>,
+    ) -> Result<Api<DynamicObject>> {
+        let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
+        let plural = spec.plural();
+
+        // Discover most stable version variant of document
+        let apigroup = discovery::group(self.kube, &api_group).await?;
+
+        let ar = match apigroup
+            .versioned_resources(&def.name)
+            .into_iter()
+            .find(|(ar, _)| ar.plural == plural)
+        {
+            Some((ar, _)) => ar,
+            None => {
+                let model_name = &spec.name;
+                bail!("no such CRD: {model_name:?}")
+            }
+        };
+
+        // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
+        match scope.as_str() {
+            "Namespaced" => Ok(Api::namespaced_with(self.kube.clone(), self.namespace, &ar)),
+            "Cluster" => Ok(Api::all_with(self.kube.clone(), &ar)),
+            scope => match resource_name {
+                Some(resource_name) => bail!("cannot infer CRD scope {scope:?}: {resource_name:?}"),
+                None => bail!("cannot infer CRD scope {scope:?}"),
+            },
+        }
+    }
+
+    fn api_namespaced<K>(&self) -> Api<K>
+    where
+        K: Resource<Scope = NamespaceResourceScope>,
+        <K as Resource>::DynamicType: Default,
+    {
+        let client = self.kube.clone();
+
+        match self.namespace {
+            "*" => Api::all(client),
+            _ => Api::namespaced(client, self.namespace),
+        }
+    }
+
     pub async fn load_config_map<'f>(
         &self,
         spec: &'f FunctionActorSourceConfigMapRefSpec,
     ) -> Result<(&'f str, String)> {
         let FunctionActorSourceConfigMapRefSpec { name, path } = spec;
 
-        let api = Api::<ConfigMap>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<ConfigMap>();
         let config_map = api.get(name).await?;
 
         match config_map.data.and_then(|mut data| data.remove(path)) {
@@ -52,33 +109,9 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
         parsed: &ModelFieldsNativeSpec,
-        namespace: &str,
         resource_name: &str,
     ) -> Result<Option<Value>> {
-        let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
-        let plural = spec.plural();
-
-        // Discover most stable version variant of document
-        let apigroup = discovery::group(self.kube, &api_group).await?;
-
-        let ar = match apigroup
-            .versioned_resources(&def.name)
-            .into_iter()
-            .find(|(ar, _)| ar.plural == plural)
-        {
-            Some((ar, _)) => ar,
-            None => {
-                let model_name = &spec.name;
-                bail!("no such CRD: {model_name:?}")
-            }
-        };
-
-        // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
-        let api: Api<DynamicObject> = match scope.as_str() {
-            "Namespaced" => Api::namespaced_with(self.kube.clone(), namespace, &ar),
-            "Cluster" => Api::all_with(self.kube.clone(), &ar),
-            scope => bail!("cannot infer CRD scope {scope:?}: {resource_name:?}"),
-        };
+        let api = self.api_custom_resource(spec, Some(resource_name)).await?;
         api.get_opt(resource_name)
             .await?
             .map(|item| convert_model_item(item, parsed))
@@ -89,32 +122,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
         parsed: &ModelFieldsNativeSpec,
-        namespace: &str,
     ) -> Result<Vec<Value>> {
-        let (api_group, scope, def) = self.load_custom_resource_definition(spec).await?;
-        let plural = spec.plural();
-
-        // Discover most stable version variant of document
-        let apigroup = discovery::group(self.kube, &api_group).await?;
-
-        let ar = match apigroup
-            .versioned_resources(&def.name)
-            .into_iter()
-            .find(|(ar, _)| ar.plural == plural)
-        {
-            Some((ar, _)) => ar,
-            None => {
-                let model_name = &spec.name;
-                bail!("no such CRD: {model_name:?}")
-            }
-        };
-
-        // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
-        let api: Api<DynamicObject> = match scope.as_str() {
-            "Namespaced" => Api::namespaced_with(self.kube.clone(), namespace, &ar),
-            "Cluster" => Api::all_with(self.kube.clone(), &ar),
-            scope => bail!("cannot infer CRD scope {scope:?}"),
-        };
+        let api = self.api_custom_resource(spec, None).await?;
         let lp = ListParams::default();
         api.list(&lp).await.map_err(Into::into).and_then(|list| {
             list.items
@@ -130,7 +139,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     ) -> Result<(String, String, CustomResourceDefinitionVersion)> {
         let (api_group, version) = crate::imp::parse_api_version(&spec.name)?;
 
-        let api = Api::<CustomResourceDefinition>::all(self.kube.clone());
+        let api = self.api_all::<CustomResourceDefinition>();
         let crd = api.get(api_group).await?;
 
         match crd.spec.versions.iter().find(|def| def.name == version) {
@@ -143,7 +152,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     }
 
     pub async fn load_model(&self, name: &str) -> Result<ModelCrd> {
-        let api = Api::<ModelCrd>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<ModelCrd>();
         let model = api.get(name).await?;
 
         match &model.status {
@@ -155,8 +164,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
-    pub async fn load_model_all(&self) -> Result<Vec<String>> {
-        let api = Api::<ModelCrd>::namespaced(self.kube.clone(), self.namespace);
+    pub async fn load_model_all(&self) -> Result<Vec<ResourceRef>> {
+        let api = self.api_namespaced::<ModelCrd>();
         let lp = ListParams::default();
         let models = api.list(&lp).await?;
 
@@ -170,12 +179,15 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     })
                     .unwrap_or_default()
             })
-            .map(|model| model.name_any())
+            .map(|model| ResourceRef {
+                name: model.name_any(),
+                namespace: model.namespace().unwrap(),
+            })
             .collect())
     }
 
     pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
-        let api = Api::<ModelStorageCrd>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<ModelStorageCrd>();
         let storage = api.get(name).await?;
 
         match &storage.status {
@@ -188,7 +200,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         &self,
         model_name: &str,
     ) -> Result<Vec<ModelStorageSpec>> {
-        let api = Api::<ModelStorageBindingCrd>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
 
@@ -207,7 +219,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     }
 
     pub async fn load_function(&self, name: &str) -> Result<FunctionCrd> {
-        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<FunctionCrd>();
         let function = api.get(name).await?;
 
         match &function.status {
@@ -219,8 +231,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
-    pub async fn load_function_all(&self) -> Result<Vec<String>> {
-        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
+    pub async fn load_function_all(&self) -> Result<Vec<ResourceRef>> {
+        let api = self.api_namespaced::<FunctionCrd>();
         let lp = ListParams::default();
         let functions = api.list(&lp).await?;
 
@@ -234,12 +246,15 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     })
                     .unwrap_or_default()
             })
-            .map(|function| function.name_any())
+            .map(|function| ResourceRef {
+                name: function.name_any(),
+                namespace: function.namespace().unwrap(),
+            })
             .collect())
     }
 
     pub async fn load_function_all_by_model(&self, model_name: &str) -> Result<Vec<FunctionCrd>> {
-        let api = Api::<FunctionCrd>::namespaced(self.kube.clone(), self.namespace);
+        let api = self.api_namespaced::<FunctionCrd>();
         let lp = ListParams::default();
         let functions = api.list(&lp).await?;
 
@@ -262,6 +277,12 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             })
             .collect())
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ResourceRef {
+    name: String,
+    namespace: String,
 }
 
 fn convert_model_item(item: DynamicObject, parsed: &ModelFieldsNativeSpec) -> Result<Value> {
