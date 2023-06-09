@@ -70,6 +70,18 @@ impl<'a> DashProviderClient<'a> {
             metadata: ObjectMeta {
                 name: Some(job_name.clone()),
                 namespace: Some(self.session.namespace.clone()),
+                labels: Some(
+                    [
+                        (DashJobCrd::LABEL_TARGET_FUNCTION, function_name.clone()),
+                        (
+                            DashJobCrd::LABEL_TARGET_FUNCTION_NAMESPACE,
+                            function.namespace().unwrap(),
+                        ),
+                    ]
+                    .into_iter()
+                    .map(|(key, value)| (key.to_string(), value))
+                    .collect(),
+                ),
                 ..Default::default()
             },
             spec: DashJobSpec {

@@ -39,6 +39,8 @@ pub struct DashJobSpec {
 
 impl DashJobCrd {
     pub const LABEL_TARGET_FUNCTION: &'static str = "dash.ulagbulag.io/target-function";
+    pub const LABEL_TARGET_FUNCTION_NAMESPACE: &'static str =
+        "dash.ulagbulag.io/target-function-namespace";
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
