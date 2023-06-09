@@ -16,6 +16,7 @@ use kube::{
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
+use serde_json::json;
 
 pub struct Manager<C> {
     pub kube: Client,
@@ -117,7 +118,7 @@ where
                 },
                 manager,
             )
-            .for_each(|_| futures::future::ready(()))
+            .for_each(|_| ::futures::future::ready(()))
             .await;
         Ok(())
     }
@@ -178,6 +179,25 @@ where
     ) -> Result<Action, Error>
     where
         Self: Sized;
+
+    async fn remove_finalizer(api: Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt,
+    {
+        let crd = <<Self as Ctx>::Data as CustomResourceExt>::api_resource();
+
+        let patch = Patch::Merge(json!({
+            "apiVersion": crd.api_version,
+            "kind": crd.kind,
+            "metadata": {
+                "finalizers": [],
+            },
+        }));
+        let pp = PatchParams::apply(<Self as Ctx>::NAME);
+        api.patch(name, &pp, &patch).await?;
+        Ok(())
+    }
 
     fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action
     where

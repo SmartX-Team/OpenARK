@@ -67,6 +67,7 @@ impl<'a> DashProviderClient<'a> {
             metadata: ObjectMeta {
                 name: Some(job_name.clone()),
                 namespace: Some(self.session.namespace.clone()),
+                finalizers: Some(vec![DashJobCrd::FINALIZER_NAME.into()]),
                 labels: Some(
                     [
                         (DashJobCrd::LABEL_TARGET_FUNCTION, function_name.clone()),
