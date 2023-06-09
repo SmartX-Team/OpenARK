@@ -1,7 +1,0 @@
-inflect
-jinja2
-numpy
-scikit-learn
-streamlit
-streamlit-aggrid
-pandas
