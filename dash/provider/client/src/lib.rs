@@ -33,10 +33,7 @@ pub struct DashProviderClient<'a> {
 impl<'a> DashProviderClient<'a> {
     pub fn new(client: Client, session: &'a UserSessionRef) -> Self {
         Self {
-            api: match session.namespace.as_str() {
-                "*" => Api::all(client.clone()),
-                namespace => Api::namespaced(client.clone(), namespace),
-            },
+            api: Api::namespaced(client.clone(), &session.namespace),
             client,
             session,
         }
