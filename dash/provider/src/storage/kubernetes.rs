@@ -80,10 +80,9 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         <K as Resource>::DynamicType: Default,
     {
         let client = self.kube.clone();
-
         match self.namespace {
             "*" => Api::all(client),
-            _ => Api::namespaced(client, self.namespace),
+            namespace => Api::namespaced(client, namespace),
         }
     }
 
