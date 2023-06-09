@@ -53,7 +53,7 @@ impl DashClient {
 }
 
 impl DashClient {
-    pub async fn delete_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
+    pub async fn delete_job(&self, function_name: &str, job_name: &str) -> Result<()> {
         self.delete(format!("/function/{function_name}/job/{job_name}/"))
             .await
     }
