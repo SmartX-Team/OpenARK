@@ -97,7 +97,7 @@ metadata:
     vine.ulagbulag.io/is-service: "true"
     vine.ulagbulag.io/is-service-public: "false"
     vine.ulagbulag.io/is-service-system: "true"
-    vine.ulagbulag.io/service-kind: Bastion
+    vine.ulagbulag.io/service-kind: DASH Gateway
 spec:
   # tls:
   #   - hosts:
