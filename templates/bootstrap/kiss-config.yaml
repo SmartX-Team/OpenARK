@@ -64,7 +64,7 @@ data:
   ###########################################################################
   # Kubespray Configuration
   ###########################################################################
-  kubespray_image: quay.io/ulagbulag/kubespray:latest
+  kubespray_image: quay.io/kubespray/kubespray:v2.22.1
 
   ###########################################################################
   # Network Configuration
