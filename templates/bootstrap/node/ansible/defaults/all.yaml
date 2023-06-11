@@ -204,13 +204,19 @@ all:
         # MetalLB deployment
         metallb_enabled: true
         metallb_speaker_enabled: false
-        metallb_protocol: bgp
-        metallb_peers: [] # borrow calico BGP peers
-        metallb_ip_range:
-          - 192.168.0.0/24 # for Development
-        metallb_pool_name: dev
-        metallb_auto_assign: true
-        metallb_avoid_buggy_ips: true
+        metallb_config:
+          address_pools:
+            dev:
+              ip_range:
+                - 192.168.0.0/24 # for Development
+              auto_assign: true
+              avoid_buggy_ips: true
+          layer3:
+            defaults:
+              peer_port: 179 # The TCP port to talk to. Defaults to 179, you shouldn't need to set this in production.
+              hold_time: 120s # Requested BGP hold time, per RFC4271.
+            # borrow calico BGP peers
+            metallb_peers: {}
 
         #############################
         # Hardening
