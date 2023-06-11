@@ -175,7 +175,7 @@ all:
         dashboard_enabled: true
 
         # Helm deployment
-        helm_enabled: true
+        helm_enabled: false
 
         # Metrics Server deployment
         metrics_server_enabled: true
