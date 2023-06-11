@@ -1,12 +1,15 @@
 ---
 - name: Wipe Filesystem | {{ item[0] }}
   shell: wipefs --all --force /dev/{{ item[0] }} && sync
+  ignore_errors: true
 
 - name: Wipe GUID partiton table (GPT) | {{ item[0] }}
   shell: sgdisk --zap-all /dev/{{ item[0] }} && sync
+  ignore_errors: true
 
 - name: Fill with zero to Erase metadata (1Gi) | {{ item[0] }}
   shell: dd if=/dev/zero of=/dev/{{ item[0] }} bs=1M count=1024 && sync
+  ignore_errors: true
 
 - name: Discard sectors | {{ item[0] }}
   shell: blkdiscard --force /dev/{{ item[0] }} && sync
@@ -14,3 +17,4 @@
 
 - name: Inform the OS of partition table changes | {{ item[0] }}
   shell: partprobe /dev/{{ item[0] }} && sync
+  ignore_errors: true
