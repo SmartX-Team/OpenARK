@@ -47,6 +47,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let mut new_state = old_state.next();
         let mut new_group = None;
 
+        // detect the box's group is changed
+        let is_bind_group_updated = status
+            .as_ref()
+            .and_then(|status| status.bind_group.as_ref())
+            .map(|bind_group| bind_group != &data.spec.group)
+            .unwrap_or(true);
+
         // wait new boxes with no access methods for begin provisioned
         if matches!(old_state, BoxState::New)
             && !status
@@ -79,13 +86,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         }
 
         // capture the group info is changed
-        if matches!(old_state, BoxState::Running)
-            && !status
-                .as_ref()
-                .and_then(|status| status.bind_group.as_ref())
-                .map(|bind_group| &data.spec.group == bind_group)
-                .unwrap_or_default()
-        {
+        if matches!(old_state, BoxState::Running) && is_bind_group_updated {
             new_state = BoxState::Disconnected;
         }
 
@@ -113,12 +114,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             }
 
             // skip joining if already joined
-            if status
-                .as_ref()
-                .and_then(|status| status.bind_group.as_ref())
-                .map(|bind_group| bind_group == &data.spec.group)
-                .unwrap_or_default()
-            {
+            if !is_bind_group_updated {
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
