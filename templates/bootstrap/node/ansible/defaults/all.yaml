@@ -303,7 +303,7 @@ all:
           - RotateKubeletServerCertificate=true
           - SeccompDefault=true
         kubelet_seccomp_default: true
-        kubelet_systemd_hardening: true
+        kubelet_systemd_hardening: false
         # In case you have multiple interfaces in your
         # control plane nodes and you want to specify the right
         # IP addresses, kubelet_secure_addresses allows you
