@@ -123,14 +123,7 @@ repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E 
 EOF
 
 # Reboot after Installation
-if $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' >/dev/null); then
-    ## Wireless - WIFI => Power Off
-    cat <<EOF >>/tmp/kiss-config
-poweroff
-EOF
-else
-    ## Wired => Reboot
-    cat <<EOF >>/tmp/kiss-config
+cat <<EOF >>/tmp/kiss-config
 reboot
 EOF
 fi
@@ -188,6 +181,9 @@ EOF
         chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
     done
 fi
+
+## Fix CoreDNS timeout
+echo 'RES_OPTIONS="single-request-reopen"' >>/etc/sysconfig/network
 
 # Allow passwordless sudo command
 cat <<EOF >/etc/sudoers.d/10-wheel

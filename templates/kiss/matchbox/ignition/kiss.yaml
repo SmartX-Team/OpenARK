@@ -43,6 +43,13 @@ storage:
           loop
           i2c_core
           ipmi_msghandler
+    - path: /etc/sysconfig/network
+      filesystem: root
+      overwrite: true
+      mode: 0444
+      contents:
+        inline: |
+          RES_OPTIONS="single-request-reopen"
     - path: /etc/sysctl.d/50-hugepages.conf
       filesystem: root
       overwrite: true

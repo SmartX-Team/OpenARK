@@ -1,13 +1,11 @@
 ---
 - name: Populate service facts
-  failed_when:
-    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
-    - ansible_facts is not defined or 'services' not in ansible_facts
+  failed_when: false
   service_facts:
 
 - name: Check whether kubelet is running
   when:
-    - ansible_facts is defined and 'services' in ansible_facts
+    - ansible_facts is defined and ansible_facts.services is defined
   failed_when:
     - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
     - kiss_node_is_running is defined and not kiss_node_is_running
@@ -73,7 +71,6 @@
     - kiss_node_is_running is defined and kiss_node_is_running
     - update_state_when_kiss_node_is_running is defined and update_state_when_kiss_node_is_running
   failed_when:
-    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
     - result.status != 200
   uri:
     url: http://gateway.kiss.svc.ops.openark/new?address={{ ansible_ssh_host }}&uuid={{ ansible_host_uuid }}
@@ -87,6 +84,5 @@
 - name: Submit results to kiss cluster | Complete
   when:
     - kiss_node_is_running is defined and kiss_node_is_running
-    - result.status == 200
     - update_state_when_kiss_node_is_running is defined and update_state_when_kiss_node_is_running
   meta: end_play
