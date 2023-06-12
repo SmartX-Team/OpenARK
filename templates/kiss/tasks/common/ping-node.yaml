@@ -1,0 +1,92 @@
+---
+- name: Populate service facts
+  failed_when:
+    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
+    - ansible_facts is not defined or 'services' not in ansible_facts
+  service_facts:
+
+- name: Check whether kubelet is running
+  when:
+    - ansible_facts is defined and 'services' in ansible_facts
+  failed_when:
+    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
+    - kiss_node_is_running is defined and not kiss_node_is_running
+  set_fact:
+    kiss_node_is_running: ansible_facts.services["kubelet.service"].state == "running"
+
+- name: Check whether kubernetes entrypoint is running
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+  failed_when:
+    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
+    - result.status != 200
+  uri:
+    url: https://localhost:6443/livez?verbose
+    method: GET
+    ca_path: /etc/kubernetes/ssl/ca.crt
+    client_cert: /var/lib/kubelet/pki/kubelet-client-current.pem
+    client_key: /var/lib/kubelet/pki/kubelet-client-current.pem
+    validate_certs: false
+  register: result
+  until: result.status == 200
+  retries: 5
+  delay: 5
+
+- name: Check whether kubernetes entrypoint is running | Update flags
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+  set_fact:
+    kiss_node_is_running: result.status == 200
+
+- name: Check whether kubernetes node is working
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+  failed_when:
+    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
+    - result.status != 200
+  uri:
+    url: https://localhost:6443/api/v1/nodes/{{ ansible_host_uuid }}
+    method: GET
+    ca_path: /etc/kubernetes/ssl/ca.crt
+    client_cert: /var/lib/kubelet/pki/kubelet-client-current.pem
+    client_key: /var/lib/kubelet/pki/kubelet-client-current.pem
+    validate_certs: false
+  register: result
+  until: result.status == 200
+  retries: 5
+  delay: 5
+
+- name: Check whether kubernetes node is working | Update flags
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+  set_fact:
+    kiss_node_is_running: result.status == 200
+
+- name: Check whether kubernetes node is working | Update flags
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+  set_fact:
+    kiss_node_is_running: result.status == 200
+
+- name: Submit results to kiss cluster
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+    - update_state_when_kiss_node_is_running is defined and update_state_when_kiss_node_is_running
+  failed_when:
+    - assert_kiss_node_is_running is defined and assert_kiss_node_is_running
+    - result.status != 200
+  uri:
+    url: http://gateway.kiss.svc.ops.openark/new?address={{ ansible_ssh_host }}&uuid={{ ansible_host_uuid }}
+    method: GET
+    return_content: false
+  register: result
+  until: result.status == 200
+  retries: 5
+  delay: 5
+
+- name: Submit results to kiss cluster | Complete
+  when:
+    - kiss_node_is_running is defined and kiss_node_is_running
+    - result.status == 200
+    - update_state_when_kiss_node_is_running is defined and update_state_when_kiss_node_is_running
+  meta: end_play

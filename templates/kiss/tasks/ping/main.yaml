@@ -1,4 +1,9 @@
 ---
 - hosts: target
   tasks:
-    - include: ping-node.yaml
+    - name: Assert that node should be running
+      set_fact:
+        assert_kiss_node_is_running: true
+        update_state_when_kiss_node_is_running: false
+
+    - include: ../ping-node.yaml

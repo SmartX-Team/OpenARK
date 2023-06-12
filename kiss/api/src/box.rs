@@ -85,8 +85,11 @@ pub struct BoxSpec {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BoxStatus {
+    #[serde(default)]
     pub state: BoxState,
+    #[serde(default)]
     pub access: BoxAccessSpec,
+    #[serde(default)]
     pub bind_group: Option<BoxGroupSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -117,6 +120,12 @@ pub enum BoxState {
     Disconnected,
 }
 
+impl Default for BoxState {
+    fn default() -> Self {
+        Self::New
+    }
+}
+
 impl BoxState {
     pub const fn as_task(&self) -> Option<&'static str> {
         match self {
@@ -132,7 +141,7 @@ impl BoxState {
     pub const fn cron(&self) -> Option<&'static str> {
         match self {
             Self::Running => Some("@hourly"),
-            // Self::GroupChanged | Self::Failed | Self::Disconnected => Some("@hourly"),
+            Self::GroupChanged | Self::Failed | Self::Disconnected => Some("@hourly"),
             _ => None,
         }
     }

@@ -1,8 +1,0 @@
----
-- import_playbook: >
-    /kubespray/remove-node.yml
-    allow_ungraceful_removal="true"
-    node="target"
-    reset_nodes="false"
-    skip_confirmation="true"
-  ignore_errors: true

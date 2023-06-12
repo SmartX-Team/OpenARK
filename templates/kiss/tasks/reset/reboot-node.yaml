@@ -1,24 +1,16 @@
 ---
 - name: Power | IPMI | Install core python packages
+  when:
+    - kiss_node_is_running is not defined or not kiss_node_is_running
   delegate_to: localhost
   pip:
     name:
       - pyghmi
 
-# TODO: should we use it?
-# - name: Power | IPMI | Change boot order to PXE-first
-#   when: kiss_power_ipmi_host is defined and kiss_power_ipmi_host != ""
-#   delegate_to: localhost
-#   ipmi_boot:
-#     name: "{{ kiss_power_ipmi_host }}"
-#     user: "{{ kiss_power_ipmi_username }}"
-#     password: "{{ kiss_power_ipmi_password }}"
-#     bootdev: network
-#     persistent: true
-#   ignore_errors: true
-
 - name: Power | IPMI | Reset node's power
-  when: kiss_power_ipmi_host is defined and kiss_power_ipmi_host != ""
+  when:
+    - kiss_node_is_running is not defined or not kiss_node_is_running
+    - kiss_power_ipmi_host is defined and kiss_power_ipmi_host != ""
   delegate_to: localhost
   ipmi_power:
     name: "{{ kiss_power_ipmi_host }}"

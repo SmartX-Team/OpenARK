@@ -1,6 +1,9 @@
 ---
 - hosts: target
-  gather_facts: false
   tasks:
-    - include: reboot-node.yaml
-# - import_playbook: remove-node.yaml
+    - name: Just check that node is running and Ignore errors
+      set_fact:
+        assert_kiss_node_is_running: false
+        update_state_when_kiss_node_is_running: true
+
+    - include: ./reboot-node.yaml
