@@ -24,6 +24,10 @@ use serde::{Deserialize, Serialize};
 pub struct UserRoleSpec {
     #[serde(default)]
     pub is_admin: bool,
+    #[serde(default)]
+    pub is_dev: bool,
+    #[serde(default)]
+    pub is_ops: bool,
 }
 
 impl ops::BitOr for UserRoleSpec {
@@ -32,6 +36,8 @@ impl ops::BitOr for UserRoleSpec {
     fn bitor(self, rhs: Self) -> Self::Output {
         Self {
             is_admin: self.is_admin || rhs.is_admin,
+            is_dev: self.is_dev || rhs.is_dev,
+            is_ops: self.is_ops || rhs.is_ops,
         }
     }
 }
