@@ -204,9 +204,10 @@ pub enum FunctionActorClient {
 
 impl FunctionActorClient {
     pub async fn try_new(namespace: &str, kube: &Client, spec: &FunctionActorSpec) -> Result<Self> {
+        let use_prefix = true;
         match spec {
             FunctionActorSpec::Job(spec) => {
-                FunctionActorJobClient::try_new(namespace.into(), kube, spec)
+                FunctionActorJobClient::try_new(namespace.into(), kube, spec, use_prefix)
                     .await
                     .map(Box::new)
                     .map(Self::Job)

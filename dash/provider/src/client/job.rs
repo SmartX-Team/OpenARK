@@ -6,7 +6,8 @@ use dash_provider_api::job::{FunctionActorJobMetadata, FunctionChannelKindJob, T
 use kube::{
     api::{DeleteParams, Patch, PatchParams, PostParams},
     core::DynamicObject,
-    discovery, Api, Client, ResourceExt,
+    discovery::{self, Scope},
+    Api, Client,
 };
 use serde::Serialize;
 use tera::{Context, Tera};
@@ -21,6 +22,7 @@ pub struct FunctionActorJobClient {
     name: String,
     namespace: String,
     tera: Tera,
+    use_prefix: bool,
 }
 
 impl FunctionActorJobClient {
@@ -28,6 +30,7 @@ impl FunctionActorJobClient {
         namespace: String,
         kube: &Client,
         spec: &FunctionActorJobSpec,
+        use_prefix: bool,
     ) -> Result<Self> {
         let client = KubernetesStorageClient {
             namespace: &namespace,
@@ -43,6 +46,7 @@ impl FunctionActorJobClient {
             namespace,
             name,
             &content,
+            use_prefix,
         )
     }
 
@@ -51,6 +55,7 @@ impl FunctionActorJobClient {
         namespace: String,
         kube: Client,
         path: &str,
+        use_prefix: bool,
     ) -> Result<Self> {
         let mut tera = match Tera::new(path) {
             Ok(tera) => tera,
@@ -67,6 +72,7 @@ impl FunctionActorJobClient {
             name: Default::default(),
             namespace,
             tera,
+            use_prefix,
         })
     }
 
@@ -76,6 +82,7 @@ impl FunctionActorJobClient {
         namespace: String,
         name: &str,
         content: &str,
+        use_prefix: bool,
     ) -> Result<Self> {
         let mut tera = Tera::default();
         tera.add_raw_template(name, content)?;
@@ -86,6 +93,7 @@ impl FunctionActorJobClient {
             name: name.to_string(),
             namespace,
             tera,
+            use_prefix,
         })
     }
 }
@@ -206,16 +214,33 @@ impl FunctionActorJobClient {
         // create templates
 
         let mut apis = vec![];
-        for template in templates {
-            let name = template.name_any();
-            let namespace = if template.metadata.namespace.is_some() {
-                Some(&self.namespace)
-            } else {
-                None
+        for mut template in templates {
+            let name = {
+                let prefix = &input.metadata.name;
+                let name = template.metadata.name.get_or_insert_with(|| prefix.clone());
+
+                if self.use_prefix && !name.starts_with(prefix) {
+                    bail!("name should be started with {prefix:?}: {name:?}",)
+                }
+                name
             };
+
+            let namespace = {
+                let prefix = &input.metadata.namespace;
+                let namespace = template
+                    .metadata
+                    .namespace
+                    .get_or_insert_with(|| prefix.clone());
+
+                if self.use_prefix && !namespace.starts_with(prefix) {
+                    bail!("namespace should be started with {prefix:?}: {namespace:?}",)
+                }
+                namespace
+            };
+
             let types = match template.types.as_ref() {
                 Some(types) => types,
-                None => bail!("untyped document is not supported: {name}"),
+                None => bail!("untyped document is not supported: {name:?}"),
             };
 
             let (api_group, version) = {
@@ -228,22 +253,29 @@ impl FunctionActorJobClient {
 
             // Discover most stable version variant of document
             let apigroup = discovery::group(&self.kube, api_group).await?;
-            let (ar, _caps) = match version {
+            let (ar, caps) = match match version {
                 Some(version) => apigroup.versioned_resources(version),
                 None => apigroup.recommended_resources(),
             }
             .into_iter()
             .find(|(ar, _)| ar.kind == types.kind)
-            .unwrap();
+            {
+                Some((ar, caps)) => (ar, caps),
+                None => bail!(
+                    "Cannot find CRD: {kind}.{api_version}",
+                    api_version = types.api_version,
+                    kind = types.kind,
+                ),
+            };
 
             // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
-            let api: Api<DynamicObject> = match namespace {
-                Some(namespace) => Api::namespaced_with(self.kube.clone(), namespace, &ar),
-                None => Api::all_with(self.kube.clone(), &ar),
+            let api: Api<DynamicObject> = match caps.scope {
+                Scope::Cluster => Api::all_with(self.kube.clone(), &ar),
+                Scope::Namespaced => Api::namespaced_with(self.kube.clone(), namespace, &ar),
             };
             apis.push(Template {
                 api,
-                name,
+                name: name.clone(),
                 template,
             });
         }
