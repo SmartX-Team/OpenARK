@@ -311,6 +311,10 @@ all:
         # will receive the packets.
         # kubelet_secure_addresses: 192.168.10.110 192.168.10.111 192.168.10.112
 
+        # Fill values override here
+        # See upstream https://github.com/postfinance/kubelet-csr-approver
+        kubelet_csr_approver_values: {}
+
         # additional configurations
         kube_owner: root
         kube_cert_group: root
