@@ -402,8 +402,7 @@ impl ModelFieldsParser {
     }
 
     fn finalize(mut self) -> Result<ModelFieldsNativeSpec> {
-        fn finalize_aggregation_type<'k, 'c, Keys, Key, Children, Child>(
-            map: &mut ModelFieldsNativeMap,
+        fn assert_aggregation_type<'k, 'c, Keys, Key, Children, Child>(
             keys: &'k Keys,
             name: &str,
             children: &'c Children,
@@ -418,12 +417,14 @@ impl ModelFieldsParser {
                 assert_child(name, "children", child)?;
                 assert_contains(name, "fields", keys, "children", Some(child))?;
             }
-
-            let parent = parent_name(name);
-            create_parent_object(map, parent)
+            Ok(())
         }
 
-        fn create_parent_object(map: &mut ModelFieldsNativeMap, name: Option<&str>) -> Result<()> {
+        fn create_parent_object(
+            map: &mut ModelFieldsNativeMap,
+            generated_aggregations: &mut BTreeSet<String>,
+            name: Option<&str>,
+        ) -> Result<()> {
             match name {
                 Some(name) => {
                     let children: BTreeSet<_> = map
@@ -433,11 +434,13 @@ impl ModelFieldsParser {
                         .collect();
 
                     match map.get(name) {
-                        Some(field) => match field.kind.get_children() {
-                            Some(given) => assert_children(name, &children, given),
-                            None => Ok(()),
-                        },
-                        None => {
+                        Some(field) if !generated_aggregations.contains(name) => {
+                            match field.kind.get_children() {
+                                Some(given) => assert_children(name, &children, given),
+                                None => Ok(()),
+                            }
+                        }
+                        Some(_) | None => {
                             let field = ModelFieldNativeSpec {
                                 name: name.to_string(),
                                 kind: ModelFieldKindNativeSpec::Object {
@@ -447,13 +450,27 @@ impl ModelFieldsParser {
                                 attribute: ModelFieldAttributeSpec { optional: false },
                             };
                             map.insert(name.to_string(), field);
+                            generated_aggregations.insert(name.to_string());
 
-                            create_parent_object(map, parent_name(name))
+                            create_parent_object(map, generated_aggregations, parent_name(name))
                         }
                     }
                 }
                 None => Ok(()),
             }
+        }
+
+        fn create_parent_objects(
+            map: &mut ModelFieldsNativeMap,
+            generated_aggregations: &mut BTreeSet<String>,
+            name: &str,
+        ) -> Result<()> {
+            let mut name = Some(name);
+            while let Some(child_name) = name {
+                name = parent_name(child_name);
+                create_parent_object(map, generated_aggregations, name)?;
+            }
+            Ok(())
         }
 
         fn assert_children<'e, 'g, ExpectedList, Expected, GivenList, Given>(
@@ -499,10 +516,12 @@ impl ModelFieldsParser {
         let keys: Vec<_> = self.map.keys().cloned().collect();
 
         // parse aggregation types
+        let mut generated_aggregations = Default::default();
         for (name, field) in self.map.clone() {
             if let Some(children) = field.kind.get_children() {
-                finalize_aggregation_type(&mut self.map, &keys, &name, children)?;
+                assert_aggregation_type(&keys, &name, children)?;
             }
+            create_parent_objects(&mut self.map, &mut generated_aggregations, &name)?;
         }
 
         Ok(self.map.into_values().collect())
