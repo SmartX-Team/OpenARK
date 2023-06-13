@@ -1,3 +1,6 @@
+###########################################################
+#   Namespace                                             #
+###########################################################
 ---
 apiVersion: v1
 kind: Namespace
@@ -5,3 +8,86 @@ metadata:
   name: "{{ metadata.namespace }}"
   annotations:
     scheduler.alpha.kubernetes.io/node-selector: "ark.ulagbulag.io/bind.user={{ spec.userName }}"
+###########################################################
+#   Service Account                                       #
+###########################################################
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: account
+  namespace: "{{ metadata.namespace }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: account
+  namespace: "{{ metadata.namespace }}"
+rules:
+  - apiGroups:
+      - dash.ulagbulag.io
+    resources:
+      - dashjob
+    verbs:
+      - get
+      - list
+{% if spec.role is object %}
+{% if spec.role.isAdmin || spec.role.isDev %}
+  - apiGroups:
+      - ""
+    resources:
+      - pod
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ark.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - dash.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - dash.ulagbulag.io
+    resources:
+      - dashjob
+    verbs:
+      - "*"
+{% endif %}
+{% if spec.role.isAdmin || spec.role.isOps %}
+  - apiGroups:
+      - ark.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+  - apiGroups:
+      - dash.ulagbulag.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+{% endif %}
+{% endif %}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: account
+  namespace: "{{ metadata.namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: account
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: account
+    namespace: "{{ metadata.namespace }}"
