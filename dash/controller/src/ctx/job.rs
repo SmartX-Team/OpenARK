@@ -38,6 +38,9 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let name = data.name_any();
         let namespace = data.namespace().unwrap();
 
+        let now = Utc::now();
+        let completed_job_gc_timeout = ::chrono::Duration::minutes(20);
+
         let validator = DashJobValidator {
             kubernetes_storage: KubernetesStorageClient {
                 namespace: &namespace,
@@ -83,7 +86,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                 }
                 Err(e) => {
-                    warn!("failed to spawn dash jobs: {name:?}: {e}");
+                    warn!("failed to spawn dash jobs: {namespace:?}/{name:?}: {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
@@ -104,24 +107,44 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                     .map(|_| Action::await_change()),
                     Err(e) => {
-                        warn!("failed to delete dash job: {name:?}: {e}");
+                        warn!("failed to delete dash job: {namespace:?}/{name:?}: {e}");
                         Ok(Action::requeue(
                             <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                         ))
                     }
                 },
                 Err(e) => {
-                    warn!("failed to check dash job state: {name:?}: {e}");
+                    warn!("failed to check dash job state: {namespace:?}/{name:?}: {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
                 }
             },
-            DashJobState::Completed => Ok(Action::await_change()),
+            DashJobState::Completed => {
+                if data
+                    .status
+                    .as_ref()
+                    .map(|status| now - status.last_updated >= completed_job_gc_timeout)
+                    .unwrap_or(true)
+                {
+                    warn!("cleaning up completed job: {namespace:?}/{name:?}");
+                    Self::update_spec_or_requeue(
+                        &namespace,
+                        &manager.kube,
+                        &name,
+                        None,
+                        DashJobState::Completed,
+                    )
+                    .await
+                    .map(|_| Action::await_change())
+                } else {
+                    Ok(Action::await_change())
+                }
+            }
             DashJobState::Deleting => match validator.delete(data.as_ref().clone()).await {
                 Ok(_) => Self::remove_finalizer_or_requeue(&namespace, &manager.kube, &name).await,
                 Err(e) => {
-                    warn!("failed to delete dash job: {name:?}: {e}");
+                    warn!("failed to delete dash job: {namespace:?}/{name:?}: {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
@@ -141,13 +164,13 @@ impl Ctx {
     ) -> Result<Action, Error> {
         match Self::update_spec(namespace, kube, name, channel, state).await {
             Ok(()) => {
-                info!("dash job is {state}: {name}");
+                info!("dash job is {state}: {namespace:?}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to update dash job state ({name:?} => {state}): {e}");
+                warn!("failed to update dash job state ({namespace:?}/{name:?} => {state}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
@@ -193,11 +216,11 @@ impl Ctx {
         );
         match <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer(api, name).await {
             Ok(()) => {
-                info!("dash job has finalized: {name}");
+                info!("dash job has finalized: {namespace:?}/{name}");
                 Ok(Action::await_change())
             }
             Err(e) => {
-                warn!("failed to finalize dash job state ({name}): {e}");
+                warn!("failed to finalize dash job state ({namespace:?}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
