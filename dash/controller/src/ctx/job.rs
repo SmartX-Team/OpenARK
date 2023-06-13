@@ -133,7 +133,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         &manager.kube,
                         &name,
                         None,
-                        DashJobState::Completed,
+                        DashJobState::Deleting,
                     )
                     .await
                     .map(|_| Action::await_change())
