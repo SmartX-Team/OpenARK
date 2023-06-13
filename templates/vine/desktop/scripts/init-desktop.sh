@@ -104,9 +104,5 @@ rm -f .zshrc
 mv .zshrc-bak .zshrc
 popd
 
-# Disable screen blanking
-xset -dpms
-xset s off
-
 # Finished!
 exec touch "${LOCKFILE}"
