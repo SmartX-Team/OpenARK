@@ -138,7 +138,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                     .map(|_| Action::await_change())
                 } else {
-                    Ok(Action::await_change())
+                    Ok(Action::requeue(completed_job_gc_timeout.to_std().unwrap()))
                 }
             }
             DashJobState::Deleting => match validator.delete(data.as_ref().clone()).await {
