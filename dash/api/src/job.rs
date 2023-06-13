@@ -34,6 +34,7 @@ use strum::{Display, EnumString};
 pub struct DashJobSpec {
     pub function: String,
     #[serde(default)]
+    #[schemars(schema_with = "DashJobCrd::preserve_arbitrary")]
     pub value: BTreeMap<String, Value>,
 }
 
@@ -43,6 +44,15 @@ impl DashJobCrd {
     pub const LABEL_TARGET_FUNCTION: &'static str = "dash.ulagbulag.io/target-function";
     pub const LABEL_TARGET_FUNCTION_NAMESPACE: &'static str =
         "dash.ulagbulag.io/target-function-namespace";
+
+    fn preserve_arbitrary(
+        _gen: &mut ::schemars::gen::SchemaGenerator,
+    ) -> ::schemars::schema::Schema {
+        let mut obj = ::schemars::schema::SchemaObject::default();
+        obj.extensions
+            .insert("x-kubernetes-preserve-unknown-fields".into(), true.into());
+        ::schemars::schema::Schema::Object(obj)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
