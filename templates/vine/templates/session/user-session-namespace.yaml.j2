@@ -32,7 +32,7 @@ rules:
       - get
       - list
 {% if spec.role is object %}
-{% if spec.role.isAdmin || spec.role.isDev %}
+{% if spec.role.isAdmin or spec.role.isDev %}
   - apiGroups:
       - ""
     resources:
@@ -61,7 +61,7 @@ rules:
     verbs:
       - "*"
 {% endif %}
-{% if spec.role.isAdmin || spec.role.isOps %}
+{% if spec.role.isAdmin or spec.role.isOps %}
   - apiGroups:
       - ""
     resources:
