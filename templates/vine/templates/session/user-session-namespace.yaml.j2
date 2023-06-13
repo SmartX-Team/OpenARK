@@ -63,6 +63,12 @@ rules:
 {% endif %}
 {% if spec.role.isAdmin || spec.role.isOps %}
   - apiGroups:
+      - ""
+    resources:
+      - configmap
+    verbs:
+      - "*"
+  - apiGroups:
       - ark.ulagbulag.io
     resources:
       - "*"
