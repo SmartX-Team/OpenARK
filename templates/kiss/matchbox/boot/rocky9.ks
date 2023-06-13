@@ -410,7 +410,7 @@ SCREEN_HEIGHT="480"
 # Configure screen size
 function update_screen_size() {
     echo "Finding primary display..."
-    display="$(xrandr --listactivemonitors | head -n 2 | tail -n 1 | awk '{print $4}')"
+    display="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
     if [ "${display}" == "" ]; then
         echo 'Display not found!'
         exit 1
