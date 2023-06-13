@@ -7,10 +7,6 @@
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Disable screen blanking
-xset -dpms
-xset s off
-
 # Get the screen size
 SCREEN_WIDTH="640"
 SCREEN_HEIGHT="480"
@@ -34,6 +30,11 @@ function update_screen_size() {
         xrandr --output "${display}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
         sleep 1
     done
+
+    # Disable screen blanking
+    echo "Disabling screen blanking..."
+    xset -dpms
+    xset s off
 }
 
 # Configure firefox window
