@@ -479,20 +479,3 @@ spec:
   storageClassName: "{{ spec.boxQuota.storageClassName }}"
 {% endif %}
 {% endif %}
-# ---
-# apiVersion: v1
-# kind: PersistentVolumeClaim
-# metadata:
-#   name: desktop-shared
-#   namespace: "{{ metadata.namespace }}"
-# spec:
-#   accessModes:
-#     - ReadWriteMany
-#   dataSourceRef:
-#     apiGroup: v1
-#     kind: PersistentVolumeClaim
-#     name: desktop-shared
-#     namespace: vine-guest
-#   resources:
-#     requests:
-#       storage: 1Ti
