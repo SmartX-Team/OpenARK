@@ -87,9 +87,15 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 }
                 Err(e) => {
                     warn!("failed to spawn dash jobs: {namespace:?}/{name:?}: {e}");
-                    Ok(Action::requeue(
-                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                    ))
+                    Self::update_spec_or_requeue(
+                        &namespace,
+                        &manager.kube,
+                        &name,
+                        None,
+                        DashJobState::Error,
+                    )
+                    .await
+                    .map(|_| Action::await_change())
                 }
             },
             DashJobState::Running => match validator.is_running(data.as_ref().clone()).await {
@@ -120,14 +126,17 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     ))
                 }
             },
-            DashJobState::Completed => {
+            DashJobState::Error | DashJobState::Completed => {
                 if data
                     .status
                     .as_ref()
                     .map(|status| now - status.last_updated >= completed_job_gc_timeout)
                     .unwrap_or(true)
                 {
-                    warn!("cleaning up completed job: {namespace:?}/{name:?}");
+                    warn!(
+                        "cleaning up {state} job: {namespace:?}/{name:?}",
+                        state = data.status.as_ref().map(|status| status.state).unwrap(),
+                    );
                     Self::update_spec_or_requeue(
                         &namespace,
                         &manager.kube,

@@ -82,6 +82,7 @@ pub struct DashJobStatus {
 pub enum DashJobState {
     Pending,
     Running,
+    Error,
     Completed,
     Deleting,
 }
