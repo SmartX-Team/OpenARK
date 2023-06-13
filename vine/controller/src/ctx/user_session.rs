@@ -31,16 +31,26 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             Some(user_name) => UserCrd::user_namespace_with(user_name),
             None => {
                 info!("skipping unbinding node ({name}): user not found");
-                return Ok(Action::requeue(
-                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                ));
+                return Ok(Action::await_change());
             }
         };
+
+        if data
+            .labels()
+            .get(::ark_api::consts::LABEL_BIND_PERSISTENT)
+            .map(|persistent| persistent == "true")
+            .unwrap_or_default()
+        {
+            info!(
+                "skipping unbinding node ({name}): node is allocated persistently to {namespace:?}"
+            );
+            return Ok(Action::await_change());
+        }
 
         let session_manager = match SessionManager::try_new(namespace, manager.kube.clone()).await {
             Ok(session_manager) => session_manager,
             Err(e) => {
-                warn!("failed to creata a SessionManager: {e}");
+                warn!("failed to create a SessionManager: {e}");
                 return Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ));

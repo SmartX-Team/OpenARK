@@ -48,7 +48,11 @@ function update_window() {
 
 while :; do
     echo "Waiting until logged out..."
-    while [ -d "/tmp/.vine/.login.lock" ]; do
+    while [ "$(
+        kubectl get node "${NODENAME}" \
+            --output jsonpath \
+            --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
+    )" == 'true' ]; do
         sleep 3
     done
 
@@ -73,7 +77,11 @@ while :; do
     update_window 'Navigator'
 
     echo "Waiting until login is succeeded..."
-    until [ -d "/tmp/.vine/.login.lock" ]; do
+    until [ "$(
+        kubectl get node "${NODENAME}" \
+            --output jsonpath \
+            --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
+    )" == 'true' ]; do
         # Session Timeout
         NOW=$(date -u +%s)
         TIMEOUT_SECS="300" # 5 minutes

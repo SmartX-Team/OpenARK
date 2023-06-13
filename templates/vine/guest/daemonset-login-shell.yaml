@@ -4,6 +4,38 @@ kind: Namespace
 metadata:
   name: vine-guest
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vine-guest-system
+  namespace: vine-guest
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vine-guest-system
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - nodes
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vine-guest-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vine-guest-system
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: vine-guest-system
+    namespace: vine-guest
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -75,6 +107,7 @@ spec:
       securityContext:
         runAsUser: 2000
         fsGroup: 2000
+      serviceAccount: vine-guest-system
       terminationGracePeriodSeconds: 5
       volumes:
         - name: home

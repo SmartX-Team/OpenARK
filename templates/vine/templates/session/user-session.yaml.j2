@@ -137,8 +137,6 @@ spec:
               mountPath: /tmp
             - name: vine
               mountPath: /tmp/.vine
-            - name: vine-lock
-              mountPath: /tmp/.vine/.login.lock
             - name: vulkan-icd-loader
               mountPath: /etc/vulkan/icd.d
               readOnly: true
@@ -217,8 +215,6 @@ spec:
           hostPath:
             path: /tmp/.vine
             type: DirectoryOrCreate
-        - name: vine-lock
-          emptyDir: {}
         - name: vulkan-icd-loader
           hostPath:
             path: /usr/share/vulkan/icd.d

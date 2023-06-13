@@ -42,7 +42,8 @@ impl SessionManager {
             Some(templates_home) => {
                 let metadata = Default::default();
                 let templates_home = format!("{templates_home}/*.yaml.j2");
-                let client = FunctionActorJobClient::from_dir(metadata, namespace, kube, &templates_home)?;
+                let use_prefix = false;
+                let client = FunctionActorJobClient::from_dir(metadata, namespace, kube, &templates_home, use_prefix)?;
                 Ok(Self { client })
             },
             None => bail!("failed to parse the environment variable: VINE_SESSION_TEMPLATES_HOME = {templates_home:?}"),
@@ -51,7 +52,6 @@ impl SessionManager {
 }
 
 impl SessionManager {
-    const TEMPLATE_CLEANUP_FILENAME: &'static str = "user-session-cleanup.yaml.j2";
     const TEMPLATE_NAMESPACE_FILENAME: &'static str = "user-session-namespace.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
 
@@ -113,7 +113,6 @@ impl SessionManager {
         self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
-            .and_then(|()| self.delete_cleanup(&ctx))
             .and_then(|()| self.create_shared_pvc(&ctx))
             .and_then(|()| self.create_template(&ctx))
             .await
@@ -122,11 +121,9 @@ impl SessionManager {
     pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx = self.get_context(spec);
 
-        self.label_namespace(&ctx, None)
-            .and_then(|()| self.delete_template(&ctx))
+        self.delete_template(&ctx)
             .and_then(|()| self.delete_pods(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
-            .and_then(|()| self.create_cleanup(&ctx))
             .and_then(|()| self.label_node(ctx.spec.node, None))
             .await
     }
@@ -175,20 +172,6 @@ impl SessionManager {
             .await
             .map(|_| ())
             .map_err(Into::into)
-    }
-
-    async fn create_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
-        self.client
-            .create_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
-            .await
-            .map(|_| ())
-    }
-
-    async fn delete_cleanup(&self, ctx: &SessionContext<'_>) -> Result<()> {
-        self.client
-            .delete_named(Self::TEMPLATE_CLEANUP_FILENAME, ctx)
-            .await
-            .map(|_| ())
     }
 
     async fn label_namespace(
@@ -286,6 +269,7 @@ fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
         ::ark_api::consts::LABEL_BIND_BY_USER: user_name,
         ::ark_api::consts::LABEL_BIND_NODE: node_name,
         ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
+        ::ark_api::consts::LABEL_BIND_PERSISTENT: "false",
         ::ark_api::consts::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
     })
 }

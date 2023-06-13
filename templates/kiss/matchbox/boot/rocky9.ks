@@ -301,22 +301,6 @@ WantedBy=multi-user.target
 EOF
 ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
 
-# VINE Configuration
-cat <<EOF >/etc/systemd/system/vine-cleanup.service
-[Unit]
-Description=Cleanup all VINE sessions after reboot.
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/rm -rf /tmp/.vine/.login.lock/
-
-[Install]
-WantedBy=multi-user.target
-EOF
-ln -sf /etc/systemd/system/vine-cleanup.service /etc/systemd/system/multi-user.target.wants/vine-cleanup.service
-
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/
 cat <<EOF >/etc/sysctl.d/50-hugepages.conf
