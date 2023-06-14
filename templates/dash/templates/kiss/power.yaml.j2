@@ -2,10 +2,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
-  namespace: kiss
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
   labels:
-    name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
+    name: "{{ metadata.name }}"
     kissService: "false"
     serviceType: dash
 spec:
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        name: "dash-power-{{ spec.box.spec.machine.uuid }}-{{ spec.power }}"
+        name: "{{ metadata.name }}"
         kissService: "false"
         serviceType: dash
     spec:

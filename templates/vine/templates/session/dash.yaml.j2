@@ -2,10 +2,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
-  namespace: vine
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
   labels:
-    name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
+    name: "{{ metadata.name }}"
     vineService: "false"
     serviceType: dash
 spec:
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        name: "vine-session-{{ spec.box.metadata.name }}-{{ spec.type }}"
+        name: "{{ metadata.name }}"
         vineService: "false"
         serviceType: dash
     spec:

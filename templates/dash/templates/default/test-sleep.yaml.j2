@@ -2,16 +2,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: test-sleep
-  namespace: default
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
   labels:
-    name: test-sleep
+    name: "{{ metadata.name }}"
 spec:
   ttlSecondsAfterFinished: 1
   template:
     metadata:
       labels:
-        name: test-sleep
+        name: "{{ metadata.name }}"
     spec:
       affinity:
         nodeAffinity:
