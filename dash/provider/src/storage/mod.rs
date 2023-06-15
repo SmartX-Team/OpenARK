@@ -1,5 +1,6 @@
 mod db;
 mod kubernetes;
+mod object;
 
 use anyhow::{bail, Result};
 use dash_api::model::ModelFieldsNativeSpec;
@@ -9,12 +10,14 @@ use dash_api::model::{
 };
 use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
+use dash_api::storage::object::ModelStorageObjectSpec;
 use dash_api::storage::{ModelStorageKindSpec, ModelStorageSpec};
 use kube::{core::object::HasStatus, Client};
 use serde_json::Value;
 
-pub use self::db::DatabaseStorageClient;
-pub use self::kubernetes::KubernetesStorageClient;
+pub use self::{
+    db::DatabaseStorageClient, kubernetes::KubernetesStorageClient, object::ObjectStorageClient,
+};
 
 pub struct StorageClient<'namespace, 'kube> {
     pub namespace: &'namespace str,
@@ -61,6 +64,10 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                 self.get_by_storage_with_kubernetes(storage, model, ref_name)
                     .await
             }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                self.get_by_storage_with_object(storage, model, ref_name)
+                    .await
+            }
         }
     }
 
@@ -89,6 +96,19 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                 self.get_custom_resource(model, spec, ref_name).await
             }
         }
+    }
+
+    async fn get_by_storage_with_object(
+        &self,
+        storage: &ModelStorageObjectSpec,
+        model: &ModelCrd,
+        ref_name: &str,
+    ) -> Result<Option<Value>> {
+        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+            .await?
+            .get_session(model)
+            .get(ref_name)
+            .await
     }
 
     async fn get_custom_resource(
@@ -164,6 +184,9 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(storage) => {
                 self.list_by_storage_with_kubernetes(storage, model).await
             }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                self.list_by_storage_with_object(storage, model).await
+            }
         }
     }
 
@@ -190,6 +213,18 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                 self.list_custom_resource(model, spec).await
             }
         }
+    }
+
+    async fn list_by_storage_with_object(
+        &self,
+        storage: &ModelStorageObjectSpec,
+        model: &ModelCrd,
+    ) -> Result<Vec<Value>> {
+        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+            .await?
+            .get_session(model)
+            .get_list()
+            .await
     }
 
     async fn list_custom_resource(

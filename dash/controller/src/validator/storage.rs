@@ -2,11 +2,11 @@ use anyhow::{bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
     storage::{
-        db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec, ModelStorageCrd,
-        ModelStorageKindSpec, ModelStorageSpec,
+        db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
+        object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec,
     },
 };
-use dash_provider::storage::{DatabaseStorageClient, KubernetesStorageClient};
+use dash_provider::storage::{DatabaseStorageClient, KubernetesStorageClient, ObjectStorageClient};
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
@@ -19,16 +19,35 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
                 self.validate_model_storage_database(spec).await
             }
             ModelStorageKindSpec::Kubernetes(spec) => self.validate_model_storage_kubernetes(spec),
+            ModelStorageKindSpec::ObjectStorage(spec) => {
+                self.validate_model_storage_object(spec).await
+            }
         }
     }
 
-    async fn validate_model_storage_database(&self, spec: &ModelStorageDatabaseSpec) -> Result<()> {
-        DatabaseStorageClient::try_new(spec).await.map(|_| ())
+    async fn validate_model_storage_database(
+        &self,
+        storage: &ModelStorageDatabaseSpec,
+    ) -> Result<()> {
+        DatabaseStorageClient::try_new(storage).await.map(|_| ())
     }
 
-    fn validate_model_storage_kubernetes(&self, spec: &ModelStorageKubernetesSpec) -> Result<()> {
-        let ModelStorageKubernetesSpec {} = spec;
+    fn validate_model_storage_kubernetes(
+        &self,
+        storage: &ModelStorageKubernetesSpec,
+    ) -> Result<()> {
+        let ModelStorageKubernetesSpec {} = storage;
         Ok(())
+    }
+
+    async fn validate_model_storage_object(&self, storage: &ModelStorageObjectSpec) -> Result<()> {
+        ObjectStorageClient::try_new(
+            self.kubernetes_storage.kube,
+            self.kubernetes_storage.namespace,
+            storage,
+        )
+        .await
+        .map(|_| ())
     }
 
     pub(crate) async fn bind_model(
@@ -43,6 +62,9 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(storage) => {
                 self.bind_model_to_kubernetes(storage, model)
             }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                self.bind_model_to_object(storage, model).await
+            }
         }
     }
 
@@ -54,7 +76,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         DatabaseStorageClient::try_new(storage)
             .await?
             .get_session(model)
-            .create_table()
+            .update_table()
             .await
     }
 
@@ -68,5 +90,21 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelSpec::CustomResourceDefinitionRef(_) => Ok(()),
             _ => bail!("kubernetes storage can only used for CRDs"),
         }
+    }
+
+    async fn bind_model_to_object(
+        &self,
+        storage: &ModelStorageObjectSpec,
+        model: &ModelCrd,
+    ) -> Result<()> {
+        ObjectStorageClient::try_new(
+            self.kubernetes_storage.kube,
+            self.kubernetes_storage.namespace,
+            storage,
+        )
+        .await?
+        .get_session(model)
+        .create_bucket()
+        .await
     }
 }

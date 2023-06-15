@@ -1,6 +1,6 @@
 pub mod db;
 pub mod kubernetes;
-pub mod lake;
+pub mod object;
 pub mod warehouse;
 
 use chrono::{DateTime, Utc};
@@ -50,6 +50,7 @@ pub struct ModelStorageSpec {
 pub enum ModelStorageKindSpec {
     Database(self::db::ModelStorageDatabaseSpec),
     Kubernetes(self::kubernetes::ModelStorageKubernetesSpec),
+    ObjectStorage(self::object::ModelStorageObjectSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

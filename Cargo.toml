@@ -79,6 +79,7 @@ kube = { version = "0.82", default-features = false }
 language-tags = { version = "0.3", features = ["serde"] }
 log = { version = "0.4" }
 mime = { version = "0.3" }
+minio = { git = "https://github.com/minio/minio-rs" } # not deployed to crates.io
 ndarray = { version = "0.15", features = ["serde"] }
 num-traits = { version = "0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab", default-features = false, features = [

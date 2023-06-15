@@ -134,7 +134,7 @@ impl<'model> DatabaseStorageSession<'model> {
         self.get_model_fields().and_then(convert_fields_to_columns)
     }
 
-    pub async fn is_table_exists(&self) -> Result<bool> {
+    async fn is_table_exists(&self) -> Result<bool> {
         let (_, table_name) = self.get_table_name();
         let statement = Statement::from_string(
             self.db.get_database_backend(),
@@ -180,7 +180,7 @@ impl<'model> DatabaseStorageSession<'model> {
             .collect()
     }
 
-    pub async fn get_current_table_fields(&self) -> Result<Option<ModelFieldsNativeSpec>> {
+    async fn get_current_table_fields(&self) -> Result<Option<ModelFieldsNativeSpec>> {
         let (name, table_name) = self.get_table_name();
         let model_hash = self.get_model_hash()?;
 
@@ -220,7 +220,7 @@ impl<'model> DatabaseStorageSession<'model> {
         }
     }
 
-    pub async fn get_current_table_columns(&self) -> Result<Columns> {
+    async fn get_current_table_columns(&self) -> Result<Columns> {
         self.get_current_table_fields()
             .await
             .and_then(|fields| {
@@ -233,6 +233,10 @@ impl<'model> DatabaseStorageSession<'model> {
     }
 
     pub async fn create_table(&self) -> Result<()> {
+        if self.is_table_exists().await? {
+            return Ok(());
+        }
+
         let (name, table_name) = self.create_table_metadata().await?;
 
         let mut statement = Table::create();
@@ -287,6 +291,10 @@ impl<'model> DatabaseStorageSession<'model> {
     }
 
     pub async fn update_table(&self) -> Result<()> {
+        if !self.is_table_exists().await? {
+            return self.create_table().await;
+        }
+
         let (name, table_name) = self.get_table_name();
 
         let mut statement = Table::alter();
