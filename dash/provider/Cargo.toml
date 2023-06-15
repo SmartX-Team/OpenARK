@@ -38,11 +38,7 @@ kube = { workspace = true, features = [
 ] }
 minio = { workspace = true }
 regex = { workspace = true }
-reqwest = { workspace = true, default-features = false, features = [
-    "json",
-    "rustls-tls",
-    "stream",
-] } # depends on minio
+reqwest = { workspace = true, features = ["json"] } # depends on minio
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
