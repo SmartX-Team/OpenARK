@@ -1,0 +1,82 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: novnc
+  namespace: vine-guest
+spec:
+  selector:
+    matchLabels:
+      name: novnc
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: novnc
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS ephemeral control plane nodes should be excluded
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Desktop
+      containers:
+        - name: x11vnc
+          image: quay.io/ulagbulag/openark-vine-x11vnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DISPLAY
+              value: ":0"
+            - name: X11VNC_ARGS
+              value: -cursor most -noscr -nowcr -nowf -noxdamage
+            - name: X11VNC_MULTIPTR
+              value: "false"
+            - name: X11VNC_XKB
+              value: "true"
+          ports:
+            - name: vnc
+              protocol: TCP
+              containerPort: 5900
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 100Mi
+            limits:
+              cpu: 4000m
+              memory: 2Gi
+          volumeMounts:
+            - name: x11
+              mountPath: /tmp/.X11-unix
+        - name: novnc
+          image: quay.io/ulagbulag/openark-vine-novnc:latest
+          imagePullPolicy: Always
+          env:
+            - name: NOVNC_VNC_PATH
+              value: "/box/vnc/{{ spec.node.metadata.name }}/"
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 6080
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 100Mi
+            limits:
+              cpu: 4000m
+              memory: 2Gi
+      hostIPC: true
+      hostNetwork: true
+      securityContext:
+        runAsUser: 2000
+        fsGroup: 2000
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: x11
+          hostPath:
+            path: /tmp/.X11-unix
+            type: Directory

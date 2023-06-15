@@ -69,5 +69,12 @@ pushd "templates" && ./install.sh && popd
 # templates
 pushd "desktop" && ./install-scripts.sh && popd
 
+###########################################################
+#   Install VINE Desktop Guest Shells                     #
+###########################################################
+
+echo "- Installing VINE Desktop Guest Shells ... "
+pushd "guest" && ./install.sh && popd
+
 # Finished!
 echo "Installed!"

@@ -15,14 +15,6 @@
     force: true
   with_items: "{{ results.files }}"
 
-- name: Remove all network configurations | network | NetworkManager
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  file:
-    path: "{{ item.path }}"
-    state: absent
-    force: true
-  with_items: "{{ results.files }}"
-
 - name: List all network configurations | network | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   find:
@@ -30,6 +22,14 @@
       - /etc/NetworkManager/system-connections/
     pattern: "*.nmconnection"
   register: results
+
+- name: Remove all network configurations | network | NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  file:
+    path: "{{ item.path }}"
+    state: absent
+    force: true
+  with_items: "{{ results.files }}"
 
 - name: Enable primary interfaces | link | systemd-networkd
   when: kiss_allow_pruning_network_interfaces | default(False)
