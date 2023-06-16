@@ -393,22 +393,24 @@ SCREEN_HEIGHT="480"
 
 # Configure screen size
 function update_screen_size() {
-    echo "Finding primary display..."
-    display="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
-    if [ "${display}" == "" ]; then
+    echo "Finding displays..."
+    screens="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
+    if [ "${screens}" == "" ]; then
         echo 'Display not found!'
         exit 1
     fi
 
-    echo "Fixing screen size (${display})..."
-    until [ "$(
-        xrandr --current |
-            grep ' connected' |
-            grep -Po '[0-9]+x[0-9]+' |
-            head -n1
-    )" == "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" ]; do
-        xrandr --output "${display}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
-        sleep 1
+    for screen in $(echo -en "${screens}"); do
+        echo "Fixing screen size (${screen})..."
+        until [ "$(
+            xrandr --current |
+                grep ' connected' |
+                grep -Po '[0-9]+x[0-9]+' |
+                head -n1
+        )" == "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" ]; do
+            xrandr --output "${screen}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
+            sleep 1
+        done
     done
 }
 
