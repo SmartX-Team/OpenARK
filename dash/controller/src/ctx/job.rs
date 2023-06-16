@@ -86,7 +86,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                 }
                 Err(e) => {
-                    warn!("failed to spawn dash jobs: {namespace:?}/{name:?}: {e}");
+                    warn!("failed to spawn dash jobs ({namespace}/{name}): {e}");
                     Self::update_spec_or_requeue(
                         &namespace,
                         &manager.kube,
@@ -113,14 +113,14 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                     .map(|_| Action::await_change()),
                     Err(e) => {
-                        warn!("failed to delete dash job: {namespace:?}/{name:?}: {e}");
+                        warn!("failed to delete dash job ({namespace}/{name}): {e}");
                         Ok(Action::requeue(
                             <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                         ))
                     }
                 },
                 Err(e) => {
-                    warn!("failed to check dash job state: {namespace:?}/{name:?}: {e}");
+                    warn!("failed to check dash job state ({namespace}/{name}): {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
@@ -134,7 +134,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .unwrap_or(true)
                 {
                     warn!(
-                        "cleaning up {state} job: {namespace:?}/{name:?}",
+                        "cleaning up {state} job: {namespace}/{name}",
                         state = data.status.as_ref().map(|status| status.state).unwrap(),
                     );
                     Self::delete_or_requeue(&namespace, &manager.kube, &name).await
@@ -145,7 +145,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             DashJobState::Deleting => match validator.delete(data.as_ref().clone()).await {
                 Ok(_) => Self::remove_finalizer_or_requeue(&namespace, &manager.kube, &name).await,
                 Err(e) => {
-                    warn!("failed to delete dash job: {namespace:?}/{name:?}: {e}");
+                    warn!("failed to delete dash job ({namespace}/{name}): {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
@@ -171,7 +171,7 @@ impl Ctx {
                 ))
             }
             Err(e) => {
-                warn!("failed to update dash job state ({namespace:?}/{name:?} => {state}): {e}");
+                warn!("failed to update dash job state ({namespace}/{name} => {state}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))

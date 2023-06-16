@@ -60,24 +60,24 @@ base64 = { version = "0.21" }
 bytes = { version = "1.4" }
 chatgpt = { package = "chatgpt_rs", version = "1.1" }
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.1", features = ["env", "derive"] }
+clap = { version = "4.3", features = ["env", "derive"] }
 csv = { version = "1.2" }
-ctrlc = { version = "3.2" }
+ctrlc = { version = "3.4" }
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.4" }
 half = { version = "2.2" }
 home = { version = "0.5" }
-http-cache-reqwest = { version = "0.9", features = ["manager-cacache"] }
+http-cache-reqwest = { version = "0.10", features = ["manager-cacache"] }
 image = { version = "0.24" }
 inflector = { package = "Inflector", version = "0.11" }
-influxdb2 = { version = "0.3", default-features = false, features = ["rustls"] }
+influxdb2 = { version = "0.4", default-features = false, features = ["rustls"] }
 influxdb2-derive = { version = "0.1" }
 influxdb2-structmap = { version = "0.2" }
 ipnet = { version = "2.7", features = ["schemars", "serde"] }
 itertools = { version = "0.10" }
 k8s-openapi = { version = "0.18", features = ["schemars", "v1_26"] }
-kube = { version = "0.82", default-features = false }
+kube = { version = "0.83", default-features = false }
 language-tags = { version = "0.3", features = ["serde"] }
 log = { version = "0.4" }
 mime = { version = "0.3" }
@@ -101,15 +101,15 @@ ort = { version = "1.14", default-features = false, features = [
     "tensorrt",
 ] }
 paste = { version = "1.0" }
-pretty_env_logger = { version = "0.4" }
-regex = { version = "1.7" }
+pretty_env_logger = { version = "0.5" }
+regex = { version = "1.8" }
 reqwest = { version = "0.11", default-features = false, features = [
     "json",
     "rustls-tls",
     "stream",
 ] }
 reqwest-middleware = { version = "0.2" }
-rust-tokenizers = { package = "rust_tokenizers", version = "8.0" }
+rust-tokenizers = { package = "rust_tokenizers", version = "8.1" }
 schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
 sea-orm = { version = "0.11", features = [
     "macros",
@@ -126,10 +126,10 @@ serde_json = { version = "1.0" }
 serde_yaml = { version = "0.9" }
 sha2 = { version = "0.10" }
 strum = { version = "0.24", features = ["derive"] }
-tera = { version = "1.18" }
+tera = { version = "1.19" }
 tokio = { version = "1.28", features = ["macros", "rt"] }
-url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.2", features = ["js", "serde", "v4"] }
+url = { version = "2.4", features = ["serde"] }
+uuid = { version = "1.3", features = ["js", "serde", "v4"] }
 which = { version = "4.4" }
 
 [patch.crates-io]
