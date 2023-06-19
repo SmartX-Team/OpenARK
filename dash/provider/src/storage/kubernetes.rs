@@ -214,12 +214,11 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             })
             .filter(|binding| binding.spec.model == model_name)
             .filter_map(|binding| {
-                let name = binding.name_any();
                 binding
                     .status
                     .unwrap()
                     .storage
-                    .map(|storage| (name, storage))
+                    .map(|storage| (binding.spec.storage, storage))
             })
             .collect())
     }
