@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -31,14 +31,25 @@ pub trait Infer<'a> {
     ) -> Result<<Self as Infer<'a>>::GenesisResult>;
 }
 
-pub fn infer<K: AsRef<str>, R>(key: K) -> Result<R>
+pub fn infer<K, R>(key: K) -> Result<R>
 where
+    K: AsRef<str>,
     R: ::core::str::FromStr,
-    <R as ::core::str::FromStr>::Err: Into<Error> + Send + Sync + 'static,
+    <R as ::core::str::FromStr>::Err: 'static + Send + Sync + ::core::fmt::Display,
 {
     let key = key.as_ref();
 
-    ::std::env::var(key)
-        .map_err(|_| anyhow!("failed to find the environment variable: {key}"))
-        .and_then(|e| e.parse().map_err(Into::into))
+    infer_string(key).and_then(|e| {
+        e.parse()
+            .map_err(|error| anyhow!("failed to parse the environment variable ({key}): {error}"))
+    })
+}
+
+pub fn infer_string<K>(key: K) -> Result<String>
+where
+    K: AsRef<str>,
+{
+    let key = key.as_ref();
+
+    ::std::env::var(key).map_err(|_| anyhow!("failed to find the environment variable: {key}"))
 }

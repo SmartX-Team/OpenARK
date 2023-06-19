@@ -37,6 +37,7 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 minio = { workspace = true }
+rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json"] } # depends on minio
 sea-orm = { workspace = true }

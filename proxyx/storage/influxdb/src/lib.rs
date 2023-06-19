@@ -28,12 +28,12 @@ pub struct Client {
 
 impl Client {
     pub fn try_default() -> Result<Self> {
-        let host: String =
-            env::infer("INFLUXDB_HOST").unwrap_or_else(|_| "http://localhost:8086".into());
-        let org: String = env::infer("INFLUXDB_ORG_ID")?;
-        let token: String = env::infer("INFLUXDB_TOKEN")?;
-        let bucket: String = env::infer("INFLUXDB_BUCKET")?;
-        let namespace: String = env::infer("INFLUXDB_NAMESPACE")?;
+        let host =
+            env::infer_string("INFLUXDB_HOST").unwrap_or_else(|_| "http://localhost:8086".into());
+        let org = env::infer_string("INFLUXDB_ORG_ID")?;
+        let token = env::infer_string("INFLUXDB_TOKEN")?;
+        let bucket = env::infer_string("INFLUXDB_BUCKET")?;
+        let namespace = env::infer_string("INFLUXDB_NAMESPACE")?;
 
         Ok(Self {
             api: ::influxdb2::Client::new(host, org, token),

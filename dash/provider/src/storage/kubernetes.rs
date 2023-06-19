@@ -40,7 +40,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         Api::all(self.kube.clone())
     }
 
-    async fn api_custom_resource(
+    pub(super) async fn api_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
         resource_name: Option<&str>,
@@ -198,7 +198,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<ModelStorageSpec>> {
+    ) -> Result<Vec<(String, ModelStorageSpec)>> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
@@ -213,7 +213,14 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     .unwrap_or_default()
             })
             .filter(|binding| binding.spec.model == model_name)
-            .filter_map(|binding| binding.status.unwrap().storage)
+            .filter_map(|binding| {
+                let name = binding.name_any();
+                binding
+                    .status
+                    .unwrap()
+                    .storage
+                    .map(|storage| (name, storage))
+            })
             .collect())
     }
 

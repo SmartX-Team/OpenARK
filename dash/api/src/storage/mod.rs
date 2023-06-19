@@ -48,9 +48,9 @@ pub struct ModelStorageSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelStorageKindSpec {
-    Database(self::db::ModelStorageDatabaseSpec),
-    Kubernetes(self::kubernetes::ModelStorageKubernetesSpec),
-    ObjectStorage(self::object::ModelStorageObjectSpec),
+    Database(#[serde(default)] self::db::ModelStorageDatabaseSpec),
+    Kubernetes(#[serde(default)] self::kubernetes::ModelStorageKubernetesSpec),
+    ObjectStorage(#[serde(default)] self::object::ModelStorageObjectSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

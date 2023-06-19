@@ -188,7 +188,7 @@ impl<'a> SessionOutput<'a> {
 async fn load_model(model: impl Model) -> Result<::ort::Session> {
     // Specify model path
     let path: PathBuf = {
-        let models_home: String = env::infer("MODEL_HOME").unwrap_or_else(|_| "/models".into());
+        let models_home = env::infer_string("MODEL_HOME").unwrap_or_else(|_| "/models".into());
         let namespace = if env::infer("MODEL_USE_NAMESPACE").unwrap_or(true) {
             model.get_namespace()
         } else {

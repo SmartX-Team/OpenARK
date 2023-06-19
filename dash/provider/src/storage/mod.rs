@@ -12,6 +12,7 @@ use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_api::storage::object::ModelStorageObjectSpec;
 use dash_api::storage::{ModelStorageKindSpec, ModelStorageSpec};
+use kube::ResourceExt;
 use kube::{core::object::HasStatus, Client};
 use serde_json::Value;
 
@@ -41,8 +42,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     pub async fn get_by_model(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
-        for storage in self.get_model_storage_bindings(model_name).await? {
-            if let Some(value) = self.get_by_storage(&storage, &model, ref_name).await? {
+        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+            if let Some(value) = self
+                .get_by_storage(&storage, &storage_name, &model, ref_name)
+                .await?
+            {
                 return Ok(value);
             }
         }
@@ -52,6 +56,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_by_storage(
         &self,
         storage: &ModelStorageSpec,
+        storage_name: &str,
         model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
@@ -65,7 +70,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                     .await
             }
             ModelStorageKindSpec::ObjectStorage(storage) => {
-                self.get_by_storage_with_object(storage, model, ref_name)
+                self.get_by_storage_with_object(storage, storage_name, model, ref_name)
                     .await
             }
         }
@@ -101,10 +106,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_by_storage_with_object(
         &self,
         storage: &ModelStorageObjectSpec,
+        storage_name: &str,
         model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, storage_name, storage)
             .await?
             .get_session(model)
             .get(ref_name)
@@ -134,7 +140,10 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage.load_model(model_name).await
     }
 
-    async fn get_model_storage_bindings(&self, model_name: &str) -> Result<Vec<ModelStorageSpec>> {
+    async fn get_model_storage_bindings(
+        &self,
+        model_name: &str,
+    ) -> Result<Vec<(String, ModelStorageSpec)>> {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
             kube: self.kube,
@@ -166,7 +175,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     pub async fn list_by_model(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
-        for storage in self.get_model_storage_bindings(model_name).await? {
+        for (_, storage) in self.get_model_storage_bindings(model_name).await? {
             items.append(&mut self.list_by_storage(&storage, &model).await?);
         }
         Ok(items)
@@ -220,7 +229,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage: &ModelStorageObjectSpec,
         model: &ModelCrd,
     ) -> Result<Vec<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, &model.name_any(), storage)
             .await?
             .get_session(model)
             .get_list()

@@ -102,6 +102,7 @@ ort = { version = "1.14", default-features = false, features = [
 ] }
 paste = { version = "1.0" }
 pretty_env_logger = { version = "0.5" }
+rand = { version = "0.8" }
 regex = { version = "1.8" }
 reqwest = { version = "0.11", default-features = false, features = [
     "json",

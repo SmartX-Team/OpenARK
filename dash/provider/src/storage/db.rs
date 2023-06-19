@@ -8,7 +8,7 @@ use dash_api::{
         ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec, ModelState,
     },
     storage::db::{
-        ModelStorageDatabaseExternalSpec, ModelStorageDatabaseNativeSpec, ModelStorageDatabaseSpec,
+        ModelStorageDatabaseBorrowedSpec, ModelStorageDatabaseOwnedSpec, ModelStorageDatabaseSpec,
     },
 };
 use kube::ResourceExt;
@@ -37,34 +37,34 @@ impl<'model> DatabaseStorageClient {
 
     async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
         let db = match storage {
-            ModelStorageDatabaseSpec::Native(storage) => {
-                Self::load_storage_by_native(storage).await?
+            ModelStorageDatabaseSpec::Borrowed(storage) => {
+                Self::load_storage_by_borrowed(storage).await?
             }
-            ModelStorageDatabaseSpec::External(storage) => {
-                Self::load_storage_by_external(storage).await?
+            ModelStorageDatabaseSpec::Owned(storage) => {
+                Self::load_storage_by_owned(storage).await?
             }
         };
 
         Entity::init(&db).await.map(|()| db).map_err(Into::into)
     }
 
-    async fn load_storage_by_native(
-        storage: &ModelStorageDatabaseNativeSpec,
-    ) -> Result<DatabaseConnection> {
-        let ModelStorageDatabaseNativeSpec {} = storage;
-        let storage = ModelStorageDatabaseExternalSpec {
-            url: Self::NATIVE_URL.parse()?,
-        };
-
-        Self::load_storage_by_external(&storage).await
-    }
-
-    async fn load_storage_by_external(
-        storage: &ModelStorageDatabaseExternalSpec,
+    async fn load_storage_by_borrowed(
+        storage: &ModelStorageDatabaseBorrowedSpec,
     ) -> Result<DatabaseConnection> {
         Database::connect(storage.url.as_str())
             .await
             .map_err(Into::into)
+    }
+
+    async fn load_storage_by_owned(
+        storage: &ModelStorageDatabaseOwnedSpec,
+    ) -> Result<DatabaseConnection> {
+        let ModelStorageDatabaseOwnedSpec {} = storage;
+        let storage = ModelStorageDatabaseBorrowedSpec {
+            url: Self::NATIVE_URL.parse()?,
+        };
+
+        Self::load_storage_by_borrowed(&storage).await
     }
 }
 

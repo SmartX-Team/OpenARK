@@ -132,7 +132,7 @@ where
                     builder.add(ApplicationResource::EnvironmentVariable(
                         ApplicationEnvironmentVariable {
                             key: "DISPLAY",
-                            value: ":0",
+                            value: &env::infer_string("DISPLAY")?,
                         },
                     ))?;
                     builder.add(ApplicationResource::EnvironmentVariable(

@@ -22,7 +22,7 @@ spec:
 #   name: native # 스토리지 이름
 # spec:
 #   database: # 스토리지 종류 (예제에서는, 데이터베이스)
-#     native: {} # 데이터베이스 스토리지 종류 (예제에서는, 내장 데이터베이스)
+#     owned: {} # 데이터베이스 스토리지 종류 (예제에서는, 내장 데이터베이스)
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding

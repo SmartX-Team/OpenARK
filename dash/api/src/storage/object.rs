@@ -1,4 +1,8 @@
-use k8s_openapi::api::core::v1::ResourceRequirements;
+use std::collections::BTreeMap;
+
+use k8s_openapi::{
+    api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -9,6 +13,12 @@ use vine_api::user_auth::Url;
 pub enum ModelStorageObjectSpec {
     Borrowed(ModelStorageObjectBorrowedSpec),
     Owned(#[serde(default)] ModelStorageObjectOwnedSpec),
+}
+
+impl Default for ModelStorageObjectSpec {
+    fn default() -> Self {
+        Self::Owned(Default::default())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -41,7 +51,7 @@ impl ModelStorageObjectBorrowedSecretRefSpec {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectOwnedSpec {
     #[serde(default)]
@@ -49,6 +59,22 @@ pub struct ModelStorageObjectOwnedSpec {
 
     #[serde(default)]
     pub resources: ResourceRequirements,
+}
+
+impl Default for ModelStorageObjectOwnedSpec {
+    fn default() -> Self {
+        Self {
+            deletion_policy: Default::default(),
+            resources: ResourceRequirements {
+                requests: Some({
+                    let mut map = BTreeMap::default();
+                    map.insert("storage".into(), Quantity("64Mi".into()));
+                    map
+                }),
+                ..Default::default()
+            },
+        }
+    }
 }
 
 #[derive(

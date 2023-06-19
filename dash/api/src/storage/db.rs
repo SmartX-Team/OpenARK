@@ -5,22 +5,22 @@ use vine_api::user_auth::Url;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelStorageDatabaseSpec {
-    Native(#[serde(default)] ModelStorageDatabaseNativeSpec),
-    External(ModelStorageDatabaseExternalSpec),
+    Borrowed(ModelStorageDatabaseBorrowedSpec),
+    Owned(#[serde(default)] ModelStorageDatabaseOwnedSpec),
 }
 
 impl Default for ModelStorageDatabaseSpec {
     fn default() -> Self {
-        Self::Native(Default::default())
+        Self::Owned(Default::default())
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageDatabaseBorrowedSpec {
+    pub url: Url,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ModelStorageDatabaseNativeSpec {}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelStorageDatabaseExternalSpec {
-    pub url: Url,
-}
+pub struct ModelStorageDatabaseOwnedSpec {}

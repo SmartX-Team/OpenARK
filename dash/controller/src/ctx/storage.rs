@@ -52,7 +52,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         kube: &manager.kube,
                     },
                 };
-                match validator.validate_model_storage(&data.spec).await {
+                match validator.validate_model_storage(&name, &data.spec).await {
                     Ok(()) => {
                         Self::update_state_or_requeue(
                             &namespace,
