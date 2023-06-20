@@ -9,7 +9,7 @@ use dash_api::{
         ModelStorageObjectOwnedSpec, ModelStorageObjectSpec,
     },
 };
-use futures::future::try_join_all;
+use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::api::core::v1::Secret;
 use kube::{
     api::PostParams,
@@ -24,7 +24,7 @@ use minio::s3::{
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::{Method, Url};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 
 pub struct ObjectStorageClient {
@@ -125,7 +125,10 @@ impl<'model> ObjectStorageClient {
             Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
 
         let admin = MinioAdminClient { storage: &borrowed };
-        admin.add_site_replication(&owned).await?;
+        // TODO: verify and join endpoint
+        if !admin.is_site_replication_enabled().await? {
+            admin.add_site_replication(&owned).await?;
+        }
         Ok(owned)
     }
 
@@ -585,6 +588,38 @@ impl<'storage> MinioAdminClient<'storage> {
                     name = &self.storage.name,
                     origin = &self.storage.endpoint,
                     target = &target.endpoint,
+                )
+            })
+    }
+
+    async fn is_site_replication_enabled(&self) -> Result<bool> {
+        let origin = self.storage.get_client();
+
+        origin
+            .execute(
+                Method::GET,
+                &Default::default(),
+                &mut Default::default(),
+                &Default::default(),
+                Some("minio"),
+                Some("/admin/v3/site-replication/info"),
+                None,
+            )
+            .and_then(|resp| async move {
+                #[derive(Deserialize)]
+                struct Data {
+                    enabled: bool,
+                }
+
+                let data: Data = resp.json().await?;
+                Ok(data.enabled)
+            })
+            .await
+            .map_err(|error| {
+                anyhow!(
+                    "failed to check site replication ({name}: {origin}): {error}",
+                    name = &self.storage.name,
+                    origin = &self.storage.endpoint,
                 )
             })
     }
