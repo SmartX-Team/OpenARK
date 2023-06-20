@@ -53,6 +53,38 @@ pub enum ModelStorageKindSpec {
     ObjectStorage(#[serde(default)] self::object::ModelStorageObjectSpec),
 }
 
+impl ModelStorageKindSpec {
+    pub const fn to_kind(&self) -> ModelStorageKind {
+        match self {
+            Self::Database(_) => ModelStorageKind::Database,
+            Self::Kubernetes(_) => ModelStorageKind::Kubernetes,
+            Self::ObjectStorage(_) => ModelStorageKind::ObjectStorage,
+        }
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelStorageKind {
+    Database,
+    Kubernetes,
+    ObjectStorage,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageStatus {

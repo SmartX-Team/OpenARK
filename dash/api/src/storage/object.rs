@@ -12,6 +12,7 @@ use vine_api::user_auth::Url;
 #[serde(rename_all = "camelCase")]
 pub enum ModelStorageObjectSpec {
     Borrowed(ModelStorageObjectBorrowedSpec),
+    Cloned(ModelStorageObjectClonedSpec),
     Owned(#[serde(default)] ModelStorageObjectOwnedSpec),
 }
 
@@ -49,6 +50,16 @@ impl ModelStorageObjectBorrowedSecretRefSpec {
     fn default_map_secret_key() -> String {
         "secretAccessKey".into()
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageObjectClonedSpec {
+    #[serde(flatten)]
+    pub borrowed: ModelStorageObjectBorrowedSpec,
+
+    #[serde(flatten)]
+    pub owned: ModelStorageObjectOwnedSpec,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -6,7 +6,7 @@ use actix_web::{
 use ark_core::result::Result;
 use dash_provider::{
     input::Name,
-    storage::{KubernetesStorageClient, StorageClient},
+    storage::{KubernetesStorageClient, Storage, StorageClient},
 };
 use kube::Client;
 
@@ -78,7 +78,7 @@ pub async fn get_item(
         namespace: &namespace,
         kube,
     };
-    let result = client.get_by_model(&name.0 .0, &name.1).await;
+    let result = client.get(&name.0 .0, &name.1).await;
     HttpResponse::from(Result::from(result))
 }
 
@@ -98,6 +98,6 @@ pub async fn get_item_list(
         namespace: &namespace,
         kube,
     };
-    let result = client.list_by_model(&name.0).await;
+    let result = client.list(&name.0).await;
     HttpResponse::from(Result::from(result))
 }

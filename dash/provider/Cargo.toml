@@ -23,6 +23,7 @@ dash-provider-api = { path = "./api" }
 
 actix-web = { workspace = true, default-features = false }
 anyhow = { workspace = true }
+argon2 = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
@@ -36,6 +37,7 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+mime = { workspace = true }
 minio = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
@@ -45,5 +47,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
+sio = { workspace = true }
 tera = { workspace = true }
 uuid = { workspace = true }

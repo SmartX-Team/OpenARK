@@ -3,10 +3,12 @@ use dash_api::{
     model::{ModelCrd, ModelSpec},
     storage::{
         db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
-        object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec,
+        object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec,
+        ModelStorageSpec,
     },
 };
 use dash_provider::storage::{DatabaseStorageClient, KubernetesStorageClient, ObjectStorageClient};
+use itertools::Itertools;
 use kube::ResourceExt;
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
@@ -15,6 +17,9 @@ pub struct ModelStorageValidator<'namespace, 'kube> {
 
 impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     pub async fn validate_model_storage(&self, name: &str, spec: &ModelStorageSpec) -> Result<()> {
+        self.validate_model_storage_conflict(name, spec.kind.to_kind())
+            .await?;
+
         match &spec.kind {
             ModelStorageKindSpec::Database(spec) => {
                 self.validate_model_storage_database(spec).await
@@ -23,6 +28,26 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::ObjectStorage(spec) => {
                 self.validate_model_storage_object(name, spec).await
             }
+        }
+    }
+
+    async fn validate_model_storage_conflict(
+        &self,
+        name: &str,
+        kind: ModelStorageKind,
+    ) -> Result<()> {
+        let conflicted = self
+            .kubernetes_storage
+            .load_model_storages_by(|k| kind == k.to_kind())
+            .await?;
+
+        if conflicted.is_empty() {
+            Ok(())
+        } else {
+            bail!(
+                "model storage already exists ({name} => {kind}): {list:?}",
+                list = conflicted.into_iter().map(|item| item.name_any()).join(","),
+            )
         }
     }
 

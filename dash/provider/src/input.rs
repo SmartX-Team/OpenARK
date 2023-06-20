@@ -172,7 +172,9 @@ impl InputTemplate {
             ModelFieldKindNativeSpec::Object { .. } => {
                 let input = InputFieldValue {
                     name,
-                    value: storage.get(base_field.original.as_ref(), &value).await?,
+                    value: storage
+                        .get_by_field(base_field.original.as_ref(), &value)
+                        .await?,
                 };
                 self.update_field_value_impl(storage, input, optional).await
             }
@@ -354,7 +356,9 @@ impl InputTemplate {
                 Value::String(ref_name) => {
                     let input = InputFieldValue {
                         name,
-                        value: storage.get(base_field.original.as_ref(), &ref_name).await?,
+                        value: storage
+                            .get_by_field(base_field.original.as_ref(), &ref_name)
+                            .await?,
                     };
                     self.update_field_value_impl(storage, input, optional).await
                 }

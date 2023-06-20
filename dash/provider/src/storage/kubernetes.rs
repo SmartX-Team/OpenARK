@@ -3,7 +3,7 @@ use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
-    storage::{ModelStorageCrd, ModelStorageSpec, ModelStorageState},
+    storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
 };
 use itertools::Itertools;
 use k8s_openapi::{
@@ -193,6 +193,33 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             Some(status) if status.state == ModelStorageState::Ready => Ok(storage),
             Some(_) | None => bail!("model storage is not ready: {name:?}"),
         }
+    }
+
+    pub async fn load_model_storages_by<Filter>(
+        &self,
+        filter: Filter,
+    ) -> Result<Vec<ModelStorageCrd>>
+    where
+        Filter: Fn(&ModelStorageKindSpec) -> bool,
+    {
+        let api = self.api_namespaced::<ModelStorageCrd>();
+        let lp = ListParams::default();
+
+        api.list(&lp)
+            .await
+            .map(|list| {
+                list.items
+                    .into_iter()
+                    .filter(|item| {
+                        item.status
+                            .as_ref()
+                            .and_then(|status| status.kind.as_ref())
+                            .map(&filter)
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .map_err(Into::into)
     }
 
     pub async fn load_model_storage_bindings(

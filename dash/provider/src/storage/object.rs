@@ -1,11 +1,12 @@
-use std::{collections::BTreeMap, fmt};
+use std::{collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
     storage::object::{
         ModelStorageObjectBorrowedSecretRefSpec, ModelStorageObjectBorrowedSpec,
-        ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedSpec, ModelStorageObjectSpec,
+        ModelStorageObjectClonedSpec, ModelStorageObjectDeletionPolicy,
+        ModelStorageObjectOwnedSpec, ModelStorageObjectSpec,
     },
 };
 use futures::future::try_join_all;
@@ -17,15 +18,19 @@ use kube::{
 };
 use minio::s3::{
     args::{BucketExistsArgs, GetObjectArgs, ListObjectsV2Args, MakeBucketArgs},
-    creds::StaticProvider,
+    creds::{Provider, StaticProvider},
     http::BaseUrl,
+    utils::Multimap,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use reqwest::{Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
 pub struct ObjectStorageClient {
     base_url: BaseUrl,
+    endpoint: Url,
+    name: String,
     provider: StaticProvider,
     read_only: bool,
 }
@@ -50,7 +55,10 @@ impl<'model> ObjectStorageClient {
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
-                Self::load_storage_provider_by_borrowed(kube, namespace, storage).await
+                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
+            }
+            ModelStorageObjectSpec::Cloned(storage) => {
+                Self::load_storage_provider_by_cloned(kube, namespace, name, storage).await
             }
             ModelStorageObjectSpec::Owned(storage) => {
                 Self::load_storage_provider_by_owned(kube, namespace, name, storage).await
@@ -61,6 +69,7 @@ impl<'model> ObjectStorageClient {
     async fn load_storage_provider_by_borrowed(
         kube: &Client,
         namespace: &str,
+        name: &str,
         storage: &ModelStorageObjectBorrowedSpec,
     ) -> Result<Self> {
         let ModelStorageObjectBorrowedSpec {
@@ -92,6 +101,8 @@ impl<'model> ObjectStorageClient {
 
         Ok(Self {
             base_url: BaseUrl::from_string(endpoint.to_string())?,
+            endpoint: endpoint.0.clone(),
+            name: name.to_string(),
             provider: StaticProvider::new(
                 &get_secret_data(map_access_key)?,
                 &get_secret_data(map_secret_key)?,
@@ -101,6 +112,23 @@ impl<'model> ObjectStorageClient {
         })
     }
 
+    async fn load_storage_provider_by_cloned(
+        kube: &Client,
+        namespace: &str,
+        name: &str,
+        storage: &ModelStorageObjectClonedSpec,
+    ) -> Result<Self> {
+        let borrowed =
+            Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage.borrowed)
+                .await?;
+        let owned =
+            Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
+
+        let admin = MinioAdminClient { storage: &borrowed };
+        admin.add_site_replication(&owned).await?;
+        Ok(owned)
+    }
+
     async fn load_storage_provider_by_owned(
         kube: &Client,
         namespace: &str,
@@ -108,7 +136,7 @@ impl<'model> ObjectStorageClient {
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<Self> {
         let storage = Self::create_or_get_storage(kube, namespace, name, storage).await?;
-        Self::load_storage_provider_by_borrowed(kube, namespace, &storage).await
+        Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage).await
     }
 
     async fn create_or_get_storage(
@@ -344,7 +372,8 @@ export MINIO_ROOT_PASSWORD="{password}"
         }
 
         Ok(ModelStorageObjectBorrowedSpec {
-            endpoint: format!("http://minio.{namespace}.svc/").parse()?,
+            // TODO: use real cluster domain name (not ops.openark.)
+            endpoint: format!("http://minio.{namespace}.svc.ops.openark/").parse()?,
             read_only: false,
             secret_ref: ModelStorageObjectBorrowedSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
@@ -370,7 +399,6 @@ impl ObjectStorageClient {
         }
     }
 }
-
 pub struct ObjectStorageSession<'client, 'model> {
     client: ::minio::s3::client::Client<'client>,
     model: &'model ModelCrd,
@@ -440,5 +468,124 @@ impl<'client, 'model> ObjectStorageSession<'client, 'model> {
             .await
             .map(|_| ())
             .map_err(|error| anyhow!("failed to create a bucket ({bucket_name}): {error}"))
+    }
+}
+
+struct MinioAdminClient<'storage> {
+    storage: &'storage ObjectStorageClient,
+}
+
+impl<'storage> MinioAdminClient<'storage> {
+    async fn add_site_replication(&self, target: &ObjectStorageClient) -> Result<()> {
+        let origin = self.storage.get_client();
+        let origin_creds = self.storage.provider.fetch();
+        let target_creds = target.provider.fetch();
+
+        let sites = json! ([
+            {
+                "name": format!(
+                    "{origin},{target},{name}",
+                    name = &self.storage.name,
+                    origin = &self.storage.endpoint,
+                    target = &target.endpoint,
+                ),
+                "endpoints": &self.storage.endpoint,
+                "accessKey": origin_creds.access_key,
+                "secretKey": origin_creds.secret_key,
+            },
+            {
+                "name": format!(
+                    "{target},{origin},{name}",
+                    name = &target.name,
+                    origin = &self.storage.endpoint,
+                    target = &target.endpoint,
+                ),
+                "endpoints": &target.endpoint,
+                "accessKey": target_creds.access_key,
+                "secretKey": target_creds.secret_key,
+            },
+        ]);
+        let data = ::serde_json::to_vec(&sites)?;
+
+        // encrypt data
+        // NOTE: noted by https://gist.github.com/landhb/4df399c453e83ce2188159975bd00192
+        // NOTE: noted by https://github.com/minio/madmin-go/blob/272971af4f788b7be277a92aa16e31a02a29de27/encrypt.go
+        let ciphertext = {
+            // FIXME: use CryptoRng instead!
+            let mut rng = thread_rng();
+
+            let mut salt = [0u8; 32];
+            rng.fill(&mut salt);
+
+            const ID: u8 = 0x01; // argon2idChaCHa20Poly1305
+            let mut key = [0u8; 32];
+            ::argon2::Argon2::new(
+                Default::default(),
+                Default::default(),
+                ::argon2::Params::new(64 * 1024, 1, 4, Some(key.len())).unwrap(),
+            )
+            .hash_password_into(origin_creds.secret_key.as_bytes(), &salt, &mut key)
+            .unwrap();
+
+            let mut nonce = [0u8; 8];
+            rng.fill(&mut nonce);
+
+            let mut encrypted_data = {
+                // Load your secret keys from a secure location or derive
+                // them using a secure (password-based) key-derivation-function, like Argon2id.
+                // Obviously, don't use this all-zeros key for anything real.
+                let key = ::sio::Key::<::sio::CHACHA20_POLY1305>::new(key);
+
+                // Make sure you use an unique key-nonce combination!
+                // Reusing a nonce value for the same secret key breaks
+                // the security of the encryption algorithm.
+                let nonce = ::sio::Nonce::new(nonce);
+
+                // You must be able to re-generate this aad to decrypt
+                // the ciphertext again. Usually, it's stored together with
+                // the encrypted data.
+                let aad = ::sio::Aad::empty();
+
+                let mut buf = Vec::default(); // Store the ciphertext in memory.
+                let mut writer = ::sio::EncWriter::new(&mut buf, &key, nonce, aad);
+
+                writer.write_all(&data)?;
+                writer.close()?; // Complete the encryption process explicitly.
+                buf
+            };
+
+            // Prefix the ciphertext with salt, AEAD ID and nonce
+            let mut ciphertext = Vec::new();
+            ciphertext.append(&mut salt.to_vec());
+            ciphertext.push(ID);
+            ciphertext.append(&mut nonce.to_vec());
+            ciphertext.append(&mut encrypted_data);
+            ciphertext
+        };
+
+        origin
+            .execute(
+                Method::PUT,
+                &Default::default(),
+                &mut Default::default(),
+                &{
+                    let mut map = Multimap::default();
+                    map.insert("api-version".into(), "1".into());
+                    map
+                },
+                Some("minio"),
+                Some("/admin/v3/site-replication/add"),
+                Some(&ciphertext),
+            )
+            .await
+            .map(|_| ())
+            .map_err(|error| {
+                anyhow!(
+                    "failed to add site replication ({name}: {origin} => {target}): {error}",
+                    name = &self.storage.name,
+                    origin = &self.storage.endpoint,
+                    target = &target.endpoint,
+                )
+            })
     }
 }

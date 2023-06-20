@@ -3,6 +3,7 @@ mod kubernetes;
 mod object;
 
 use anyhow::{bail, Result};
+use async_trait::async_trait;
 use dash_api::model::ModelFieldsNativeSpec;
 use dash_api::model::{
     ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindSpec,
@@ -19,27 +20,21 @@ pub use self::{
     db::DatabaseStorageClient, kubernetes::KubernetesStorageClient, object::ObjectStorageClient,
 };
 
+#[async_trait]
+pub trait Storage {
+    async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value>;
+
+    async fn list(&self, model_name: &str) -> Result<Vec<Value>>;
+}
+
 pub struct StorageClient<'namespace, 'kube> {
     pub namespace: &'namespace str,
     pub kube: &'kube Client,
 }
 
-impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
-    pub async fn get(&self, spec: Option<&ModelFieldSpec>, ref_name: &str) -> Result<Value> {
-        match spec.map(|spec| &spec.kind) {
-            None | Some(ModelFieldKindSpec::Native(_)) => {
-                bail!("getting native value from storage is not supported: {ref_name:?}")
-            }
-            Some(ModelFieldKindSpec::Extended(kind)) => match kind {
-                // BEGIN reference types
-                ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    self.get_by_model(model_name.as_str(), ref_name).await
-                }
-            },
-        }
-    }
-
-    pub async fn get_by_model(&self, model_name: &str, ref_name: &str) -> Result<Value> {
+#[async_trait]
+impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
+    async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
         for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
             if let Some(value) = self
@@ -50,6 +45,39 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             }
         }
         bail!("no such object: {ref_name:?}")
+    }
+
+    async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
+        let model = self.get_model(model_name).await?;
+        let mut items = vec![];
+        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+            items.append(
+                &mut self
+                    .list_by_storage(&storage, &storage_name, &model)
+                    .await?,
+            );
+        }
+        Ok(items)
+    }
+}
+
+impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
+    pub(crate) async fn get_by_field(
+        &self,
+        spec: Option<&ModelFieldSpec>,
+        ref_name: &str,
+    ) -> Result<Value> {
+        match spec.map(|spec| &spec.kind) {
+            None | Some(ModelFieldKindSpec::Native(_)) => {
+                bail!("getting native value from storage is not supported: {ref_name:?}")
+            }
+            Some(ModelFieldKindSpec::Extended(kind)) => match kind {
+                // BEGIN reference types
+                ModelFieldKindExtendedSpec::Model { name: model_name } => {
+                    self.get(model_name.as_str(), ref_name).await
+                }
+            },
+        }
     }
 
     async fn get_by_storage(
@@ -157,33 +185,6 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
-    pub async fn list(&self, spec: Option<&ModelFieldSpec>) -> Result<Vec<Value>> {
-        match spec.map(|spec| &spec.kind) {
-            None | Some(ModelFieldKindSpec::Native(_)) => {
-                bail!("getting native value from storage is not supported")
-            }
-            Some(ModelFieldKindSpec::Extended(kind)) => match kind {
-                // BEGIN reference types
-                ModelFieldKindExtendedSpec::Model { name: model_name } => {
-                    self.list_by_model(model_name.as_str()).await
-                }
-            },
-        }
-    }
-
-    pub async fn list_by_model(&self, model_name: &str) -> Result<Vec<Value>> {
-        let model = self.get_model(model_name).await?;
-        let mut items = vec![];
-        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
-            items.append(
-                &mut self
-                    .list_by_storage(&storage, &storage_name, &model)
-                    .await?,
-            );
-        }
-        Ok(items)
-    }
-
     async fn list_by_storage(
         &self,
         storage: &ModelStorageSpec,
