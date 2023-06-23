@@ -10,7 +10,13 @@ use dash_api::{
     },
 };
 use futures::{future::try_join_all, TryFutureExt};
-use k8s_openapi::api::core::v1::Secret;
+use k8s_openapi::api::{
+    core::v1::Secret,
+    networking::v1::{
+        HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
+        IngressServiceBackend, IngressSpec, ServiceBackendPort,
+    },
+};
 use kube::{
     api::PostParams,
     core::{DynamicObject, ObjectMeta, TypeMeta},
@@ -71,6 +77,9 @@ impl<'model> ObjectStorageClient {
         name: &str,
         storage: &ModelStorageObjectBorrowedSpec,
     ) -> Result<Self> {
+        // TODO: Ingress 리다이렉팅 구현하기
+        // TODO: cloned, owned 의 경우에는 이를 무시하기 (=기존 함수를 별도 함수로 분리)
+
         let ModelStorageObjectBorrowedSpec {
             endpoint,
             secret_ref:
@@ -184,13 +193,6 @@ impl<'model> ObjectStorageClient {
         }
 
         let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
-        let api_tenant = {
-            let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
-            let spec = ModelCustomResourceDefinitionRefSpec {
-                name: "tenants.minio.min.io/v2".into(),
-            };
-            client.api_custom_resource(&spec, None).await?
-        };
 
         let pp = PostParams {
             dry_run: false,
@@ -279,11 +281,86 @@ export MINIO_ROOT_PASSWORD="{password}"
         };
 
         {
+            let name = "object-storage";
+            let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
+            get_or_create(&api_ingress, &pp, "ingress", name, || Ingress {
+                metadata: ObjectMeta {
+                    annotations: Some({
+                        let mut map = BTreeMap::default();
+                        map.insert(
+                            "cert-manager.io/cluster-issuer".into(),
+                            "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                        );
+                        map.insert(
+                            "kubernetes.io/ingress.class".into(),
+                            "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                        );
+                        map.insert(
+                            "nginx.ingress.kubernetes.io/proxy-read-timeout".into(),
+                            "3600".into(),
+                        );
+                        map.insert(
+                            "nginx.ingress.kubernetes.io/proxy-send-timeout".into(),
+                            "3600".into(),
+                        );
+                        map.insert(
+                            "nginx.ingress.kubernetes.io/rewrite-target".into(),
+                            "/$2".into(),
+                        );
+                        map.insert("vine.ulagbulag.io/is-service".into(), "true".into());
+                        map.insert("vine.ulagbulag.io/is-service-public".into(), "true".into());
+                        map.insert("vine.ulagbulag.io/is-service-system".into(), "true".into());
+                        map.insert(
+                            "vine.ulagbulag.io/service-kind".into(),
+                            "S3 Endpoint".into(),
+                        );
+                        map
+                    }),
+                    labels: Some(labels.clone()),
+                    name: Some(name.to_string()),
+                    namespace: Some(namespace.to_string()),
+                    ..Default::default()
+                },
+                spec: Some(IngressSpec {
+                    rules: Some(vec![IngressRule {
+                        host: Some("ingress-nginx-controller.vine.svc.ops.openark".into()),
+                        http: Some(HTTPIngressRuleValue {
+                            paths: vec![HTTPIngressPath {
+                                path: Some(format!("/data/s3/{namespace}(/|$)(.*)")),
+                                path_type: "Prefix".into(),
+                                backend: IngressBackend {
+                                    service: Some(IngressServiceBackend {
+                                        name: "minio".into(),
+                                        port: Some(ServiceBackendPort {
+                                            name: Some("http-minio".into()),
+                                            ..Default::default()
+                                        }),
+                                    }),
+                                    ..Default::default()
+                                },
+                            }],
+                        }),
+                    }]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .await?
+        };
+
+        {
             let name = &tenant_name;
             let pool_name = "pool-0";
 
             let minio_image = get_latest_minio_image().await?;
 
+            let api_tenant = {
+                let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
+                let spec = ModelCustomResourceDefinitionRefSpec {
+                    name: "tenants.minio.min.io/v2".into(),
+                };
+                client.api_custom_resource(&spec, None).await?
+            };
             get_or_create(&api_tenant, &pp, "tenant", name, || DynamicObject {
                 types: Some(TypeMeta {
                     api_version: "minio.min.io/v2".into(),
@@ -370,8 +447,8 @@ export MINIO_ROOT_PASSWORD="{password}"
                     },
                 }),
             })
-            .await?;
-        }
+            .await?
+        };
 
         Ok(ModelStorageObjectBorrowedSpec {
             // TODO: use real cluster domain name (not ops.openark.)
