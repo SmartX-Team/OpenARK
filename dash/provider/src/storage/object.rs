@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt, io::Write};
+use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
@@ -18,9 +18,8 @@ use kube::{
 };
 use minio::s3::{
     args::{BucketExistsArgs, GetObjectArgs, ListObjectsV2Args, MakeBucketArgs},
-    creds::{Provider, StaticProvider},
+    creds::{Credentials, Provider, StaticProvider},
     http::BaseUrl,
-    utils::Multimap,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::{Method, Url};
@@ -480,7 +479,6 @@ struct MinioAdminClient<'storage> {
 
 impl<'storage> MinioAdminClient<'storage> {
     async fn add_site_replication(&self, target: &ObjectStorageClient) -> Result<()> {
-        let origin = self.storage.get_client();
         let origin_creds = self.storage.provider.fetch();
         let target_creds = target.provider.fetch();
 
@@ -508,103 +506,27 @@ impl<'storage> MinioAdminClient<'storage> {
                 "secretKey": target_creds.secret_key,
             },
         ]);
-        let data = ::serde_json::to_vec(&sites)?;
+        let ciphertext = self.encrypt_data(Some(&origin_creds), &sites)?;
 
-        // encrypt data
-        // NOTE: noted by https://gist.github.com/landhb/4df399c453e83ce2188159975bd00192
-        // NOTE: noted by https://github.com/minio/madmin-go/blob/272971af4f788b7be277a92aa16e31a02a29de27/encrypt.go
-        let ciphertext = {
-            // FIXME: use CryptoRng instead!
-            let mut rng = thread_rng();
-
-            let mut salt = [0u8; 32];
-            rng.fill(&mut salt);
-
-            const ID: u8 = 0x01; // argon2idChaCHa20Poly1305
-            let mut key = [0u8; 32];
-            ::argon2::Argon2::new(
-                Default::default(),
-                Default::default(),
-                ::argon2::Params::new(64 * 1024, 1, 4, Some(key.len())).unwrap(),
+        self.execute(
+            Method::PUT,
+            "/admin/v3/site-replication/add",
+            Some(&ciphertext),
+        )
+        .await
+        .map(|_| ())
+        .map_err(|error| {
+            anyhow!(
+                "failed to add site replication ({name}: {origin} => {target}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+                target = &target.endpoint,
             )
-            .hash_password_into(origin_creds.secret_key.as_bytes(), &salt, &mut key)
-            .unwrap();
-
-            let mut nonce = [0u8; 8];
-            rng.fill(&mut nonce);
-
-            let mut encrypted_data = {
-                // Load your secret keys from a secure location or derive
-                // them using a secure (password-based) key-derivation-function, like Argon2id.
-                // Obviously, don't use this all-zeros key for anything real.
-                let key = ::sio::Key::<::sio::CHACHA20_POLY1305>::new(key);
-
-                // Make sure you use an unique key-nonce combination!
-                // Reusing a nonce value for the same secret key breaks
-                // the security of the encryption algorithm.
-                let nonce = ::sio::Nonce::new(nonce);
-
-                // You must be able to re-generate this aad to decrypt
-                // the ciphertext again. Usually, it's stored together with
-                // the encrypted data.
-                let aad = ::sio::Aad::empty();
-
-                let mut buf = Vec::default(); // Store the ciphertext in memory.
-                let mut writer = ::sio::EncWriter::new(&mut buf, &key, nonce, aad);
-
-                writer.write_all(&data)?;
-                writer.close()?; // Complete the encryption process explicitly.
-                buf
-            };
-
-            // Prefix the ciphertext with salt, AEAD ID and nonce
-            let mut ciphertext = Vec::new();
-            ciphertext.append(&mut salt.to_vec());
-            ciphertext.push(ID);
-            ciphertext.append(&mut nonce.to_vec());
-            ciphertext.append(&mut encrypted_data);
-            ciphertext
-        };
-
-        origin
-            .execute(
-                Method::PUT,
-                &Default::default(),
-                &mut Default::default(),
-                &{
-                    let mut map = Multimap::default();
-                    map.insert("api-version".into(), "1".into());
-                    map
-                },
-                Some("minio"),
-                Some("/admin/v3/site-replication/add"),
-                Some(&ciphertext),
-            )
-            .await
-            .map(|_| ())
-            .map_err(|error| {
-                anyhow!(
-                    "failed to add site replication ({name}: {origin} => {target}): {error}",
-                    name = &self.storage.name,
-                    origin = &self.storage.endpoint,
-                    target = &target.endpoint,
-                )
-            })
+        })
     }
 
     async fn is_site_replication_enabled(&self) -> Result<bool> {
-        let origin = self.storage.get_client();
-
-        origin
-            .execute(
-                Method::GET,
-                &Default::default(),
-                &mut Default::default(),
-                &Default::default(),
-                Some("minio"),
-                Some("/admin/v3/site-replication/info"),
-                None,
-            )
+        self.execute(Method::GET, "/admin/v3/site-replication/info", None)
             .and_then(|resp| async move {
                 #[derive(Deserialize)]
                 struct Data {
@@ -622,5 +544,90 @@ impl<'storage> MinioAdminClient<'storage> {
                     origin = &self.storage.endpoint,
                 )
             })
+    }
+
+    async fn execute(
+        &self,
+        method: Method,
+        base_url: &str,
+        data: Option<&[u8]>,
+    ) -> Result<::reqwest::Response, ::minio::s3::error::Error> {
+        self.storage
+            .get_client()
+            .execute(
+                method,
+                &Default::default(),
+                &mut Default::default(),
+                &Default::default(),
+                Some("minio"),
+                Some(base_url),
+                data,
+            )
+            .await
+    }
+
+    fn encrypt_data<T>(
+        &self,
+        creds: Option<&Credentials>,
+        data: &T,
+    ) -> Result<Vec<u8>, ::minio::s3::error::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        let creds = creds
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| Cow::Owned(self.storage.provider.fetch()));
+        let data = ::serde_json::to_vec(&data)?;
+
+        // FIXME: use CryptoRng instead!
+        let mut rng = thread_rng();
+
+        let mut salt = [0u8; 32];
+        rng.fill(&mut salt);
+
+        const ID: u8 = 0x01; // argon2idChaCHa20Poly1305
+        let mut key = [0u8; 32];
+        ::argon2::Argon2::new(
+            Default::default(),
+            Default::default(),
+            ::argon2::Params::new(64 * 1024, 1, 4, Some(key.len())).unwrap(),
+        )
+        .hash_password_into(creds.secret_key.as_bytes(), &salt, &mut key)
+        .unwrap();
+
+        let mut nonce = [0u8; 8];
+        rng.fill(&mut nonce);
+
+        let mut encrypted_data = {
+            // Load your secret keys from a secure location or derive
+            // them using a secure (password-based) key-derivation-function, like Argon2id.
+            // Obviously, don't use this all-zeros key for anything real.
+            let key = ::sio::Key::<::sio::CHACHA20_POLY1305>::new(key);
+
+            // Make sure you use an unique key-nonce combination!
+            // Reusing a nonce value for the same secret key breaks
+            // the security of the encryption algorithm.
+            let nonce = ::sio::Nonce::new(nonce);
+
+            // You must be able to re-generate this aad to decrypt
+            // the ciphertext again. Usually, it's stored together with
+            // the encrypted data.
+            let aad = ::sio::Aad::empty();
+
+            let mut buf = Vec::default(); // Store the ciphertext in memory.
+            let mut writer = ::sio::EncWriter::new(&mut buf, &key, nonce, aad);
+
+            writer.write_all(&data)?;
+            writer.close()?; // Complete the encryption process explicitly.
+            buf
+        };
+
+        // Prefix the ciphertext with salt, AEAD ID and nonce
+        let mut ciphertext = Vec::new();
+        ciphertext.append(&mut salt.to_vec());
+        ciphertext.push(ID);
+        ciphertext.append(&mut nonce.to_vec());
+        ciphertext.append(&mut encrypted_data);
+        Ok(ciphertext)
     }
 }
