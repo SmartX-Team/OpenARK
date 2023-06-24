@@ -11,7 +11,7 @@ use dash_api::{
 };
 use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::api::{
-    core::v1::Secret,
+    core::v1::{Secret, Service, ServiceSpec},
     networking::v1::{
         HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
         IngressServiceBackend, IngressSpec, ServiceBackendPort,
@@ -60,7 +60,7 @@ impl<'model> ObjectStorageClient {
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
-                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
+                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage, true).await
             }
             ModelStorageObjectSpec::Cloned(storage) => {
                 Self::load_storage_provider_by_cloned(kube, namespace, name, storage).await
@@ -76,10 +76,8 @@ impl<'model> ObjectStorageClient {
         namespace: &str,
         name: &str,
         storage: &ModelStorageObjectBorrowedSpec,
+        redirect: bool,
     ) -> Result<Self> {
-        // TODO: Ingress 리다이렉팅 구현하기
-        // TODO: cloned, owned 의 경우에는 이를 무시하기 (=기존 함수를 별도 함수로 분리)
-
         let ModelStorageObjectBorrowedSpec {
             endpoint,
             secret_ref:
@@ -98,6 +96,53 @@ impl<'model> ObjectStorageClient {
             Some(secret) => secret,
             None => bail!("no such secret: {secret_name}"),
         };
+
+        if redirect {
+            let service = {
+                let api_service = Api::<Service>::namespaced(kube.clone(), namespace);
+                let external_name = endpoint
+                    .host_str()
+                    .ok_or_else(|| anyhow!("cannot infer endpoint host"))?
+                    .to_string();
+                get_or_create(&api_service, "service", name, || Service {
+                    metadata: ObjectMeta {
+                        name: Some(name.to_string()),
+                        namespace: Some(namespace.to_string()),
+                        ..Default::default()
+                    },
+                    spec: Some(ServiceSpec {
+                        type_: Some("ExternalName".into()),
+                        external_name: Some(external_name),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .await?
+            };
+
+            {
+                let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
+                let name = "object-storage";
+                let port = endpoint
+                    .port_or_known_default()
+                    .ok_or_else(|| anyhow!("cannot infer endpoint port number"))?
+                    .into();
+                get_or_create_ingress(
+                    &api_ingress,
+                    namespace,
+                    name,
+                    None,
+                    IngressServiceBackend {
+                        name: service.name_any(),
+                        port: Some(ServiceBackendPort {
+                            number: Some(port),
+                            ..Default::default()
+                        }),
+                    },
+                )
+                .await?
+            };
+        }
 
         let mut get_secret_data =
             |key: &str| match secret.data.as_mut().and_then(|data| data.remove(key)) {
@@ -126,9 +171,14 @@ impl<'model> ObjectStorageClient {
         name: &str,
         storage: &ModelStorageObjectClonedSpec,
     ) -> Result<Self> {
-        let borrowed =
-            Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage.borrowed)
-                .await?;
+        let borrowed = Self::load_storage_provider_by_borrowed(
+            kube,
+            namespace,
+            name,
+            &storage.borrowed,
+            false,
+        )
+        .await?;
         let owned =
             Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
 
@@ -147,7 +197,7 @@ impl<'model> ObjectStorageClient {
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<Self> {
         let storage = Self::create_or_get_storage(kube, namespace, name, storage).await?;
-        Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage).await
+        Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage, false).await
     }
 
     async fn create_or_get_storage(
@@ -161,27 +211,6 @@ impl<'model> ObjectStorageClient {
             resources,
         } = storage;
 
-        async fn get_or_create<K, Data>(
-            api: &Api<K>,
-            pp: &PostParams,
-            kind: &str,
-            name: &str,
-            data: Data,
-        ) -> Result<K>
-        where
-            Data: FnOnce() -> K,
-            K: Clone + fmt::Debug + Serialize + DeserializeOwned,
-        {
-            match api.get_opt(name).await {
-                Ok(Some(value)) => Ok(value),
-                Ok(None) => api
-                    .create(pp, &data())
-                    .await
-                    .map_err(|error| anyhow!("failed to create {kind} ({name}): {error}")),
-                Err(error) => bail!("failed to get {kind} ({name}): {error}"),
-            }
-        }
-
         async fn get_latest_minio_image() -> Result<String> {
             // TODO: to be implemented
             Ok("minio/minio:RELEASE.2023-06-09T07-32-12Z".into())
@@ -194,11 +223,6 @@ impl<'model> ObjectStorageClient {
 
         let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
 
-        let pp = PostParams {
-            dry_run: false,
-            field_manager: Some(crate::NAME.into()),
-        };
-
         let tenant_name = format!("object-storage-{name}");
         let labels = {
             let mut map: BTreeMap<String, String> = BTreeMap::default();
@@ -208,7 +232,7 @@ impl<'model> ObjectStorageClient {
 
         let secret_env_configuration = {
             let name = format!("{tenant_name}-env-configuration");
-            get_or_create(&api_secret, &pp, "secret", &name, || Secret {
+            get_or_create(&api_secret, "secret", &name, || Secret {
                 metadata: ObjectMeta {
                     labels: Some(labels.clone()),
                     name: Some(name.clone()),
@@ -240,7 +264,7 @@ export MINIO_ROOT_PASSWORD="{password}"
 
         let secret_creds = {
             let name = format!("{tenant_name}-secret");
-            get_or_create(&api_secret, &pp, "secret", &name, || Secret {
+            get_or_create(&api_secret, "secret", &name, || Secret {
                 metadata: ObjectMeta {
                     labels: Some(labels.clone()),
                     name: Some(name.clone()),
@@ -261,7 +285,7 @@ export MINIO_ROOT_PASSWORD="{password}"
 
         let secret_user_0 = {
             let name = format!("{tenant_name}-user-0");
-            get_or_create(&api_secret, &pp, "secret", &name, || Secret {
+            get_or_create(&api_secret, "secret", &name, || Secret {
                 metadata: ObjectMeta {
                     labels: Some(labels.clone()),
                     name: Some(name.clone()),
@@ -283,7 +307,7 @@ export MINIO_ROOT_PASSWORD="{password}"
         {
             let name = "object-storage";
             let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
-            get_or_create(&api_ingress, &pp, "ingress", name, || Ingress {
+            get_or_create(&api_ingress, "ingress", name, || Ingress {
                 metadata: ObjectMeta {
                     annotations: Some({
                         let mut map = BTreeMap::default();
@@ -361,7 +385,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                 };
                 client.api_custom_resource(&spec, None).await?
             };
-            get_or_create(&api_tenant, &pp, "tenant", name, || DynamicObject {
+            get_or_create(&api_tenant, "tenant", name, || DynamicObject {
                 types: Some(TypeMeta {
                     api_version: "minio.min.io/v2".into(),
                     kind: "Tenant".into(),
@@ -706,5 +730,91 @@ impl<'storage> MinioAdminClient<'storage> {
         ciphertext.append(&mut nonce.to_vec());
         ciphertext.append(&mut encrypted_data);
         Ok(ciphertext)
+    }
+}
+
+async fn get_or_create_ingress(
+    api: &Api<Ingress>,
+    namespace: &str,
+    name: &str,
+    labels: Option<&BTreeMap<String, String>>,
+    service: IngressServiceBackend,
+) -> Result<Ingress> {
+    get_or_create(api, "ingress", name, || Ingress {
+        metadata: ObjectMeta {
+            annotations: Some({
+                let mut map = BTreeMap::default();
+                map.insert(
+                    "cert-manager.io/cluster-issuer".into(),
+                    "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                );
+                map.insert(
+                    "kubernetes.io/ingress.class".into(),
+                    "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                );
+                map.insert(
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout".into(),
+                    "3600".into(),
+                );
+                map.insert(
+                    "nginx.ingress.kubernetes.io/proxy-send-timeout".into(),
+                    "3600".into(),
+                );
+                map.insert(
+                    "nginx.ingress.kubernetes.io/rewrite-target".into(),
+                    "/$2".into(),
+                );
+                map.insert("vine.ulagbulag.io/is-service".into(), "true".into());
+                map.insert("vine.ulagbulag.io/is-service-public".into(), "true".into());
+                map.insert("vine.ulagbulag.io/is-service-system".into(), "true".into());
+                map.insert(
+                    "vine.ulagbulag.io/service-kind".into(),
+                    "S3 Endpoint".into(),
+                );
+                map
+            }),
+            labels: labels.cloned(),
+            name: Some(name.to_string()),
+            namespace: Some(namespace.to_string()),
+            ..Default::default()
+        },
+        spec: Some(IngressSpec {
+            rules: Some(vec![IngressRule {
+                host: Some("ingress-nginx-controller.vine.svc.ops.openark".into()),
+                http: Some(HTTPIngressRuleValue {
+                    paths: vec![HTTPIngressPath {
+                        path: Some(format!("/data/s3/{namespace}(/|$)(.*)")),
+                        path_type: "Prefix".into(),
+                        backend: IngressBackend {
+                            service: Some(service),
+                            ..Default::default()
+                        },
+                    }],
+                }),
+            }]),
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
+    .await
+}
+
+async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
+where
+    Data: FnOnce() -> K,
+    K: Clone + fmt::Debug + Serialize + DeserializeOwned,
+{
+    match api.get_opt(name).await {
+        Ok(Some(value)) => Ok(value),
+        Ok(None) => {
+            let pp = PostParams {
+                dry_run: false,
+                field_manager: Some(crate::NAME.into()),
+            };
+            api.create(&pp, &data())
+                .await
+                .map_err(|error| anyhow!("failed to create {kind} ({name}): {error}"))
+        }
+        Err(error) => bail!("failed to get {kind} ({name}): {error}"),
     }
 }
