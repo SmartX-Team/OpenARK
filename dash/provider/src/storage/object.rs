@@ -95,9 +95,22 @@ impl<'model> ObjectStorageClient {
             None => bail!("no such secret: {secret_name}"),
         };
 
+        let mut get_secret_data =
+            |key: &str| match secret.data.as_mut().and_then(|data| data.remove(key)) {
+                Some(value) => String::from_utf8(value.0).map_err(|error| {
+                    anyhow!("failed to parse secret key ({secret_name}/{key}): {error}")
+                }),
+                None => bail!("no such secret key: {secret_name}/{key}"),
+            };
+        let access_key = get_secret_data(map_access_key)?;
+        let secret_key = get_secret_data(map_secret_key)?;
+
         if redirect {
-            let service = {
+            let tenant_name = "object-storage";
+
+            {
                 let api_service = Api::<Service>::namespaced(kube.clone(), namespace);
+                let name = tenant_name;
                 let external_name = endpoint
                     .host_str()
                     .ok_or_else(|| anyhow!("cannot infer endpoint host"))?
@@ -120,18 +133,15 @@ impl<'model> ObjectStorageClient {
 
             {
                 let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
-                let name = "object-storage";
-                let port = endpoint
-                    .port_or_known_default()
-                    .ok_or_else(|| anyhow!("cannot infer endpoint port number"))?
-                    .into();
+                let name = tenant_name;
+                let port = endpoint.port_or_known_default().unwrap_or(443).into();
                 get_or_create_ingress(
                     &api_ingress,
                     namespace,
                     name,
                     None,
                     IngressServiceBackend {
-                        name: service.name_any(),
+                        name: name.to_string(),
                         port: Some(ServiceBackendPort {
                             number: Some(port),
                             ..Default::default()
@@ -142,23 +152,11 @@ impl<'model> ObjectStorageClient {
             };
         }
 
-        let mut get_secret_data =
-            |key: &str| match secret.data.as_mut().and_then(|data| data.remove(key)) {
-                Some(value) => String::from_utf8(value.0).map_err(|error| {
-                    anyhow!("failed to parse secret key ({secret_name}/{key}): {error}")
-                }),
-                None => bail!("no such secret key: {secret_name}/{key}"),
-            };
-
         Ok(Self {
             base_url: BaseUrl::from_string(endpoint.to_string())?,
             endpoint: endpoint.0.clone(),
             name: name.to_string(),
-            provider: StaticProvider::new(
-                &get_secret_data(map_access_key)?,
-                &get_secret_data(map_secret_key)?,
-                None,
-            ),
+            provider: StaticProvider::new(&access_key, &secret_key, None),
         })
     }
 
@@ -193,14 +191,13 @@ impl<'model> ObjectStorageClient {
         name: &str,
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<Self> {
-        let storage = Self::create_or_get_storage(kube, namespace, name, storage).await?;
+        let storage = Self::create_or_get_storage(kube, namespace, storage).await?;
         Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage, false).await
     }
 
     async fn create_or_get_storage(
         kube: &Client,
         namespace: &str,
-        name: &str,
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<ModelStorageObjectBorrowedSpec> {
         let ModelStorageObjectOwnedSpec {
@@ -220,10 +217,10 @@ impl<'model> ObjectStorageClient {
 
         let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
 
-        let tenant_name = format!("object-storage-{name}");
+        let tenant_name = "object-storage";
         let labels = {
             let mut map: BTreeMap<String, String> = BTreeMap::default();
-            map.insert("v1.min.io/tenant".into(), tenant_name.clone());
+            map.insert("v1.min.io/tenant".into(), tenant_name.to_string());
             map
         };
 
@@ -302,75 +299,26 @@ export MINIO_ROOT_PASSWORD="{password}"
         };
 
         {
-            let name = "object-storage";
+            let name = tenant_name;
             let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
-            get_or_create(&api_ingress, "ingress", name, || Ingress {
-                metadata: ObjectMeta {
-                    annotations: Some({
-                        let mut map = BTreeMap::default();
-                        map.insert(
-                            "cert-manager.io/cluster-issuer".into(),
-                            "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                        );
-                        map.insert(
-                            "kubernetes.io/ingress.class".into(),
-                            "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                        );
-                        map.insert(
-                            "nginx.ingress.kubernetes.io/proxy-read-timeout".into(),
-                            "3600".into(),
-                        );
-                        map.insert(
-                            "nginx.ingress.kubernetes.io/proxy-send-timeout".into(),
-                            "3600".into(),
-                        );
-                        map.insert(
-                            "nginx.ingress.kubernetes.io/rewrite-target".into(),
-                            "/$2".into(),
-                        );
-                        map.insert("vine.ulagbulag.io/is-service".into(), "true".into());
-                        map.insert("vine.ulagbulag.io/is-service-public".into(), "true".into());
-                        map.insert("vine.ulagbulag.io/is-service-system".into(), "true".into());
-                        map.insert(
-                            "vine.ulagbulag.io/service-kind".into(),
-                            "S3 Endpoint".into(),
-                        );
-                        map
+            get_or_create_ingress(
+                &api_ingress,
+                namespace,
+                name,
+                Some(&labels),
+                IngressServiceBackend {
+                    name: "minio".into(),
+                    port: Some(ServiceBackendPort {
+                        name: Some("http-minio".into()),
+                        ..Default::default()
                     }),
-                    labels: Some(labels.clone()),
-                    name: Some(name.to_string()),
-                    namespace: Some(namespace.to_string()),
-                    ..Default::default()
                 },
-                spec: Some(IngressSpec {
-                    rules: Some(vec![IngressRule {
-                        host: Some("ingress-nginx-controller.vine.svc.ops.openark".into()),
-                        http: Some(HTTPIngressRuleValue {
-                            paths: vec![HTTPIngressPath {
-                                path: Some(format!("/data/s3/{namespace}(/|$)(.*)")),
-                                path_type: "Prefix".into(),
-                                backend: IngressBackend {
-                                    service: Some(IngressServiceBackend {
-                                        name: "minio".into(),
-                                        port: Some(ServiceBackendPort {
-                                            name: Some("http-minio".into()),
-                                            ..Default::default()
-                                        }),
-                                    }),
-                                    ..Default::default()
-                                },
-                            }],
-                        }),
-                    }]),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })
+            )
             .await?
         };
 
         {
-            let name = &tenant_name;
+            let name = tenant_name;
             let pool_name = "pool-0";
 
             let minio_image = get_latest_minio_image().await?;
@@ -389,7 +337,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                 }),
                 metadata: ObjectMeta {
                     labels: Some(labels),
-                    name: Some(name.clone()),
+                    name: Some(name.to_string()),
                     namespace: Some(namespace.to_string()),
                     ..Default::default()
                 },
