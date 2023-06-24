@@ -26,8 +26,6 @@ impl Default for ModelStorageObjectSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectBorrowedSpec {
     pub endpoint: Url,
-    #[serde(default)]
-    pub read_only: bool,
     pub secret_ref: ModelStorageObjectBorrowedSecretRefSpec,
 }
 

@@ -37,7 +37,6 @@ pub struct ObjectStorageClient {
     endpoint: Url,
     name: String,
     provider: StaticProvider,
-    read_only: bool,
 }
 
 impl<'model> ObjectStorageClient {
@@ -86,7 +85,6 @@ impl<'model> ObjectStorageClient {
                     map_secret_key,
                     name: secret_name,
                 },
-            read_only,
         } = storage;
 
         let mut secret = match {
@@ -161,7 +159,6 @@ impl<'model> ObjectStorageClient {
                 &get_secret_data(map_secret_key)?,
                 None,
             ),
-            read_only: *read_only,
         })
     }
 
@@ -477,7 +474,6 @@ export MINIO_ROOT_PASSWORD="{password}"
         Ok(ModelStorageObjectBorrowedSpec {
             // TODO: use real cluster domain name (not ops.openark.)
             endpoint: format!("http://minio.{namespace}.svc.ops.openark/").parse()?,
-            read_only: false,
             secret_ref: ModelStorageObjectBorrowedSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
