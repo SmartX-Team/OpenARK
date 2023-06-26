@@ -69,7 +69,7 @@ set -e
 set -x
 
 # Minimum size of disk needed specified in GIBIBYTES
-MINSIZE=200
+MINSIZE=50
 
 BLOCKDEV="/sys/block"
 ROOTDEV=""
