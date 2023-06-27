@@ -131,7 +131,7 @@ spec:
         - name: ice
           hostPath:
             path: /tmp/.ICE-unix
-            type: Directory
+            type: DirectoryOrCreate
         - name: runtime-dbus
           hostPath:
             path: /run/dbus
