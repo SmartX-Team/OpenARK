@@ -15,19 +15,19 @@ set -x
 # Parse from kiss-config
 export DNS_SERVER_1="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_dns_server_ns1'
+        yq -r '.data.domain_dns_server_ns1'
 )"
 export DNS_SERVER_2="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_dns_server_ns2'
+        yq -r '.data.domain_dns_server_ns2'
 )"
 export DOMAIN_NAME="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_name'
+        yq -r '.data.domain_name'
 )"
 export LOADBALANCER_IP="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq '.data.domain_ingress_server'
+        yq -r '.data.domain_ingress_server'
 )"
 
 ###########################################################

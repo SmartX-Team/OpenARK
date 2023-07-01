@@ -129,7 +129,7 @@ function __install_service_all() {
         kubectl get configmap "kiss-config" \
             --namespace kiss \
             --output yaml |
-            yq '.data | keys | @tsv' |
+            yq -r '.data | keys | @tsv' |
             tr '\t' '\n' |
             grep "${key_re_is_enabled}" |
             sed "s/${key_re_is_enabled}/\1/g"
@@ -156,7 +156,7 @@ function install_services() {
         kubectl get configmap "kiss-config" \
             --namespace kiss \
             --output yaml |
-            yq '.data | keys | @tsv' |
+            yq -r '.data | keys | @tsv' |
             tr '\t' '\n' |
             grep "${key_re_kind}" |
             sed "s/${key_re_kind}/\1/g"
