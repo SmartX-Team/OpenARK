@@ -24,12 +24,12 @@ export DOMAIN_NAME="ingress-nginx-controller.vine.svc.${CLUSTER_NAME}"
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "${CLUSTER_NAME}" == "" ]; then
+if [ "x${CLUSTER_NAME}" == "x" ]; then
     echo 'Skipping installation: "CLUSTER_NAME" not set'
     exit 0
 fi
 
-if [ "${DOMAIN_NAME}" == "" ]; then
+if [ "x${DOMAIN_NAME}" == "x" ]; then
     echo 'Skipping installation: "DOMAIN_NAME" not set'
     exit 0
 fi

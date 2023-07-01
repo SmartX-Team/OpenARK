@@ -27,7 +27,7 @@ function install_kiss_cluster() {
     kubectl apply \
         -f "namespace.yaml"
 
-    if [ "${cluster_name}" == "default" ]; then
+    if [ "x${cluster_name}" == "xdefault" ]; then
         # services
         kubectl apply \
             -f "dnsmasq.yaml" \
@@ -93,7 +93,7 @@ function __install_service() {
         local NEED_INSTALL=0
     fi
 
-    if [ "${NEED_INSTALL}" -eq 1 ]; then
+    if [ "x${NEED_INSTALL}" == "x1" ]; then
         # Install service
         echo -n "- Installing ${name}/${kind} in background ... "
         cat "./templates/service-installer.yaml" |

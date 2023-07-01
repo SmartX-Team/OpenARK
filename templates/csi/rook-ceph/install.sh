@@ -76,14 +76,14 @@ sleep 30
 echo "- Installing Storage Class ... "
 
 # do not update the number of monitors when re-deploying
-if [ "${IS_FIRST}" -eq 0 ]; then
+if [ "x${IS_FIRST}" == "x0" ]; then
     ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED="false"
 fi
 
 # tweaks - use single monitor node until ceph cluster is deployed
 # FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
 # See also: https://github.com/rook/rook/issues/10110
-if [ "${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "true" ]; then
+if [ "x${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "xtrue" ]; then
     NUM_MONS=$(yq ".cephClusterSpec.mon.count" "./values-cluster.yaml")
     yq --inplace ".cephClusterSpec.mon.count = 1" "./values-cluster.yaml"
 fi
@@ -99,7 +99,7 @@ helm upgrade --install "rook-ceph-cluster" \
 #   Wait for deploying Storage Class                      #
 ###########################################################
 
-if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
+if [ "x${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "xtrue" ]; then
     echo -n "- Waiting for deploying Ceph Tools ... "
     kubectl --namespace "${NAMESPACE}" rollout status deployment "rook-ceph-tools" >/dev/null
     echo "OK"
@@ -125,7 +125,7 @@ if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
                 esac
             done
 
-            if [ "${COMPLETED}" -eq 1 ]; then
+            if [ "x${COMPLETED}" == "x1" ]; then
                 break
             fi
 
@@ -162,8 +162,8 @@ if [ "${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "true" ]; then
     # tweaks - use single monitor nodes until ceph cluster is deployed
     # FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
     # See also: https://github.com/rook/rook/issues/10110
-    if [ "${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "true" ]; then
-        if [ "${NUM_MONS}" != "1" ]; then
+    if [ "x${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED}" == "xtrue" ]; then
+        if [ "x${NUM_MONS}" != "x1" ]; then
             yq --inplace ".cephClusterSpec.mon.count = ${NUM_MONS}" "./values-cluster.yaml"
 
             helm upgrade --install "rook-ceph-cluster" \

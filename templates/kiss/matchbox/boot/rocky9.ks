@@ -210,7 +210,7 @@ if lspci | grep 'NVIDIA'; then
         _HAS_NVIDIA_VGA=true
     fi
 
-    if [ "${_HAS_NVIDIA_GPU}" == "true" ]; then
+    if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
         dnf install -y epel-release kernel-devel kernel-headers
         dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/$(uname -m)/cuda-rhel$(rpm -E %rhel).repo"
         dnf install -y \
@@ -325,7 +325,7 @@ chown tenant:tenant "${TENANT_GUEST_HOME}"
 
 # Post-Hook
 ## Desktop Environment Configuration
-if [ "${_IS_DESKTOP}" == "true" ]; then
+if [ "x${_IS_DESKTOP}" == "xtrue" ]; then
     ### Common
     dnf install -y \
         firefox \
@@ -395,7 +395,7 @@ SCREEN_HEIGHT="480"
 function update_screen_size() {
     echo "Finding displays..."
     screens="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
-    if [ "${screens}" == "" ]; then
+    if [ "x${screens}" == "x" ]; then
         echo 'Display not found!'
         exit 1
     fi

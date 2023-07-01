@@ -46,22 +46,22 @@ STORAGE_KEY_SECRET="$(
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "${STORAGE_CLASS_NAME}" == "" ]; then
+if [ "x${STORAGE_CLASS_NAME}" == "x" ]; then
     echo 'Skipping installation: "STORAGE_CLASS_NAME" not set'
     exit 0
 fi
 
-if [ "${STORAGE_ENDPOINT}" == "" ]; then
+if [ "x${STORAGE_ENDPOINT}" == "x" ]; then
     echo 'Skipping installation: "STORAGE_ENDPOINT" not set'
     exit 0
 fi
 
-if [ "${STORAGE_KEY_ACCESS}" == "" ]; then
+if [ "x${STORAGE_KEY_ACCESS}" == "x" ]; then
     echo 'Skipping installation: "STORAGE_KEY_ACCESS" not set'
     exit 0
 fi
 
-if [ "${STORAGE_KEY_SECRET}" == "" ]; then
+if [ "x${STORAGE_KEY_SECRET}" == "x" ]; then
     echo 'Skipping installation: "STORAGE_KEY_SECRET" not set'
     exit 0
 fi

@@ -34,22 +34,22 @@ export LOADBALANCER_IP="$(
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "${DNS_SERVER_1}" == "" ]; then
+if [ "x${DNS_SERVER_1}" == "x" ]; then
     echo 'Skipping installation: "DNS_SERVER_1" not set'
     exit 0
 fi
 
-if [ "${DNS_SERVER_2}" == "" ]; then
+if [ "x${DNS_SERVER_2}" == "x" ]; then
     echo 'Skipping installation: "DNS_SERVER_2" not set'
     exit 0
 fi
 
-if [ "${DOMAIN_NAME}" == "" ]; then
+if [ "x${DOMAIN_NAME}" == "x" ]; then
     echo 'Skipping installation: "DOMAIN_NAME" not set'
     exit 0
 fi
 
-if [ "${LOADBALANCER_IP}" == "" ]; then
+if [ "x${LOADBALANCER_IP}" == "x" ]; then
     echo 'Skipping installation: "LOADBALANCER_IP" not set'
     exit 0
 fi

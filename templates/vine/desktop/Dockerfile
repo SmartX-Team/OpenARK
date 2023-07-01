@@ -138,7 +138,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     zip \
     --exclude container-selinux \
     # Allow passwordless sudo command
-    && if [ "${USER_SUDO}" == "true" ]; then \
+    && if [ "x${USER_SUDO}" == "xtrue" ]; then \
     echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
     ; fi \

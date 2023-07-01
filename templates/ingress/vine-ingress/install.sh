@@ -12,7 +12,7 @@ set -x
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "${DOMAIN_NAME}" == "" ]; then
+if [ "x${DOMAIN_NAME}" == "x" ]; then
     echo 'Skipping installation: "DOMAIN_NAME" not set'
     exit 0
 fi

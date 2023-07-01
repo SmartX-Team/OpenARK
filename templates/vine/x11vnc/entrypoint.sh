@@ -20,23 +20,23 @@ DISPLAY="${DISPLAY:-":0"}"
 ARGS="${ARGS} -display ${DISPLAY}"
 
 # Copying and Pasting
-if [ "${X11VNC_XKB}" == "true" ]; then
+if [ "x${X11VNC_XKB}" == "xtrue" ]; then
     ARGS="${ARGS} -xkb"
 fi
 
 # Daemon mode
-if [ "${X11VNC_FOREVER}" != "false" ]; then
+if [ "x${X11VNC_FOREVER}" != "xfalse" ]; then
     ARGS="${ARGS} -forever"
 fi
 
 # Multi-user sharing
-if [ "${X11VNC_MULTIPTR}" == "true" ]; then
+if [ "x${X11VNC_MULTIPTR}" == "xtrue" ]; then
     ARGS="${ARGS} -multiptr"
 fi
-if [ "${X11VNC_REPEAT}" != "false" ]; then
+if [ "x${X11VNC_REPEAT}" != "xfalse" ]; then
     ARGS="${ARGS} -repeat"
 fi
-if [ "${X11VNC_SHARED}" != "false" ]; then
+if [ "x${X11VNC_SHARED}" != "xfalse" ]; then
     ARGS="${ARGS} -shared"
 fi
 

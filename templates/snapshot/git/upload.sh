@@ -7,7 +7,7 @@
 set -e
 
 # Check repository
-if [ "${GIT_REPOSITORY}" == "" ]; then
+if [ "x${GIT_REPOSITORY}" == "x" ]; then
     echo "Skipping snapshot job: Git repository is not set"
     exit 0
 fi

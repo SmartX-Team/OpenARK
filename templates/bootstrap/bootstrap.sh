@@ -165,7 +165,7 @@ function spawn_node() {
         fi
     fi
 
-    if [ "${NEED_SPAWN}" -eq 1 ]; then
+    if [ "x${NEED_SPAWN}" == "x1" ]; then
         # Reset data
         if [ $(echo "${REUSE_KUBERNETES_DATA}" | awk '{print tolower($0)}') == "false" ]; then
             echo "- Removing previous data ... "
@@ -310,7 +310,7 @@ function install_k8s_cluster() {
         local NEED_INSTALL=0
     fi
 
-    if [ "${NEED_INSTALL}" -eq 1 ]; then
+    if [ "x${NEED_INSTALL}" == "x1" ]; then
         # Cleanup
         rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
 
@@ -428,7 +428,7 @@ function install_kiss_cluster() {
         local NEED_INSTALL=0
     fi
 
-    if [ "${NEED_INSTALL}" -eq 1 ]; then
+    if [ "x${NEED_INSTALL}" == "x1" ]; then
         # Upload the K8S Configuration File to the Cluster
         "${CONTAINER_RUNTIME}" exec "${node_first}" \
             kubectl create namespace kiss
