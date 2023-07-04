@@ -30,6 +30,7 @@ timezone Asia/Seoul --utc
 %packages
 @^minimal-environment
 bluez
+haveged
 kernel
 lvm2
 NetworkManager-bluetooth
@@ -504,7 +505,7 @@ lockPref("signon.autofillForms.http", false);
 lockPref("signon.showAutoCompleteFooter", false);
 EOF
 
-    ### SystemD Configuration
+    ### User SystemD Configuration
     SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
 
     for service in \
@@ -562,7 +563,10 @@ EndSection
 EOF
 fi
 
-## DKMS Build
+# SystemD Configuration
+systemctl enable haveged.service
+
+# DKMS Build
 if which dkms >/dev/null 2>/dev/null; then
     dkms autoinstall -k "$(ls /lib/modules/)"
 fi
