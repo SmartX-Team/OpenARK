@@ -30,7 +30,7 @@ timezone Asia/Seoul --utc
 %packages
 @^minimal-environment
 bluez
-haveged
+epel-release
 kernel
 lvm2
 NetworkManager-bluetooth
@@ -212,7 +212,7 @@ if lspci | grep 'NVIDIA'; then
     fi
 
     if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-        dnf install -y epel-release kernel-devel kernel-headers
+        dnf install -y kernel-devel kernel-headers
         dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/$(uname -m)/cuda-rhel$(rpm -E %rhel).repo"
         dnf install -y \
             cuda-driver \
@@ -563,7 +563,8 @@ EndSection
 EOF
 fi
 
-# SystemD Configuration
+# Haveged Configuration
+dnf install -y haveged
 systemctl enable haveged.service
 
 # DKMS Build
