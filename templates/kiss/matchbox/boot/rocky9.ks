@@ -181,6 +181,12 @@ psk=NETWORK_WIRELESS_WIFI_KEY_PSK
 EOF
         chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
     done
+
+    ## Disable Power Saving Mode
+    cat <<EOF >/etc/modprobe.d/iwlwifi.conf
+options iwlmvm power_scheme=1
+options iwlwifi power_save=0
+EOF
 fi
 
 ## Fix CoreDNS timeout
