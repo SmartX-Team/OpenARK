@@ -39,7 +39,7 @@ VOLUME [ "/home/${USER_NAME}" ]
 RUN echo 'override_install_langs=en_US' >>/etc/yum.conf
 
 # Add core repositories
-ADD ./repos/*.repo /etc/yum.repos.d/
+ADD ./yum/yum.repos.d/*.repo /etc/yum.repos.d/
 RUN dnf install -y \
     epel-release \
     "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
