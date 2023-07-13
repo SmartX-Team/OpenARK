@@ -28,15 +28,24 @@ timezone Asia/Seoul --utc
 
 # Install Packages
 %packages
+@^development
 @^minimal-environment
+bc
 bluez
 epel-release
+git
 kernel
+kernel-core
+kernel-devel
+kernel-headers
+kernel-modules
+kernel-modules-core
 lvm2
 NetworkManager-bluetooth
 NetworkManager-wifi
 pciutils
 podman-docker
+vim
 yum-utils
 %end
 
@@ -187,6 +196,15 @@ EOF
 options iwlmvm power_scheme=1
 options iwlwifi power_save=0
 EOF
+
+    ## Install Manual RealTek Driver
+    ### Download
+    SRC_HOME="/tmp/rtl8188eus"
+    SRC_REPO="https://github.com/ulagbulag/rtl8188eus.git"
+    git clone "${SRC_REPO}" "${SRC_HOME}"
+    pushd "${SRC_HOME}"
+    ./dkms-install.sh
+    popd
 fi
 
 ## Fix CoreDNS timeout
