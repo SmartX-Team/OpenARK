@@ -209,14 +209,14 @@ spec:
           emptyDir: {}
 {% endif %}
         - name: home-public
-{% if not spec.boxQuota.desktop.volumes.public %}
+{% if spec.boxQuota.desktop.volumes.public %}
           persistentVolumeClaim:
             claimName: desktop-public
 {% else %}
           emptyDir: {}
 {% endif %}
         - name: home-static
-{% if not spec.boxQuota.desktop.volumes.static %}
+{% if spec.boxQuota.desktop.volumes.static %}
           persistentVolumeClaim:
             claimName: desktop-static
 {% else %}
