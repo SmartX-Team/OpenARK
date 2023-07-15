@@ -1,0 +1,292 @@
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Configure environment variables
+ARG ARCHLINUX_VERSION="latest"
+
+# Configure user-specific environment variables
+ARG USER_GID="2000"
+ARG USER_NAME="user"
+ARG USER_SHELL="zsh"
+ARG USER_SUDO="true"
+ARG USER_UID="2000"
+
+# Be ready for serving
+FROM "quay.io/archlinux/archlinux:${ARCHLINUX_VERSION}"
+
+# Load user-specific environment variables
+ARG USER_GID
+ARG USER_NAME
+ARG USER_SHELL
+ARG USER_SUDO
+ARG USER_UID
+
+# SystemD Configuration
+ENV container docker
+STOPSIGNAL SIGRTMIN+3
+
+# Client Configuration
+WORKDIR /root/
+ENTRYPOINT [ "/usr/bin/env" ]
+CMD [ "/usr/bin/firefox" ]
+
+# Volumes Configuration
+## home.user
+VOLUME [ "/home/${USER_NAME}" ]
+
+# Add core repositories
+RUN true \
+    && echo -e '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' >>/etc/pacman.conf \
+    && sed -i 's/^#\?\(Color\)/\1/g' /etc/pacman.conf \
+    && sed -i 's/^#\?\(NoProgressBar\)/#\1/g' /etc/pacman.conf \
+    && sed -i 's/^#\?\(ParallelDownloads\)/\1/g' /etc/pacman.conf \
+    # Regard as normal dist
+    && sed -i 's/^#\?\(NoExtract\)/#\1/g' /etc/pacman.conf
+
+# Add AUR package manager
+RUN pacman -Sy --needed --noconfirm \
+    "curl" \
+    "devtools" \
+    "fakechroot" \
+    "fakeroot" \
+    "git" \
+    # Add a build-only user
+    && BUILDER_GID="999" \
+    && BUILDER_UID="999" \
+    && BUILDER_NAME="builder" \
+    && BUILDER_SHELL="sh" \
+    && groupadd -g "${BUILDER_GID}" -o "${BUILDER_NAME}" \
+    && useradd -u "${BUILDER_UID}" -g "${BUILDER_GID}" \
+    -s "/bin/${BUILDER_SHELL}" -m -o "${BUILDER_NAME}" \
+    # Install YAY (AUR package manager)
+    && ARCH_YAY_SNAPSHOP_URL="https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz" \
+    && ARCH_YAY_SNAPSHOP_FILENAME="/tmp/${ARCH_YAY_SNAPSHOP_URL##*/}" \
+    && ARCH_YAY_SNAPSHOP_PKGDIR="${ARCH_YAY_SNAPSHOP_FILENAME%%.*}" \
+    && ARCH_YAY_SNAPSHOP_DEPENDENCIES="binutils fakeroot gcc make go" \
+    && curl -s "${ARCH_YAY_SNAPSHOP_URL}" -o "${ARCH_YAY_SNAPSHOP_FILENAME}" \
+    && tar -x -C "$(dirname "${ARCH_YAY_SNAPSHOP_PKGDIR}")" -f "${ARCH_YAY_SNAPSHOP_FILENAME}" \
+    && pushd "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
+    && chown -R "${BUILDER_UID}:${BUILDER_GID}" . \
+    && pacman -S --needed --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
+    && su "${BUILDER_NAME}" bash -c 'makepkg -s' \
+    && pacman -U --noconfirm ./*.pkg.tar.zst \
+    && pacman -Rcns --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
+    && popd \
+    && rm -rf "${ARCH_YAY_SNAPSHOP_FILENAME}" "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
+    # Remove the build-only user
+    && userdel "${BUILDER_NAME}" \
+    # Cleanup
+    && rm -rf "/home/${BUILDER_NAME}" \
+    && pacman -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install core dependencies
+RUN yay -Sy --needed --noconfirm \
+    lib32-vulkan-icd-loader \
+    libglvnd \
+    mesa \
+    pipewire \
+    vulkan-icd-loader \
+    wireplumber \
+    wmctrl \
+    xdotool \
+    xorg-xprop \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install locale dependencies
+RUN yay -Sy --noconfirm \
+    glibc \
+    && echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen \
+    && echo 'ko_KR.EUC-KR EUC-KR' >/etc/locale.gen \
+    && echo 'ko_KR.UTF-8 UTF-8' >/etc/locale.gen \
+    && locale-gen \
+    && echo 'LANG=en_US.UTF-8' >/etc/locale.conf \
+    && echo 'LC_ADDRESS=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_COLLATE=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_CTYPE=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_IDENTIFICATION=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_MEASUREMENT=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_MESSAGES=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_MONETARY=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_NAME=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_NUMERIC=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_PAPER=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_TELEPHONE=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'LC_TIME=ko_KR.UTF-8' >>/etc/locale.conf \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install AI dev core dependencies
+RUN yay -Sy --noconfirm \
+    cuda \
+    ffmpeg \
+    gstreamer \
+    gst-libav \
+    gst-plugins-bad \
+    gst-plugins-base-libs \
+    gst-plugins-good \
+    gst-plugins-ugly \
+    gst-rtsp-server \
+    json-glib \
+    opencv \
+    openssl \
+    util-linux-libs \
+    yaml-cpp \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install development environment dependencies
+RUN yay -Sy --noconfirm \
+    crun \
+    fuse-overlayfs \
+    git \
+    kubectl \
+    nano \
+    nvidia-container-toolkit-base \
+    openssh-clients \
+    pciutils \
+    podman-docker \
+    python3 \
+    python3-pip \
+    sudo \
+    "${USER_SHELL}" \
+    vim \
+    wget \
+    zip \
+    # Allow passwordless sudo command
+    && if [ "x${USER_SUDO}" == "xtrue" ]; then \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
+    && chmod 440 /etc/sudoers.d/10-wheel \
+    ; fi \
+    # Docker (Podman) Configuration
+    && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
+    && systemctl enable podman \
+    && touch /etc/containers/nodocker \
+    ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
+    && sed -i \
+    -e 's|^#mount_program|mount_program|g' \
+    -e '/additionalimage.*/a "/var/lib/shared",' \
+    -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
+    /etc/containers/storage.conf \
+    && mkdir -p \
+    /var/lib/shared/overlay-images \
+    /var/lib/shared/overlay-layers \
+    /var/lib/shared/vfs-images \
+    /var/lib/shared/vfs-layers \
+    && touch /var/lib/shared/overlay-images/images.lock \
+    && touch /var/lib/shared/overlay-layers/layers.lock \
+    && touch /var/lib/shared/vfs-images/images.lock \
+    && touch /var/lib/shared/vfs-layers/layers.lock \
+    ## generate a CDI specification that refers to all NVIDIA devices
+    && mkdir -p /etc/cdi/ \
+    && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
+    # Environment Variables Configuration
+    && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/opt/bin' >>/etc/profile.d/path-local-bin.sh \
+    && ln -sf /usr/local/bin /opt/bin \
+    && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && ldconfig \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install desktop environment dependencies
+RUN yay -Sy --noconfirm \
+    blueman \
+    bluez \
+    code \
+    file-roller \
+    gnome-bluetooth \
+    ibus-hangul \
+    networkmanager \
+    network-manager-applet \
+    nm-connection-editor \
+    picom \
+    plank \
+    sqlite \
+    thunar thunar-archive-plugin thunar-volman \
+    tumbler \
+    xdg-dbus-proxy \
+    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
+    xfce4-session xfce4-settings xfce4-terminal \
+    xfconf xfdesktop xfwm4 \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install internet browsers
+RUN yay -Sy --needed --noconfirm \
+    firefox \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install utility
+RUN yay -Sy --needed --noconfirm \
+    # Games (Lutris)
+    lib32-gnutls \
+    lib32-mesa \
+    lutris \
+    python-certifi \
+    python-distro \
+    python-gobject \
+    python-lxml \
+    python-pillow \
+    python-pyyaml \
+    python-requests \
+    webkit2gtk \
+    wine \
+    winetricks \
+    # Cleanup
+    && yay -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
+# Install utilities - Custom
+ARG ADDONS_HOME="/opt/openark/vdi/desktop"
+ADD ./addons "${ADDONS_HOME}"
+RUN chmod -R a+x "${ADDONS_HOME}/bin" \
+    && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \
+    && ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
+    ; done \
+    && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
+    && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
+    ; done
+
+# Install utilities - Podman
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/libpod/master/contrib/podmanimage/stable"
+ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
+ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+RUN chmod 644 \
+    /etc/containers/containers.conf \
+    /etc/containers/podman-containers.conf
+
+# Add firefox preferences
+ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
+ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
+
+# Add read-only shared directory
+RUN mkdir -p /opt/public/ \
+    && chown -R "${USER_UID}:${USER_GID}" /opt/public/
+
+# Add scripts
+ADD ./scripts /opt/scripts/
+RUN chmod 0555 /opt/scripts/*
+
+# Add a user
+RUN ldconfig \
+    && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
+    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \
+    -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
+    && echo -e "${USER_UID}:2001:63536" > /etc/subuid \
+    && echo -e "${USER_GID}:2001:63536" > /etc/subgid
+USER "${USER_NAME}"
+WORKDIR "/home/${USER_NAME}"

@@ -1,0 +1,17 @@
+# Configure environment variables
+export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
+export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
+export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
+
+default:
+  @just build 'rockylinux'
+
+build DIST:
+  docker build \
+    --file "./Dockerfile.{{ DIST }}" \
+    --progress 'plain' \
+    --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}" \
+    .
+
+push DIST: (build DIST)
+  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}"

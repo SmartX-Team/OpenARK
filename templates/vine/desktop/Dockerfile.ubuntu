@@ -103,6 +103,7 @@ RUN apt-get update && apt-get install -y \
     && chmod 440 /etc/sudoers.d/10-wheel \
     || true \
     # Docker (Podman) Configuration
+    && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.

@@ -31,3 +31,13 @@ oci-build:
 
 oci-push: oci-build
   docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}"
+
+oci-push-and-update-dash: oci-push
+  kubectl -n dash delete pods --all
+
+oci-push-and-update-kiss: oci-push
+  kubectl -n kiss delete pods --selector name=controller
+
+oci-push-and-update-vine: oci-push
+  kubectl -n vine delete pods --selector name=bastion
+  kubectl -n vine delete pods --selector name=controller
