@@ -20,6 +20,22 @@ NAMESPACE_DEFAULT="ark"
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
+# Parse from CoreDNS
+export CLUSTER_NAME="$(
+    kubectl -n kube-system get configmap coredns -o yaml |
+        yq -r '.data.Corefile' |
+        grep -Po ' +kubernetes \K[\w\.\_\-]+'
+)"
+
+###########################################################
+#   Check Environment Variables                           #
+###########################################################
+
+if [ "x${CLUSTER_NAME}" == "x" ]; then
+    echo 'Skipping installation: "CLUSTER_NAME" not set'
+    exit 0
+fi
+
 ###########################################################
 #   Configure Helm Channel                                #
 ###########################################################
@@ -54,7 +70,7 @@ if
 then
     kubectl create secret docker-registry "ark-registry" \
         --namespace "${NAMESPACE}" \
-        --docker-server "http://registry.ark.svc.ops.openark" \
+        --docker-server "http://registry.${NAMESPACE}.svc.ops.${CLUSTER_NAME}" \
         --docker-username "user" \
         --docker-password "user"
 fi
