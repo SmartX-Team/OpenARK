@@ -14,6 +14,8 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-core-k8s = { path = "../../ark/core/k8s" }
+
 anyhow = { workspace = true }
 chrono = { workspace = true }
 email_address = { workspace = true }
