@@ -29,8 +29,8 @@ spec:
                       - "{{ spec.node.metadata.name }}"
       initContainers:
         - name: init-check-permissions
-          image: quay.io/ulagbulag/openark-vine-desktop:latest
-          imagePullPolicy: Always
+          image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
+          imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
           command:
             - sudo
             - bash
@@ -63,7 +63,7 @@ spec:
               mountPath: /mnt/public
       containers:
         - name: desktop-environment
-          image: "{{ spec.boxQuota.desktop.container.image }}"
+          image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
           imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
           command: {{ spec.boxQuota.desktop.container.command | json_encode() | safe }}
           args: {{ spec.boxQuota.desktop.container.args | json_encode() | safe }}
@@ -110,7 +110,11 @@ spec:
 {% if spec.boxQuota.desktop.host.privileged %}
             privileged: true
 {% endif %}
+{% if spec.boxQuota.desktop.context.root %}
+          workingDir: /root
+{% else %}
           workingDir: /home/user
+{% endif %}
           volumeMounts:
             - name: dev
               mountPath: /dev
