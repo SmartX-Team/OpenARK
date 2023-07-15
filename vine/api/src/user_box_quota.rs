@@ -86,7 +86,7 @@ impl UserBoxQuotaDesktopContainerSpec {
     }
 
     fn default_image() -> String {
-        "quay.io/ulagbulag/openark-vine-desktop:latest".into()
+        "quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux".into()
     }
 
     fn default_image_pull_policy() -> ImagePullPolicy {
