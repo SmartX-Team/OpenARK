@@ -198,6 +198,8 @@ options iwlwifi power_save=0
 EOF
 
     ## Install Manual RealTek Driver
+    ### Install dependencies
+    dnf install -y dkms
     ### Download
     SRC_HOME="/tmp/rtl8188eus"
     SRC_REPO="https://github.com/ulagbulag/rtl8188eus.git"
