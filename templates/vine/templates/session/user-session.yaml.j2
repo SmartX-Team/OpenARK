@@ -1,6 +1,7 @@
 ###########################################################
 #   Desktop Deployment                                    #
 ###########################################################
+{% if spec.boxQuota is object and spec.boxQuota.desktop is object %}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -54,16 +55,18 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/user
+{% if not spec.boxQuota.desktop.volumes.containers %}
             - name: home-containers
               mountPath: /home/user/.local/share/containers
+{% endif %}
             - name: home-public
               mountPath: /mnt/public
       containers:
         - name: desktop-environment
-          image: quay.io/ulagbulag/openark-vine-desktop:latest
-          imagePullPolicy: Always
-          command:
-            - /opt/scripts/entrypoint-desktop.sh
+          image: "{{ spec.boxQuota.desktop.container.image }}"
+          imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
+          command: {{ spec.boxQuota.desktop.container.command | json_encode() | safe }}
+          args: {{ spec.boxQuota.desktop.container.args | json_encode() | safe }}
           env:
             - name: DISPLAY
               value: ":0"
@@ -90,19 +93,23 @@ spec:
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: USER
-              value: "2000"
+{% if spec.boxQuota.desktop.context.root %}
+              value: "0"
+{% else %}
+              value: "{{ spec.boxQuota.desktop.context.uid }}"
+{% endif %}
             - name: WINEVERSION
               value: "7.22"
             - name: XDG_RUNTIME_DIR
-              value: /run/user/2000
-          ports:
-            - name: http
-              containerPort: 8080
+              value: "/run/user/{{ spec.boxQuota.desktop.context.uid }}"
+          ports: {{ spec.boxQuota.desktop.container.ports | json_encode() | safe }}
           securityContext:
             capabilities:
               add:
                 - apparmor:unconfined
+{% if spec.boxQuota.desktop.host.privileged %}
             privileged: true
+{% endif %}
           workingDir: /home/user
           volumeMounts:
             - name: dev
@@ -116,13 +123,15 @@ spec:
               readOnly: true
             - name: home
               mountPath: /home/user
+{% if not spec.boxQuota.desktop.volumes.containers %}
             - name: home-containers
               mountPath: /home/user/.local/share/containers
+{% endif %}
+            - name: home-public
+              mountPath: /mnt/public
             - name: home-static
               mountPath: /mnt/static
               readOnly: true
-            - name: home-public
-              mountPath: /mnt/public
             - name: machine-id
               mountPath: /etc/machine-id
               readOnly: true
@@ -131,7 +140,7 @@ spec:
             - name: runtime-dbus
               mountPath: /run/dbus
             - name: runtime-user
-              mountPath: /run/user/2000
+              mountPath: "/run/user/{{ spec.boxQuota.desktop.context.uid }}"
             # - name: scripts
             #   mountPath: /opt/scripts
             #   readOnly: true
@@ -144,16 +153,27 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
-{% if spec.boxQuota is object %}
 {% if spec.boxQuota.compute is object %}
           resources: {{ spec.boxQuota.compute | json_encode() | safe }}
 {% endif %}
-{% endif %}
+{% if spec.boxQuota.desktop.host.ipc %}
       hostIPC: true
+{% endif %}
+{% if spec.boxQuota.desktop.host.network %}
+      hostNetwork: true
+{% else %}
+      hostname: "desktop-{{ metadata.namespace }}"
+{% endif %}
       restartPolicy: Never
       securityContext:
+{% if spec.boxQuota.desktop.context.root or spec.boxQuota.desktop.context.sudo %}
         runAsNonRoot: false
-        runAsUser: 2000
+{% endif %}
+{% if spec.boxQuota.desktop.context.root %}
+        runAsUser: 0
+{% else %}
+        runAsUser: {{ spec.boxQuota.desktop.context.uid | json_encode() | safe }}
+{% endif %}
       serviceAccount: account
       terminationGracePeriodSeconds: 5
       volumes:
@@ -174,23 +194,30 @@ spec:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-{% if spec.boxQuota is object and spec.boxQuota.storage is object %}
+{% if spec.boxQuota.storage is object %}
           persistentVolumeClaim:
             claimName: desktop
 {% else %}
           emptyDir: {}
-          # hostPath:
-          #   path: "/opt/vdi/tenants/remote/{{ metadata.namespace }}/desktop-{{ spec.node.metadata.name }}"
-          #   type: DirectoryOrCreate
 {% endif %}
+{% if not spec.boxQuota.desktop.volumes.containers %}
         - name: home-containers
           emptyDir: {}
-        - name: home-static
-          persistentVolumeClaim:
-            claimName: desktop-static
+{% endif %}
         - name: home-public
+{% if not spec.boxQuota.desktop.volumes.public %}
           persistentVolumeClaim:
             claimName: desktop-public
+{% else %}
+          emptyDir: {}
+{% endif %}
+        - name: home-static
+{% if not spec.boxQuota.desktop.volumes.static %}
+          persistentVolumeClaim:
+            claimName: desktop-static
+{% else %}
+          emptyDir: {}
+{% endif %}
         - name: machine-id
           hostPath:
             path: /etc/machine-id
@@ -205,8 +232,8 @@ spec:
             type: Directory
         - name: runtime-user
           hostPath:
-            path: /run/user/2000
-            type: Directory
+            path: "/run/user/{{ spec.boxQuota.desktop.context.uid }}"
+            type: DirectoryOrCreate
         # - name: scripts
         #   configMap:
         #     name: vine-desktop-scripts
@@ -225,6 +252,7 @@ spec:
           hostPath:
             path: /tmp/.X11-unix
             type: Directory
+{% endif %}
 ###########################################################
 #   Remote Desktop Deployment                             #
 ###########################################################
@@ -303,8 +331,13 @@ spec:
               memory: 2Gi
       hostIPC: true
       securityContext:
-        runAsUser: 2000
-        fsGroup: 2000
+{% if spec.boxQuota.desktop.context.root %}
+        runAsUser: 0
+        fsGroup: 0
+{% else %}
+        runAsUser: {{ spec.boxQuota.desktop.context.uid | json_encode() | safe }}
+        fsGroup: {{ spec.boxQuota.desktop.context.gid | json_encode() | safe }}
+{% endif %}
       terminationGracePeriodSeconds: 30
       volumes:
         - name: x11
