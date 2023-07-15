@@ -497,7 +497,7 @@ jobs:
       - name: Print image url
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
-  build-and-push-image-vine-desktop-minimal:
+  build-and-push-image-vine-desktop-alpine:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - build-rust
@@ -522,10 +522,10 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}-vine-desktop
-          tags: minimal
+          tags: latest-alpine
           context: ./templates/vine/desktop
           containerfiles: |
-            ./templates/vine/desktop/Dockerfile.minimal
+            ./templates/vine/desktop/Dockerfile.alpine
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
@@ -728,7 +728,7 @@ jobs:
       - build-and-push-image-upgrade-gpu-nvidia
       - build-and-push-image-upgrade-kiss
       - build-and-push-image-upgrade-fabric-mellanox
-      - build-and-push-image-vine-desktop-minimal
+      - build-and-push-image-vine-desktop-alpine
       - build-and-push-image-vine-dex
       - build-and-push-image-vine-novnc
       - build-and-push-image-vine-x11vnc
