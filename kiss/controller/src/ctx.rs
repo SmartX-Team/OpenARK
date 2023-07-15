@@ -5,7 +5,7 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
 use kiss_ansible::{AnsibleClient, AnsibleJob};
-use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxState};
+use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxState, BoxStatus};
 use kube::{
     api::{Patch, PatchParams},
     runtime::controller::Action,
@@ -118,9 +118,11 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 let patch = Patch::Apply(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
-                    "status": {
-                        "state": BoxState::Running,
-                        "lastUpdated": Utc::now(),
+                    "status": BoxStatus {
+                        access: status.map(|status| status.access.clone()).unwrap_or_default(),
+                        state: BoxState::Running,
+                        bind_group: status.and_then(|status| status.bind_group.clone()),
+                        last_updated: Utc::now(),
                     },
                 }));
                 let pp = PatchParams::apply(Self::NAME).force();
@@ -180,10 +182,11 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             let patch = Patch::Apply(json!({
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
-                "status": {
-                    "state": new_state,
-                    "bindGroup": bind_group,
-                    "lastUpdated": Utc::now(),
+                "status": BoxStatus {
+                    access: status.map(|status| status.access.clone()).unwrap_or_default(),
+                    state: new_state,
+                    bind_group: bind_group.cloned(),
+                    last_updated: Utc::now(),
                 },
             }));
             let pp = PatchParams::apply("kiss-controller").force();
