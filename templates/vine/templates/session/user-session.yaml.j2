@@ -76,21 +76,21 @@ spec:
               value: /home/user
 {% endif %}
             - name: KISS_DESKTOP_FONTS_URL
-              value: ""
+              value: "{{ spec.boxQuota.desktop.user.template.fontsUrl }}"
             - name: KISS_DESKTOP_ICONS_URL
-              value: ""
+              value: "{{ spec.boxQuota.desktop.user.template.iconsUrl }}"
             - name: KISS_DESKTOP_THEMES_URL
-              value: ""
+              value: "{{ spec.boxQuota.desktop.user.template.themesUrl }}"
             - name: KISS_DESKTOP_TEMPLATE_GIT
-              value: https://github.com/ulagbulag/openark-desktop-template.git
+              value: "{{ spec.boxQuota.desktop.user.template.git }}"
             - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
-              value: master
+              value: "{{ spec.boxQuota.desktop.user.template.gitBranch }}"
             - name: LANG
-              value: ko_KR.UTF-8
+              value: "{{ spec.boxQuota.desktop.user.lang }}"
             - name: LC_ALL
-              value: ko_KR.UTF-8
+              value: "{{ spec.boxQuota.desktop.user.lc.all }}"
             - name: LOCALE
-              value: ko_KR.UTF-8
+              value: "{{ spec.boxQuota.desktop.user.locale }}"
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: all
             - name: NVIDIA_VISIBLE_DEVICES
@@ -101,8 +101,6 @@ spec:
 {% else %}
               value: "{{ spec.boxQuota.desktop.context.uid }}"
 {% endif %}
-            - name: WINEVERSION
-              value: "7.22"
             - name: XDG_RUNTIME_DIR
               value: "/run/user/{{ spec.boxQuota.desktop.context.uid }}"
           ports: {{ spec.boxQuota.desktop.container.ports | json_encode() | safe }}

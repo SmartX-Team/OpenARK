@@ -46,6 +46,8 @@ pub struct UserBoxQuotaDesktopSpec {
     #[serde(default)]
     pub host: UserBoxQuotaDesktopHostSpec,
     #[serde(default)]
+    pub user: UserBoxQuotaDesktopUserSpec,
+    #[serde(default)]
     pub volumes: UserBoxQuotaDesktopVolumesSpec,
 }
 
@@ -176,6 +178,110 @@ impl UserBoxQuotaDesktopHostSpec {
 
     fn default_privileged() -> bool {
         true
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UserBoxQuotaDesktopUserSpec {
+    #[serde(default = "UserBoxQuotaDesktopUserSpec::default_lang")]
+    pub lang: String,
+    #[serde(default)]
+    pub lc: UserBoxQuotaDesktopUserLcSpec,
+    #[serde(default = "UserBoxQuotaDesktopUserSpec::default_locale")]
+    pub locale: String,
+    #[serde(default)]
+    pub template: UserBoxQuotaDesktopUserTemplateSpec,
+}
+
+impl Default for UserBoxQuotaDesktopUserSpec {
+    fn default() -> Self {
+        Self {
+            lang: Self::default_lang(),
+            lc: Default::default(),
+            locale: Self::default_locale(),
+            template: Default::default(),
+        }
+    }
+}
+
+impl UserBoxQuotaDesktopUserSpec {
+    fn default_lang() -> String {
+        "ko_KR.UTF-8".into()
+    }
+
+    fn default_locale() -> String {
+        Self::default_lang()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UserBoxQuotaDesktopUserLcSpec {
+    #[serde(default = "UserBoxQuotaDesktopUserLcSpec::default_all")]
+    pub all: String,
+}
+
+impl Default for UserBoxQuotaDesktopUserLcSpec {
+    fn default() -> Self {
+        Self {
+            all: Self::default_all(),
+        }
+    }
+}
+
+impl UserBoxQuotaDesktopUserLcSpec {
+    fn default_all() -> String {
+        UserBoxQuotaDesktopUserSpec::default_lang()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UserBoxQuotaDesktopUserTemplateSpec {
+    #[serde(default = "UserBoxQuotaDesktopUserTemplateSpec::default_fonts_url")]
+    pub fonts_url: String,
+    #[serde(default = "UserBoxQuotaDesktopUserTemplateSpec::default_git")]
+    pub git: String,
+    #[serde(default = "UserBoxQuotaDesktopUserTemplateSpec::default_git_branch")]
+    pub git_branch: String,
+    #[serde(default = "UserBoxQuotaDesktopUserTemplateSpec::default_icons_url")]
+    pub icons_url: String,
+    #[serde(default = "UserBoxQuotaDesktopUserTemplateSpec::default_themes_url")]
+    pub themes_url: String,
+}
+
+impl Default for UserBoxQuotaDesktopUserTemplateSpec {
+    fn default() -> Self {
+        Self {
+            fonts_url: Self::default_fonts_url(),
+            git: Self::default_git(),
+            git_branch: Self::default_git_branch(),
+            icons_url: Self::default_icons_url(),
+            themes_url: Self::default_themes_url(),
+        }
+    }
+}
+
+impl UserBoxQuotaDesktopUserTemplateSpec {
+    fn default_fonts_url() -> String {
+        Default::default()
+    }
+
+    fn default_git() -> String {
+        "https://github.com/ulagbulag/openark-desktop-template.git".into()
+    }
+
+    fn default_git_branch() -> String {
+        "master".into()
+    }
+
+    fn default_icons_url() -> String {
+        Default::default()
+    }
+
+    fn default_themes_url() -> String {
+        Default::default()
     }
 }
 
