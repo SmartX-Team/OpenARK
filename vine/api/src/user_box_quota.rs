@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
     printcolumn = r#"{
         "name": "amount",
         "type": "number",
-        "description": "the number of allowed boxes",
-        "jsonPath": ".spec.amount"
+        "description": "allowed docker desktop image",
+        "jsonPath": ".spec.desktop.container.image"
     }"#,
     printcolumn = r#"{
         "name": "created-at",
