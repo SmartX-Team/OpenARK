@@ -51,11 +51,16 @@ function update_window() {
 
 while :; do
     echo "Waiting until logged out..."
-    while [ "$(
-        kubectl get node "${NODENAME}" \
-            --output jsonpath \
-            --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
-    )" == 'true' ]; do
+    while
+        ! kubectl get node "${NODENAME}" >/dev/null 2>/dev/null ||
+            [[ 
+                "x$(
+                    kubectl get node "${NODENAME}" \
+                        --output jsonpath \
+                        --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
+                )" == 'xtrue' ]] \
+            ;
+    do
         sleep 3
     done
 
@@ -80,11 +85,11 @@ while :; do
     update_window 'Navigator'
 
     echo "Waiting until login is succeeded..."
-    until [ "$(
+    until [[ "$(
         kubectl get node "${NODENAME}" \
             --output jsonpath \
             --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
-    )" == 'true' ]; do
+    )" == 'true' ]]; do
         # Session Timeout
         NOW=$(date -u +%s)
         TIMEOUT_SECS="300" # 5 minutes
