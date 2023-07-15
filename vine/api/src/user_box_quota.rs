@@ -202,7 +202,7 @@ impl Default for UserBoxQuotaDesktopVolumesSpec {
 
 impl UserBoxQuotaDesktopVolumesSpec {
     fn default_containers() -> bool {
-        false
+        true
     }
 
     fn default_public() -> bool {
