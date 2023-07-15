@@ -204,6 +204,7 @@ EOF
     git clone "${SRC_REPO}" "${SRC_HOME}"
     pushd "${SRC_HOME}"
     ./dkms-install.sh
+    rm -rf "${SRC_HOME}"
     popd
 fi
 
