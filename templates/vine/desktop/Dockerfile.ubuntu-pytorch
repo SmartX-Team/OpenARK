@@ -1,0 +1,177 @@
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Configure environment variables
+ARG PYTORCH_RELEASE="23.04"
+ARG PYTHON_VERSION="3"
+
+# Configure user-specific environment variables
+ARG USER_GID="2000"
+ARG USER_NAME="user"
+ARG USER_SHELL="zsh"
+ARG USER_SUDO="true"
+ARG USER_UID="2000"
+
+# Be ready for serving
+FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}"
+
+# Load user-specific environment variables
+ARG USER_GID
+ARG USER_NAME
+ARG USER_SHELL
+ARG USER_SUDO
+ARG USER_UID
+
+# Package Manager Configuration
+ARG DEBIAN_FRONTEND='noninteractive'
+
+# SystemD Configuration
+ENV container docker
+STOPSIGNAL SIGRTMIN+3
+
+# Client Configuration
+WORKDIR /root/
+ENTRYPOINT [ "/usr/bin/env" ]
+CMD [ "/usr/bin/firefox" ]
+
+# Volumes Configuration
+## home.user
+VOLUME [ "/home/${USER_NAME}" ]
+
+# Add core repositories
+ADD ./apt/keyrings/* /etc/apt/keyrings/
+ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
+RUN find /etc/apt/keyrings/ -type f -exec sh -c \
+    'cat "{}" | gpg --dearmor --yes -o "/etc/apt/keyrings/$(basename "{}")"' \;
+
+# Install core dependencies
+RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    curl \
+    gpg \
+    libgles2-mesa-dev \
+    libglfw3-dev \
+    mesa-vulkan-drivers \
+    pulseaudio \
+    pulseaudio-module-bluetooth \
+    wmctrl \
+    x11-utils \
+    xdotool \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install locale dependencies
+RUN apt-get update && apt-get install -y \
+    language-pack-ko \
+    # Set default locale
+    && locale-gen --purge en_US.UTF-8 \
+    && echo -e 'LANG="en_US.UTF-8"\nLANGUAGE="en_US:en"\n' | tee /etc/default/locale \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install development environment dependencies
+RUN apt-get update && apt-get install -y \
+    crun \
+    fuse-overlayfs \
+    git \
+    kubectl \
+    nano \
+    openssh-client \
+    pciutils \
+    python3 \
+    python3-pip \
+    sudo \
+    uidmap \
+    "${USER_SHELL}" \
+    vim \
+    wget \
+    zip \
+    # Allow passwordless sudo command
+    && test "x${USER_SUDO}" = "xtrue" \
+    && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
+    && chmod 440 /etc/sudoers.d/10-wheel \
+    || true \
+    # Docker (Podman) Configuration
+    && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
+    # Environment Variables Configuration
+    && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/opt/bin' >>/etc/profile.d/path-local-bin.sh \
+    && ln -sf /usr/local/bin /opt/bin \
+    && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && ldconfig \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install desktop environment dependencies
+RUN apt-get update && apt-get install -y \
+    blueman \
+    bluez \
+    code \
+    dbus-x11 \
+    file-roller \
+    gnome-bluetooth \
+    ibus-hangul \
+    network-manager \
+    network-manager-gnome \
+    plank \
+    sqlite \
+    ssh-askpass \
+    thunar thunar-archive-plugin thunar-volman \
+    tumbler \
+    xdg-dbus-proxy \
+    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
+    xfce4-session xfce4-settings xfce4-terminal \
+    xfconf xfdesktop4 xfwm4 \
+    # Remove confliected repositories
+    && rm /etc/apt/sources.list.d/microsoft.list \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install internet browsers
+RUN apt-get update && apt-get install -y \
+    firefox \
+    google-chrome-stable \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install utilities - Custom
+ARG ADDONS_HOME="/opt/openark/vdi/desktop"
+ADD ./addons "${ADDONS_HOME}"
+RUN chmod -R a+x "${ADDONS_HOME}/bin" \
+    && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \
+    && ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
+    ; done \
+    && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
+    && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
+    ; done
+
+# Add firefox preferences
+ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
+ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
+
+# Add read-only shared directory
+RUN mkdir -p /opt/public/ \
+    && chown -R "${USER_UID}:${USER_GID}" /opt/public/
+
+# Add scripts
+ADD ./scripts /opt/scripts/
+RUN chmod 0555 /opt/scripts/*
+
+# Add a user
+RUN ldconfig \
+    && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
+    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pulse,render,video" \
+    -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
+    && echo -e "${USER_UID}:2001:65535" > /etc/subuid \
+    && echo -e "${USER_GID}:2001:65535" > /etc/subgid
+USER "${USER_NAME}"
+WORKDIR "/home/${USER_NAME}"
