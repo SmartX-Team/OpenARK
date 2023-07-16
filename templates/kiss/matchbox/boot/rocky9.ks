@@ -201,13 +201,21 @@ EOF
     ### Install dependencies
     dnf install -y dkms
     ### Download
-    SRC_HOME="/tmp/rtl8188eus"
-    SRC_REPO="https://github.com/ulagbulag/rtl8188eus.git"
+    SRC_DRIVER="rtl8188eus"
+    SRC_HOME="/usr/src/${SRC_DRIVER}"
+    SRC_REPO="https://github.com/ulagbulag/${SRC_DRIVER}.git"
     git clone "${SRC_REPO}" "${SRC_HOME}"
+    ### Specify Version
     pushd "${SRC_HOME}"
-    ./dkms-install.sh
-    rm -rf "${SRC_HOME}"
+    SRC_VERSION="$(git branch | awk '{print $2}' | grep -Po '^v\K.*')"
+    SRC_HOME_VERSION="${SRC_HOME}-${SRC_VERSION}"
     popd
+    mv "${SRC_HOME}" "${SRC_HOME_VERSION}"
+    ### Install
+    SRC_KERNEL_VERSION="$(ls '/lib/modules/' | head -1)"
+    dkms add -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+    dkms build -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+    dkms install -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
 fi
 
 ## Fix CoreDNS timeout
