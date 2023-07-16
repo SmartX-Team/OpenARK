@@ -92,7 +92,10 @@ pub async fn get_stream_logs(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    match client.get_stream_logs(&function_name.0, &job_name.0).await {
+    match client
+        .get_stream_logs_as_bytes(&function_name.0, &job_name.0)
+        .await
+    {
         Ok(stream) => HttpResponse::Ok().streaming(stream),
         Err(error) => HttpResponse::Forbidden().body(error.to_string()),
     }

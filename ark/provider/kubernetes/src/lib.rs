@@ -33,7 +33,7 @@ use ark_provider_api::{
     runtime::{ApplicationRuntime, ApplicationRuntimeCtx},
 };
 use async_trait::async_trait;
-use futures::StreamExt;
+use futures::{AsyncBufReadExt, StreamExt};
 use k8s_openapi::{
     api::core::v1::{Namespace, Pod},
     serde::{de::DeserializeOwned, Serialize},
@@ -359,7 +359,7 @@ async fn show_logs(
         let mut stream = api.log_stream(pod_name, &lp).await?;
         let mut stdout = io::stdout();
 
-        while let Some(value) = stream.next().await {
+        while let Some(value) = (&mut stream).lines().next().await {
             let value = value?;
             io::copy(&mut value.as_ref(), &mut stdout).await?;
         }
