@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
     struct = "UserBoxQuotaCrd",
     shortname = "ubq",
     printcolumn = r#"{
-        "name": "amount",
-        "type": "number",
+        "name": "image",
+        "type": "string",
         "description": "allowed docker desktop image",
         "jsonPath": ".spec.desktop.container.image"
     }"#,
@@ -290,6 +290,8 @@ impl UserBoxQuotaDesktopUserTemplateSpec {
 pub struct UserBoxQuotaDesktopVolumesSpec {
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_containers")]
     pub containers: bool,
+    #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_home")]
+    pub home: bool,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_public")]
     pub public: bool,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_static")]
@@ -300,6 +302,7 @@ impl Default for UserBoxQuotaDesktopVolumesSpec {
     fn default() -> Self {
         Self {
             containers: Self::default_containers(),
+            home: Self::default_home(),
             public: Self::default_public(),
             r#static: Self::default_static(),
         }
@@ -308,6 +311,10 @@ impl Default for UserBoxQuotaDesktopVolumesSpec {
 
 impl UserBoxQuotaDesktopVolumesSpec {
     fn default_containers() -> bool {
+        true
+    }
+
+    fn default_home() -> bool {
         true
     }
 
