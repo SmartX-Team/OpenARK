@@ -27,8 +27,8 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
-    "netai/api",               # exclude(alpine)
-    "netai/client",            # exclude(alpine)
+    "netai/api",
+    "netai/client",
     "netai/endpoint",          # exclude(alpine)
     "netai/solver",            # exclude(alpine)
     "proxyx/api",              # exclude(alpine)
@@ -91,7 +91,7 @@ num-traits = { version = "0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab", default-features = false, features = [
     "rustls-tls",
 ] }
-ort = { version = "1.14", default-features = false, features = [
+ort = { version = "=1.14.8", default-features = false, features = [
     # Common
     "copy-dylibs",
     "download-binaries",
