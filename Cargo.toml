@@ -27,8 +27,8 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
-    "netai/api",
-    "netai/client",
+    "netai/api",               # exclude(alpine)
+    "netai/client",            # exclude(alpine)
     "netai/endpoint",          # exclude(alpine)
     "netai/solver",            # exclude(alpine)
     "proxyx/api",              # exclude(alpine)
