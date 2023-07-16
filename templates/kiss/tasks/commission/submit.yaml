@@ -26,10 +26,23 @@
             type: Ipmi
             address: "{{ ipmi_address.stdout }}"
 
+    # - name: Update submit template | Power | Intel AMT
+    #   when:
+    #     - kiss_submit_data_power is not defined or not kiss_submit_data_power
+    #     - intel_amt_address is defined and intel_amt_address.stdout is defined
+    #   set_fact:
+    #     kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
+    #     kiss_submit_data_power: true
+    #   vars:
+    #     kiss_submit_data_patch:
+    #       power:
+    #         type: IntelAMT
+    #         address: "{{ intel_amt_address.stdout }}"
+
     - name: Update submit template | Power | Intel AMT
       when:
         - kiss_submit_data_power is not defined or not kiss_submit_data_power
-        - intel_amt_address is defined and intel_amt_address.stdout is defined
+        - kiss_power_intel_amt_host is defined and kiss_power_intel_amt_host != ''
       set_fact:
         kiss_submit_data: "{{ kiss_submit_data | combine(kiss_submit_data_patch, recursive=true) }}"
         kiss_submit_data_power: true
@@ -37,7 +50,7 @@
         kiss_submit_data_patch:
           power:
             type: IntelAMT
-            address: "{{ intel_amt_address.stdout }}"
+            address: "{{ kiss_power_intel_amt_host }}"
 
 - name: Submit results to kiss cluster
   uri:

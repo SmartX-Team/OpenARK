@@ -40,7 +40,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
         match api.get_opt(&name).await? {
             Some(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -52,7 +52,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-gateway").force();
+                let pp = PatchParams::apply("kiss-gateway");
                 api.patch_status(&name, &pp, &patch).await?;
             }
             None => {
@@ -116,7 +116,7 @@ async fn post_commission(
         match api.get_opt(&name).await? {
             Some(r#box) => {
                 let crd = BoxCrd::api_resource();
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "spec": BoxSpec {
@@ -139,7 +139,7 @@ async fn post_commission(
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply("kiss-gateway").force();
+                let pp = PatchParams::apply("kiss-gateway");
                 api.patch(&name, &pp, &patch).await?;
                 api.patch_status(&name, &pp, &patch).await?;
             }

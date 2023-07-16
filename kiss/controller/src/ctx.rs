@@ -115,7 +115,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
             // skip joining if already joined
             if !is_bind_group_updated {
-                let patch = Patch::Apply(json!({
+                let patch = Patch::Merge(json!({
                     "apiVersion": crd.api_version,
                     "kind": crd.kind,
                     "status": BoxStatus {
@@ -125,7 +125,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         last_updated: Utc::now(),
                     },
                 }));
-                let pp = PatchParams::apply(Self::NAME).force();
+                let pp = PatchParams::apply(Self::NAME);
                 api.patch_status(&name, &pp, &patch).await?;
 
                 info!("Skipped joining (already joined) {name:?}");
@@ -179,7 +179,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .and_then(|status| status.bind_group.as_ref())
             };
 
-            let patch = Patch::Apply(json!({
+            let patch = Patch::Merge(json!({
                 "apiVersion": crd.api_version,
                 "kind": crd.kind,
                 "status": BoxStatus {
@@ -189,7 +189,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     last_updated: Utc::now(),
                 },
             }));
-            let pp = PatchParams::apply("kiss-controller").force();
+            let pp = PatchParams::apply(Self::NAME);
             api.patch_status(&name, &pp, &patch).await?;
 
             info!("Reconciled Document {name:?}");
