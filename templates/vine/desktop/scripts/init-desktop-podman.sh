@@ -9,12 +9,14 @@ set -e -o pipefail
 set -x
 
 # Copy podman containers configuration file
-mkdir -p "${HOME}/.config/containers"
-rm -rf "${HOME}/.config/containers/containers.conf"
-cp /etc/containers/podman-containers.conf "${HOME}/.config/containers/containers.conf"
+if which podman; then
+    mkdir -p "${HOME}/.config/containers"
+    rm -rf "${HOME}/.config/containers/containers.conf"
+    cp /etc/containers/podman-containers.conf "${HOME}/.config/containers/containers.conf"
 
-# Initialize rootless podman
-podman system migrate
+    # Initialize rootless podman
+    podman system migrate
 
-# Generate a CDI specification that refers to all NVIDIA devices
-nvidia-ctk cdi generate --device-name-strategy=type-index --format=json > /etc/cdi/nvidia.json
+    # Generate a CDI specification that refers to all NVIDIA devices
+    nvidia-ctk cdi generate --device-name-strategy=type-index --format=json >/etc/cdi/nvidia.json
+fi

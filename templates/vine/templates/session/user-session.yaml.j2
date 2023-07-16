@@ -1,7 +1,6 @@
 ###########################################################
 #   Desktop Deployment                                    #
 ###########################################################
-{% if spec.boxQuota is object and spec.boxQuota.desktop is object %}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -27,6 +26,7 @@ spec:
                     operator: In
                     values:
                       - "{{ spec.node.metadata.name }}"
+{% if spec.boxQuota is object and spec.boxQuota.desktop is object %}
       initContainers:
         - name: init-check-permissions
           image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
@@ -77,15 +77,15 @@ spec:
               value: /home/user
 {% endif %}
             - name: KISS_DESKTOP_FONTS_URL
-              value: "{{ spec.boxQuota.desktop.user.template.fontsUrl }}"
+              value: {{ spec.boxQuota.desktop.user.template.fontsUrl | json_encode() | safe }}
             - name: KISS_DESKTOP_ICONS_URL
-              value: "{{ spec.boxQuota.desktop.user.template.iconsUrl }}"
+              value: {{ spec.boxQuota.desktop.user.template.iconsUrl | json_encode() | safe }}
             - name: KISS_DESKTOP_THEMES_URL
-              value: "{{ spec.boxQuota.desktop.user.template.themesUrl }}"
+              value: {{ spec.boxQuota.desktop.user.template.themesUrl | json_encode() | safe }}
             - name: KISS_DESKTOP_TEMPLATE_GIT
-              value: "{{ spec.boxQuota.desktop.user.template.git }}"
+              value: {{ spec.boxQuota.desktop.user.template.git | json_encode() | safe }}
             - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
-              value: "{{ spec.boxQuota.desktop.user.template.gitBranch }}"
+              value: {{ spec.boxQuota.desktop.user.template.gitBranch | json_encode() | safe }}
             - name: LANG
               value: "{{ spec.boxQuota.desktop.user.lang }}"
             - name: LC_ALL
@@ -291,6 +291,7 @@ spec:
                     operator: In
                     values:
                       - "{{ spec.node.metadata.name }}"
+{% if spec.boxQuota is object and spec.boxQuota.desktop is object %}
       containers:
         - name: x11vnc
           image: quay.io/ulagbulag/openark-vine-x11vnc:latest
@@ -350,6 +351,7 @@ spec:
           hostPath:
             path: /tmp/.X11-unix
             type: Directory
+{% endif %}
 ---
 apiVersion: v1
 kind: Service
