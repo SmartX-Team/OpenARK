@@ -185,6 +185,7 @@ RUN dnf install -y --enablerepo raven \
     gnome-bluetooth \
     ibus-hangul \
     NetworkManager-bluetooth \
+    NetworkManager-tui \
     NetworkManager-wifi \
     network-manager-applet \
     nm-connection-editor \
