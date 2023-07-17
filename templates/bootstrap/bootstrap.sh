@@ -177,6 +177,37 @@ function spawn_node() {
         # Create a sysctl conf directory if not exists
         sudo mkdir -p "/etc/sysctl.d/"
 
+        # Define data directories
+        declare -a DATA_DIRS=(
+            "/binary.cni:/opt/cni"
+            "/binary.common:/usr/local/bin"
+            "/binary.etcd:/opt/etcd"
+            "/binary.pypy3:/opt/pypy3"
+            "/etc.cni:/etc/cni"
+            "/etc.containerd:/etc/containerd"
+            "/etc.etcd:/etc/etcd"
+            "/etc.k8s:/etc/kubernetes"
+            "/home.k8s:/root/.kube"
+            "/var.calico:/var/lib/calico"
+            "/var.cni:/var/lib/cni"
+            "/var.containerd:/var/lib/containerd"
+            "/var.dnsmasq:/var/lib/dnsmasq"
+            "/var.k8s:/var/lib/kubelet"
+            "/var.proxy_cache:/var/lib/proxy_cache"
+            "/var.rook:/var/lib/rook"
+            "/var.system.log:/var/log"
+        )
+
+        # Create data directories
+        local CONTAINER_ARGS=""
+        for data_dir in ${DATA_DIRS[@]}; do
+            data_src="${KUBERNETES_DATA}$(echo "${data_dir}" | cut '-d:' '-f1')"
+            data_dst="$(echo "${data_dir}" | cut '-d:' '-f2')"
+
+            sudo mkdir -p "${data_src}"
+            CONTAINER_ARGS="${CONTAINER_ARGS} --volume ${data_src}:${data_dst}:shared"
+        done
+
         # Spawn a node
         echo -n "- Spawning a node (${name}) ... "
         "${CONTAINER_RUNTIME}" run --detach \
@@ -197,23 +228,7 @@ function spawn_node() {
             --volume "/sys/fs/bpf:/sys/fs/bpf" \
             --volume "/sys/fs/cgroup:/sys/fs/cgroup" \
             --volume "/sys/kernel/debug:/sys/kernel/debug" \
-            --volume "${KUBERNETES_DATA}/binary.cni:/opt/cni:shared" \
-            --volume "${KUBERNETES_DATA}/binary.common:/usr/local/bin:shared" \
-            --volume "${KUBERNETES_DATA}/binary.etcd:/opt/etcd:shared" \
-            --volume "${KUBERNETES_DATA}/binary.pypy3:/opt/pypy3:shared" \
-            --volume "${KUBERNETES_DATA}/etc.cni:/etc/cni:shared" \
-            --volume "${KUBERNETES_DATA}/etc.containerd:/etc/containerd:shared" \
-            --volume "${KUBERNETES_DATA}/etc.etcd:/etc/etcd:shared" \
-            --volume "${KUBERNETES_DATA}/etc.k8s:/etc/kubernetes:shared" \
-            --volume "${KUBERNETES_DATA}/home.k8s:/root/.kube:shared" \
-            --volume "${KUBERNETES_DATA}/var.calico:/var/lib/calico:shared" \
-            --volume "${KUBERNETES_DATA}/var.cni:/var/lib/cni:shared" \
-            --volume "${KUBERNETES_DATA}/var.containerd:/var/lib/containerd:shared" \
-            --volume "${KUBERNETES_DATA}/var.dnsmasq:/var/lib/dnsmasq:shared" \
-            --volume "${KUBERNETES_DATA}/var.k8s:/var/lib/kubelet:shared" \
-            --volume "${KUBERNETES_DATA}/var.proxy_cache:/var/lib/proxy_cache:shared" \
-            --volume "${KUBERNETES_DATA}/var.rook:/var/lib/rook:shared" \
-            --volume "${KUBERNETES_DATA}/var.system.log:/var/log:shared" \
+            ${CONTAINER_ARGS} \
             "${KISS_BOOTSTRAP_NODE_IMAGE}" >/dev/null
     else
         # Start SSH
