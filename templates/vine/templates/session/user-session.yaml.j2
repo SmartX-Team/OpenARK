@@ -32,22 +32,22 @@ spec:
           image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
           imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
           command:
-            - sudo
+            - env
             - bash
             - -c
           args:
             - |
               set -e -x -o pipefail
-              mkdir -p "${HOME}/.local/share/containers/storage"
-              chown "$(id -u):$(id -g)" \
+              sudo mkdir -p "${HOME}/.local/share/containers/storage"
+              sudo chown "$(id -u):$(id -g)" \
                 "${HOME}/" \
                 "${HOME}/.local" \
                 "${HOME}/.local/share" \
                 "${HOME}/.local/share/containers" \
                 "${HOME}/.local/share/containers/storage" \
                 '/mnt/public'
-              chmod 700 "${HOME}"
-              chmod 777 '/mnt/public'
+              sudo chmod 700 "${HOME}"
+              sudo chmod 777 '/mnt/public'
               exec true
           env:
             - name: HOME
