@@ -25,6 +25,12 @@ impl BoxCrd {
     status = "BoxStatus",
     shortname = "box",
     printcolumn = r#"{
+        "name": "alias",
+        "type": "string",
+        "description": "box alias",
+        "jsonPath": ".metadata.annotations.kiss\\.ulagbulag\\.io/box-name"
+    }"#,
+    printcolumn = r#"{
         "name": "address",
         "type": "string",
         "description": "access address of the box",
