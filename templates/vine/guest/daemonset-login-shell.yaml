@@ -64,7 +64,7 @@ spec:
                       - Desktop
       containers:
         - name: login-shell
-          image: quay.io/ulagbulag/openark-vine-desktop:latest
+          image: quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux
           imagePullPolicy: Always
           command:
             - /opt/scripts/entrypoint-login-shell.sh

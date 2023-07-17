@@ -34,7 +34,7 @@ spec:
                       - 05e576df-7d12-1000-a4cc-d8c497a2b87d
       containers:
         - name: desktop-environment
-          image: quay.io/ulagbulag/openark-vine-desktop:latest
+          image: quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux
           imagePullPolicy: Always
           command:
             - sleep
