@@ -92,6 +92,7 @@ RUN yay -Sy --needed --noconfirm \
     wmctrl \
     xdotool \
     xorg-xprop \
+    xorg-xset \
     # Cleanup
     && yay -Scc --noconfirm \
     && rm -r /var/lib/pacman/sync/*
@@ -142,10 +143,16 @@ RUN yay -Sy --noconfirm \
 
 # Install development environment dependencies
 RUN yay -Sy --noconfirm \
+    binutils \
     crun \
+    fakeroot \
     fuse-overlayfs \
+    gcc \
     git \
+    go \
     kubectl \
+    llvm \
+    make \
     nano \
     nvidia-container-toolkit-base \
     openssh-clients \
@@ -153,6 +160,7 @@ RUN yay -Sy --noconfirm \
     podman-docker \
     python3 \
     python3-pip \
+    rustup \
     sudo \
     "${USER_SHELL}" \
     vim \
@@ -215,6 +223,7 @@ RUN yay -Sy --noconfirm \
     thunar thunar-archive-plugin thunar-volman \
     tumbler \
     xdg-dbus-proxy \
+    xdg-utils \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
     xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop xfwm4 \
