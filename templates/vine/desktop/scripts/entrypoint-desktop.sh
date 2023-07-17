@@ -12,10 +12,6 @@ set -x
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Disable screen blanking
-xset -dpms
-xset s off
-
 # Initialize desktop environment
 "$(dirname "$0")/init-desktop.sh"
 
@@ -24,6 +20,9 @@ xset s off
 
 # Initialize desktop storage environment
 "$(dirname "$0")/init-desktop-storage.sh"
+
+# Initialize desktop display environment
+"$(dirname "$0")/init-desktop-display.sh"
 
 # Execute a desktop environment
 "$(dirname "$0")/init-desktop-xfce4.sh"
