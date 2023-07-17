@@ -28,7 +28,7 @@ impl BoxCrd {
         "name": "alias",
         "type": "string",
         "description": "box alias",
-        "jsonPath": ".metadata.annotations.kiss\\.ulagbulag\\.io/box-name"
+        "jsonPath": ".metadata.labels.dash\\.ulagbulag\\.io/alias"
     }"#,
     printcolumn = r#"{
         "name": "address",
