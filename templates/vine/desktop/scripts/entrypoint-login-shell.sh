@@ -64,6 +64,9 @@ while :; do
         sleep 3
     done
 
+    # Wait for seconds to gracefully terminate desktop session...
+    sleep 5
+
     update_screen_size
 
     echo "Executing a login shell..."
