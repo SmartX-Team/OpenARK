@@ -4,7 +4,7 @@
 # found in the LICENSE file.
 
 # Prehibit errors
-set -e
+set -e -o pipefail
 
 ###########################################################
 #   Configuration                                         #
@@ -179,7 +179,7 @@ function spawn_node() {
 
         # Spawn a node
         echo -n "- Spawning a node (${name}) ... "
-        "$CONTAINER_RUNTIME" run --detach \
+        "${CONTAINER_RUNTIME}" run --detach \
             --name "${name}" \
             --cgroupns "host" \
             --hostname "${name}" \
