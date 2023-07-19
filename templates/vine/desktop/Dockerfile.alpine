@@ -77,7 +77,7 @@ RUN apk add --no-cache \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
     xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop xfwm4 \
-    xinit xorg-server
+    xinit xmlstarlet xorg-server
 
 # Install desktop environment dependencies - plank
 ARG PLANK_REPO="https://github.com/ricotz/plank.git"
