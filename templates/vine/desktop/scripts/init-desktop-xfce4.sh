@@ -17,21 +17,24 @@ function update_screen() {
         return
     fi
 
+    local target_xml="${HOME}/.config/xfce4/xfconf/xfce-perchannel-xml/displays.xml"
     for screen in $(echo -en "${screens}"); do
         echo "Fixing screen size to perferred (${screen})..."
-        screen_resolution="$(xrandr --current | awk "/HDMI-0 *connected /{getline;print \$1}")"
-        screen_refresh_rate="$(xrandr --current | awk "/HDMI-0 *connected /{getline;print \$2}")"
+        screen_resolution="$(xrandr --current | awk "/${screen} *connected /{getline;print \$1}" | grep -Po '[0-9x]+')"
+        screen_refresh_rate="$(xrandr --current | awk "/${screen} *connected /{getline;print \$2}" | grep -Po '[0-9\.]+')"
 
         echo "* Resolution = '${screen_resolution}'"
         echo "* Refresh Rate = '${screen_refresh_rate}'"
         xmlstarlet edit \
             --inplace \
             --update "/channel/property/property[@name='${screen}']/property[@name='Resolution']/@value" \
-            --value "${screen_resolution}"
+            --value "${screen_resolution}" \
+            "${target_xml}"
         xmlstarlet edit \
             --inplace \
             --update "/channel/property/property[@name='${screen}']/property[@name='RefreshRate']/@value" \
-            --value "${screen_refresh_rate}"
+            --value "${screen_refresh_rate}" \
+            "${target_xml}"
     done
 }
 
