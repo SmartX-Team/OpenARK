@@ -433,6 +433,13 @@ spec:
           #       name: "novnc-{{ spec.node.metadata.name }}"
           #       port:
           #         number: 5900
+          - path: "/user/{{ spec.userName }}/vnc(/|$)(.*)"
+            pathType: Prefix
+            backend:
+              service:
+                name: "novnc-{{ spec.node.metadata.name }}"
+                port:
+                  number: 80
 ###########################################################
 #   Storage Deployment                                    #
 ###########################################################
