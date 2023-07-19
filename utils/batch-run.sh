@@ -106,7 +106,7 @@ spec:
 "
 
 ###########################################################
-#   Label all noxes with given Aliases                    #
+#   Run the given script for all given nodes              #
 ###########################################################
 
 echo 'Running for user sessions'

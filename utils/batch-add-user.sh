@@ -36,7 +36,7 @@ spec:
 "
 
 ###########################################################
-#   Label all noxes with given Aliases                    #
+#   Add all users with given Information                  #
 ###########################################################
 
 echo 'Creating users'
