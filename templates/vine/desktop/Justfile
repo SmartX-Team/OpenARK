@@ -15,3 +15,9 @@ build DIST:
 
 push DIST: (build DIST)
   docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}"
+
+push-all:
+  for src_file in Dockerfile.*; do true \
+    && dist="$(echo "${src_file}" | grep -Po '^Dockerfile\.\K.*')" \
+    && just push "${dist}"; \
+    done
