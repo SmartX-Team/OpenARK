@@ -26,5 +26,5 @@ exec "$(dirname "$0")/batch-run.sh" "true \
   && mkdir -p ~/Public ~/Desktop ~/.local \
   && podman system migrate \
   && podman container rm -f isaac-sim || true \
-  && docker pull --tls-verify=false ${IMAGES} \
+  && podman pull --tls-verify=false ${IMAGES} \
 "
