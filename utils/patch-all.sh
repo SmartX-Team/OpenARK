@@ -35,7 +35,7 @@ for address in $(kubectl get box -o jsonpath='{.items[*].status.access.primary.a
             ;
     then
         scp -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${SCRIPT_PATH}" "kiss@${address}:${SCRIPT_DST}"
-        ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" sudo bash "${SCRIPT_DST}"
+        ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" sudo bash "${SCRIPT_DST}" || true
         echo "OK"
     else
         echo "Skipped"
