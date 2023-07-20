@@ -29,6 +29,9 @@ Cargo.lock
 # Dockerfile/Containerfile
 /Dockerfile*
 
+# Cargo settings
+/.cargo/
+
 # Editor
 /.github/
 /.vscode/
