@@ -52,7 +52,7 @@ for line in $(cat "${CSV_PATH}" | tail '+2'); do
       ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" echo "Connected" 2>/dev/null \
       ;
   then
-    scp -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${SCRIPT_PATH}" "kiss@${address}:${SCRIPT_DST}"
+    scp -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "${SCRIPT_PATH}" "kiss@${address}:${SCRIPT_DST}" >/dev/null
     if ssh -i "${SSH_KEYFILE_PATH}" -o StrictHostKeyChecking=no "kiss@${address}" bash "${SCRIPT_DST}" >>"${DST_PATH}"; then
       echo "OK"
     else
