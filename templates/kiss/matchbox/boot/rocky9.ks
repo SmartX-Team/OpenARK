@@ -197,6 +197,13 @@ options iwlmvm power_scheme=1
 options iwlwifi power_save=0
 EOF
 
+    ## Disable Power Saving Mode on NetworkManager
+    mkdir -p /etc/NetworkManager/conf.d/
+    cat <<EOF >/etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
+[connection]
+wifi.powersave = 2
+EOF
+
     ## Install Manual RealTek Driver
     ### Install dependencies
     dnf install -y dkms

@@ -1,7 +1,14 @@
-# Optimize driver
+# Disable Power Saving Mode
 cat <<EOF | sudo tee /etc/modprobe.d/iwlwifi.conf
 options iwlmvm power_scheme=1
 options iwlwifi power_save=0
+EOF
+
+# Disable Power Saving Mode on NetworkManager
+sudo mkdir -p /etc/NetworkManager/conf.d/
+cat <<EOF | sudo tee /etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
+[connection]
+wifi.powersave = 2
 EOF
 
 # Install driver: rtl8188eu
