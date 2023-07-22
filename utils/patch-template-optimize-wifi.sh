@@ -1,7 +1,7 @@
 # Disable Power Saving Mode
 cat <<EOF | sudo tee /etc/modprobe.d/iwlwifi.conf
 options iwlmvm power_scheme=1
-options iwlwifi power_save=0
+options iwlwifi power_save=0 disable_11ax=1
 EOF
 
 # Disable Power Saving Mode on NetworkManager
