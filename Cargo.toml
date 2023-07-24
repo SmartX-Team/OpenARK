@@ -85,12 +85,12 @@ language-tags = { version = "=0.3", features = ["serde"] }
 log = { version = "=0.4" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs", default-features = false, features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 ndarray = { version = "=0.15", features = ["serde"] }
 num-traits = { version = "=0.2" }
-octocrab = { git = "https://github.com/ulagbulag/octocrab", default-features = false, features = [
+octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [
     "rustls-tls",
 ] }
 ort = { version = "=1.14.8", default-features = false, features = [
