@@ -16,7 +16,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ark-api = { path = "../api" }
 ark-core = { path = "../core" }
-ark-core-k8s = { path = "../core/k8s" }
+ark-core-k8s = { path = "../core/k8s", features = ["manager"] }
 ark-provider-api = { path = "../provider/api" }
 ark-provider-kubernetes = { path = "../provider/kubernetes" }
 ark-provider-local = { path = "../provider/local" }

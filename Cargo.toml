@@ -107,7 +107,7 @@ paste = { version = "=1.0" }
 pretty_env_logger = { version = "=0.5" }
 rand = { version = "=0.8" }
 regex = { version = "=1.9" }
-reqwest = { version = "=0.11", default-features = false, features = [
+reqwest = { git = "https://github.com/ulagbulag/reqwest-wasm.git", package = "reqwest-wasm", version = "=0.11", default-features = false, features = [
     "json",
     "rustls-tls",
     "stream",

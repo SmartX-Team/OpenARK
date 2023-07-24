@@ -5,21 +5,36 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+data = ["schemars", "serde", "strum"]
+manager = [
+    "anyhow",
+    "async-trait",
+    "futures",
+    "k8s-openapi",
+    "kube",
+    "log",
+    "schemars",
+    "serde",
+    "serde_json",
+]
+
 [dependencies]
 ark-core = { path = ".." }
 
-anyhow = { workspace = true }
-async-trait = { workspace = true }
-futures = { workspace = true }
-k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
+anyhow = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+k8s-openapi = { workspace = true, optional = true }
+kube = { workspace = true, optional = true, features = [
     "client",
     "runtime",
     "rustls-tls",
     "ws",
 ] }
-log = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-strum = { workspace = true }
+log = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
