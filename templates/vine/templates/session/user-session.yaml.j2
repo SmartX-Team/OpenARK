@@ -60,13 +60,11 @@ spec:
             privileged: true
           workingDir: /
           volumeMounts:
-{% if spec.boxQuota.desktop.volumes.home %}
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root
 {% else %}
               mountPath: /home/user
-{% endif %}
 {% endif %}
 {% if not spec.boxQuota.desktop.volumes.containers %}
             - name: home-containers
@@ -140,13 +138,11 @@ spec:
             - name: egl-icd-loader
               mountPath: /etc/glvnd/egl_vendor.d
               readOnly: true
-{% if spec.boxQuota.desktop.volumes.home %}
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root
 {% else %}
               mountPath: /home/user
-{% endif %}
 {% endif %}
 {% if not spec.boxQuota.desktop.volumes.containers %}
             - name: home-containers
@@ -222,14 +218,12 @@ spec:
           hostPath:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
-{% if spec.boxQuota.desktop.volumes.home %}
         - name: home
-{% if spec.boxQuota.storage is object %}
+{% if spec.boxQuota.desktop.volumes.home and spec.boxQuota.storage is object %}
           persistentVolumeClaim:
             claimName: desktop
 {% else %}
           emptyDir: {}
-{% endif %}
 {% endif %}
 {% if not spec.boxQuota.desktop.volumes.containers %}
         - name: home-containers
