@@ -51,16 +51,10 @@ function update_window() {
 
 while :; do
     echo "Waiting until logged out..."
-    while
-        ! kubectl get node "${NODENAME}" >/dev/null 2>/dev/null ||
-            [[ 
-                "x$(
-                    kubectl get node "${NODENAME}" \
-                        --output jsonpath \
-                        --template '{.metadata.labels.ark\.ulagbulag\.io/bind}'
-                )" == 'xtrue' ]] \
-            ;
-    do
+    until kubectl get node "${NODENAME}" \
+        --output jsonpath \
+        --template 'x{.metadata.labels.ark\.ulagbulag\.io/bind}' 2>/dev/null |
+        grep -Poq '^x(false)?$'; do
         sleep 3
     done
 
