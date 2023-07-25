@@ -4,6 +4,7 @@
 
 # Configure environment variables
 ARG CUDA_VERSION="11.4.2"
+ARG NVIDIA_IMAGE_NAME="cuda"
 ARG UBUNTU_VERSION="20.04"
 
 # Configure user-specific environment variables
@@ -14,7 +15,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}"
+FROM "nvcr.io/nvidia/${NVIDIA_IMAGE_NAME}:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}"
 
 # Load user-specific environment variables
 ARG USER_GID

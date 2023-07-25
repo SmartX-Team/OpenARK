@@ -6,14 +6,15 @@ export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 default:
   @just build 'rockylinux'
 
-build DIST:
+build DIST NVIDIA_IMAGE_NAME='cuda':
   docker build \
+    --build-arg "NVIDIA_IMAGE_NAME={{ NVIDIA_IMAGE_NAME }}" \
     --file "./Dockerfile.{{ DIST }}" \
     --progress 'plain' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}" \
     .
 
-push DIST: (build DIST)
+push DIST NVIDIA_IMAGE_NAME='cuda': (build DIST NVIDIA_IMAGE_NAME)
   docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}"
 
 push-all:
