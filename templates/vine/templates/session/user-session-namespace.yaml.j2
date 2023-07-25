@@ -81,6 +81,14 @@ rules:
     verbs:
       - "*"
 {% endif %}
+{% if spec.role.isAdmin %}
+  - apiGroups:
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+{% endif %}
 {% endif %}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
