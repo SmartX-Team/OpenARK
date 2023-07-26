@@ -24,5 +24,8 @@ trap "echo 'Terminated.'; exit" EXIT
 # Initialize desktop display environment
 "$(dirname "$0")/init-desktop-display.sh"
 
+# Initialize custom environment
+"$(dirname "$0")/init-desktop-custom.sh"
+
 # Execute a desktop environment
 "$(dirname "$0")/init-desktop-xfce4.sh"
