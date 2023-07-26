@@ -112,7 +112,7 @@ reqwest = { git = "https://github.com/ulagbulag/reqwest-wasm.git", package = "re
     "rustls-tls",
     "stream",
 ] }
-reqwest-middleware = { version = "=0.2" }
+reqwest-middleware = { git = "https://github.com/ulagbulag/reqwest-middleware-wasm.git", package = "reqwest-middleware-wasm", version = "=0.2" }
 rust-tokenizers = { package = "rust_tokenizers", version = "=8.1" }
 schemars = { version = "=0.8", features = ["chrono", "derive", "uuid1"] }
 sea-orm = { version = "=0.11", features = [
