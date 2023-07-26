@@ -31,6 +31,8 @@ WORKDIR /src
 RUN mkdir /out \
     # Exclude netai packages
     && sed -i 's/^\( *\)\(.*\# *exclude( *alpine *)\)$/\1# \2/g' ./Cargo.toml \
+    # Replace reqwest-wasm package into reqwest
+    && sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml \
     # Build
     && cargo build --all --workspace --release \
     && find ./target/release/ -maxdepth 1 -type f -perm +a=x -print0 | xargs -0 -I {} mv {} /out \
