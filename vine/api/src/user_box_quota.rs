@@ -292,6 +292,8 @@ pub struct UserBoxQuotaDesktopVolumesSpec {
     pub containers: bool,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_home")]
     pub home: bool,
+    #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_home_base")]
+    pub home_base: String,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_public")]
     pub public: bool,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_static")]
@@ -303,6 +305,7 @@ impl Default for UserBoxQuotaDesktopVolumesSpec {
         Self {
             containers: Self::default_containers(),
             home: Self::default_home(),
+            home_base: Self::default_home_base(),
             public: Self::default_public(),
             r#static: Self::default_static(),
         }
@@ -316,6 +319,10 @@ impl UserBoxQuotaDesktopVolumesSpec {
 
     fn default_home() -> bool {
         true
+    }
+
+    fn default_home_base() -> String {
+        "/".into()
     }
 
     fn default_public() -> bool {
