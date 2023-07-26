@@ -140,9 +140,9 @@ spec:
               readOnly: true
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
-              mountPath: "/root{{ spec.boxQuota.desktop.volumes.homeBase | default("/") }}"
+              mountPath: "/root{{ spec.boxQuota.desktop.volumes.homeBase }}"
 {% else %}
-              mountPath: "/home/user{{ spec.boxQuota.desktop.volumes.homeBase | default("/") }}"
+              mountPath: "/home/user{{ spec.boxQuota.desktop.volumes.homeBase }}"
 {% endif %}
 {% if not spec.boxQuota.desktop.volumes.containers %}
             - name: home-containers
