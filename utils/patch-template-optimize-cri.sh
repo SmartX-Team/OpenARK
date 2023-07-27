@@ -3,9 +3,11 @@ sudo rm -rf /opt/vdi/tenants/remote/vine-session-*
 
 # Grow root partition size
 if ip a | grep wlp >/dev/null 2>/dev/null; then
-    sudo dnf install -y cloud-utils-growpart
-    sudo growpart /dev/nvme0n1 3
-    sudo resize2fs /dev/nvme0n1p3
+    if df -h | grep /dev/nvme0n1p3 | grep -Po '^/dev/nvme0n1p3 *200G' >/dev/null 2>/dev/null; then
+        sudo dnf install -y cloud-utils-growpart
+        sudo growpart /dev/nvme0n1 3
+        sudo resize2fs /dev/nvme0n1p3
+    fi
 fi
 
 # Allow containerd to pull images from insecure local private registry
