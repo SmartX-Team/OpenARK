@@ -27,7 +27,8 @@ if sudo dmesg | grep iwlwifi | grep -P '7af0/[0-9]+' >/dev/null 2>/dev/null; the
             kernel-ml-core \
             kernel-ml-devel \
             kernel-ml-modules \
-            kernel-ml-modules-extra
+            kernel-ml-modules-extra \
+            xorg-x11-server-Xorg
 
         if lspci | grep 'NVIDIA'; then
             NVIDIA_DRIVER_VERSION="$(
