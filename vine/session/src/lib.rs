@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt, fs, path::PathBuf};
+use std::{collections::BTreeMap, fmt, fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
@@ -55,6 +55,8 @@ impl SessionManager {
     const TEMPLATE_NAMESPACE_FILENAME: &'static str = "user-session-namespace.yaml.j2";
     const TEMPLATE_SESSION_FILENAME: &'static str = "user-session.yaml.j2";
 
+    const THRESHOLD_SESSION_TIMEOUT: Duration = Duration::from_secs(30 * 60); // 30 minutes
+
     pub async fn try_create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         match self.create(spec).await {
             Ok(()) => Ok(()),
@@ -77,7 +79,7 @@ impl SessionManager {
                 let ctx = self.get_context(&spec);
 
                 if
-                // If the node is not ready
+                // If the node is not ready for a long time
                 !node
                 .status
                 .as_ref()
@@ -87,7 +89,13 @@ impl SessionManager {
                         .iter()
                         .find(|condition| condition.type_ == "Ready")
                 })
-                .map(|condition| condition.status == "True")
+                .map(|condition|
+                    // If the node is ready
+                    condition.status == "True"
+                    // If the node was ready just before 
+                    || condition.last_heartbeat_time.as_ref().map(|last_heartbeat_time| {
+                        Utc::now() - last_heartbeat_time.0 <= ::chrono::Duration::from_std(Self::THRESHOLD_SESSION_TIMEOUT).unwrap()
+                    }).unwrap_or(false))
                 .unwrap_or(false)
                 ||
                 // If the node's managed session has been logged out
