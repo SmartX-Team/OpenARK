@@ -22,30 +22,78 @@ if sudo dmesg | grep iwlwifi | grep -P '7af0/[0-9]+' >/dev/null 2>/dev/null; the
     if ! ip a | grep wlp >/dev/null 2>/dev/null; then
         REBOOT='y'
         sudo dnf remove -y kernel-headers
+
+        sudo rpm --import "https://www.elrepo.org/RPM-GPG-KEY-elrepo.org"
+        sudo dnf install -y \
+            "https://www.elrepo.org/elrepo-release-$(rpm -E %rhel).el$(rpm -E %rhel).elrepo.noarch.rpm"
         sudo dnf --enablerepo=elrepo-kernel install -y \
+            dnf-plugin-nvidia \
+            egl-wayland \
             kernel-ml \
             kernel-ml-core \
             kernel-ml-devel \
             kernel-ml-modules \
             kernel-ml-modules-extra \
-            xorg-x11-server-Xorg
+            libX11-devel \
+            libX11-xcb \
+            libXau-devel \
+            libXdmcp \
+            libXfont2 \
+            libXtst \
+            libdrm \
+            libepoxy \
+            libevdev \
+            libglvnd \
+            libglvnd-devel \
+            libglvnd-egl \
+            libglvnd-gles \
+            libglvnd-glx \
+            libglvnd-opengl \
+            libinput \
+            libpciaccess \
+            libtirpc \
+            libvdpau \
+            libxcb-devel \
+            mesa-libEGL \
+            mesa-libGL \
+            mesa-libgbm \
+            mesa-libglapi \
+            mesa-vulkan-drivers \
+            ocl-icd \
+            opencl-filesystem \
+            vulkan-loader \
+            wget \
+            xorg-x11-drv-fbdev \
+            xorg-x11-drv-libinput \
+            xorg-x11-proto-devel \
+            xorg-x11-server-Xorg \
+            xorg-x11-server-common
 
         if lspci | grep 'NVIDIA'; then
-            NVIDIA_DRIVER_VERSION="$(
-                dnf list kmod-nvidia-latest-dkms |
-                    awk '{print $2}' |
-                    grep -Po '[0-9]+\.[0-9]+\.[0-9]+'
-            )"
-            INSTALLER_FILE="./installer.run"
-            INSTALLER_SRC="https://us.download.nvidia.com/XFree86/Linux-$(uname -m)/${NVIDIA_DRIVER_VERSION}/NVIDIA-Linux-$(uname -m)-${NVIDIA_DRIVER_VERSION}.run"
-            wget -O "${INSTALLER_FILE}" "${INSTALLER_SRC}"
-            sudo killall Xorg || true
-            sudo rmmod nvidia_drm || true
-            sudo rmmod nvidia_modeset || true
-            sudo rmmod nvidia_uvm || true
-            sudo rmmod nvidia || true
-            sudo bash ./installer.run --accept-license --dkms --silent --systemd
-            rm -f "${INSTALLER_FILE}"
+            ## Desktop Environment Configuration
+            if [ "$(uname -m)" = 'x86_64' ]; then
+                ARCH_WIN32='i686'
+            else
+                ARCH_WIN32="$(uname -m)"
+            fi
+
+            sudo dnf module install -y "nvidia-driver:latest-dkms"
+            sudo dnf install -y \
+                cuda \
+                "mesa-dri-drivers.${ARCH_WIN32}" \
+                "mesa-libGLU.${ARCH_WIN32}" \
+                "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
+                "nvidia-fabric-manager" \
+                "nvidia-driver-libs.${ARCH_WIN32}" \
+                "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
+                "nvidia-driver-NVML.${ARCH_WIN32}" \
+                vulkan
+
+            # Enable NVIDIA FabricManager
+            sudo systemctl enable nvidia-fabricmanager.service
+
+            # Enable NVIDIA Persistenced
+            sudo systemctl enable nvidia-persistenced.service
         fi
 
         SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort | tail -n1)"

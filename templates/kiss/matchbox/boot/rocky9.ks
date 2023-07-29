@@ -154,7 +154,8 @@ if [ "$(uname -m)" = 'x86_64' ]; then
 else
     ARCH_WIN32="$(uname -m)"
 fi
-_IS_DESKTOP=false
+_IS_DESKTOP="false"
+_IS_NVIDIA_MANUAL="false"
 
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
@@ -203,6 +204,62 @@ EOF
 [connection]
 wifi.powersave = 2
 EOF
+
+    # Install driver: iwlwifi-killer-ax1690-7af0
+    if dmesg | grep iwlwifi | grep -P '7af0/[0-9]+' >/dev/null 2>/dev/null; then
+        if ! ip a | grep wlp >/dev/null 2>/dev/null; then
+            dnf remove -y kernel-headers
+
+            rpm --import "https://www.elrepo.org/RPM-GPG-KEY-elrepo.org"
+            dnf install -y \
+                "https://www.elrepo.org/elrepo-release-$(rpm -E %rhel).el$(rpm -E %rhel).elrepo.noarch.rpm"
+            dnf --enablerepo=elrepo-kernel install -y \
+                dnf-plugin-nvidia \
+                egl-wayland \
+                kernel-ml \
+                kernel-ml-core \
+                kernel-ml-devel \
+                kernel-ml-modules \
+                kernel-ml-modules-extra \
+                libX11-devel \
+                libX11-xcb \
+                libXau-devel \
+                libXdmcp \
+                libXfont2 \
+                libXtst \
+                libdrm \
+                libepoxy \
+                libevdev \
+                libglvnd \
+                libglvnd-devel \
+                libglvnd-egl \
+                libglvnd-gles \
+                libglvnd-glx \
+                libglvnd-opengl \
+                libinput \
+                libpciaccess \
+                libtirpc \
+                libvdpau \
+                libxcb-devel \
+                mesa-libEGL \
+                mesa-libGL \
+                mesa-libgbm \
+                mesa-libglapi \
+                mesa-vulkan-drivers \
+                ocl-icd \
+                opencl-filesystem \
+                vulkan-loader \
+                wget \
+                xorg-x11-drv-fbdev \
+                xorg-x11-drv-libinput \
+                xorg-x11-proto-devel \
+                xorg-x11-server-Xorg \
+                xorg-x11-server-common
+
+            SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort | tail -n1)"
+            dkms autoinstall -k "${SRC_KERNEL_VERSION}"
+        fi
+    fi
 
     ## Install Manual RealTek Driver
     ### Install dependencies
@@ -253,25 +310,27 @@ if lspci | grep 'NVIDIA'; then
         _HAS_NVIDIA_VGA=true
     fi
 
-    if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-        dnf install -y kernel-devel kernel-headers
-        dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/$(uname -m)/cuda-rhel$(rpm -E %rhel).repo"
-        dnf install -y \
-            cuda-driver \
-            dkms \
-            kmod-nvidia-latest-dkms \
-            "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
-            "nvidia-fabric-manager" \
-            "nvidia-driver-libs.${ARCH_WIN32}" \
-            "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
-            "nvidia-driver-NVML.${ARCH_WIN32}"
+    if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
+        if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
+            dnf install -y kernel-devel kernel-headers
+            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/$(uname -m)/cuda-rhel$(rpm -E %rhel).repo"
+            dnf module install -y "nvidia-driver:latest-dkms"
+            dnf install -y \
+                cuda \
+                dkms \
+                "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
+                "nvidia-fabric-manager" \
+                "nvidia-driver-libs.${ARCH_WIN32}" \
+                "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
+                "nvidia-driver-NVML.${ARCH_WIN32}"
+        fi
+
+        # Enable NVIDIA FabricManager
+        systemctl enable nvidia-fabricmanager.service
+
+        # Enable NVIDIA Persistenced
+        systemctl enable nvidia-persistenced.service
     fi
-
-    # Enable NVIDIA FabricManager
-    systemctl enable nvidia-fabricmanager.service
-
-    # Enable NVIDIA Persistenced
-    systemctl enable nvidia-persistenced.service
 
     # Disable Nouveau Driver
     cat <<EOF >/etc/modprobe.d/blacklist-nouveau.conf
@@ -611,7 +670,8 @@ systemctl enable haveged.service
 
 # DKMS Build
 if which dkms >/dev/null 2>/dev/null; then
-    dkms autoinstall -k "$(ls /lib/modules/)"
+    SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort | tail -n1)"
+    dkms autoinstall -k "${SRC_KERNEL_VERSION}"
 fi
 
 %end  # SCRIPT_END
