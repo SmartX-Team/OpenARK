@@ -39,6 +39,7 @@ TOOLKIT_VERSION="$(
         yq '.toolkit.version' |
         grep -Po '^v[0-9\.]+'
 )"
+TOOLKIT_OS="ubi8" # should be run over rockylinux
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -72,7 +73,7 @@ helm upgrade --install "gpu-operator" \
     --create-namespace \
     --disable-openapi-validation \
     --namespace "${NAMESPACE}" \
-    --set toolkit.version="${TOOLKIT_VERSION}-ubi8" \
+    --set toolkit.version="${TOOLKIT_VERSION}-${TOOLKIT_OS}" \
     --values "./values-operator.yaml"
 
 # Finished!
