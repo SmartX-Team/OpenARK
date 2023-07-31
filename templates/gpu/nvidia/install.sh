@@ -29,6 +29,18 @@ echo "- Configuring Helm channel ... "
 helm repo add "${NAMESPACE}" "${HELM_CHART}"
 
 ###########################################################
+#   Configure Helm Values                                 #
+###########################################################
+
+echo "- Configuring Helm values ... "
+
+TOOLKIT_VERSION="$(
+    helm show values gpu-nvidia/gpu-operator |
+        yq '.toolkit.version' |
+        grep -Po '^v[0-9\.]+'
+)"
+
+###########################################################
 #   Checking if Operator is already installed             #
 ###########################################################
 
@@ -58,7 +70,9 @@ echo "- Installing Operator ... "
 helm upgrade --install "gpu-operator" \
     "${NAMESPACE}/gpu-operator" \
     --create-namespace \
+    --disable-openapi-validation \
     --namespace "${NAMESPACE}" \
+    --set toolkit.version="${TOOLKIT_VERSION}-ubi8" \
     --values "./values-operator.yaml"
 
 # Finished!

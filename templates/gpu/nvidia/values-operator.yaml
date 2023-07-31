@@ -45,9 +45,10 @@ operator:
           - matchExpressions:
               - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
                 operator: DoesNotExist
-
-  # Flatcar Container Linux has no write access to /usr directory
-  installDir: /opt/nvidia-runtime
+  defaultRuntime: containerd
+  # upgrade CRD on chart upgrade, requires --disable-openapi-validation flag
+  # to be passed during helm upgrade.
+  upgradeCRD: true
 
 sandboxDevicePlugin:
   enabled: false
@@ -56,7 +57,7 @@ toolkit:
   enabled: true
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
-  version: v1.11.0-ubi8 # should be run over rockylinux
+  version: v1.13.4-ubi8 # should be run over rockylinux
 
 vgpuManager:
   enabled: false
