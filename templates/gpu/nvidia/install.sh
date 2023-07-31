@@ -43,6 +43,13 @@ else
 fi
 
 ###########################################################
+#   Install NodeFeatures                                  #
+###########################################################
+
+kubectl apply \
+    --kustomize "https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default"
+
+###########################################################
 #   Install Operator                                      #
 ###########################################################
 

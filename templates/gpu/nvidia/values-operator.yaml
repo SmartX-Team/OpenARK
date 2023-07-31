@@ -1,9 +1,35 @@
 ---
+# standalone dcgm hostengine
+dcgm:
+  # disabled by default to use embedded nv-hostengine by exporter
+  enabled: false
+
+dcgmExporter:
+  enabled: true
+
 driver:
   # Flatcar Container Linux should need some patches for driver installer
   repository: quay.io/ulagbulag
   image: openark-gpu-nvidia-driver
   enabled: false
+
+devicePlugin:
+  enabled: true
+
+gds:
+  enabled: false
+
+gfd:
+  enabled: true
+
+kataManager:
+  enabled: false
+
+migManager:
+  enabled: true
+
+nodeStatusExporter:
+  enabled: true
 
 operator:
   affinity:
@@ -23,7 +49,14 @@ operator:
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
 
+sandboxDevicePlugin:
+  enabled: false
+
 toolkit:
+  enabled: false
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
   version: v1.11.0-ubi8 # should be run over rockylinux
+
+vgpuManager:
+  enabled: false
