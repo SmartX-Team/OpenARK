@@ -51,6 +51,7 @@ async fn main() {
                 .service(crate::routes::model::get_item)
                 .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list)
+                .service(crate::routes::user::get)
                 .wrap(cors)
         })
         .bind(addr)
