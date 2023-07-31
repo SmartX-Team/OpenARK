@@ -14,6 +14,10 @@ use vine_api::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)
+)]
 pub struct UserSessionRef {
     pub box_name: Option<String>,
     pub namespace: String,

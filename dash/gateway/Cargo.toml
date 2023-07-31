@@ -18,7 +18,7 @@ ark-core = { path = "../../ark/core", features = ["actix-web"] }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
 dash-provider-client = { path = "../provider/client" }
-vine-rbac = { path = "../../vine/rbac", features = ["actix"] }
+vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
 
 anyhow = { workspace = true }
 actix-cors = { workspace = true }

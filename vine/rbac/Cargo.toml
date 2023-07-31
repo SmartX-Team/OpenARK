@@ -16,6 +16,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [features]
 default = []
 actix = ["actix-web", "base64", "serde_json"]
+serde = ["dep:schemars", "dep:serde"]
 
 [dependencies]
 ark-api = { path = "../../ark/api" }
@@ -29,4 +30,6 @@ chrono = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
 log = { workspace = true }
+schemars = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
