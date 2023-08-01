@@ -1,7 +1,7 @@
 #!/bin/bash
 
-ethernet_name="$(ip a | grep enp | tail -n1 | awk '{print $2}' | grep -Po '^[a-z0-9]+')"
-wlan_name="$(ip a | grep wlp | tail -n1 | awk '{print $2}' | grep -Po '^[a-z0-9]+')"
+ethernet_name="$(ip a | grep enp | awk '{print $2}' | grep -Po '^en[a-z0-9]+' | tail -n1)"
+wlan_name="$(ip a | grep wlp | awk '{print $2}' | grep -Po '^wl[a-z0-9]+' | tail -n1)"
 
 if [ "x${wlan_name}" != 'x' ]; then
     ethernet_mac="$(ip a show dev "${ethernet_name}" | head -n2 | tail -n1 | awk '{print $2}')"
