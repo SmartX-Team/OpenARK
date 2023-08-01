@@ -22,12 +22,18 @@
       - wifi
     ethernet_priority_map: {}
 
-- name: Calculate ethernet map
+- name: Calculate ethernet map | module
+  loop: "{{ ethernet_modules | flatten(levels=1) }}"
+  loop_control:
+    loop_var: modules
+  include: network-ethernet-map-module.yaml
+
+- name: Calculate ethernet map | priority
   loop: "{{ ethernet_priority | flatten(levels=1) }}"
   loop_control:
     index_var: priority
     loop_var: modules
-  include: network-ethernet-map.yaml
+  include: network-ethernet-map-priority.yaml
 
 - name: Define default interfaces list
   set_fact:

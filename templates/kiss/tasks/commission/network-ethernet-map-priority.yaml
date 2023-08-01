@@ -1,13 +1,9 @@
 ---
-- name: Calculate ethernet map | {{ modules }}
+- name: Calculate ethernet map | priority | {{ modules }}
   loop: "{{ ethernet_modules[modules] }}"
   loop_control:
     loop_var: module
   set_fact:
-    ethernet_modules_map: >
-      {{ ethernet_modules_map|default({}) | combine({
-        module: modules,
-      }, recursive=true) }}
     ethernet_priority_map: >
       {{ ethernet_priority_map|default({}) | combine({
         module: priority,
