@@ -7,6 +7,7 @@ use dash_provider_api::job::Payload;
 use reqwest::{Client, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
+use vine_api::user_session::UserSessionRef;
 
 #[derive(Clone, Debug)]
 pub struct DashClient {
@@ -81,7 +82,7 @@ impl DashClient {
     }
 
     pub async fn post_job_batch(&self, payload: &[Payload<&Value>]) -> Result<Vec<DashJobCrd>> {
-        self.post(format!("/batch/job/"), Some(payload)).await
+        self.post("/batch/job/", Some(payload)).await
     }
 
     pub async fn restart_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
@@ -112,6 +113,27 @@ impl DashClient {
 
     pub async fn get_model_item_list(&self, name: &str) -> Result<Vec<Value>> {
         self.get(format!("/model/{name}/item/")).await
+    }
+}
+
+impl DashClient {
+    pub async fn get_user(&self) -> Result<UserSessionRef> {
+        self.get("/user/").await
+    }
+
+    pub async fn post_user_exec<T>(&self, command: &[T]) -> Result<()>
+    where
+        T: AsRef<str> + Serialize,
+    {
+        self.post("/user/desktop/exec/", Some(command)).await
+    }
+
+    pub async fn post_user_exec_broadcast<T>(&self, command: &[T]) -> Result<()>
+    where
+        T: AsRef<str> + Serialize,
+    {
+        self.post("/user/desktop/exec/broadcast/", Some(command))
+            .await
     }
 }
 

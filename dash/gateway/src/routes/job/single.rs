@@ -10,7 +10,8 @@ use dash_provider::input::Name;
 use dash_provider_client::DashProviderClient;
 use kube::Client;
 use serde_json::Value;
-use vine_rbac::auth::UserSessionRef;
+use vine_api::user_session::UserSessionRef;
+use vine_rbac::auth::FromActixRequest;
 
 #[delete("/function/{function_name}/job/{job_name}/")]
 pub async fn delete(

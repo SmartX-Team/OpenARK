@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use ark_api::package::{ArkPackageCrd, ArkPackageState};
+use ark_api::package::{ArkPackageCrd, ArkPackageState, ArkPackageStatus};
 use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -143,9 +143,10 @@ impl<'a> UpdateStateCtx<'a> {
                     let patch = Patch::Merge(json!({
                         "apiVersion": crd.api_version,
                         "kind": crd.kind,
-                        "status": {
-                            "state": state,
-                            "last_updated": Utc::now(),
+                        "status": ArkPackageStatus {
+                            state: *state,
+                            spec: None,
+                            last_updated: Utc::now(),
                         },
                     }));
                     let pp = PatchParams::apply(<Ctx as ::ark_core_k8s::manager::Ctx>::NAME);

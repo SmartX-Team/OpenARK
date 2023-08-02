@@ -18,6 +18,7 @@ ark-core = { path = "../../ark/core" }
 ark-api = { path = "../../ark/api" }
 dash-api = { path = "../api" }
 dash-provider-api = { path = "../provider/api" }
+vine-api = { path = "../../vine/api" }
 
 anyhow = { workspace = true }
 reqwest = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "vine-bastion"
+name = "vine-gateway"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,20 +14,17 @@ repository = "https://github.com/ulagbulag/OpenARK"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-core = { path = "../../ark/core" }
-vine-api = { path = "../api" }
-vine-rbac = { path = "../rbac", features = ["actix"] }
+ark-core = { path = "../../ark/core", features = ["actix-web"] }
+ark-api = { path = "../../ark/api" }
+vine-api = { path = "../../vine/api", features = ["client"] }
+vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
+vine-session = { path = "../../vine/session", features = ["exec"] }
 
 actix-web = { workspace = true }
-anyhow = { workspace = true }
-base64 = { workspace = true }
-chrono = { workspace = true }
+futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",
     "rustls-tls",
     "ws",
 ] }
-log = { workspace = true }
-serde_json = { workspace = true }
-uuid = { workspace = true }

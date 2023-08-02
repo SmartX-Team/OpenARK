@@ -74,7 +74,7 @@ impl SessionManager {
                     box_quota: None,
                     node,
                     role: None,
-                    user_name,
+                    user_name: &user_name,
                 };
                 let ctx = self.get_context(&spec);
 
@@ -241,6 +241,94 @@ impl SessionManager {
     }
 }
 
+#[cfg(feature = "exec")]
+#[::async_trait::async_trait]
+pub trait SessionExec {
+    async fn list(kube: Client) -> Result<Vec<Self>>
+    where
+        Self: Sized;
+
+    async fn exec<I, T>(
+        &self,
+        kube: Client,
+        command: I,
+    ) -> Result<Vec<::kube::api::AttachedProcess>>
+    where
+        I: Send + Sync + Clone + fmt::Debug + IntoIterator<Item = T>,
+        T: Sync + Into<String>;
+}
+
+#[cfg(feature = "exec")]
+#[::async_trait::async_trait]
+impl<'a> SessionExec for SessionRef<'a> {
+    async fn list(kube: Client) -> Result<Vec<Self>> {
+        let api = Api::<UserCrd>::all(kube);
+        let lp = ListParams {
+            label_selector: Some(format!(
+                "{key}=true",
+                key = ::ark_api::consts::LABEL_BIND_STATUS,
+            )),
+            ..Default::default()
+        };
+
+        api.list(&lp)
+            .await
+            .map(|users| {
+                users
+                    .into_iter()
+                    .filter_map(|user| {
+                        user.get_session_ref()
+                            .map(|session| session.into_owned())
+                            .ok()
+                    })
+                    .collect()
+            })
+            .map_err(Into::into)
+    }
+
+    async fn exec<I, T>(
+        &self,
+        kube: Client,
+        command: I,
+    ) -> Result<Vec<::kube::api::AttachedProcess>>
+    where
+        I: Send + Sync + Clone + fmt::Debug + IntoIterator<Item = T>,
+        T: Sync + Into<String>,
+    {
+        use futures::future::try_join_all;
+        use kube::api::AttachParams;
+
+        let api = Api::<Pod>::namespaced(kube, &self.namespace);
+        let lp = ListParams {
+            label_selector: Some("name=desktop".into()),
+            ..Default::default()
+        };
+        let pods = api.list(&lp).await?.into_iter().filter(|pod| {
+            pod.status
+                .as_ref()
+                .and_then(|status| status.phase.as_ref())
+                .map(|phase| phase == "Running")
+                .unwrap_or_default()
+        });
+
+        try_join_all(pods.into_iter().map(|pod| {
+            let api = api.clone();
+            let ap = AttachParams {
+                container: Some("desktop-environment".into()),
+                stdin: false,
+                stdout: true,
+                stderr: true,
+                tty: false,
+                ..Default::default()
+            };
+            let command = command.clone();
+            async move { api.exec(&pod.name_any(), command, &ap).await }
+        }))
+        .await
+        .map_err(Into::into)
+    }
+}
+
 pub type SessionContext<'a> = ::dash_provider_api::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
@@ -275,6 +363,7 @@ pub struct SessionContextSpec<'a> {
 fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
     json!({
         ::ark_api::consts::LABEL_BIND_BY_USER: user_name,
+        ::ark_api::consts::LABEL_BIND_NAMESPACE: user_name.map(UserCrd::user_namespace_with),
         ::ark_api::consts::LABEL_BIND_NODE: node_name,
         ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
         ::ark_api::consts::LABEL_BIND_PERSISTENT: "false",

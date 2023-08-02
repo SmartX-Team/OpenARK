@@ -13,6 +13,10 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+client = ["kube/client"]
+
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 

@@ -1,9 +1,12 @@
+use std::borrow::Cow;
+
 pub mod package;
 
 pub mod consts {
     pub const NAMESPACE: &str = "ark";
 
     pub const LABEL_BIND_BY_USER: &str = "ark.ulagbulag.io/bind.user";
+    pub const LABEL_BIND_NAMESPACE: &str = "ark.ulagbulag.io/bind.namespace";
     pub const LABEL_BIND_NODE: &str = "ark.ulagbulag.io/bind.node";
     pub const LABEL_BIND_STATUS: &str = "ark.ulagbulag.io/bind";
     pub const LABEL_BIND_PERSISTENT: &str = "ark.ulagbulag.io/bind.persistent";
@@ -60,21 +63,29 @@ where
             }
         }
 
+        let namespace = match labels.get(self::consts::LABEL_BIND_NAMESPACE) {
+            Some(namespace) => namespace.into(),
+            None => {
+                ::anyhow::bail!("session namespace is missing: {name:?}")
+            }
+        };
+
         let node_name = match labels.get(self::consts::LABEL_BIND_NODE) {
-            Some(node_name) => node_name,
+            Some(node_name) => node_name.into(),
             None => {
                 ::anyhow::bail!("session nodename is missing: {name:?}")
             }
         };
 
         let user_name = match labels.get(self::consts::LABEL_BIND_BY_USER) {
-            Some(user_name) => user_name,
+            Some(user_name) => user_name.into(),
             None => {
                 ::anyhow::bail!("session username is missing: {name:?}")
             }
         };
 
         Ok(SessionRef {
+            namespace,
             node_name,
             user_name,
         })
@@ -82,6 +93,22 @@ where
 }
 
 pub struct SessionRef<'a> {
-    pub node_name: &'a str,
-    pub user_name: &'a str,
+    pub namespace: Cow<'a, str>,
+    pub node_name: Cow<'a, str>,
+    pub user_name: Cow<'a, str>,
+}
+
+impl<'a> SessionRef<'a> {
+    pub fn into_owned(self) -> SessionRef<'static> {
+        let Self {
+            namespace,
+            node_name,
+            user_name,
+        } = self;
+        SessionRef {
+            namespace: namespace.into_owned().into(),
+            node_name: node_name.into_owned().into(),
+            user_name: user_name.into_owned().into(),
+        }
+    }
 }

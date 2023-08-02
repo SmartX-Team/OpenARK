@@ -33,8 +33,8 @@ async fn main() {
                 .allow_any_method()
                 .allow_any_origin();
 
-            App::new()
-                .app_data(Data::clone(&client))
+            let app = App::new().app_data(Data::clone(&client));
+            let app = app
                 .service(index)
                 .service(health)
                 .service(crate::routes::function::get)
@@ -51,9 +51,9 @@ async fn main() {
                 .service(crate::routes::model::get_function_list)
                 .service(crate::routes::model::get_item)
                 .service(crate::routes::model::get_item_list)
-                .service(crate::routes::model::get_list)
-                .service(crate::routes::user::get)
-                .wrap(cors)
+                .service(crate::routes::model::get_list);
+            let app = ::vine_gateway::register(app);
+            app.wrap(cors)
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

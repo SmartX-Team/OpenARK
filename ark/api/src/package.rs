@@ -47,6 +47,7 @@ impl ArkPackageCrd {
 pub struct ArkPackageStatus {
     #[serde(default)]
     pub state: ArkPackageState,
+    #[serde(default)]
     pub spec: Option<ArkPackageSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -110,6 +111,7 @@ impl ArkPackageDependencySpec {
 #[serde(rename_all = "camelCase")]
 pub struct ArkPermissionSpec {
     pub name: ArkPermissionKind,
+    #[serde(default)]
     pub features: Vec<ArkPermissionFeature>,
 }
 

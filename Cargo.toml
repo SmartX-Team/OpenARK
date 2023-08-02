@@ -40,6 +40,7 @@ members = [
     "vine/bastion",
     "vine/cli",
     "vine/controller",
+    "vine/gateway",
     "vine/rbac",
     "vine/session",
     "vine/storage",
@@ -52,7 +53,6 @@ actix-web = { version = "=4.3", default-features = false, features = [
     "macros",
     "rustls",
 ] }
-actix-web-lab = { version = "=0.19" }
 anyhow = { version = "=1.0", features = ["backtrace"] }
 argon2 = { version = "=0.5" }
 async-recursion = { version = "=1.0" }
@@ -85,7 +85,7 @@ language-tags = { version = "=0.3", features = ["serde"] }
 log = { version = "=0.4" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "8ffbd847b68be585ff738db0cea6bc77a1ed7952", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 ndarray = { version = "=0.15", features = ["serde"] }

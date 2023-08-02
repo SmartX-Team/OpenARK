@@ -20,7 +20,7 @@ use kube::{
     Api, Client, ResourceExt,
 };
 use serde_json::Value;
-use vine_rbac::auth::UserSessionRef;
+use vine_api::user_session::UserSessionRef;
 
 pub(crate) const NAME: &str = "dash-provider-client";
 

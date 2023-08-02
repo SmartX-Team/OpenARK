@@ -20,10 +20,11 @@ serde = ["dep:schemars", "dep:serde"]
 
 [dependencies]
 ark-api = { path = "../../ark/api" }
-vine-api = { path = "../api" }
+vine-api = { path = "../api", features = ["client"] }
 vine-session = { path = "../session" }
 
 actix-web = { workspace = true, default-features = false, optional = true }
+async-trait = { workspace = true }
 anyhow = { workspace = true }
 base64 = { workspace = true, optional = true }
 chrono = { workspace = true }

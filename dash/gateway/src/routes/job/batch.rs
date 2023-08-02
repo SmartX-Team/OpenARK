@@ -11,7 +11,8 @@ use dash_provider_client::DashProviderClient;
 use futures::future::try_join_all;
 use kube::Client;
 use serde_json::Value;
-use vine_rbac::auth::UserSessionMetadata;
+use vine_api::user_session::UserSessionMetadata;
+use vine_rbac::auth::{FromActixRequest, UserSessionMetadataRbac};
 
 #[post("/batch/job/")]
 pub async fn post(

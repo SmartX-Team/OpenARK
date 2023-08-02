@@ -6,6 +6,7 @@ pub mod user_box_quota;
 pub mod user_box_quota_binding;
 pub mod user_role;
 pub mod user_role_binding;
+pub mod user_session;
 
 pub mod consts {
     pub const NAMESPACE: &str = "vine";
