@@ -8,7 +8,7 @@ use ark_core::result::Result;
 use futures::future::try_join_all;
 use kube::Client;
 use vine_api::user_session::UserSessionMetadata;
-use vine_rbac::auth::UserSessionMetadataRbac;
+use vine_rbac::auth::AuthUserSession;
 use vine_session::SessionExec;
 
 #[post("/batch/user/desktop/exec/broadcast/")]
@@ -18,7 +18,10 @@ pub async fn post_exec_broadcast(
     command: Json<Vec<String>>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
-    if let Err(error) = UserSessionMetadata::assert_admin(&kube, &request).await {
+    if let Err(error) = UserSessionMetadata::from_request(&kube, &request)
+        .await
+        .and_then(|metadata| metadata.assert_admin())
+    {
         return HttpResponse::from(Result::<()>::Err(error.to_string()));
     };
 

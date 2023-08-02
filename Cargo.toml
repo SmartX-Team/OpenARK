@@ -27,6 +27,7 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
+    "kiss/plugin",
     "netai/api",
     "netai/client",
     "netai/endpoint",          # exclude(alpine)
@@ -40,7 +41,7 @@ members = [
     "vine/bastion",
     "vine/cli",
     "vine/controller",
-    "vine/gateway",
+    "vine/plugin",
     "vine/rbac",
     "vine/session",
     "vine/storage",

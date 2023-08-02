@@ -337,6 +337,16 @@ pub enum BoxPowerType {
     Ipmi,
 }
 
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum BoxPowerAction {
+    // Off,
+    // On,
+    // Reset,
+}
+
 pub mod request {
     use super::*;
 

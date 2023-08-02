@@ -12,7 +12,7 @@ use futures::future::try_join_all;
 use kube::Client;
 use serde_json::Value;
 use vine_api::user_session::UserSessionMetadata;
-use vine_rbac::auth::{FromActixRequest, UserSessionMetadataRbac};
+use vine_rbac::auth::{AuthUserSession, AuthUserSessionMetadata};
 
 #[post("/batch/job/")]
 pub async fn post(
@@ -32,8 +32,8 @@ pub async fn post(
              namespace,
              value,
          }| {
+            let kube = kube.clone();
             let metadata = metadata.clone();
-            let kube = metadata.kube.clone();
             async move {
                 let session = metadata.namespaced(namespace).await?;
                 let client = DashProviderClient::new(kube, &session);

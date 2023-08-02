@@ -6,7 +6,7 @@ use actix_web::{
 use ark_core::result::Result;
 use kube::Client;
 use vine_api::user_session::UserSessionRef;
-use vine_rbac::auth::{FromActixRequest, UserSessionRefRbac};
+use vine_rbac::auth::{AuthUserSession, AuthUserSessionRef};
 use vine_session::SessionExec;
 
 #[post("/user/desktop/exec/")]

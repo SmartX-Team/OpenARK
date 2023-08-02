@@ -2,7 +2,7 @@ use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
 use ark_core::result::Result;
 use kube::Client;
 use vine_api::user_session::UserSessionRef;
-use vine_rbac::auth::FromActixRequest;
+use vine_rbac::auth::AuthUserSession;
 
 #[get("/user/")]
 pub async fn get(request: HttpRequest, kube: Data<Client>) -> impl Responder {

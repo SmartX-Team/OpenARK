@@ -17,54 +17,84 @@ use vine_api::{
     user_session::{UserSessionMetadata, UserSessionRef},
 };
 
-#[cfg(feature = "actix")]
 #[async_trait(?Send)]
-pub trait FromActixRequest<'a> {
+pub trait AuthUserSession {
+    fn assert_admin(&self) -> Result<()> {
+        if self.role().is_admin {
+            Ok(())
+        } else {
+            bail!("user it not an admin")
+        }
+    }
+
+    fn role(&self) -> &UserRoleSpec;
+
+    #[cfg(feature = "actix")]
     async fn from_request(
-        client: &'a ::kube::Client,
+        client: &::kube::Client,
         request: &::actix_web::HttpRequest,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        // get current time
+        let now = Utc::now();
+
+        Self::from_request_with_timestamp(client, request, now).await
+    }
+
+    #[cfg(feature = "actix")]
+    async fn from_request_with_timestamp(
+        client: &::kube::Client,
+        request: &::actix_web::HttpRequest,
+        now: DateTime<Utc>,
     ) -> Result<Self>
     where
         Self: Sized;
 }
 
-pub trait UserSessionRefRbac {
+pub trait AuthUserSessionRef {
     fn try_into_ark_session(self) -> Result<SessionRef<'static>>;
 }
 
-#[cfg(feature = "actix")]
 #[async_trait(?Send)]
-impl<'a> FromActixRequest<'a> for UserSessionRef {
-    async fn from_request(
-        client: &'a ::kube::Client,
-        request: &::actix_web::HttpRequest,
-    ) -> Result<Self> {
-        let UserSessionMetadata {
-            box_name,
-            kube,
-            user,
-            user_name,
-        } = UserSessionMetadata::from_request(client, request).await?;
+impl AuthUserSession for UserSessionRef {
+    fn role(&self) -> &UserRoleSpec {
+        self.metadata.role()
+    }
 
-        get_user_namespace_with(kube, request, &user_name)
-            .await
+    #[cfg(feature = "actix")]
+    async fn from_request_with_timestamp(
+        client: &::kube::Client,
+        request: &::actix_web::HttpRequest,
+        now: DateTime<Utc>,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let metadata =
+            UserSessionMetadata::from_request_with_timestamp(client, request, now).await?;
+
+        get_user_namespace_with(request, &metadata.user_name, metadata.role, now)
             .map(|namespace| Self {
-                box_name,
+                metadata,
                 namespace,
-                user,
-                user_name,
             })
             .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
     }
 }
 
-impl UserSessionRefRbac for UserSessionRef {
+impl AuthUserSessionRef for UserSessionRef {
     fn try_into_ark_session(self) -> Result<SessionRef<'static>> {
         let Self {
-            box_name,
+            metadata:
+                UserSessionMetadata {
+                    box_name,
+                    role: _,
+                    user: _,
+                    user_name,
+                },
             namespace,
-            user: _,
-            user_name,
         } = self;
 
         Ok(SessionRef {
@@ -79,40 +109,38 @@ impl UserSessionRefRbac for UserSessionRef {
 }
 
 #[async_trait(?Send)]
-pub trait UserSessionMetadataRbac {
-    #[cfg(feature = "actix")]
-    async fn assert_admin(
-        client: &::kube::Client,
-        request: &::actix_web::HttpRequest,
-    ) -> Result<()>
-    where
-        Self: Sized;
-
+pub trait AuthUserSessionMetadata {
     async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef>;
 }
 
-#[cfg(feature = "actix")]
 #[async_trait(?Send)]
-impl<'a> FromActixRequest<'a> for UserSessionMetadata<'a> {
-    async fn from_request(
-        client: &'a ::kube::Client,
+impl AuthUserSession for UserSessionMetadata {
+    fn role(&self) -> &UserRoleSpec {
+        &self.role
+    }
+
+    #[cfg(feature = "actix")]
+    async fn from_request_with_timestamp(
+        client: &::kube::Client,
         request: &::actix_web::HttpRequest,
+        now: DateTime<Utc>,
     ) -> Result<Self>
     where
         Self: Sized,
     {
-        // get current time
-        let now = Utc::now();
-
         let user_name = get_user_name_with_timestamp(request, now)
             .map_err(|error| ::anyhow::anyhow!("failed to get user name: {error}"))?;
+
+        let role = get_user_role(client, &user_name, now)
+            .await
+            .map_err(|error| ::anyhow::anyhow!("failed to get user role: {error}"))?;
 
         execute_with_timestamp(client, &user_name, now)
             .await
             .and_then(|response| match response {
                 UserAuthResponse::Accept { box_name, user, .. } => Ok(Self {
                     box_name,
-                    kube: client,
+                    role,
                     user,
                     user_name,
                 }),
@@ -122,44 +150,12 @@ impl<'a> FromActixRequest<'a> for UserSessionMetadata<'a> {
 }
 
 #[async_trait(?Send)]
-impl<'a> UserSessionMetadataRbac for UserSessionMetadata<'a> {
-    #[cfg(feature = "actix")]
-    async fn assert_admin(
-        client: &::kube::Client,
-        request: &::actix_web::HttpRequest,
-    ) -> Result<()> {
-        // get current time
-        let now = Utc::now();
-
-        let user_name = get_user_name_with_timestamp(request, now)
-            .map_err(|error| ::anyhow::anyhow!("failed to get user name: {error}"))?;
-
-        let role = get_user_role(client, &user_name, now)
-            .await
-            .map_err(|error| ::anyhow::anyhow!("failed to get user role: {error}"))?;
-
-        if role.is_admin {
-            Ok(())
-        } else {
-            bail!("user it not an admin")
-        }
-    }
-
+impl AuthUserSessionMetadata for UserSessionMetadata {
     async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef> {
-        let Self {
-            box_name,
-            kube,
-            user,
-            user_name,
-        } = self;
-
-        check_user_namespace_with(kube, user_name, namespace)
-            .await
+        check_user_namespace(namespace, &self.user_name, self.role)
             .map(|namespace| UserSessionRef {
-                box_name: box_name.clone(),
+                metadata: self.clone(),
                 namespace,
-                user: user.clone(),
-                user_name: user_name.clone(),
             })
             .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
     }
@@ -219,56 +215,30 @@ pub async fn get_user_namespace(
     client: &::kube::Client,
     request: &::actix_web::HttpRequest,
 ) -> Result<String, UserAuthError> {
-    get_user_namespace_with(client, request, &get_user_name(request)?).await
-}
-
-#[cfg(feature = "actix")]
-async fn get_user_namespace_with(
-    client: &::kube::Client,
-    request: &::actix_web::HttpRequest,
-    user_name: &str,
-) -> Result<String, UserAuthError> {
     // get current time
     let now = Utc::now();
 
+    let user_name = get_user_name(request)?;
+    let role = get_user_role(client, &user_name, now).await?;
+    get_user_namespace_with(request, &user_name, role, now)
+}
+
+#[cfg(feature = "actix")]
+fn get_user_namespace_with(
+    request: &::actix_web::HttpRequest,
+    user_name: &str,
+    role: UserRoleSpec,
+    now: DateTime<Utc>,
+) -> Result<String, UserAuthError> {
     match request.headers().get(::ark_api::consts::HEADER_NAMESPACE) {
         Some(token) => match token.to_str().map_err(::anyhow::Error::from) {
-            Ok(namespace) => check_user_namespace(client, user_name, namespace.into(), now).await,
+            Ok(namespace) => check_user_namespace(Some(namespace.into()), user_name, role),
             Err(e) => {
                 warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 Err(UserAuthError::NamespaceTokenMalformed)
             }
         },
         None => Ok(UserCrd::user_namespace_with(user_name)),
-    }
-}
-
-async fn check_user_namespace_with(
-    client: &::kube::Client,
-    user_name: &str,
-    namespace: Option<String>,
-) -> Result<String, UserAuthError> {
-    // get current time
-    let now = Utc::now();
-
-    match namespace {
-        Some(namespace) => check_user_namespace(client, user_name, namespace, now).await,
-        None => Ok(UserCrd::user_namespace_with(user_name)),
-    }
-}
-
-async fn check_user_namespace(
-    client: &::kube::Client,
-    user_name: &str,
-    namespace: String,
-    now: ::chrono::DateTime<Utc>,
-) -> Result<String, UserAuthError> {
-    if namespace == UserCrd::user_namespace_with(user_name)
-        || get_user_role(client, user_name, now).await?.is_admin
-    {
-        Ok(namespace)
-    } else {
-        Err(UserAuthError::NamespaceNotAllowed)
     }
 }
 
@@ -439,4 +409,21 @@ async fn execute_with_timestamp(
         box_quota_bindings,
         user: user.spec,
     })
+}
+
+fn check_user_namespace(
+    namespace: Option<String>,
+    user_name: &str,
+    role: UserRoleSpec,
+) -> Result<String, UserAuthError> {
+    match namespace {
+        Some(namespace) => {
+            if role.is_admin || namespace == UserCrd::user_namespace_with(user_name) {
+                Ok(namespace)
+            } else {
+                Err(UserAuthError::NamespaceNotAllowed)
+            }
+        }
+        None => Ok(UserCrd::user_namespace_with(user_name)),
+    }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "vine-gateway"
+name = "vine-plugin"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,9 +16,9 @@ repository = "https://github.com/ulagbulag/OpenARK"
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web"] }
 ark-api = { path = "../../ark/api" }
-vine-api = { path = "../../vine/api", features = ["client"] }
-vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
-vine-session = { path = "../../vine/session", features = ["exec"] }
+vine-api = { path = "../api" }
+vine-rbac = { path = "../rbac", features = ["actix", "serde"] }
+vine-session = { path = "../session", features = ["exec"] }
 
 actix-web = { workspace = true }
 futures = { workspace = true }

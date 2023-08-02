@@ -1,5 +1,5 @@
 [package]
-name = "dash-gateway"
+name = "kiss-plugin"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,17 +15,12 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web"] }
-dash-api = { path = "../api" }
-dash-provider = { path = "../provider" }
-dash-provider-api = { path = "../provider/api" }
-dash-provider-client = { path = "../provider/client" }
-kiss-plugin = { path = "../../kiss/plugin" }
+ark-api = { path = "../../ark/api" }
+kiss-api = { path = "../api" }
 vine-api = { path = "../../vine/api" }
-vine-plugin = { path = "../../vine/plugin" }
 vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
+vine-session = { path = "../../vine/session", features = ["exec"] }
 
-anyhow = { workspace = true }
-actix-cors = { workspace = true }
 actix-web = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true, features = [
@@ -34,4 +29,3 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
-serde_json = { workspace = true }
