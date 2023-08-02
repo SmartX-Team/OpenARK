@@ -18,6 +18,7 @@ use vine_api::{
     feature = "serde",
     derive(::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)
 )]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct UserSessionRef {
     pub box_name: Option<String>,
     pub namespace: String,
@@ -31,26 +32,72 @@ impl UserSessionRef {
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
     ) -> Result<Self> {
-        use anyhow::{anyhow, bail};
+        let UserSessionMetadata {
+            box_name,
+            kube,
+            user,
+            user_name,
+        } = UserSessionMetadata::from_request(client, request).await?;
 
-        let user_name =
-            get_user_name(request).map_err(|error| anyhow!("failed to get user name: {error}"))?;
-
-        let namespace = get_user_namespace_with(client, request, &user_name)
+        get_user_namespace_with(kube, request, &user_name)
             .await
-            .map_err(|error| anyhow!("failed to get user namespace: {error}"))?;
+            .map(|namespace| Self {
+                box_name,
+                namespace,
+                user,
+                user_name,
+            })
+            .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
+    }
+}
+
+#[derive(Clone)]
+pub struct UserSessionMetadata<'a> {
+    pub box_name: Option<String>,
+    pub kube: &'a ::kube::Client,
+    pub user: UserSpec,
+    pub user_name: String,
+}
+
+impl<'a> UserSessionMetadata<'a> {
+    #[cfg(feature = "actix")]
+    pub async fn from_request(
+        client: &'a ::kube::Client,
+        request: &::actix_web::HttpRequest,
+    ) -> Result<UserSessionMetadata<'a>> {
+        let user_name = get_user_name(request)
+            .map_err(|error| ::anyhow::anyhow!("failed to get user name: {error}"))?;
 
         execute(client, &user_name)
             .await
             .and_then(|response| match response {
                 UserAuthResponse::Accept { box_name, user, .. } => Ok(Self {
                     box_name,
-                    namespace,
+                    kube: client,
                     user,
                     user_name,
                 }),
-                UserAuthResponse::Error(error) => bail!("failed to auth user: {error}"),
+                UserAuthResponse::Error(error) => ::anyhow::bail!("failed to auth user: {error}"),
             })
+    }
+
+    pub async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef> {
+        let Self {
+            box_name,
+            kube,
+            user,
+            user_name,
+        } = self;
+
+        check_user_namespace_with(kube, user_name, namespace)
+            .await
+            .map(|namespace| UserSessionRef {
+                box_name: box_name.clone(),
+                namespace,
+                user: user.clone(),
+                user_name: user_name.clone(),
+            })
+            .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
     }
 }
 
@@ -110,64 +157,86 @@ pub(crate) async fn get_user_namespace_with(
     request: &::actix_web::HttpRequest,
     user_name: &str,
 ) -> Result<String, UserAuthError> {
-    use anyhow::Error;
-    use vine_api::{
-        user_role::{UserRoleCrd, UserRoleSpec},
-        user_role_binding::UserRoleBindingCrd,
-    };
-
     // get current time
     let now = Utc::now();
 
     match request.headers().get(::ark_api::consts::HEADER_NAMESPACE) {
-        Some(token) => match token.to_str().map_err(Error::from) {
-            Ok(namespace) => {
-                // get available roles
-                let roles = {
-                    let api = Api::<UserRoleCrd>::all(client.clone());
-                    let lp = ListParams::default();
-                    api.list(&lp)
-                        .await
-                        .map(|list| list.items)
-                        .unwrap_or_else(|_| Default::default())
-                        .into_iter()
-                        .map(|item| (item.name_any(), item.spec))
-                        .collect::<BTreeMap<_, _>>()
-                };
-
-                let role: UserRoleSpec = {
-                    let api = Api::<UserRoleBindingCrd>::all(client.clone());
-                    let lp = ListParams::default();
-                    api.list(&lp)
-                        .await
-                        .map(|list| list.items)
-                        .unwrap_or_else(|_| Default::default())
-                        .into_iter()
-                        .filter(|item| item.spec.user == user_name)
-                        .filter(|item| {
-                            item.spec
-                                .expired_timestamp
-                                .as_ref()
-                                .map(|timestamp| timestamp < &now)
-                                .unwrap_or(true)
-                        })
-                        .filter_map(|item| roles.get(&item.spec.role))
-                        .copied()
-                        .sum()
-                };
-
-                if role.is_admin {
-                    Ok(namespace.into())
-                } else {
-                    Err(UserAuthError::NamespaceNotAllowed)
-                }
-            }
+        Some(token) => match token.to_str().map_err(::anyhow::Error::from) {
+            Ok(namespace) => check_user_namespace(client, user_name, namespace.into(), now).await,
             Err(e) => {
                 warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 Err(UserAuthError::NamespaceTokenMalformed)
             }
         },
         None => Ok(UserCrd::user_namespace_with(user_name)),
+    }
+}
+
+#[cfg(feature = "actix")]
+pub(crate) async fn check_user_namespace_with(
+    client: &::kube::Client,
+    user_name: &str,
+    namespace: Option<String>,
+) -> Result<String, UserAuthError> {
+    // get current time
+    let now = Utc::now();
+
+    match namespace {
+        Some(namespace) => check_user_namespace(client, user_name, namespace, now).await,
+        None => Ok(UserCrd::user_namespace_with(user_name)),
+    }
+}
+
+#[cfg(feature = "actix")]
+async fn check_user_namespace(
+    client: &::kube::Client,
+    user_name: &str,
+    namespace: String,
+    now: ::chrono::DateTime<Utc>,
+) -> Result<String, UserAuthError> {
+    use vine_api::{
+        user_role::{UserRoleCrd, UserRoleSpec},
+        user_role_binding::UserRoleBindingCrd,
+    };
+
+    // get available roles
+    let roles = {
+        let api = Api::<UserRoleCrd>::all(client.clone());
+        let lp = ListParams::default();
+        api.list(&lp)
+            .await
+            .map(|list| list.items)
+            .unwrap_or_else(|_| Default::default())
+            .into_iter()
+            .map(|item| (item.name_any(), item.spec))
+            .collect::<BTreeMap<_, _>>()
+    };
+
+    let role: UserRoleSpec = {
+        let api = Api::<UserRoleBindingCrd>::all(client.clone());
+        let lp = ListParams::default();
+        api.list(&lp)
+            .await
+            .map(|list| list.items)
+            .unwrap_or_else(|_| Default::default())
+            .into_iter()
+            .filter(|item| item.spec.user == user_name)
+            .filter(|item| {
+                item.spec
+                    .expired_timestamp
+                    .as_ref()
+                    .map(|timestamp| timestamp < &now)
+                    .unwrap_or(true)
+            })
+            .filter_map(|item| roles.get(&item.spec.role))
+            .copied()
+            .sum()
+    };
+
+    if role.is_admin || namespace == UserCrd::user_namespace_with(user_name) {
+        Ok(namespace)
+    } else {
+        Err(UserAuthError::NamespaceNotAllowed)
     }
 }
 

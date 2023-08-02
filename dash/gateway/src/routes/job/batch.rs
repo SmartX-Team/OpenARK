@@ -1,0 +1,45 @@
+use std::collections::BTreeMap;
+
+use actix_web::{
+    post,
+    web::{Data, Json},
+    HttpRequest, HttpResponse, Responder,
+};
+use ark_core::result::Result;
+use dash_provider_api::job::Payload;
+use dash_provider_client::DashProviderClient;
+use futures::future::try_join_all;
+use kube::Client;
+use serde_json::Value;
+use vine_rbac::auth::UserSessionMetadata;
+
+#[post("/batch/job/")]
+pub async fn post(
+    request: HttpRequest,
+    kube: Data<Client>,
+    values: Json<Vec<Payload<BTreeMap<String, Value>>>>,
+) -> impl Responder {
+    let kube = kube.as_ref().clone();
+    let metadata = match UserSessionMetadata::from_request(&kube, &request).await {
+        Ok(metadata) => metadata,
+        Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
+    };
+
+    let result = try_join_all(values.0.into_iter().map(
+        |Payload {
+             function_name,
+             namespace,
+             value,
+         }| {
+            let metadata = metadata.clone();
+            let kube = metadata.kube.clone();
+            async move {
+                let session = metadata.namespaced(namespace).await?;
+                let client = DashProviderClient::new(kube, &session);
+                client.create(&function_name, value).await
+            }
+        },
+    ))
+    .await;
+    HttpResponse::from(Result::from(result))
+}

@@ -3,6 +3,7 @@ use std::error::Error;
 use anyhow::{anyhow, Result};
 use ark_core::result::Result as SessionResult;
 use dash_api::{function::FunctionCrd, job::DashJobCrd, model::ModelCrd};
+use dash_provider_api::job::Payload;
 use reqwest::{Client, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -79,6 +80,10 @@ impl DashClient {
             .await
     }
 
+    pub async fn post_job_batch(&self, payload: &[Payload<&Value>]) -> Result<Vec<DashJobCrd>> {
+        self.post(format!("/batch/job/"), Some(payload)).await
+    }
+
     pub async fn restart_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
         self.post(
             format!("/function/{function_name}/job/{job_name}/restart/"),
@@ -127,7 +132,7 @@ impl DashClient {
 
     async fn post<Req, Res>(&self, path: impl AsRef<str>, data: Option<&Req>) -> Result<Res>
     where
-        Req: Serialize,
+        Req: ?Sized + Serialize,
         Res: DeserializeOwned,
     {
         self.request(Method::POST, path, data).await
@@ -140,7 +145,7 @@ impl DashClient {
         data: Option<&Req>,
     ) -> Result<Res>
     where
-        Req: Serialize,
+        Req: ?Sized + Serialize,
         Res: DeserializeOwned,
     {
         let mut request = self.client.request(method, self.get_url(path));

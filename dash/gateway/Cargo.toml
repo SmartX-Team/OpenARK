@@ -17,6 +17,7 @@ repository = "https://github.com/ulagbulag/OpenARK"
 ark-core = { path = "../../ark/core", features = ["actix-web"] }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
+dash-provider-api = { path = "../provider/api" }
 dash-provider-client = { path = "../provider/client" }
 vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
 
@@ -24,6 +25,7 @@ anyhow = { workspace = true }
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
 actix-web-lab = { workspace = true }
+futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",

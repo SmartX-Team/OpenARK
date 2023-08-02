@@ -378,6 +378,7 @@ pub mod request {
     }
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(rename_all = "camelCase")]
     pub struct BoxCommissionQuery {
         pub access: BoxAccessSpec<BoxAccessInterfaceQuery>,
         pub machine: BoxMachineSpec,

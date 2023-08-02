@@ -56,6 +56,7 @@ impl DashJobCrd {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct DashJobStatus {
     #[serde(default)]
     pub channel: Option<FunctionChannel>,
