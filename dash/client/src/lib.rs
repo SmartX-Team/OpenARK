@@ -132,7 +132,7 @@ impl DashClient {
     where
         T: AsRef<str> + Serialize,
     {
-        self.post("/user/desktop/exec/broadcast/", Some(command))
+        self.post("/batch/user/desktop/exec/broadcast/", Some(command))
             .await
     }
 }
