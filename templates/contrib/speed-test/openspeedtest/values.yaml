@@ -1,0 +1,12 @@
+---
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+
+autoscaling:
+  enabled: false
