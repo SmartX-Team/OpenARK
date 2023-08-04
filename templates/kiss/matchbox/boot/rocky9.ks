@@ -192,9 +192,13 @@ EOF
         chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
     done
 
-    ## Disable Power Saving Mode
-    cat <<EOF >/etc/modprobe.d/iwlwifi.conf
+    ## Disable Power Saving Mode (iwlmvm)
+    cat <<EOF >/etc/modprobe.d/iwlmvm.conf
 options iwlmvm power_scheme=1
+EOF
+
+    ## Disable Power Saving Mode (iwlwifi)
+    cat <<EOF >/etc/modprobe.d/iwlwifi.conf
 options iwlwifi power_save=0 disable_11ax=1
 EOF
 
