@@ -447,6 +447,8 @@ done
 
 # Update connection
 while :; do
+    nmcli device wifi rescan
+
     status="\$(nmcli device wifi list | grep '^*')"
     SIGNAL="\$(echo "\${status}" | awk '{print \$8}')"
     if [ "x\${SIGNAL}" = 'x' ]; then
