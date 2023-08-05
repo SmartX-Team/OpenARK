@@ -473,7 +473,7 @@ while :; do
         continue
     fi
     SIGNAL_NEW="\$(echo "\${status}" | awk '{print \$7}')"
-    if [ "x\$((SIGNAL_NEW - SIGNAL >= 5))" = 'x0' ]; then
+    if [ "x\$((SIGNAL_NEW - SIGNAL > 0))" = 'x0' ]; then
         sleep 300 # 5 minutes
         continue
     fi
