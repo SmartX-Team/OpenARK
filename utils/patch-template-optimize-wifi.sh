@@ -11,7 +11,7 @@ if ! ls /etc/modprobe.d/iwlwifi.conf >/dev/null 2>/dev/null; then
     REBOOT='y'
 fi
 cat <<EOF | sudo tee /etc/modprobe.d/iwlwifi.conf
-options iwlwifi power_save=0 disable_11ax=1
+options iwlwifi power_save=0
 EOF
 
 # Disable Power Saving Mode on NetworkManager
