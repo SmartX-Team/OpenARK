@@ -451,14 +451,13 @@ while :; do
     break
 done
 
-# Update connection
-if [ "x\$((SIGNAL >= 96))" = 'x1' ]; then
-    echo 'SSID is optimal'
-    exec true
-fi
-
 # BSSID
 while :; do
+    if [ "x\$((SIGNAL >= 96))" = 'x1' ]; then
+        echo 'SSID is optimal'
+        exec true
+    fi
+
     status="\$(nmcli device wifi list | grep "NetAI-M " | head -n1)"
     BSSID_NEW="\$(echo "\${status}" | grep -Po '[A-F0-9\:]{17}')"
     if [ "x\${BSSID_NEW}" = 'x' ]; then
