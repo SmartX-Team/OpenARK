@@ -407,6 +407,101 @@ WantedBy=multi-user.target
 EOF
 ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
 
+# Network Configuration
+mkdir -p /etc/systemd/system/multi-user.target.wants/
+
+## Wireless (Wi-Fi)
+cat <<EOF >/usr/local/bin/optimize-wifi.sh
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+# Check interface
+if ! ip a | grep wlp >/dev/null 2>/dev/null; then
+    echo 'Cannot find Wireless Interface'
+    exec true
+fi
+
+# Get current connection
+while :; do
+    status="\$(nmcli device wifi list | grep '^*')"
+    SSID="\$(echo "\${status}" | awk '{print \$3}')"
+    if [ "x\${SSID}" = 'x' ]; then
+        sleep 30
+        continue
+    fi
+    BSSID="\$(echo "\${status}" | awk '{print \$2}')"
+    if [ "x\${BSSID}" = 'x' ]; then
+        sleep 30
+        continue
+    fi
+    SIGNAL="\$(echo "\${status}" | awk '{print \$8}')"
+    if [ "x\${SIGNAL}" = 'x' ]; then
+        sleep 30
+        continue
+    fi
+
+    echo "* SSID: \${SSID}"
+    echo "* BSSID: \${BSSID}"
+    echo "* SIGNAL: \${SIGNAL}"
+    break
+done
+
+# Update connection
+if [ "x\$((SIGNAL >= 96))" = 'x1' ]; then
+    echo 'SSID is optimal'
+    exec true
+fi
+
+# BSSID
+while :; do
+    status="\$(nmcli device wifi list | grep "NetAI-M " | head -n1)"
+    BSSID_NEW="\$(echo "\${status}" | grep -Po '[A-F0-9\:]{17}')"
+    if [ "x\${BSSID_NEW}" = 'x' ]; then
+        sleep 300 # 5 minutes
+        continue
+    fi
+    if [ "x\${BSSID_NEW}" = "x\${BSSID}" ]; then
+        sleep 300 # 5 minutes
+        continue
+    fi
+    SIGNAL_NEW="\$(echo "\${status}" | awk '{print \$7}')"
+    if [ "x\$((SIGNAL_NEW - SIGNAL >= 5))" = 'x0' ]; then
+        sleep 300 # 5 minutes
+        continue
+    fi
+
+    BSSID="\${BSSID_NEW}"
+    SIGNAL="\${SIGNAL_NEW}"
+    echo "* NEW BSSID: \${BSSID}"
+    echo "* NEW SIGNAL: \${SIGNAL}"
+
+    nmcli device wifi connect "\${SSID}" bssid "\${BSSID}" >/dev/null
+    sleep 300 # 5 minutes
+done
+EOF
+chmod u+x /usr/local/bin/optimize-wifi.sh
+
+cat <<EOF >/etc/systemd/system/optimize-wifi.service
+[Unit]
+Description=Optimize wireless networking performance.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/optimize-wifi.sh
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sf /etc/systemd/system/optimize-wifi.service /etc/systemd/system/multi-user.target.wants/optimize-wifi.service
+
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/
 cat <<EOF >/etc/sysctl.d/50-hugepages.conf
