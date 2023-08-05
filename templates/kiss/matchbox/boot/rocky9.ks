@@ -439,24 +439,26 @@ while :; do
         sleep 30
         continue
     fi
+
+    echo "* SSID: \${SSID}"
+    echo "* BSSID: \${BSSID}"
+    break
+done
+
+# Update connection
+while :; do
+    status="\$(nmcli device wifi list | grep '^*')"
     SIGNAL="\$(echo "\${status}" | awk '{print \$8}')"
     if [ "x\${SIGNAL}" = 'x' ]; then
         sleep 30
         continue
     fi
-
-    echo "* SSID: \${SSID}"
-    echo "* BSSID: \${BSSID}"
-    echo "* SIGNAL: \${SIGNAL}"
-    break
-done
-
-# BSSID
-while :; do
     if [ "x\$((SIGNAL >= 96))" = 'x1' ]; then
-        echo 'SSID is optimal'
-        exec true
+        sleep 300
+        continue
     fi
+
+    echo "* SIGNAL: \${SIGNAL}"
 
     status="\$(nmcli device wifi list | grep "NetAI-M " | head -n1)"
     BSSID_NEW="\$(echo "\${status}" | grep -Po '[A-F0-9\:]{17}')"
