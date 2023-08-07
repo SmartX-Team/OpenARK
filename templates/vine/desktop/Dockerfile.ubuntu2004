@@ -50,7 +50,7 @@ RUN true \
     gettext-base \
     && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
     # Get OS informations
-    && source /etc/os-release \
+    && . /etc/os-release \
     && export ARCH="$(uname -m)" \
     && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
     && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \

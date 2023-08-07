@@ -49,8 +49,10 @@ RUN true \
     && apt-get update && apt-get install -y \
     gettext-base \
     && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
+    # Remove conflicting repositories
+    && rm -f '/etc/apt/sources.list.d/cuda.list' \
     # Get OS informations
-    && source /etc/os-release \
+    && . /etc/os-release \
     && export ARCH="$(uname -m)" \
     && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
     && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \
