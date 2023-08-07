@@ -125,6 +125,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     git \
     kubectl \
     nano \
+    nodejs \
     nvidia-container-toolkit-base \
     openssh-clients \
     pciutils \

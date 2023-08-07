@@ -4,6 +4,7 @@
 
 # Configure environment variables
 ARG CUDA_VERSION="12.2.0"
+ARG NVIDIA_IMAGE_NAME="cuda"
 ARG UBUNTU_VERSION="22.04"
 
 # Configure user-specific environment variables
@@ -14,7 +15,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}"
+FROM "nvcr.io/nvidia/${NVIDIA_IMAGE_NAME}:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}"
 
 # Load user-specific environment variables
 ARG USER_GID
@@ -42,8 +43,26 @@ VOLUME [ "/home/${USER_NAME}" ]
 # Add core repositories
 ADD ./apt/keyrings/* /etc/apt/keyrings/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
-RUN find /etc/apt/keyrings/ -type f -exec sh -c \
-    'cat "{}" | gpg --dearmor --yes -o "/etc/apt/keyrings/$(basename "{}")"' \;
+RUN true \
+    # Install dependencies
+    && mv '/etc/apt/sources.list.d/' '/etc/apt/sources.list.d.bak/' \
+    && apt-get update && apt-get install -y \
+    gettext-base \
+    && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
+    # Get OS informations
+    && source /etc/os-release \
+    && export ARCH="$(uname -m)" \
+    && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
+    && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \
+    # Update keyrings
+    && find /etc/apt/keyrings/ -type f -exec sh -c \
+    'cat "{}" | gpg --dearmor --yes -o "/etc/apt/keyrings/$(basename "{}")"' \; \
+    # Update repositories
+    && find /etc/apt/sources.list.d/ -type f -exec sh -c \
+    'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install core dependencies
 RUN apt-get update && apt-get install -y \
@@ -86,6 +105,7 @@ RUN apt-get update && apt-get install -y \
     git \
     kubectl \
     nano \
+    nodejs \
     nvidia-container-toolkit-base \
     openssh-client \
     pciutils \
@@ -101,7 +121,6 @@ RUN apt-get update && apt-get install -y \
     && test "x${USER_SUDO}" = "xtrue" \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
-    || true \
     # Docker (Podman) Configuration
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \

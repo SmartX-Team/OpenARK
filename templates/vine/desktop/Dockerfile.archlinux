@@ -154,6 +154,7 @@ RUN yay -Sy --noconfirm \
     llvm \
     make \
     nano \
+    nodejs \
     nvidia-container-toolkit-base \
     openssh-clients \
     pciutils \

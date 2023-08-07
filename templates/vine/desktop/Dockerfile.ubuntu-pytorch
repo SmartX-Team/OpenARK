@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG PYTORCH_RELEASE="23.04"
+ARG PYTORCH_RELEASE="23.07"
 ARG PYTHON_VERSION="3"
 
 # Configure user-specific environment variables
@@ -42,8 +42,26 @@ VOLUME [ "/home/${USER_NAME}" ]
 # Add core repositories
 ADD ./apt/keyrings/* /etc/apt/keyrings/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
-RUN find /etc/apt/keyrings/ -type f -exec sh -c \
-    'cat "{}" | gpg --dearmor --yes -o "/etc/apt/keyrings/$(basename "{}")"' \;
+RUN true \
+    # Install dependencies
+    && mv '/etc/apt/sources.list.d/' '/etc/apt/sources.list.d.bak/' \
+    && apt-get update && apt-get install -y \
+    gettext-base \
+    && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
+    # Get OS informations
+    && source /etc/os-release \
+    && export ARCH="$(uname -m)" \
+    && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
+    && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \
+    # Update keyrings
+    && find /etc/apt/keyrings/ -type f -exec sh -c \
+    'cat "{}" | gpg --dearmor --yes -o "/etc/apt/keyrings/$(basename "{}")"' \; \
+    # Update repositories
+    && find /etc/apt/sources.list.d/ -type f -exec sh -c \
+    'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install core dependencies
 RUN apt-get update && apt-get install -y \
@@ -52,9 +70,16 @@ RUN apt-get update && apt-get install -y \
     gpg \
     libgles2-mesa-dev \
     libglfw3-dev \
+    libldacbt-abr2 \
+    libldacbt-enc2 \
+    libspa-0.2-bluetooth \
     mesa-vulkan-drivers \
-    pulseaudio \
-    pulseaudio-module-bluetooth \
+    pipewire \
+    pipewire-audio-client-libraries \
+    pipewire-media-session- \
+    pipewire-pulse \
+    pulseaudio-module-bluetooth- \
+    wireplumber \
     wmctrl \
     x11-utils \
     xdotool \
@@ -79,12 +104,14 @@ RUN apt-get update && apt-get install -y \
     git \
     kubectl \
     nano \
+    nodejs \
+    nvidia-container-toolkit-base \
     openssh-client \
     pciutils \
+    podman-docker \
     python3 \
     python3-pip \
     sudo \
-    uidmap \
     "${USER_SHELL}" \
     vim \
     wget \
@@ -93,9 +120,36 @@ RUN apt-get update && apt-get install -y \
     && test "x${USER_SUDO}" = "xtrue" \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
-    || true \
     # Docker (Podman) Configuration
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
+    && systemctl enable podman \
+    && touch /etc/containers/nodocker \
+    ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
+    && echo '[storage]' >/etc/containers/storage.conf \
+    && echo 'driver = "overlay"' >>/etc/containers/storage.conf \
+    && echo 'runroot = "/run/containers/storage"' >>/etc/containers/storage.conf \
+    && echo 'graphroot = "/var/lib/containers/storage"' >>/etc/containers/storage.conf \
+    && echo '[storage.options]' >>/etc/containers/storage.conf \
+    && echo 'additionalimagestores = [' >>/etc/containers/storage.conf \
+    && echo '"/var/lib/shared",' >>/etc/containers/storage.conf \
+    && echo ']' >>/etc/containers/storage.conf \
+    && echo 'pull_options = {enable_partial_images = "false", use_hard_links = "false", ostree_repos=""}' >>/etc/containers/storage.conf \
+    && echo '[storage.options.overlay]' >>/etc/containers/storage.conf \
+    && echo 'mount_program = "/usr/bin/fuse-overlayfs"' >>/etc/containers/storage.conf \
+    && echo 'mountopt = "nodev,fsync=0"' >>/etc/containers/storage.conf \
+    && echo '[storage.options.thinpool]' >>/etc/containers/storage.conf \
+    && mkdir -p \
+    /var/lib/shared/overlay-images \
+    /var/lib/shared/overlay-layers \
+    /var/lib/shared/vfs-images \
+    /var/lib/shared/vfs-layers \
+    && touch /var/lib/shared/overlay-images/images.lock \
+    && touch /var/lib/shared/overlay-layers/layers.lock \
+    && touch /var/lib/shared/vfs-images/images.lock \
+    && touch /var/lib/shared/vfs-layers/layers.lock \
+    ## generate a CDI specification that refers to all NVIDIA devices
+    && mkdir -p /etc/cdi/ \
+    && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
     && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
@@ -120,6 +174,7 @@ RUN apt-get update && apt-get install -y \
     ibus-hangul \
     network-manager \
     network-manager-gnome \
+    picom \
     plank \
     sqlite \
     ssh-askpass \
@@ -154,6 +209,15 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
     && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
+
+# Install utilities - Podman
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/libpod/master/contrib/podmanimage/stable"
+ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
+ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+RUN chmod 644 \
+    /etc/containers/containers.conf \
+    /etc/containers/podman-containers.conf
 
 # Add firefox preferences
 ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/

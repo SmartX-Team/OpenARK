@@ -133,6 +133,7 @@ impl SessionManager {
             .and_then(|()| self.delete_pods(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
             .and_then(|()| self.label_node(ctx.spec.node, None))
+            .and_then(|()| self.create_job_data_sync(&ctx))
             .await
     }
 
@@ -165,6 +166,13 @@ impl SessionManager {
     async fn delete_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .delete_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
+            .await
+            .map(|_| ())
+    }
+
+    async fn create_job_data_sync(&self, ctx: &SessionContext<'_>) -> Result<()> {
+        self.client
+            .create_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
             .map(|_| ())
     }
@@ -365,8 +373,8 @@ fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
         ::ark_api::consts::LABEL_BIND_BY_USER: user_name,
         ::ark_api::consts::LABEL_BIND_NAMESPACE: user_name.map(UserCrd::user_namespace_with),
         ::ark_api::consts::LABEL_BIND_NODE: node_name,
-        ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
         ::ark_api::consts::LABEL_BIND_PERSISTENT: "false",
+        ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
         ::ark_api::consts::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
     })
 }
