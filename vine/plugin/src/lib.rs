@@ -11,5 +11,6 @@ where
 {
     app.service(crate::routes::desktop::batch::post_exec_broadcast)
         .service(crate::routes::desktop::single::post_exec)
+        .service(crate::routes::session::list)
         .service(crate::routes::user::get)
 }

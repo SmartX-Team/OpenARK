@@ -12,14 +12,14 @@ set -x
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
-# Initialize desktop environment
-"$(dirname "$0")/init-desktop.sh"
-
 # Initialize desktop podman environment
 "$(dirname "$0")/init-desktop-podman.sh"
 
 # Initialize desktop storage environment
 "$(dirname "$0")/init-desktop-storage.sh"
+
+# Initialize desktop template environment
+"$(dirname "$0")/init-desktop-template.sh"
 
 # Initialize desktop display environment
 "$(dirname "$0")/init-desktop-display.sh"
@@ -28,4 +28,4 @@ trap "echo 'Terminated.'; exit" EXIT
 "$(dirname "$0")/init-desktop-custom.sh"
 
 # Execute a desktop environment
-"$(dirname "$0")/init-desktop-xfce4.sh"
+exec "$(dirname "$0")/init-desktop-xfce4.sh"

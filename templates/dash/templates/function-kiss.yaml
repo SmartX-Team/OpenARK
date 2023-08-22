@@ -54,6 +54,7 @@ spec:
         choices: # 선택지
           - "on"
           - "off"
+          - "reset"
   actor: # 함수 구현체 정보
     job: # 함수 구현체 종류 (예제에서는, 쿠버네티스 Job)
       source: # 함수 구현체 출처

@@ -1,6 +1,5 @@
 mod args;
 mod commands;
-mod package;
 
 #[tokio::main]
 async fn main() -> ::anyhow::Result<()> {

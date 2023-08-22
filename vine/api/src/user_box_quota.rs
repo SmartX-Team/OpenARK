@@ -3,6 +3,7 @@ use k8s_openapi::api::core::v1::{ContainerPort, ResourceRequirements};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -289,9 +290,9 @@ impl UserBoxQuotaDesktopUserTemplateSpec {
 #[serde(rename_all = "camelCase")]
 pub struct UserBoxQuotaDesktopVolumesSpec {
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_containers")]
-    pub containers: bool,
+    pub containers: UserBoxQuotaDesktopVolumeKind,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_home")]
-    pub home: bool,
+    pub home: UserBoxQuotaDesktopVolumeKind,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_home_base")]
     pub home_base: String,
     #[serde(default = "UserBoxQuotaDesktopVolumesSpec::default_public")]
@@ -313,12 +314,12 @@ impl Default for UserBoxQuotaDesktopVolumesSpec {
 }
 
 impl UserBoxQuotaDesktopVolumesSpec {
-    fn default_containers() -> bool {
-        true
+    fn default_containers() -> UserBoxQuotaDesktopVolumeKind {
+        UserBoxQuotaDesktopVolumeKind::LocalShared
     }
 
-    fn default_home() -> bool {
-        true
+    fn default_home() -> UserBoxQuotaDesktopVolumeKind {
+        UserBoxQuotaDesktopVolumeKind::LocalOwned
     }
 
     fn default_home_base() -> String {
@@ -331,5 +332,33 @@ impl UserBoxQuotaDesktopVolumesSpec {
 
     fn default_static() -> bool {
         true
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum UserBoxQuotaDesktopVolumeKind {
+    LocalOwned,
+    LocalShared,
+    RemoteOwned,
+    Temporary,
+}
+
+impl Default for UserBoxQuotaDesktopVolumeKind {
+    fn default() -> Self {
+        Self::LocalOwned
     }
 }

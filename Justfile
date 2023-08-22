@@ -37,10 +37,12 @@ oci-push-and-update-dash: oci-push
   kubectl -n dash delete pods --selector name=gateway
 
 oci-push-and-update-kiss: oci-push
+  kubectl -n dash delete pods --selector name=gateway
   kubectl -n kiss delete pods --selector name=controller
   kubectl -n kiss delete pods --selector name=gateway
   kubectl -n kiss delete pods --selector name=monitor
 
 oci-push-and-update-vine: oci-push
+  kubectl -n dash delete pods --selector name=gateway
   kubectl -n vine delete pods --selector name=bastion
   kubectl -n vine delete pods --selector name=controller

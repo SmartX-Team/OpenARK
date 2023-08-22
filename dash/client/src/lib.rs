@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use anyhow::{anyhow, Result};
+use ark_api::SessionRef;
 use ark_core::result::Result as SessionResult;
 use dash_api::{function::FunctionCrd, job::DashJobCrd, model::ModelCrd};
 use dash_provider_api::job::Payload;
@@ -119,6 +120,10 @@ impl DashClient {
 impl DashClient {
     pub async fn get_user(&self) -> Result<UserSessionRef> {
         self.get("/user/").await
+    }
+
+    pub async fn get_user_session_list(&self) -> Result<Vec<SessionRef<'static>>> {
+        self.get("/batch/user/session/").await
     }
 
     pub async fn post_user_exec<T>(&self, command: &[T]) -> Result<()>

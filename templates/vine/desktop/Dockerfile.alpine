@@ -3,166 +3,21 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG ALPINE_VERSION="edge"
-
-# Configure user-specific environment variables
-ARG USER_GID="2000"
-ARG USER_NAME="user"
-ARG USER_SHELL="zsh"
-ARG USER_SUDO="true"
-ARG USER_UID="2000"
+ARG K8S_VERSION="latest"
 
 # Be ready for serving
-FROM "docker.io/library/alpine:${ALPINE_VERSION}"
-
-# Load user-specific environment variables
-ARG USER_GID
-ARG USER_NAME
-ARG USER_SHELL
-ARG USER_SUDO
-ARG USER_UID
-
-# SystemD Configuration
-ENV container docker
-STOPSIGNAL SIGRTMIN+3
+FROM docker.io/alpine/k8s:${K8S_VERSION} as server
 
 # Client Configuration
 WORKDIR /root/
 ENTRYPOINT [ "/usr/bin/env" ]
-CMD [ "/usr/local/bin/entrypoint-desktop.sh" ]
+CMD [ "/opt/scripts/entrypoint-image-pull.sh" ]
 
-# Volumes Configuration
-## home.user
-VOLUME [ "/home/${USER_NAME}" ]
-
-# Install core dependencies
+# Install dependencies
 RUN apk add --no-cache \
-    pipewire \
-    vulkan-loader \
-    wireplumber \
-    xdotool \
-    xprop
-
-# Install development environment dependencies
-RUN apk add --no-cache \
-    bash \
-    crun \
-    git \
-    nano \
-    openssh \
-    pciutils \
-    py3-pip \
-    "${USER_SHELL}" \
-    vim \
-    wget \
-    zip \
-    # Allow passwordless sudo command
-    && if [ "x${USER_SUDO}" == "xtrue" ]; then \
-    apk add --no-cache sudo \
-    && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
-    && chmod 440 /etc/sudoers.d/10-wheel \
-    ; fi
-
-# Install desktop environment dependencies
-RUN apk add --no-cache \
-    dbus-x11 \
-    file-roller \
-    network-manager-applet \
-    openssh-askpass \
-    picom \
-    sqlite \
-    thunar thunar-archive-plugin thunar-volman \
-    tumbler \
-    xdg-dbus-proxy \
-    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
-    xfce4-session xfce4-settings xfce4-terminal \
-    xfconf xfdesktop xfwm4 \
-    xinit xmlstarlet xorg-server
-
-# Install desktop environment dependencies - plank
-ARG PLANK_REPO="https://github.com/ricotz/plank.git"
-RUN ALPINE_TESTING_REPO='https://dl-cdn.alpinelinux.org/alpine/edge/testing' \
-    && BUILD_DEPENDENCIES='.build-dependencies' \
-    && BUILD_DEPENDENCIES_TESTING='.build-dependencies-testing' \
-    && apk add --no-cache \
-    cairo \
-    gdk-pixbuf \
-    glib \
-    gnome-menus \
-    gtk+3.0 \
-    libgee \
-    libwnck3 \
-    libx11 \
-    libxfixes \
-    libxi \
-    pango \
-    && apk add --no-cache --repository "${ALPINE_TESTING_REPO}" \
-    libbamf \
-    # install build dependencies
-    && apk add --no-cache --virtual "${BUILD_DEPENDENCIES}" \
-    autoconf \
-    automake \
-    build-base \
-    glib-dev \
-    gnome-menus-dev \
-    intltool \
-    libgee-dev \
-    libtool \
-    libwnck3-dev \
-    vala \
-    && apk add --no-cache --virtual "${BUILD_DEPENDENCIES_TESTING}" --repository "${ALPINE_TESTING_REPO}" \
-    gnome-common \
-    libbamf-dev \
-    # Load source files
-    && git clone "${PLANK_REPO}" plank \
-    && cd plank \
-    # Build it!
-    && NOCONFIGURE=1 ./autogen.sh \
-    && ./configure \
-    --disable-apport \
-    --prefix=/usr \
-    --sysconfdir=/etc \
-    && make \
-    && make install \
-    # Cleanup
-    && cd - && rm -rf plank \
-    && apk del "${BUILD_DEPENDENCIES}" \
-    && apk del "${BUILD_DEPENDENCIES_TESTING}"
-
-# Install locale dependencies
-RUN apk add --no-cache \
-    ibus-hangul
-
-# Install utilities - Custom
-ARG ADDONS_HOME="/opt/openark/vdi/desktop"
-ADD ./addons "${ADDONS_HOME}"
-RUN chmod -R a+x "${ADDONS_HOME}/bin" \
-    && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \
-    && ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
-    ; done \
-    && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
-    && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
-    ; done
-
-# Add firefox preferences
-ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
-ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
-
-# Add read-only shared directory
-RUN mkdir -p /opt/public/ \
-    && chown -R "${USER_UID}:${USER_GID}" /opt/public/
+    fuse-overlayfs \
+    nerdctl
 
 # Add scripts
 ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*
-
-# Add a user
-RUN adduser -u "${USER_UID}" -g "${USER_GID}" -s "/bin/${USER_SHELL}" \
-    --disabled-password --gecos '' "${USER_NAME}" "${USER_NAME}" \
-    && addgroup "${USER_NAME}" 'audio' \
-    && addgroup "${USER_NAME}" 'cdrom' \
-    && addgroup "${USER_NAME}" 'input' \
-    && addgroup "${USER_NAME}" 'pipewire' \
-    && addgroup "${USER_NAME}" 'video'
-USER "${USER_NAME}"
-WORKDIR "/home/${USER_NAME}"

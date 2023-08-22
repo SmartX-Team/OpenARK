@@ -66,9 +66,16 @@ spec:
 {% else %}
               mountPath: /home/user
 {% endif %}
-{% if not spec.boxQuota.desktop.volumes.containers %}
+{% if spec.boxQuota.desktop.volumes.containers != 'RemoteOwned' or spec.boxQuota.desktop.volumes.home != 'RemoteOwned' or not spec.boxQuota.storage is object %}
             - name: home-containers
+{% if spec.boxQuota.desktop.context.root %}
+              mountPath: /root/.local/share/containers
+{% else %}
               mountPath: /home/user/.local/share/containers
+{% endif %}
+{% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
+              subPath: .local/share/containers
+{% endif %}
 {% endif %}
             - name: home-public
               mountPath: /mnt/public
@@ -144,12 +151,15 @@ spec:
 {% else %}
               mountPath: {{ "/home/user" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
 {% endif %}
-{% if not spec.boxQuota.desktop.volumes.containers %}
+{% if spec.boxQuota.desktop.volumes.containers != 'RemoteOwned' or spec.boxQuota.desktop.volumes.home != 'RemoteOwned' or not spec.boxQuota.storage is object %}
             - name: home-containers
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root/.local/share/containers
 {% else %}
               mountPath: /home/user/.local/share/containers
+{% endif %}
+{% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
+              subPath: .local/share/containers
 {% endif %}
 {% endif %}
             - name: home-public
@@ -219,14 +229,33 @@ spec:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
         - name: home
-{% if spec.boxQuota.desktop.volumes.home and spec.boxQuota.storage is object %}
+{% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
+          hostPath:
+            path: "/opt/vine/sessions/{{ metadata.namespace }}/home"
+            type: DirectoryOrCreate
+{% elif spec.boxQuota.desktop.volumes.home == 'LocalShared' %}
+          hostPath:
+            path: "/opt/vine/sessions/_shared/home"
+            type: DirectoryOrCreate
+{% elif spec.boxQuota.desktop.volumes.home == 'RemoteOwned' and spec.boxQuota.storage is object %}
           persistentVolumeClaim:
             claimName: desktop
-{% else %}
+{% else %} {# 'Temporary' #}
           emptyDir: {}
 {% endif %}
-{% if not spec.boxQuota.desktop.volumes.containers %}
         - name: home-containers
+{% if spec.boxQuota.desktop.volumes.containers == 'LocalOwned' %}
+          hostPath:
+            path: "/opt/vine/sessions/{{ metadata.namespace }}/containers"
+            type: DirectoryOrCreate
+{% elif spec.boxQuota.desktop.volumes.containers == 'LocalShared' %}
+          hostPath:
+            path: "/opt/vine/sessions/_shared/containers"
+            type: DirectoryOrCreate
+{% elif spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
+          persistentVolumeClaim:
+            claimName: desktop
+{% else %} {# 'Temporary' #}
           emptyDir: {}
 {% endif %}
         - name: home-public

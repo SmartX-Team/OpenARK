@@ -8,7 +8,7 @@ use dash_provider::client::job::FunctionActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
 use k8s_openapi::{
-    api::core::v1::{Namespace, Node, Pod},
+    api::core::v1::{Namespace, Node, Pod, PodCondition},
     serde_json::Value,
 };
 use kube::{
@@ -312,10 +312,21 @@ impl<'a> SessionExec for SessionRef<'a> {
             ..Default::default()
         };
         let pods = api.list(&lp).await?.into_iter().filter(|pod| {
+            fn check_condition(conditions: &[PodCondition], type_: &str) -> bool {
+                conditions
+                    .iter()
+                    .find(|condition| condition.type_ == type_)
+                    .map(|condition| condition.status == "True")
+                    .unwrap_or_default()
+            }
+
             pod.status
                 .as_ref()
-                .and_then(|status| status.phase.as_ref())
-                .map(|phase| phase == "Running")
+                .and_then(|status| status.conditions.as_ref())
+                .map(|conditions| {
+                    check_condition(conditions, "PodScheduled") // Running
+                        && !check_condition(conditions, "DisruptionTarget") // not Terminating
+                })
                 .unwrap_or_default()
         });
 

@@ -1,5 +1,6 @@
 # Configure environment variables
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
+export K8S_VERSION := env_var_or_default('K8S_VERSION', '1.27.4')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 
@@ -8,6 +9,8 @@ default:
 
 build DIST NVIDIA_IMAGE_NAME='cuda':
   docker build \
+    --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
+    --build-arg "K8S_VERSION=${K8S_VERSION}" \
     --build-arg "NVIDIA_IMAGE_NAME={{ NVIDIA_IMAGE_NAME }}" \
     --file "./Dockerfile.{{ DIST }}" \
     --progress 'plain' \
