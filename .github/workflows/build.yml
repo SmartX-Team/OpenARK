@@ -537,6 +537,8 @@ jobs:
           context: ./templates/vine/desktop
           containerfiles: |
             ./templates/vine/desktop/Dockerfile.alpine
+          build-args: |
+            K8S_VERSION=${{ env.K8S_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
