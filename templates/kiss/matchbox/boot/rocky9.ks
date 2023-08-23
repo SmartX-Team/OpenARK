@@ -503,7 +503,7 @@ RestartSec=30
 [Install]
 WantedBy=multi-user.target
 EOF
-ln -sf /etc/systemd/system/optimize-wifi.service /etc/systemd/system/multi-user.target.wants/optimize-wifi.service
+# ln -sf /etc/systemd/system/optimize-wifi.service /etc/systemd/system/multi-user.target.wants/optimize-wifi.service
 
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/
