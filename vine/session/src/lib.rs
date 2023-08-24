@@ -133,7 +133,6 @@ impl SessionManager {
             .and_then(|()| self.delete_pods(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
             .and_then(|()| self.label_node(ctx.spec.node, None))
-            .and_then(|()| self.create_job_data_sync(&ctx))
             .await
     }
 
@@ -166,13 +165,6 @@ impl SessionManager {
     async fn delete_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .delete_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
-            .await
-            .map(|_| ())
-    }
-
-    async fn create_job_data_sync(&self, ctx: &SessionContext<'_>) -> Result<()> {
-        self.client
-            .create_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
             .map(|_| ())
     }
