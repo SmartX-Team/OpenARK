@@ -18,5 +18,7 @@ if which podman; then
     podman system migrate
 
     # Generate a CDI specification that refers to all NVIDIA devices
-    nvidia-ctk cdi generate --device-name-strategy=type-index --format=json >/etc/cdi/nvidia.json
+    if ! nvidia-ctk cdi generate --device-name-strategy=type-index --format=json >/etc/cdi/nvidia.json; then
+        rm -f /etc/cdi/nvidia.json
+    fi
 fi
