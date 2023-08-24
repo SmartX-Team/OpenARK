@@ -132,6 +132,7 @@ impl SessionManager {
         self.delete_template(&ctx)
             .and_then(|()| self.delete_pods(&ctx))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
+            .and_then(|()| self.label_namespace(&ctx, None))
             .and_then(|()| self.label_node(ctx.spec.node, None))
             .await
     }
