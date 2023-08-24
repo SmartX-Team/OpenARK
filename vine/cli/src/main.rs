@@ -135,10 +135,12 @@ impl Commands {
 struct CommandSession {
     /// Set a box name
     #[arg(short, long, env = "VINE_SESSION_BOX", value_name = "BOX")]
+    #[serde(alias = "box")]
     box_name: String,
 
     /// Set a user name
     #[arg(short, long, env = "VINE_SESSION_USER", value_name = "USER")]
+    #[serde(alias = "user")]
     user_name: String,
 }
 
