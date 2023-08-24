@@ -31,7 +31,9 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             Some(user_name) => UserCrd::user_namespace_with(user_name),
             None => {
                 info!("skipping unbinding node ({name}): user not found");
-                return Ok(Action::await_change());
+                return Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ));
             }
         };
 
@@ -44,7 +46,9 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             info!(
                 "skipping unbinding node ({name}): node is allocated persistently to {namespace:?}"
             );
-            return Ok(Action::await_change());
+            return Ok(Action::requeue(
+                <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            ));
         }
 
         let session_manager = match SessionManager::try_new(namespace, manager.kube.clone()).await {
@@ -68,6 +72,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         }
 
         // If no events were received, check back after a few minutes
-        Ok(Action::await_change())
+        Ok(Action::requeue(
+            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+        ))
     }
 }
