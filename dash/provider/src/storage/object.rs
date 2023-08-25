@@ -106,11 +106,12 @@ impl<'model> ObjectStorageClient {
         let secret_key = get_secret_data(map_secret_key)?;
 
         if redirect {
+            let service_name = "minio";
             let tenant_name = "object-storage";
 
             {
                 let api_service = Api::<Service>::namespaced(kube.clone(), namespace);
-                let name = tenant_name;
+                let name = service_name;
                 let external_name = endpoint
                     .host_str()
                     .ok_or_else(|| anyhow!("cannot infer endpoint host"))?
@@ -141,7 +142,7 @@ impl<'model> ObjectStorageClient {
                     name,
                     None,
                     IngressServiceBackend {
-                        name: name.to_string(),
+                        name: service_name.to_string(),
                         port: Some(ServiceBackendPort {
                             number: Some(port),
                             ..Default::default()

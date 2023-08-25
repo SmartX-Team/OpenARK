@@ -26,6 +26,7 @@ impl Default for ModelStorageObjectSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectBorrowedSpec {
     pub endpoint: Url,
+    #[serde(default)]
     pub secret_ref: ModelStorageObjectBorrowedSecretRefSpec,
 }
 
@@ -37,16 +38,31 @@ pub struct ModelStorageObjectBorrowedSecretRefSpec {
     #[serde(default = "ModelStorageObjectBorrowedSecretRefSpec::default_map_secret_key")]
     pub map_secret_key: String,
 
+    #[serde(default = "ModelStorageObjectBorrowedSecretRefSpec::default_name")]
     pub name: String,
+}
+
+impl Default for ModelStorageObjectBorrowedSecretRefSpec {
+    fn default() -> Self {
+        Self {
+            map_access_key: Self::default_map_access_key(),
+            map_secret_key: Self::default_map_secret_key(),
+            name: Self::default_name(),
+        }
+    }
 }
 
 impl ModelStorageObjectBorrowedSecretRefSpec {
     fn default_map_access_key() -> String {
-        "accessKeyID".into()
+        "CONSOLE_ACCESS_KEY".into()
     }
 
     fn default_map_secret_key() -> String {
-        "secretAccessKey".into()
+        "CONSOLE_SECRET_KEY".into()
+    }
+
+    fn default_name() -> String {
+        "object-storage-user-0".into()
     }
 }
 
@@ -66,7 +82,7 @@ pub struct ModelStorageObjectOwnedSpec {
     #[serde(default)]
     pub deletion_policy: ModelStorageObjectDeletionPolicy,
 
-    #[serde(default)]
+    #[serde(default = "ModelStorageObjectOwnedSpec::default_resources")]
     pub resources: ResourceRequirements,
 }
 
@@ -74,14 +90,20 @@ impl Default for ModelStorageObjectOwnedSpec {
     fn default() -> Self {
         Self {
             deletion_policy: Default::default(),
-            resources: ResourceRequirements {
-                requests: Some({
-                    let mut map = BTreeMap::default();
-                    map.insert("storage".into(), Quantity("64Mi".into()));
-                    map
-                }),
-                ..Default::default()
-            },
+            resources: Self::default_resources(),
+        }
+    }
+}
+
+impl ModelStorageObjectOwnedSpec {
+    fn default_resources() -> ResourceRequirements {
+        ResourceRequirements {
+            requests: Some({
+                let mut map = BTreeMap::default();
+                map.insert("storage".into(), Quantity("64Mi".into()));
+                map
+            }),
+            ..Default::default()
         }
     }
 }

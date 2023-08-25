@@ -1,0 +1,96 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-storage-borrowed
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-storage-cloned
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-storage-owned
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: my-storage-borrowed
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: my-storage-cloned
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: my-storage-owned
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: my-object-storage
+  namespace: my-storage-borrowed
+spec:
+  objectStorage:
+    borrowed:
+      endpoint: http://minio.my-storage-owned.svc.ops.openark/
+      secretRef:
+        mapAccessKey: CONSOLE_ACCESS_KEY
+        mapSecretKey: CONSOLE_SECRET_KEY
+        name: object-storage-user-0
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: my-object-storage
+  namespace: my-storage-cloned
+spec:
+  objectStorage:
+    cloned:
+      deletionPolicy: Retain
+      endpoint: http://minio.my-storage-owned.svc.ops.openark/
+      resources:
+        requests:
+          storage: 64Mi
+      secretRef:
+        mapAccessKey: CONSOLE_ACCESS_KEY
+        mapSecretKey: CONSOLE_SECRET_KEY
+        name: object-storage-user-0
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: my-object-storage
+  namespace: my-storage-owned
+spec:
+  objectStorage:
+    owned:
+      deletionPolicy: Retain
+      resources:
+        requests:
+          storage: 64Mi
