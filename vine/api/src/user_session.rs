@@ -20,3 +20,13 @@ pub struct UserSessionMetadata {
     pub user: UserSpec,
     pub user_name: String,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UserSessionCommandBatch<Command = UserSessionCommand, UserNames = Vec<String>> {
+    pub command: Command,
+    #[serde(default)]
+    pub user_names: Option<UserNames>,
+}
+
+pub type UserSessionCommand = Vec<String>;

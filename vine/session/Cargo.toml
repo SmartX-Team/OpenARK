@@ -22,6 +22,7 @@ ark-api = { path = "../../ark/api" }
 ark-core = { path = "../../ark/core" }
 dash-provider = { path = "../../dash/provider" }
 dash-provider-api = { path = "../../dash/provider/api" }
+kiss-api = { path = "../../kiss/api" }
 vine-api = { path = "../api" }
 vine-storage = { path = "../storage" }
 

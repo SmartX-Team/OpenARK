@@ -6,11 +6,12 @@ use ark_core::env;
 use chrono::Utc;
 use dash_provider::client::job::FunctionActorJobClient;
 use dash_provider_api::SessionContextMetadata;
-use futures::TryFutureExt;
+use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::{
     api::core::v1::{Namespace, Node, Pod, PodCondition},
     serde_json::Value,
 };
+use kiss_api::r#box::BoxCrd;
 use kube::{
     api::{DeleteParams, ListParams, Patch, PatchParams},
     Api, Client, Resource, ResourceExt,
@@ -121,6 +122,7 @@ impl SessionManager {
         self.label_node(ctx.spec.node, Some(ctx.spec.user_name))
             .and_then(|()| self.label_namespace(&ctx, Some(ctx.spec.user_name)))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, true))
+            .and_then(|()| self.try_label_box(ctx.spec.node, Some(ctx.spec.user_name)))
             .and_then(|()| self.create_shared_pvc(&ctx))
             .and_then(|()| self.create_template(&ctx))
             .await
@@ -131,6 +133,7 @@ impl SessionManager {
 
         self.delete_template(&ctx)
             .and_then(|()| self.delete_pods(&ctx))
+            .and_then(|()| self.try_label_box(ctx.spec.node, None))
             .and_then(|()| self.label_user(ctx.spec.node, ctx.spec.user_name, false))
             .and_then(|()| self.label_namespace(&ctx, None))
             .and_then(|()| self.label_node(ctx.spec.node, None))
@@ -183,6 +186,23 @@ impl SessionManager {
             .map_err(Into::into)
     }
 
+    async fn try_label_box(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
+        let name = node.name_any();
+        self.try_label::<BoxCrd>(&name, node, user_name).await
+    }
+
+    async fn try_label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
+    where
+        K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
+    {
+        let api = Api::<K>::all(self.client.kube.clone());
+        if api.get_opt(name).await?.is_some() {
+            self.label_with_api(api, name, node, user_name).await
+        } else {
+            Ok(())
+        }
+    }
+
     async fn label_namespace(
         &self,
         ctx: &SessionContext<'_>,
@@ -210,6 +230,19 @@ impl SessionManager {
         K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
     {
         let api = Api::<K>::all(self.client.kube.clone());
+        self.label_with_api(api, name, node, user_name).await
+    }
+
+    async fn label_with_api<K>(
+        &self,
+        api: Api<K>,
+        name: &str,
+        node: &Node,
+        user_name: Option<&str>,
+    ) -> Result<()>
+    where
+        K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
+    {
         let pp = PatchParams {
             field_manager: Some(self::consts::NAME.into()),
             force: true,
@@ -249,6 +282,11 @@ pub trait SessionExec {
     where
         Self: Sized;
 
+    async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
+    where
+        Self: Sized,
+        Item: Send + Sync + AsRef<str>;
+
     async fn exec<I, T>(
         &self,
         kube: Client,
@@ -274,17 +312,24 @@ impl<'a> SessionExec for SessionRef<'a> {
 
         api.list(&lp)
             .await
-            .map(|users| {
-                users
-                    .into_iter()
-                    .filter_map(|user| {
-                        user.get_session_ref()
-                            .map(|session| session.into_owned())
-                            .ok()
-                    })
-                    .collect()
-            })
+            .map(collect_user_sessions)
             .map_err(Into::into)
+    }
+
+    async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
+    where
+        Item: Send + Sync + AsRef<str>,
+    {
+        let api = Api::<UserCrd>::all(kube);
+
+        try_join_all(
+            user_names
+                .iter()
+                .map(|user_name| api.get(user_name.as_ref())),
+        )
+        .await
+        .map(collect_user_sessions)
+        .map_err(Into::into)
     }
 
     async fn exec<I, T>(
@@ -406,4 +451,18 @@ pub enum AllocationState<'a> {
     AllocatedByOtherNode { node_name: &'a str },
     AllocatedByOtherUser { user_name: &'a str },
     NotAllocated,
+}
+
+fn collect_user_sessions<I>(users: I) -> Vec<SessionRef<'static>>
+where
+    I: IntoIterator<Item = UserCrd>,
+{
+    users
+        .into_iter()
+        .filter_map(|user| {
+            user.get_session_ref()
+                .map(|session| session.into_owned())
+                .ok()
+        })
+        .collect()
 }

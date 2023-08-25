@@ -8,7 +8,7 @@ use dash_provider_api::job::Payload;
 use reqwest::{Client, Method, Url};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use vine_api::user_session::UserSessionRef;
+use vine_api::user_session::{UserSessionCommandBatch, UserSessionRef};
 
 #[derive(Clone, Debug)]
 pub struct DashClient {
@@ -133,9 +133,13 @@ impl DashClient {
         self.post("/user/desktop/exec/", Some(command)).await
     }
 
-    pub async fn post_user_exec_broadcast<T>(&self, command: &[T]) -> Result<()>
+    pub async fn post_user_exec_broadcast<Command, UserName>(
+        &self,
+        command: &UserSessionCommandBatch<&[Command], &[UserName]>,
+    ) -> Result<()>
     where
-        T: AsRef<str> + Serialize,
+        Command: AsRef<str> + Serialize,
+        UserName: AsRef<str> + Serialize,
     {
         self.post("/batch/user/desktop/exec/broadcast/", Some(command))
             .await

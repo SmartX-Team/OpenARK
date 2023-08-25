@@ -7,7 +7,7 @@ use ark_api::SessionRef;
 use ark_core::result::Result;
 use futures::future::try_join_all;
 use kube::Client;
-use vine_api::user_session::UserSessionMetadata;
+use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
 use vine_rbac::auth::AuthUserSession;
 use vine_session::SessionExec;
 
@@ -15,7 +15,10 @@ use vine_session::SessionExec;
 pub async fn post_exec_broadcast(
     request: HttpRequest,
     kube: Data<Client>,
-    command: Json<Vec<String>>,
+    Json(UserSessionCommandBatch {
+        command,
+        user_names,
+    }): Json<UserSessionCommandBatch>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
     if let Err(error) = UserSessionMetadata::from_request(&kube, &request)
@@ -25,12 +28,14 @@ pub async fn post_exec_broadcast(
         return HttpResponse::from(Result::<()>::Err(error.to_string()));
     };
 
-    let sessions = match SessionRef::list(kube.clone()).await {
+    let sessions = match match user_names {
+        Some(user_names) => SessionRef::load(kube.clone(), &user_names).await,
+        None => SessionRef::list(kube.clone()).await,
+    } {
         Ok(sessions) => sessions,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
-    let command = command.0;
     let result = try_join_all(sessions.into_iter().map(|session| {
         let kube = kube.clone();
         let command = command.clone();
