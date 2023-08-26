@@ -1,0 +1,52 @@
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+###########################################################
+#   Configuration                                         #
+###########################################################
+
+# Set environment variables
+if [ "x${SSH_KEYFILE_PATH}" = 'x' ]; then
+    echo "Environment variable \"SSH_KEYFILE_PATH\" is not set."
+    exit 1
+fi
+
+###########################################################
+#   Find a box                                            #
+###########################################################
+
+# Collect Box Name
+box_name="$1"
+if [ "x${box_name}" = 'x' ]; then
+    echo "Usage: $0 [BOX_NAME]"
+    exit 1
+fi
+
+# Collect IP Address
+box_ip="$(
+    kubectl get box \
+        --output jsonpath \
+        --selector "dash.ulagbulag.io/alias=${box_name}" \
+        --template '{.items[0].status.access.primary.address}'
+)"
+if [ "x${box_ip}" = 'x' ]; then
+    echo 'Failed to get IP Address'
+    exit 1
+fi
+
+###########################################################
+#   Connect to SSH                                        #
+###########################################################
+
+# Connect to SSH
+exec ssh \
+    -i "${SSH_KEYFILE_PATH}" \
+    -o 'LogLevel=ERROR' \
+    -o 'StrictHostKeyChecking no' \
+    -o 'UserKnownHostsFile=/dev/null' \
+    "kiss@${box_ip}" ${@:2} <&0

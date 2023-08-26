@@ -1,0 +1,32 @@
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+###########################################################
+#   Configuration                                         #
+###########################################################
+
+# Set environment variables
+if [ "x${SSH_KEYFILE_PATH}" = 'x' ]; then
+    echo "Environment variable \"SSH_KEYFILE_PATH\" is not set."
+    exit 1
+fi
+
+###########################################################
+#   Find box(es)                                          #
+###########################################################
+
+# Collect Box Name
+box_name="$1"
+if [ "x${box_name}" = 'x' ]; then
+    kubectl get box | sort -k 2
+    exec true
+fi
+
+# Collect Box Data
+exec kubectl get box \
+    --selector "dash.ulagbulag.io/alias=${box_name}"
