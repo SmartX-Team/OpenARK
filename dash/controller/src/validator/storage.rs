@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
+    model_storage_binding::ModelStorageBindingSyncPolicy,
     storage::{
         db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
         object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec,
@@ -16,6 +17,12 @@ pub struct ModelStorageValidator<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
+    const SYNC_POLICY_DATABASE: ModelStorageBindingSyncPolicy =
+        ModelStorageBindingSyncPolicy::Never;
+    const SYNC_POLICY_KUBERNETES: ModelStorageBindingSyncPolicy =
+        ModelStorageBindingSyncPolicy::Never;
+    const SYNC_POLICY_OBJECT: ModelStorageBindingSyncPolicy = ModelStorageBindingSyncPolicy::Never;
+
     pub async fn validate_model_storage(&self, name: &str, spec: &ModelStorageSpec) -> Result<()> {
         self.validate_model_storage_conflict(name, spec.kind.to_kind())
             .await?;
@@ -85,12 +92,17 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         &self,
         storage: &ModelStorageCrd,
         model: &ModelCrd,
-    ) -> Result<()> {
+        sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    ) -> Result<ModelStorageBindingSyncPolicy> {
         match &storage.spec.kind {
-            ModelStorageKindSpec::Database(spec) => self.bind_model_to_database(spec, model).await,
-            ModelStorageKindSpec::Kubernetes(spec) => self.bind_model_to_kubernetes(spec, model),
+            ModelStorageKindSpec::Database(spec) => {
+                self.bind_model_to_database(spec, model, sync_policy).await
+            }
+            ModelStorageKindSpec::Kubernetes(spec) => {
+                self.bind_model_to_kubernetes(spec, model, sync_policy)
+            }
             ModelStorageKindSpec::ObjectStorage(spec) => {
-                self.bind_model_to_object(spec, &storage.name_any(), model)
+                self.bind_model_to_object(spec, &storage.name_any(), model, sync_policy)
                     .await
             }
         }
@@ -100,22 +112,31 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         &self,
         storage: &ModelStorageDatabaseSpec,
         model: &ModelCrd,
-    ) -> Result<()> {
+        sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    ) -> Result<ModelStorageBindingSyncPolicy> {
+        let sync_policy = sync_policy.unwrap_or(Self::SYNC_POLICY_DATABASE);
+        assert_sync_policy_to_be_never(sync_policy)?;
+
         DatabaseStorageClient::try_new(storage)
             .await?
             .get_session(model)
             .update_table()
             .await
+            .map(|()| sync_policy)
     }
 
     fn bind_model_to_kubernetes(
         &self,
         storage: &ModelStorageKubernetesSpec,
         model: &ModelCrd,
-    ) -> Result<()> {
+        sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    ) -> Result<ModelStorageBindingSyncPolicy> {
+        let sync_policy = sync_policy.unwrap_or(Self::SYNC_POLICY_KUBERNETES);
+        assert_sync_policy_to_be_never(sync_policy)?;
+
         let ModelStorageKubernetesSpec {} = storage;
         match model.spec {
-            ModelSpec::CustomResourceDefinitionRef(_) => Ok(()),
+            ModelSpec::CustomResourceDefinitionRef(_) => Ok(sync_policy),
             _ => bail!("kubernetes storage can only used for CRDs"),
         }
     }
@@ -125,7 +146,10 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         storage: &ModelStorageObjectSpec,
         storage_name: &str,
         model: &ModelCrd,
-    ) -> Result<()> {
+        sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    ) -> Result<ModelStorageBindingSyncPolicy> {
+        let sync_policy = sync_policy.unwrap_or(Self::SYNC_POLICY_OBJECT);
+
         ObjectStorageClient::try_new(
             self.kubernetes_storage.kube,
             self.kubernetes_storage.namespace,
@@ -133,8 +157,17 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             storage,
         )
         .await?
-        .get_session(model)
+        .get_session(model, sync_policy)
         .create_bucket()
         .await
+        .map(|()| sync_policy)
+    }
+}
+
+fn assert_sync_policy_to_be_never(sync_policy: ModelStorageBindingSyncPolicy) -> Result<()> {
+    if matches!(sync_policy, ModelStorageBindingSyncPolicy::Never) {
+        Ok(())
+    } else {
+        bail!("sync policy should be \"Never\"")
     }
 }

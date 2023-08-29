@@ -25,6 +25,14 @@ pub struct ModelValidator<'namespace, 'kube> {
 impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
     pub async fn validate_model(&self, spec: ModelSpec) -> Result<ModelFieldsNativeSpec> {
         match spec {
+            ModelSpec::Dynamic {} => Ok(vec![ModelFieldSpec {
+                name: "/".into(),
+                kind: ModelFieldKindNativeSpec::Object {
+                    children: Default::default(),
+                    dynamic: true,
+                },
+                attribute: ModelFieldAttributeSpec { optional: true },
+            }]),
             ModelSpec::Fields(spec) => self.validate_fields(spec).await,
             ModelSpec::CustomResourceDefinitionRef(spec) => {
                 self.validate_custom_resource_definition_ref(spec).await

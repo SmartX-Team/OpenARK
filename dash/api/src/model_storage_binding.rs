@@ -38,6 +38,37 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
 pub struct ModelStorageBindingSpec {
     pub model: String,
     pub storage: String,
+    #[serde(default)]
+    pub sync_policy: Option<ModelStorageBindingSyncPolicy>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum ModelStorageBindingSyncPolicy {
+    #[serde(alias = "ModelPeering", alias = "DatasetPeering")]
+    Always,
+    Never,
+    #[serde(alias = "ModelTiering", alias = "DatasetTiering")]
+    OnDelete,
+}
+
+impl Default for ModelStorageBindingSyncPolicy {
+    fn default() -> Self {
+        Self::Never
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -47,6 +78,8 @@ pub struct ModelStorageBindingStatus {
     pub state: ModelStorageBindingState,
     pub model: Option<ModelSpec>,
     pub storage: Option<ModelStorageSpec>,
+    #[serde(default)]
+    pub sync_policy: ModelStorageBindingSyncPolicy,
     pub last_updated: DateTime<Utc>,
 }
 

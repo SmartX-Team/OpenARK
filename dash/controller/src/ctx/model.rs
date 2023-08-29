@@ -80,13 +80,13 @@ impl Ctx {
     ) -> Result<Action, Error> {
         match Self::update_fields(namespace, kube, name, fields).await {
             Ok(()) => {
-                info!("model is ready: {name}");
+                info!("model is ready: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to validate model ({name}): {e}");
+                warn!("failed to validate model ({namespace}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))

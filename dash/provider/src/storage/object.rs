@@ -3,10 +3,11 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
+    model_storage_binding::ModelStorageBindingSyncPolicy,
     storage::object::{
-        ModelStorageObjectBorrowedSecretRefSpec, ModelStorageObjectBorrowedSpec,
-        ModelStorageObjectClonedSpec, ModelStorageObjectDeletionPolicy,
-        ModelStorageObjectOwnedSpec, ModelStorageObjectSpec,
+        ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
+        ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedSpec,
+        ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
 use futures::{future::try_join_all, TryFutureExt};
@@ -23,7 +24,10 @@ use kube::{
     Api, Client, ResourceExt,
 };
 use minio::s3::{
-    args::{BucketExistsArgs, GetObjectArgs, ListObjectsV2Args, MakeBucketArgs},
+    args::{
+        BucketExistsArgs, GetBucketReplicationArgs, GetObjectArgs, ListObjectsV2Args,
+        MakeBucketArgs,
+    },
     creds::{Credentials, Provider, StaticProvider},
     http::BaseUrl,
 };
@@ -59,7 +63,7 @@ impl<'model> ObjectStorageClient {
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
-                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage, true).await
+                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
             }
             ModelStorageObjectSpec::Cloned(storage) => {
                 Self::load_storage_provider_by_cloned(kube, namespace, name, storage).await
@@ -75,12 +79,60 @@ impl<'model> ObjectStorageClient {
         namespace: &str,
         name: &str,
         storage: &ModelStorageObjectBorrowedSpec,
+    ) -> Result<Self> {
+        let ModelStorageObjectBorrowedSpec { reference } = storage;
+        let redirect = true;
+        Self::load_storage_provider_by_reference(kube, namespace, name, reference, redirect).await
+    }
+
+    async fn load_storage_provider_by_cloned(
+        kube: &Client,
+        namespace: &str,
+        name: &str,
+        storage: &ModelStorageObjectClonedSpec,
+    ) -> Result<Self> {
+        let reference = Self::load_storage_provider_by_reference(
+            kube,
+            namespace,
+            name,
+            &storage.reference,
+            false,
+        )
+        .await?;
+        let owned =
+            Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
+
+        let admin = MinioAdminClient {
+            storage: &reference,
+        };
+        // TODO: verify and join endpoint
+        if !admin.is_site_replication_enabled().await? {
+            admin.add_site_replication(&owned).await?;
+        }
+        Ok(owned)
+    }
+
+    async fn load_storage_provider_by_owned(
+        kube: &Client,
+        namespace: &str,
+        name: &str,
+        storage: &ModelStorageObjectOwnedSpec,
+    ) -> Result<Self> {
+        let storage = Self::create_or_get_storage(kube, namespace, storage).await?;
+        Self::load_storage_provider_by_reference(kube, namespace, name, &storage, false).await
+    }
+
+    async fn load_storage_provider_by_reference(
+        kube: &Client,
+        namespace: &str,
+        name: &str,
+        storage: &ModelStorageObjectRefSpec,
         redirect: bool,
     ) -> Result<Self> {
-        let ModelStorageObjectBorrowedSpec {
+        let ModelStorageObjectRefSpec {
             endpoint,
             secret_ref:
-                ModelStorageObjectBorrowedSecretRefSpec {
+                ModelStorageObjectRefSecretRefSpec {
                     map_access_key,
                     map_secret_key,
                     name: secret_name,
@@ -161,46 +213,11 @@ impl<'model> ObjectStorageClient {
         })
     }
 
-    async fn load_storage_provider_by_cloned(
-        kube: &Client,
-        namespace: &str,
-        name: &str,
-        storage: &ModelStorageObjectClonedSpec,
-    ) -> Result<Self> {
-        let borrowed = Self::load_storage_provider_by_borrowed(
-            kube,
-            namespace,
-            name,
-            &storage.borrowed,
-            false,
-        )
-        .await?;
-        let owned =
-            Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
-
-        let admin = MinioAdminClient { storage: &borrowed };
-        // TODO: verify and join endpoint
-        if !admin.is_site_replication_enabled().await? {
-            admin.add_site_replication(&owned).await?;
-        }
-        Ok(owned)
-    }
-
-    async fn load_storage_provider_by_owned(
-        kube: &Client,
-        namespace: &str,
-        name: &str,
-        storage: &ModelStorageObjectOwnedSpec,
-    ) -> Result<Self> {
-        let storage = Self::create_or_get_storage(kube, namespace, storage).await?;
-        Self::load_storage_provider_by_borrowed(kube, namespace, name, &storage, false).await
-    }
-
     async fn create_or_get_storage(
         kube: &Client,
         namespace: &str,
         storage: &ModelStorageObjectOwnedSpec,
-    ) -> Result<ModelStorageObjectBorrowedSpec> {
+    ) -> Result<ModelStorageObjectRefSpec> {
         let ModelStorageObjectOwnedSpec {
             deletion_policy: ModelStorageObjectDeletionPolicy::Retain,
             resources,
@@ -420,10 +437,10 @@ export MINIO_ROOT_PASSWORD="{password}"
             .await?
         };
 
-        Ok(ModelStorageObjectBorrowedSpec {
+        Ok(ModelStorageObjectRefSpec {
             // TODO: use real cluster domain name (not ops.openark.)
             endpoint: format!("http://minio.{namespace}.svc.ops.openark/").parse()?,
-            secret_ref: ModelStorageObjectBorrowedSecretRefSpec {
+            secret_ref: ModelStorageObjectRefSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
                 name: secret_user_0.name_any(),
@@ -440,16 +457,22 @@ impl ObjectStorageClient {
         client
     }
 
-    pub fn get_session<'model>(&self, model: &'model ModelCrd) -> ObjectStorageSession<'_, 'model> {
+    pub fn get_session<'model>(
+        &self,
+        model: &'model ModelCrd,
+        sync_policy: ModelStorageBindingSyncPolicy,
+    ) -> ObjectStorageSession<'_, 'model> {
         ObjectStorageSession {
             client: self.get_client(),
             model,
+            sync_policy,
         }
     }
 }
 pub struct ObjectStorageSession<'client, 'model> {
     client: ::minio::s3::client::Client<'client>,
     model: &'model ModelCrd,
+    sync_policy: ModelStorageBindingSyncPolicy,
 }
 
 impl<'client, 'model> ObjectStorageSession<'client, 'model> {
@@ -511,11 +534,39 @@ impl<'client, 'model> ObjectStorageSession<'client, 'model> {
         let bucket_name = self.get_bucket_name();
 
         let args = MakeBucketArgs::new(&bucket_name)?;
-        self.client
-            .make_bucket(&args)
-            .await
-            .map(|_| ())
-            .map_err(|error| anyhow!("failed to create a bucket ({bucket_name}): {error}"))
+        let bucket_name = match self.client.make_bucket(&args).await {
+            Ok(response) => response.bucket_name,
+            Err(error) => bail!("failed to create a bucket ({bucket_name}): {error}"),
+        };
+
+        match self.sync_policy {
+            ModelStorageBindingSyncPolicy::Always => self.sync_bucket_always(&bucket_name).await,
+            ModelStorageBindingSyncPolicy::OnDelete => Ok(()),
+            ModelStorageBindingSyncPolicy::Never => Ok(()),
+        }
+        .map_err(|error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
+    }
+
+    async fn sync_bucket_always(&self, bucket: &str) -> Result<()> {
+        let status = self
+            .client
+            .get_bucket_replication(&GetBucketReplicationArgs {
+                bucket,
+                ..Default::default()
+            })
+            .await?;
+        // self.client
+        //     .set_bucket_replication(&SetBucketReplicationArgs {
+        //         extra_headers: None,
+        //         extra_query_params: None,
+        //         region: None,
+        //         bucket,
+        //         config: &ReplicationConfig {
+        //             role: None,
+        //             rules: vec![ReplicationRule {}],
+        //         },
+        //     });
+        bail!("not implemented yet ({bucket}): {status:?}")
     }
 }
 

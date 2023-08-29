@@ -9,6 +9,7 @@ use dash_api::model::{
     ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindSpec,
     ModelFieldSpec, ModelSpec,
 };
+use dash_api::model_storage_binding::ModelStorageBindingSyncPolicy;
 use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_api::storage::object::ModelStorageObjectSpec;
@@ -36,9 +37,11 @@ pub struct StorageClient<'namespace, 'kube> {
 impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
-        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+        for (storage_name, storage, sync_policy) in
+            self.get_model_storage_bindings(model_name).await?
+        {
             if let Some(value) = self
-                .get_by_storage(&storage, &storage_name, &model, ref_name)
+                .get_by_storage(&storage, &storage_name, &model, ref_name, sync_policy)
                 .await?
             {
                 return Ok(value);
@@ -50,10 +53,12 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
-        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+        for (storage_name, storage, sync_policy) in
+            self.get_model_storage_bindings(model_name).await?
+        {
             items.append(
                 &mut self
-                    .list_by_storage(&storage, &storage_name, &model)
+                    .list_by_storage(&storage, &storage_name, &model, sync_policy)
                     .await?,
             );
         }
@@ -86,6 +91,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage_name: &str,
         model: &ModelCrd,
         ref_name: &str,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Option<Value>> {
         match &storage.kind {
             ModelStorageKindSpec::Database(storage) => {
@@ -97,7 +103,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                     .await
             }
             ModelStorageKindSpec::ObjectStorage(storage) => {
-                self.get_by_storage_with_object(storage, storage_name, model, ref_name)
+                self.get_by_storage_with_object(storage, storage_name, model, ref_name, sync_policy)
                     .await
             }
         }
@@ -123,6 +129,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         ref_name: &str,
     ) -> Result<Option<Value>> {
         match &model.spec {
+            ModelSpec::Dynamic {} => Ok(None),
             ModelSpec::Fields(_) => Ok(None),
             ModelSpec::CustomResourceDefinitionRef(spec) => {
                 self.get_custom_resource(model, spec, ref_name).await
@@ -136,10 +143,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage_name: &str,
         model: &ModelCrd,
         ref_name: &str,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Option<Value>> {
         ObjectStorageClient::try_new(self.kube, self.namespace, storage_name, storage)
             .await?
-            .get_session(model)
+            .get_session(model, sync_policy)
             .get(ref_name)
             .await
     }
@@ -170,7 +178,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<(String, ModelStorageSpec)>> {
+    ) -> Result<Vec<(String, ModelStorageSpec, ModelStorageBindingSyncPolicy)>> {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
             kube: self.kube,
@@ -190,6 +198,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage: &ModelStorageSpec,
         storage_name: &str,
         model: &ModelCrd,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Vec<Value>> {
         match &storage.kind {
             ModelStorageKindSpec::Database(storage) => {
@@ -199,7 +208,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                 self.list_by_storage_with_kubernetes(storage, model).await
             }
             ModelStorageKindSpec::ObjectStorage(storage) => {
-                self.list_by_storage_with_object(storage, storage_name, model)
+                self.list_by_storage_with_object(storage, storage_name, model, sync_policy)
                     .await
             }
         }
@@ -223,6 +232,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         model: &ModelCrd,
     ) -> Result<Vec<Value>> {
         match &model.spec {
+            ModelSpec::Dynamic {} => Ok(Default::default()),
             ModelSpec::Fields(_) => Ok(Default::default()),
             ModelSpec::CustomResourceDefinitionRef(spec) => {
                 self.list_custom_resource(model, spec).await
@@ -235,10 +245,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage: &ModelStorageObjectSpec,
         storage_name: &str,
         model: &ModelCrd,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Vec<Value>> {
         ObjectStorageClient::try_new(self.kube, self.namespace, storage_name, storage)
             .await?
-            .get_session(model)
+            .get_session(model, sync_policy)
             .get_list()
             .await
     }

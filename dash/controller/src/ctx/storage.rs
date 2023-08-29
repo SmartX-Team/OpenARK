@@ -87,13 +87,13 @@ impl Ctx {
     ) -> Result<Action, Error> {
         match Self::update_state(namespace, kube, name, kind).await {
             Ok(()) => {
-                info!("model storage is ready: {name}");
+                info!("model storage is ready: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to update model storage state ({name}): {e}");
+                warn!("failed to update model storage state ({namespace}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))

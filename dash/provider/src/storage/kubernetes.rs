@@ -2,7 +2,9 @@ use anyhow::{bail, Result};
 use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
-    model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
+    model_storage_binding::{
+        ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingSyncPolicy,
+    },
     storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
 };
 use itertools::Itertools;
@@ -225,7 +227,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<(String, ModelStorageSpec)>> {
+    ) -> Result<Vec<(String, ModelStorageSpec, ModelStorageBindingSyncPolicy)>> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
@@ -241,11 +243,10 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             })
             .filter(|binding| binding.spec.model == model_name)
             .filter_map(|binding| {
-                binding
-                    .status
-                    .unwrap()
+                let status = binding.status.unwrap();
+                status
                     .storage
-                    .map(|storage| (binding.spec.storage, storage))
+                    .map(|storage| (binding.spec.storage, storage, status.sync_policy))
             })
             .collect())
     }

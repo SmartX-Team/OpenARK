@@ -79,13 +79,13 @@ impl Ctx {
     ) -> Result<Action, Error> {
         match Self::update_spec(namespace, kube, name, spec).await {
             Ok(()) => {
-                info!("function is ready: {name}");
+                info!("function is ready: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to update function state ({name}): {e}");
+                warn!("failed to update function state ({namespace}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))

@@ -41,8 +41,15 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub enum ModelSpec {
+    Dynamic {},
     Fields(ModelFieldsSpec),
     CustomResourceDefinitionRef(ModelCustomResourceDefinitionRefSpec),
+}
+
+impl Default for ModelSpec {
+    fn default() -> Self {
+        Self::Dynamic {}
+    }
 }
 
 impl ModelCrd {

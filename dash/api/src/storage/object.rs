@@ -25,54 +25,17 @@ impl Default for ModelStorageObjectSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectBorrowedSpec {
-    pub endpoint: Url,
-    #[serde(default)]
-    pub secret_ref: ModelStorageObjectBorrowedSecretRefSpec,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelStorageObjectBorrowedSecretRefSpec {
-    #[serde(default = "ModelStorageObjectBorrowedSecretRefSpec::default_map_access_key")]
-    pub map_access_key: String,
-    #[serde(default = "ModelStorageObjectBorrowedSecretRefSpec::default_map_secret_key")]
-    pub map_secret_key: String,
-
-    #[serde(default = "ModelStorageObjectBorrowedSecretRefSpec::default_name")]
-    pub name: String,
-}
-
-impl Default for ModelStorageObjectBorrowedSecretRefSpec {
-    fn default() -> Self {
-        Self {
-            map_access_key: Self::default_map_access_key(),
-            map_secret_key: Self::default_map_secret_key(),
-            name: Self::default_name(),
-        }
-    }
-}
-
-impl ModelStorageObjectBorrowedSecretRefSpec {
-    fn default_map_access_key() -> String {
-        "CONSOLE_ACCESS_KEY".into()
-    }
-
-    fn default_map_secret_key() -> String {
-        "CONSOLE_SECRET_KEY".into()
-    }
-
-    fn default_name() -> String {
-        "object-storage-user-0".into()
-    }
+    #[serde(default, flatten)]
+    pub reference: ModelStorageObjectRefSpec,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectClonedSpec {
     #[serde(flatten)]
-    pub borrowed: ModelStorageObjectBorrowedSpec,
+    pub reference: ModelStorageObjectRefSpec,
 
-    #[serde(flatten)]
+    #[serde(default, flatten)]
     pub owned: ModelStorageObjectOwnedSpec,
 }
 
@@ -105,6 +68,50 @@ impl ModelStorageObjectOwnedSpec {
             }),
             ..Default::default()
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageObjectRefSpec {
+    pub endpoint: Url,
+    #[serde(default)]
+    pub secret_ref: ModelStorageObjectRefSecretRefSpec,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageObjectRefSecretRefSpec {
+    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_map_access_key")]
+    pub map_access_key: String,
+    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_map_secret_key")]
+    pub map_secret_key: String,
+
+    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_name")]
+    pub name: String,
+}
+
+impl Default for ModelStorageObjectRefSecretRefSpec {
+    fn default() -> Self {
+        Self {
+            map_access_key: Self::default_map_access_key(),
+            map_secret_key: Self::default_map_secret_key(),
+            name: Self::default_name(),
+        }
+    }
+}
+
+impl ModelStorageObjectRefSecretRefSpec {
+    fn default_map_access_key() -> String {
+        "CONSOLE_ACCESS_KEY".into()
+    }
+
+    fn default_map_secret_key() -> String {
+        "CONSOLE_SECRET_KEY".into()
+    }
+
+    fn default_name() -> String {
+        "object-storage-user-0".into()
     }
 }
 

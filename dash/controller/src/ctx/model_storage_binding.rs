@@ -8,6 +8,7 @@ use dash_api::{
     model::ModelSpec,
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStatus,
+        ModelStorageBindingSyncPolicy,
     },
     storage::ModelStorageSpec,
 };
@@ -60,15 +61,17 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 let validator = ModelStorageBindingValidator {
                     model: ModelValidator { kubernetes_storage },
                     model_storage: ModelStorageValidator { kubernetes_storage },
+                    sync_policy: data.spec.sync_policy,
                 };
                 match validator.validate_model_storage_binding(&data.spec).await {
-                    Ok((model, storage)) => {
+                    Ok((model, storage, sync_policy)) => {
                         Self::update_state_or_requeue(
                             &namespace,
                             &manager.kube,
                             &name,
                             model,
                             storage,
+                            sync_policy,
                         )
                         .await
                     }
@@ -95,16 +98,17 @@ impl Ctx {
         name: &str,
         model: ModelSpec,
         storage: ModelStorageSpec,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Action, Error> {
-        match Self::update_state(namespace, kube, name, model, storage).await {
+        match Self::update_state(namespace, kube, name, model, storage, sync_policy).await {
             Ok(()) => {
-                info!("model storage binding is ready: {name}");
+                info!("model storage binding is ready: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to validate model storage binding ({name}): {e}");
+                warn!("failed to validate model storage binding ({namespace}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
@@ -118,6 +122,7 @@ impl Ctx {
         name: &str,
         model: ModelSpec,
         storage: ModelStorageSpec,
+        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -132,6 +137,7 @@ impl Ctx {
                 state: ModelStorageBindingState::Ready,
                 model: Some(model),
                 storage: Some(storage),
+                sync_policy,
                 last_updated: Utc::now(),
             },
         }));
