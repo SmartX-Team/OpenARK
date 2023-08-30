@@ -22,6 +22,16 @@ impl Default for ModelStorageObjectSpec {
     }
 }
 
+impl ModelStorageObjectSpec {
+    pub(super) const fn is_unique(&self) -> bool {
+        match self {
+            Self::Borrowed(_) => false,
+            Self::Cloned(_) => true,
+            Self::Owned(_) => true,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectBorrowedSpec {

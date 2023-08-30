@@ -31,7 +31,9 @@ metadata:
   namespace: kiss
 spec:
   model: box
-  storage: kubernetes
+  storage:
+    owned:
+      target: kubernetes
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Function

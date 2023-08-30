@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
-    model_storage_binding::ModelStorageBindingSyncPolicy,
+    model_storage_binding::{ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy},
     storage::object::{
         ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
         ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedSpec,
@@ -12,7 +12,7 @@ use dash_api::{
 };
 use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::api::{
-    core::v1::{Secret, Service, ServiceSpec},
+    core::v1::Secret,
     networking::v1::{
         HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
         IngressServiceBackend, IngressSpec, ServiceBackendPort,
@@ -26,35 +26,72 @@ use kube::{
 use minio::s3::{
     args::{
         BucketExistsArgs, GetBucketReplicationArgs, GetObjectArgs, ListObjectsV2Args,
-        MakeBucketArgs,
+        MakeBucketArgs, SetBucketReplicationArgs, SetBucketVersioningArgs,
     },
     creds::{Credentials, Provider, StaticProvider},
     http::BaseUrl,
+    types::{Destination, ReplicationConfig, ReplicationRule},
+    utils::Multimap,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::{Method, Url};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 pub struct ObjectStorageClient {
+    source: Option<(ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    target: ObjectStorageRef,
+}
+
+struct ObjectStorageRef {
     base_url: BaseUrl,
     endpoint: Url,
     name: String,
     provider: StaticProvider,
 }
 
-impl<'model> ObjectStorageClient {
-    pub async fn try_new(
+impl ObjectStorageClient {
+    pub async fn try_new<'source>(
         kube: &Client,
         namespace: &str,
-        name: &str,
-        storage: &ModelStorageObjectSpec,
+        storage: ModelStorageBindingStorageSpec<'source, &ModelStorageObjectSpec>,
     ) -> Result<Self> {
-        Self::load_storage_provider(kube, namespace, name, storage)
-            .await
-            .map_err(|error| anyhow!("failed to load object storage provider: {error}"))
+        Ok(Self {
+            source: match storage.source {
+                Some((source_name, source, sync_policy)) => Some(
+                    ObjectStorageRef::load_storage_provider(kube, namespace, source_name, source)
+                        .await
+                        .map(|source| (source, sync_policy))?,
+                ),
+                None => None,
+            },
+            target: ObjectStorageRef::load_storage_provider(
+                kube,
+                namespace,
+                storage.target_name,
+                storage.target,
+            )
+            .await?,
+        })
     }
 
+    pub fn get_session<'model>(
+        &self,
+        model: &'model ModelCrd,
+    ) -> ObjectStorageSession<'_, 'model, '_> {
+        ObjectStorageSession {
+            model,
+            source: self
+                .source
+                .as_ref()
+                .map(|(source, sync_policy)| (source, *sync_policy)),
+            target: self.target.get_client(),
+            target_ref: &self.target,
+        }
+    }
+}
+
+impl<'model> ObjectStorageRef {
     async fn load_storage_provider(
         kube: &Client,
         namespace: &str,
@@ -72,6 +109,7 @@ impl<'model> ObjectStorageClient {
                 Self::load_storage_provider_by_owned(kube, namespace, name, storage).await
             }
         }
+        .map_err(|error| anyhow!("failed to load object storage provider: {error}"))
     }
 
     async fn load_storage_provider_by_borrowed(
@@ -81,8 +119,7 @@ impl<'model> ObjectStorageClient {
         storage: &ModelStorageObjectBorrowedSpec,
     ) -> Result<Self> {
         let ModelStorageObjectBorrowedSpec { reference } = storage;
-        let redirect = true;
-        Self::load_storage_provider_by_reference(kube, namespace, name, reference, redirect).await
+        Self::load_storage_provider_by_reference(kube, namespace, name, reference).await
     }
 
     async fn load_storage_provider_by_cloned(
@@ -91,14 +128,9 @@ impl<'model> ObjectStorageClient {
         name: &str,
         storage: &ModelStorageObjectClonedSpec,
     ) -> Result<Self> {
-        let reference = Self::load_storage_provider_by_reference(
-            kube,
-            namespace,
-            name,
-            &storage.reference,
-            false,
-        )
-        .await?;
+        let reference =
+            Self::load_storage_provider_by_reference(kube, namespace, name, &storage.reference)
+                .await?;
         let owned =
             Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
 
@@ -119,7 +151,7 @@ impl<'model> ObjectStorageClient {
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<Self> {
         let storage = Self::create_or_get_storage(kube, namespace, storage).await?;
-        Self::load_storage_provider_by_reference(kube, namespace, name, &storage, false).await
+        Self::load_storage_provider_by_reference(kube, namespace, name, &storage).await
     }
 
     async fn load_storage_provider_by_reference(
@@ -127,7 +159,6 @@ impl<'model> ObjectStorageClient {
         namespace: &str,
         name: &str,
         storage: &ModelStorageObjectRefSpec,
-        redirect: bool,
     ) -> Result<Self> {
         let ModelStorageObjectRefSpec {
             endpoint,
@@ -156,54 +187,6 @@ impl<'model> ObjectStorageClient {
             };
         let access_key = get_secret_data(map_access_key)?;
         let secret_key = get_secret_data(map_secret_key)?;
-
-        if redirect {
-            let service_name = "minio";
-            let tenant_name = "object-storage";
-
-            {
-                let api_service = Api::<Service>::namespaced(kube.clone(), namespace);
-                let name = service_name;
-                let external_name = endpoint
-                    .host_str()
-                    .ok_or_else(|| anyhow!("cannot infer endpoint host"))?
-                    .to_string();
-                get_or_create(&api_service, "service", name, || Service {
-                    metadata: ObjectMeta {
-                        name: Some(name.to_string()),
-                        namespace: Some(namespace.to_string()),
-                        ..Default::default()
-                    },
-                    spec: Some(ServiceSpec {
-                        type_: Some("ExternalName".into()),
-                        external_name: Some(external_name),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                })
-                .await?
-            };
-
-            {
-                let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
-                let name = tenant_name;
-                let port = endpoint.port_or_known_default().unwrap_or(443).into();
-                get_or_create_ingress(
-                    &api_ingress,
-                    namespace,
-                    name,
-                    None,
-                    IngressServiceBackend {
-                        name: service_name.to_string(),
-                        port: Some(ServiceBackendPort {
-                            number: Some(port),
-                            ..Default::default()
-                        }),
-                    },
-                )
-                .await?
-            };
-        }
 
         Ok(Self {
             base_url: BaseUrl::from_string(endpoint.to_string())?,
@@ -449,40 +432,27 @@ export MINIO_ROOT_PASSWORD="{password}"
     }
 }
 
-impl ObjectStorageClient {
-    fn get_client(&self) -> ::minio::s3::client::Client<'_> {
-        let mut client =
-            ::minio::s3::client::Client::new(self.base_url.clone(), Some(&self.provider));
-        client.ignore_cert_check = true;
-        client
-    }
-
-    pub fn get_session<'model>(
-        &self,
-        model: &'model ModelCrd,
-        sync_policy: ModelStorageBindingSyncPolicy,
-    ) -> ObjectStorageSession<'_, 'model> {
-        ObjectStorageSession {
-            client: self.get_client(),
-            model,
-            sync_policy,
-        }
-    }
-}
-pub struct ObjectStorageSession<'client, 'model> {
-    client: ::minio::s3::client::Client<'client>,
+pub struct ObjectStorageSession<'client, 'model, 'source> {
     model: &'model ModelCrd,
-    sync_policy: ModelStorageBindingSyncPolicy,
+    source: Option<(&'source ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    target: ::minio::s3::client::Client<'client>,
+    target_ref: &'source ObjectStorageRef,
 }
 
-impl<'client, 'model> ObjectStorageSession<'client, 'model> {
+impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     fn get_bucket_name(&self) -> String {
         self.model.name_any()
     }
 
+    fn admin(&self) -> MinioAdminClient<'_> {
+        MinioAdminClient {
+            storage: self.target_ref,
+        }
+    }
+
     async fn is_bucket_exists(&self) -> Result<bool> {
         let bucket_name = self.get_bucket_name();
-        self.client
+        self.target
             .bucket_exists(&BucketExistsArgs::new(&bucket_name)?)
             .await
             .map_err(|error| anyhow!("failed to check bucket ({bucket_name}): {error}"))
@@ -492,7 +462,7 @@ impl<'client, 'model> ObjectStorageSession<'client, 'model> {
         let bucket_name = self.get_bucket_name();
         let args = GetObjectArgs::new(&bucket_name, ref_name)?;
 
-        match self.client.get_object(&args).await {
+        match self.target.get_object(&args).await {
             Ok(response) => response.json().await.map_err(|error| {
                 anyhow!("failed to parse object ({bucket_name}/{ref_name}): {error}")
             }),
@@ -512,7 +482,7 @@ impl<'client, 'model> ObjectStorageSession<'client, 'model> {
         let mut args = ListObjectsV2Args::new(&bucket_name)?;
         args.max_keys = Some(LIMIT);
 
-        match self.client.list_objects_v2(&args).await {
+        match self.target.list_objects_v2(&args).await {
             Ok(response) => try_join_all(
                 response
                     .contents
@@ -527,55 +497,101 @@ impl<'client, 'model> ObjectStorageSession<'client, 'model> {
     }
 
     pub async fn create_bucket(&self) -> Result<()> {
-        if self.is_bucket_exists().await? {
-            return Ok(());
+        let mut bucket_name = self.get_bucket_name();
+        if !self.is_bucket_exists().await? {
+            let args = MakeBucketArgs::new(&bucket_name)?;
+            bucket_name = match self.target.make_bucket(&args).await {
+                Ok(response) => response.bucket_name,
+                Err(error) => bail!("failed to create a bucket ({bucket_name}): {error}"),
+            };
         }
 
-        let bucket_name = self.get_bucket_name();
+        self.sync_bucket(bucket_name).await
+    }
 
-        let args = MakeBucketArgs::new(&bucket_name)?;
-        let bucket_name = match self.client.make_bucket(&args).await {
-            Ok(response) => response.bucket_name,
-            Err(error) => bail!("failed to create a bucket ({bucket_name}): {error}"),
-        };
-
-        match self.sync_policy {
-            ModelStorageBindingSyncPolicy::Always => self.sync_bucket_always(&bucket_name).await,
-            ModelStorageBindingSyncPolicy::OnDelete => Ok(()),
-            ModelStorageBindingSyncPolicy::Never => Ok(()),
+    async fn sync_bucket(&self, bucket_name: String) -> Result<()> {
+        match &self.source {
+            Some((source, sync_policy)) => match sync_policy {
+                ModelStorageBindingSyncPolicy::Always => {
+                    self.sync_bucket_always(source, &bucket_name).await
+                }
+                ModelStorageBindingSyncPolicy::OnDelete => Ok(()),
+                ModelStorageBindingSyncPolicy::Never => Ok(()),
+            },
+            None => Ok(()),
         }
         .map_err(|error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
     }
 
-    async fn sync_bucket_always(&self, bucket: &str) -> Result<()> {
-        let status = self
-            .client
+    async fn sync_bucket_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
+        match self
+            .target
             .get_bucket_replication(&GetBucketReplicationArgs {
                 bucket,
                 ..Default::default()
             })
-            .await?;
-        // self.client
-        //     .set_bucket_replication(&SetBucketReplicationArgs {
-        //         extra_headers: None,
-        //         extra_query_params: None,
-        //         region: None,
-        //         bucket,
-        //         config: &ReplicationConfig {
-        //             role: None,
-        //             rules: vec![ReplicationRule {}],
-        //         },
-        //     });
-        bail!("not implemented yet ({bucket}): {status:?}")
+            .await
+        {
+            // TODO: to be implemented
+            Ok(response) => bail!("resync feature is not implemented yet ({bucket}): {response:?}"),
+            Err(_) => {
+                self.target
+                    .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
+                    .await?;
+
+                let bucket_arn = self.admin().set_remote_target(source, bucket).await?;
+                self.target
+                    .set_bucket_replication(&SetBucketReplicationArgs {
+                        extra_headers: None,
+                        extra_query_params: None,
+                        region: None,
+                        bucket,
+                        config: &ReplicationConfig {
+                            role: Some(bucket_arn.clone()),
+                            rules: vec![ReplicationRule {
+                                destination: Destination {
+                                    bucket_arn,
+                                    access_control_translation: None,
+                                    account: None,
+                                    encryption_config: None,
+                                    metrics: None,
+                                    replication_time: None,
+                                    storage_class: None,
+                                },
+                                delete_marker_replication_status: Some(true),
+                                existing_object_replication_status: Some(true),
+                                filter: None,
+                                id: Some(source.name.clone()),
+                                prefix: None,
+                                priority: None,
+                                source_selection_criteria: None,
+                                delete_replication_status: Some(true),
+                                status: true,
+                            }],
+                        },
+                    })
+                    .await?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl ObjectStorageRef {
+    fn get_client(&self) -> ::minio::s3::client::Client<'_> {
+        let mut client =
+            ::minio::s3::client::Client::new(self.base_url.clone(), Some(&self.provider));
+        client.ignore_cert_check = true;
+        client
     }
 }
 
 struct MinioAdminClient<'storage> {
-    storage: &'storage ObjectStorageClient,
+    storage: &'storage ObjectStorageRef,
 }
 
 impl<'storage> MinioAdminClient<'storage> {
-    async fn add_site_replication(&self, target: &ObjectStorageClient) -> Result<()> {
+    async fn add_site_replication(&self, target: &ObjectStorageRef) -> Result<()> {
         let origin_creds = self.storage.provider.fetch();
         let target_creds = target.provider.fetch();
 
@@ -605,9 +621,10 @@ impl<'storage> MinioAdminClient<'storage> {
         ]);
         let ciphertext = self.encrypt_data(Some(&origin_creds), &sites)?;
 
-        self.execute(
+        self.execute::<&str>(
             Method::PUT,
             "/admin/v3/site-replication/add",
+            &[],
             Some(&ciphertext),
         )
         .await
@@ -623,7 +640,7 @@ impl<'storage> MinioAdminClient<'storage> {
     }
 
     async fn is_site_replication_enabled(&self) -> Result<bool> {
-        self.execute(Method::GET, "/admin/v3/site-replication/info", None)
+        self.execute::<&str>(Method::GET, "/admin/v3/site-replication/info", &[], None)
             .and_then(|resp| async move {
                 #[derive(Deserialize)]
                 struct Data {
@@ -643,19 +660,112 @@ impl<'storage> MinioAdminClient<'storage> {
             })
     }
 
-    async fn execute(
+    #[allow(dead_code)]
+    async fn list_remote_targets(&self, bucket_name: &str) -> Result<Vec<Map<String, Value>>> {
+        self.execute(
+            Method::GET,
+            "/admin/v3/list-remote-targets",
+            &[("type", "replication"), ("bucket", bucket_name)],
+            None,
+        )
+        .and_then(|resp| async move {
+            let targets = resp.json().await?;
+            Ok(targets)
+        })
+        .await
+        .map_err(|error| {
+            anyhow!(
+                "failed to list remote targets ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+    }
+
+    #[allow(dead_code)]
+    async fn remove_remote_target(&self, bucket_name: &str, arn: &str) -> Result<()> {
+        self.execute(
+            Method::DELETE,
+            "/admin/v3/remove-remote-target",
+            &[("arn", arn), ("bucket", bucket_name)],
+            None,
+        )
+        .await
+        .map(|_| ())
+        .map_err(|error| {
+            anyhow!(
+                "failed to remove remote target ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+    }
+
+    async fn set_remote_target(
+        &self,
+        target: &ObjectStorageRef,
+        bucket_name: &str,
+    ) -> Result<String> {
+        let origin_creds = self.storage.provider.fetch();
+        let target_creds = target.provider.fetch();
+
+        let site = json! ({
+            "sourcebucket": bucket_name,
+            "endpoint": target.endpoint.host_str(),
+            "credentials": {
+                "accessKey": target_creds.access_key,
+                "secretKey": target_creds.secret_key,
+            },
+            "targetbucket": bucket_name,
+            "secure": target.endpoint.scheme() == "https",
+            "type": "replication",
+            "replicationSync": false,
+            "disableProxy": false,
+        });
+        let ciphertext = self.encrypt_data(Some(&origin_creds), &site)?;
+
+        self.execute(
+            Method::PUT,
+            "/admin/v3/set-remote-target",
+            &[("bucket", bucket_name)],
+            Some(&ciphertext),
+        )
+        .and_then(|resp| async move {
+            let arn: String = resp.json().await?;
+            Ok(arn)
+        })
+        .await
+        .map_err(|error| {
+            anyhow!(
+                "failed to set remote target ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+    }
+
+    async fn execute<Header>(
         &self,
         method: Method,
         base_url: &str,
+        headers: &[(Header, Header)],
         data: Option<&[u8]>,
-    ) -> Result<::reqwest::Response, ::minio::s3::error::Error> {
+    ) -> Result<::reqwest::Response, ::minio::s3::error::Error>
+    where
+        Header: ToString,
+    {
+        let mut query_params = Multimap::default();
+        for (key, value) in headers {
+            query_params.insert(key.to_string(), value.to_string());
+        }
+
         self.storage
             .get_client()
             .execute(
                 method,
                 &Default::default(),
                 &mut Default::default(),
-                &Default::default(),
+                &query_params,
                 Some("minio"),
                 Some(base_url),
                 data,

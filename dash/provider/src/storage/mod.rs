@@ -9,7 +9,9 @@ use dash_api::model::{
     ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldKindExtendedSpec, ModelFieldKindSpec,
     ModelFieldSpec, ModelSpec,
 };
-use dash_api::model_storage_binding::ModelStorageBindingSyncPolicy;
+use dash_api::model_storage_binding::{
+    ModelStorageBindingStorageKind, ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy,
+};
 use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_api::storage::object::ModelStorageObjectSpec;
@@ -37,13 +39,17 @@ pub struct StorageClient<'namespace, 'kube> {
 impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
-        for (storage_name, storage, sync_policy) in
-            self.get_model_storage_bindings(model_name).await?
-        {
-            if let Some(value) = self
-                .get_by_storage(&storage, &storage_name, &model, ref_name, sync_policy)
-                .await?
-            {
+        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+            let storage = ModelStorageBindingStorageSpec {
+                source: storage_name.source().and_then(|(name, _)| {
+                    storage
+                        .source()
+                        .map(|(storage, sync_policy)| (name.as_ref(), storage, sync_policy))
+                }),
+                target: storage.target(),
+                target_name: storage_name.target(),
+            };
+            if let Some(value) = self.get_by_storage(storage, &model, ref_name).await? {
                 return Ok(value);
             }
         }
@@ -53,14 +59,17 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
-        for (storage_name, storage, sync_policy) in
-            self.get_model_storage_bindings(model_name).await?
-        {
-            items.append(
-                &mut self
-                    .list_by_storage(&storage, &storage_name, &model, sync_policy)
-                    .await?,
-            );
+        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
+            let storage = ModelStorageBindingStorageSpec {
+                source: storage_name.source().and_then(|(name, _)| {
+                    storage
+                        .source()
+                        .map(|(storage, sync_policy)| (name.as_ref(), storage, sync_policy))
+                }),
+                target: storage.target(),
+                target_name: storage_name.target(),
+            };
+            items.append(&mut self.list_by_storage(storage, &model).await?);
         }
         Ok(items)
     }
@@ -87,23 +96,42 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn get_by_storage(
         &self,
-        storage: &ModelStorageSpec,
-        storage_name: &str,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
         model: &ModelCrd,
         ref_name: &str,
-        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Option<Value>> {
-        match &storage.kind {
-            ModelStorageKindSpec::Database(storage) => {
+        match &storage.target.kind {
+            ModelStorageKindSpec::Database(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_none(storage.source, "Database")?,
+                    target,
+                    target_name: storage.target_name,
+                };
                 self.get_by_storage_with_database(storage, model, ref_name)
                     .await
             }
-            ModelStorageKindSpec::Kubernetes(storage) => {
+            ModelStorageKindSpec::Kubernetes(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_none(storage.source, "Kubernetes")?,
+                    target,
+                    target_name: storage.target_name,
+                };
                 self.get_by_storage_with_kubernetes(storage, model, ref_name)
                     .await
             }
-            ModelStorageKindSpec::ObjectStorage(storage) => {
-                self.get_by_storage_with_object(storage, storage_name, model, ref_name, sync_policy)
+            ModelStorageKindSpec::ObjectStorage(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_same(storage.source, "ObjectStorage", |source| {
+                        match &source.kind {
+                            ModelStorageKindSpec::Database(_) => Err("Database"),
+                            ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
+                            ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
+                        }
+                    })?,
+                    target,
+                    target_name: storage.target_name,
+                };
+                self.get_by_storage_with_object(storage, model, ref_name)
                     .await
             }
         }
@@ -111,11 +139,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn get_by_storage_with_database(
         &self,
-        storage: &ModelStorageDatabaseSpec,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
         model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
-        DatabaseStorageClient::try_new(storage)
+        DatabaseStorageClient::try_new(storage.target)
             .await?
             .get_session(model)
             .get(ref_name)
@@ -124,10 +152,11 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn get_by_storage_with_kubernetes(
         &self,
-        ModelStorageKubernetesSpec {}: &ModelStorageKubernetesSpec,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
         model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
+        let ModelStorageKubernetesSpec {} = storage.target;
         match &model.spec {
             ModelSpec::Dynamic {} => Ok(None),
             ModelSpec::Fields(_) => Ok(None),
@@ -139,15 +168,13 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn get_by_storage_with_object(
         &self,
-        storage: &ModelStorageObjectSpec,
-        storage_name: &str,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
         model: &ModelCrd,
         ref_name: &str,
-        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Option<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage_name, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
             .await?
-            .get_session(model, sync_policy)
+            .get_session(model)
             .get(ref_name)
             .await
     }
@@ -178,7 +205,12 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<(String, ModelStorageSpec, ModelStorageBindingSyncPolicy)>> {
+    ) -> Result<
+        Vec<(
+            ModelStorageBindingStorageKind<String>,
+            ModelStorageBindingStorageKind<ModelStorageSpec>,
+        )>,
+    > {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
             kube: self.kube,
@@ -195,31 +227,49 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn list_by_storage(
         &self,
-        storage: &ModelStorageSpec,
-        storage_name: &str,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
         model: &ModelCrd,
-        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Vec<Value>> {
-        match &storage.kind {
-            ModelStorageKindSpec::Database(storage) => {
+        match &storage.target.kind {
+            ModelStorageKindSpec::Database(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_none(storage.source, "Database")?,
+                    target,
+                    target_name: storage.target_name,
+                };
                 self.list_by_storage_with_database(storage, model).await
             }
-            ModelStorageKindSpec::Kubernetes(storage) => {
+            ModelStorageKindSpec::Kubernetes(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_none(storage.source, "Kubernetes")?,
+                    target,
+                    target_name: storage.target_name,
+                };
                 self.list_by_storage_with_kubernetes(storage, model).await
             }
-            ModelStorageKindSpec::ObjectStorage(storage) => {
-                self.list_by_storage_with_object(storage, storage_name, model, sync_policy)
-                    .await
+            ModelStorageKindSpec::ObjectStorage(target) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_same(storage.source, "ObjectStorage", |source| {
+                        match &source.kind {
+                            ModelStorageKindSpec::Database(_) => Err("Database"),
+                            ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
+                            ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
+                        }
+                    })?,
+                    target,
+                    target_name: storage.target_name,
+                };
+                self.list_by_storage_with_object(storage, model).await
             }
         }
     }
 
     async fn list_by_storage_with_database(
         &self,
-        storage: &ModelStorageDatabaseSpec,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
         model: &ModelCrd,
     ) -> Result<Vec<Value>> {
-        DatabaseStorageClient::try_new(storage)
+        DatabaseStorageClient::try_new(storage.target)
             .await?
             .get_session(model)
             .get_list()
@@ -228,9 +278,10 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn list_by_storage_with_kubernetes(
         &self,
-        ModelStorageKubernetesSpec {}: &ModelStorageKubernetesSpec,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
         model: &ModelCrd,
     ) -> Result<Vec<Value>> {
+        let ModelStorageKubernetesSpec {} = storage.target;
         match &model.spec {
             ModelSpec::Dynamic {} => Ok(Default::default()),
             ModelSpec::Fields(_) => Ok(Default::default()),
@@ -242,14 +293,12 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 
     async fn list_by_storage_with_object(
         &self,
-        storage: &ModelStorageObjectSpec,
-        storage_name: &str,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
         model: &ModelCrd,
-        sync_policy: ModelStorageBindingSyncPolicy,
     ) -> Result<Vec<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage_name, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
             .await?
-            .get_session(model, sync_policy)
+            .get_session(model)
             .get_list()
             .await
     }
@@ -267,6 +316,29 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         };
         storage.load_custom_resource_all(spec, parsed).await
     }
+}
+
+pub fn assert_source_is_none<T, R>(source: Option<T>, name: &'static str) -> Result<Option<R>> {
+    if source.is_some() {
+        bail!("Sync to {name} is not supported")
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn assert_source_is_same<'a, T, R>(
+    source: Option<(&'a str, T, ModelStorageBindingSyncPolicy)>,
+    name: &'static str,
+    map: impl FnOnce(T) -> Result<R, &'static str>,
+) -> Result<Option<(&'a str, R, ModelStorageBindingSyncPolicy)>> {
+    source
+        .map(|(source_name, source, sync_policy)| match map(source) {
+            Ok(source) => Ok((source_name, source, sync_policy)),
+            Err(source) => {
+                bail!("Sync to {name} from other source ({source}) is not supported")
+            }
+        })
+        .transpose()
 }
 
 fn get_model_fields_parsed(model: &ModelCrd) -> &ModelFieldsNativeSpec {

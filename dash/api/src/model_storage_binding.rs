@@ -37,9 +37,53 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingSpec {
     pub model: String,
-    pub storage: String,
+    pub storage: ModelStorageBindingStorageKind<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelStorageBindingStorageKind<Storage> {
+    Cloned(ModelStorageBindingStorageKindClonedSpec<Storage>),
+    Owned(ModelStorageBindingStorageKindOwnedSpec<Storage>),
+}
+
+impl<Storage> ModelStorageBindingStorageKind<Storage> {
+    pub fn source(&self) -> Option<(&Storage, ModelStorageBindingSyncPolicy)> {
+        match self {
+            Self::Cloned(spec) => Some((&spec.source, spec.sync_policy)),
+            Self::Owned(_) => None,
+        }
+    }
+
+    pub fn target(&self) -> &Storage {
+        match self {
+            Self::Cloned(spec) => &spec.target,
+            Self::Owned(spec) => &spec.target,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageBindingStorageKindClonedSpec<Storage> {
+    pub source: Storage,
+    pub target: Storage,
     #[serde(default)]
-    pub sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    pub sync_policy: ModelStorageBindingSyncPolicy,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageBindingStorageSpec<'name, Storage> {
+    pub source: Option<(&'name str, Storage, ModelStorageBindingSyncPolicy)>,
+    pub target: Storage,
+    pub target_name: &'name str,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageBindingStorageKindOwnedSpec<Storage> {
+    pub target: Storage,
 }
 
 #[derive(
@@ -77,9 +121,7 @@ pub struct ModelStorageBindingStatus {
     #[serde(default)]
     pub state: ModelStorageBindingState,
     pub model: Option<ModelSpec>,
-    pub storage: Option<ModelStorageSpec>,
-    #[serde(default)]
-    pub sync_policy: ModelStorageBindingSyncPolicy,
+    pub storage: Option<ModelStorageBindingStorageKind<ModelStorageSpec>>,
     pub last_updated: DateTime<Utc>,
 }
 

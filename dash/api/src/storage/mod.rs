@@ -54,6 +54,14 @@ pub enum ModelStorageKindSpec {
 }
 
 impl ModelStorageKindSpec {
+    pub const fn is_unique(&self) -> bool {
+        match self {
+            Self::Database(_) => false,
+            Self::Kubernetes(_) => true,
+            Self::ObjectStorage(spec) => spec.is_unique(),
+        }
+    }
+
     pub const fn to_kind(&self) -> ModelStorageKind {
         match self {
             Self::Database(_) => ModelStorageKind::Database,

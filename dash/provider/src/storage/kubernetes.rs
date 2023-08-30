@@ -3,7 +3,7 @@ use dash_api::{
     function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
     model_storage_binding::{
-        ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingSyncPolicy,
+        ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStorageKind,
     },
     storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
 };
@@ -227,7 +227,12 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<(String, ModelStorageSpec, ModelStorageBindingSyncPolicy)>> {
+    ) -> Result<
+        Vec<(
+            ModelStorageBindingStorageKind<String>,
+            ModelStorageBindingStorageKind<ModelStorageSpec>,
+        )>,
+    > {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
@@ -246,7 +251,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                 let status = binding.status.unwrap();
                 status
                     .storage
-                    .map(|storage| (binding.spec.storage, storage, status.sync_policy))
+                    .map(|storage| (binding.spec.storage, storage))
             })
             .collect())
     }

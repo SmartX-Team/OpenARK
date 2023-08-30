@@ -18,7 +18,7 @@ members = [
     "dash/router",
     "kiss/ansible",
     "kiss/api",
-    "kiss/assets",
+    # "kiss/assets",
     "kiss/controller",
     "kiss/gateway",
     "kiss/manager",
@@ -26,13 +26,13 @@ members = [
     "kiss/plugin",
     "netai/api",
     "netai/client",
-    "netai/endpoint",          # exclude(alpine)
-    "netai/solver",            # exclude(alpine)
-    "proxyx/api",              # exclude(alpine)
-    "proxyx/cli",              # exclude(alpine)
-    "proxyx/provider/api",     # exclude(alpine)
-    "proxyx/provider/chatgpt", # exclude(alpine)
-    "proxyx/storage/influxdb", # exclude(alpine)
+    # "netai/endpoint",          # exclude(alpine)
+    # "netai/solver",            # exclude(alpine)
+    # "proxyx/api",              # exclude(alpine)
+    # "proxyx/cli",              # exclude(alpine)
+    # "proxyx/provider/api",     # exclude(alpine)
+    # "proxyx/provider/chatgpt", # exclude(alpine)
+    # "proxyx/storage/influxdb", # exclude(alpine)
     "vine/api",
     "vine/bastion",
     "vine/cli",
@@ -82,7 +82,7 @@ language-tags = { version = "=0.3", features = ["serde"] }
 log = { version = "=0.4" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "8ffbd847b68be585ff738db0cea6bc77a1ed7952", features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "d305e04d8fd0254742c07f9c69bf1b4209a1dea5", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 ndarray = { version = "=0.15", features = ["serde"] }
