@@ -1,9 +1,12 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Error, Result};
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
-    model_storage_binding::{ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy},
+    model_storage_binding::{
+        ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy,
+        ModelStorageBindingSyncPolicyPull, ModelStorageBindingSyncPolicyPush,
+    },
     storage::object::{
         ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
         ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedSpec,
@@ -511,19 +514,46 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
 
     async fn sync_bucket(&self, bucket_name: String) -> Result<()> {
         match &self.source {
-            Some((source, sync_policy)) => match sync_policy {
-                ModelStorageBindingSyncPolicy::Always => {
-                    self.sync_bucket_always(source, &bucket_name).await
+            Some((source, ModelStorageBindingSyncPolicy { pull, push })) => {
+                match pull {
+                    ModelStorageBindingSyncPolicyPull::Always => {
+                        self.sync_bucket_pull_always(source, &bucket_name).await?
+                    }
+                    ModelStorageBindingSyncPolicyPull::OnCreate => {
+                        self.sync_bucket_pull_on_create(source, &bucket_name)
+                            .await?
+                    }
+                    ModelStorageBindingSyncPolicyPull::Never => (),
                 }
-                ModelStorageBindingSyncPolicy::OnDelete => Ok(()),
-                ModelStorageBindingSyncPolicy::Never => Ok(()),
-            },
+                match push {
+                    ModelStorageBindingSyncPolicyPush::Always => {
+                        self.sync_bucket_push_always(source, &bucket_name).await?
+                    }
+                    ModelStorageBindingSyncPolicyPush::OnDelete
+                    | ModelStorageBindingSyncPolicyPush::Never => (),
+                }
+                Ok(())
+            }
             None => Ok(()),
         }
-        .map_err(|error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
+        .map_err(|error: Error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
     }
 
-    async fn sync_bucket_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
+    async fn sync_bucket_pull_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
+        // TODO: to be implemented
+        bail!("Always pull policy is not supported yet ({bucket})")
+    }
+
+    async fn sync_bucket_pull_on_create(
+        &self,
+        source: &ObjectStorageRef,
+        bucket: &str,
+    ) -> Result<()> {
+        // TODO: to be implemented
+        bail!("OnCreate pull policy is not supported yet ({bucket})")
+    }
+
+    async fn sync_bucket_push_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
         match self
             .target
             .get_bucket_replication(&GetBucketReplicationArgs {
@@ -539,6 +569,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                     .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
                     .await?;
 
+                // TODO: create a bucket on remote-side
                 let bucket_arn = self.admin().set_remote_target(source, bucket).await?;
                 self.target
                     .set_bucket_replication(&SetBucketReplicationArgs {

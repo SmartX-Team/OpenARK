@@ -204,7 +204,9 @@ spec:
     cloned:
       source: my-object-storage-owned
       target: my-object-storage
-      syncPolicy: Always
+      syncPolicy:
+        pull: Never
+        push: Always
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding

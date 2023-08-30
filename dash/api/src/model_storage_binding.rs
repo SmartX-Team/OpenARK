@@ -90,6 +90,28 @@ pub struct ModelStorageBindingStorageKindOwnedSpec<Storage> {
     Copy,
     Clone,
     Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageBindingSyncPolicy {
+    #[serde(default)]
+    pub pull: ModelStorageBindingSyncPolicyPull,
+    #[serde(default)]
+    pub push: ModelStorageBindingSyncPolicyPush,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
     Display,
     EnumString,
     PartialEq,
@@ -101,15 +123,40 @@ pub struct ModelStorageBindingStorageKindOwnedSpec<Storage> {
     Deserialize,
     JsonSchema,
 )]
-pub enum ModelStorageBindingSyncPolicy {
-    #[serde(alias = "ModelPeering", alias = "DatasetPeering")]
+pub enum ModelStorageBindingSyncPolicyPull {
     Always,
+    OnCreate,
     Never,
-    #[serde(alias = "ModelTiering", alias = "DatasetTiering")]
-    OnDelete,
 }
 
-impl Default for ModelStorageBindingSyncPolicy {
+impl Default for ModelStorageBindingSyncPolicyPull {
+    fn default() -> Self {
+        Self::Always
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum ModelStorageBindingSyncPolicyPush {
+    Always,
+    OnDelete,
+    Never,
+}
+
+impl Default for ModelStorageBindingSyncPolicyPush {
     fn default() -> Self {
         Self::Never
     }
