@@ -360,6 +360,67 @@ export MINIO_ROOT_PASSWORD="{password}"
                         "pools": [
                             {
                                 "affinity": {
+                                    "nodeAffinity": {
+                                        // KISS normal control plane nodes should be preferred
+                                        "preferredDuringSchedulingIgnoredDuringExecution": [
+                                            {
+                                                "weight": 1,
+                                                "preference": {
+                                                    "matchExpressions": [
+                                                        {
+                                                            "key": "node-role.kubernetes.io/kiss-ephemeral-control-plane",
+                                                            "operator": "DoesNotExist",
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                            {
+                                                "weight": 2,
+                                                "preference": {
+                                                    "matchExpressions": [
+                                                        {
+                                                            "key": "node-role.kubernetes.io/kiss",
+                                                            "operator": "In",
+                                                            "values": [
+                                                                "Compute",
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                            {
+                                                "weight": 4,
+                                                "preference": {
+                                                    "matchExpressions": [
+                                                        {
+                                                            "key": "node-role.kubernetes.io/kiss",
+                                                            "operator": "In",
+                                                            "values": [
+                                                                "Gateway",
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        ],
+                                        "requiredDuringSchedulingIgnoredDuringExecution": {
+                                            "nodeSelectorTerms": [
+                                                {
+                                                    "matchExpressions": [
+                                                        {
+                                                            "key": "node-role.kubernetes.io/kiss",
+                                                            "operator": "In",
+                                                            "values": [
+                                                                "Compute",
+                                                                "ControlPlane",
+                                                                "Gateway",
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    },
                                     "podAntiAffinity": {
                                         "requiredDuringSchedulingIgnoredDuringExecution": [
                                             {
