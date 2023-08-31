@@ -136,12 +136,12 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorage
 metadata:
-  name: my-object-storage-owned
+  name: my-object-storage-cloned-push
   namespace: my-storage-cloned-pull
 spec:
   objectStorage:
     borrowed:
-      endpoint: http://minio.my-storage-owned.svc.ops.openark/
+      endpoint: http://minio.my-storage-cloned-push.svc.ops.openark/
       secretRef:
         mapAccessKey: CONSOLE_ACCESS_KEY
         mapSecretKey: CONSOLE_SECRET_KEY
@@ -278,7 +278,7 @@ spec:
   model: my-bucket-cloned-pull
   storage:
     cloned:
-      source: my-object-storage-owned
+      source: my-object-storage-cloned-push
       target: my-object-storage
       syncPolicy:
         pull: Always
