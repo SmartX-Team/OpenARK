@@ -4,7 +4,7 @@ use dash_api::{
     model_storage_binding::{
         ModelStorageBindingSpec, ModelStorageBindingStorageKind,
         ModelStorageBindingStorageKindClonedSpec, ModelStorageBindingStorageKindOwnedSpec,
-        ModelStorageBindingStorageSpec,
+        ModelStorageBindingStorageSourceSpec, ModelStorageBindingStorageSpec,
     },
     storage::ModelStorageSpec,
 };
@@ -33,7 +33,13 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                 .kubernetes_storage
                 .load_model_storage(source_name)
                 .await
-                .map(|source| Some((source_name.as_str(), source, sync_policy)))?,
+                .map(|source| {
+                    Some(ModelStorageBindingStorageSourceSpec {
+                        name: source_name,
+                        storage: source,
+                        sync_policy,
+                    })
+                })?,
             None => None,
         };
         let target_name = spec.storage.target();
@@ -43,9 +49,8 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             .load_model_storage(target_name)
             .await?;
         let storage = ModelStorageBindingStorageSpec {
-            source: source
-                .as_ref()
-                .map(|(source_name, source, sync_policy)| (*source_name, source, *sync_policy)),
+            source: source.as_ref().map(|storage| storage.as_deref()),
+            source_binding_name: spec.storage.source_binding_name(),
             target: &target,
             target_name,
         };
@@ -55,9 +60,14 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             .await
             .map(|()| {
                 let storage = match source {
-                    Some((_, source, sync_policy)) => ModelStorageBindingStorageKind::Cloned(
+                    Some(ModelStorageBindingStorageSourceSpec {
+                        name: _,
+                        storage: source,
+                        sync_policy,
+                    }) => ModelStorageBindingStorageKind::Cloned(
                         ModelStorageBindingStorageKindClonedSpec {
                             source: source.spec,
+                            source_binding_name: spec.storage.source_binding_name().map(Into::into),
                             target: target.spec,
                             sync_policy,
                         },

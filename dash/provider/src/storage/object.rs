@@ -5,8 +5,9 @@ use byte_unit::Byte;
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
     model_storage_binding::{
-        ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy,
-        ModelStorageBindingSyncPolicyPull, ModelStorageBindingSyncPolicyPush,
+        ModelStorageBindingStorageSourceSpec, ModelStorageBindingStorageSpec,
+        ModelStorageBindingSyncPolicy, ModelStorageBindingSyncPolicyPull,
+        ModelStorageBindingSyncPolicyPush,
     },
     storage::object::{
         ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
@@ -48,6 +49,7 @@ use serde_json::{json, Map, Value};
 
 pub struct ObjectStorageClient {
     source: Option<(ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    source_binding_name: Option<String>,
     target: ObjectStorageRef,
 }
 
@@ -66,13 +68,18 @@ impl ObjectStorageClient {
     ) -> Result<Self> {
         Ok(Self {
             source: match storage.source {
-                Some((source_name, source, sync_policy)) => Some(
+                Some(ModelStorageBindingStorageSourceSpec {
+                    name: source_name,
+                    storage: source,
+                    sync_policy,
+                }) => Some(
                     ObjectStorageRef::load_storage_provider(kube, namespace, source_name, source)
                         .await
                         .map(|source| (source, sync_policy))?,
                 ),
                 None => None,
             },
+            source_binding_name: storage.source_binding_name.map(Into::into),
             target: ObjectStorageRef::load_storage_provider(
                 kube,
                 namespace,
@@ -93,6 +100,7 @@ impl ObjectStorageClient {
                 .source
                 .as_ref()
                 .map(|(source, sync_policy)| (source, *sync_policy)),
+            source_binding_name: self.source_binding_name.as_deref(),
             target: self.target.get_client(),
             target_ref: &self.target,
         }
@@ -277,6 +285,7 @@ impl<'model> ObjectStorageRef {
 pub struct ObjectStorageSession<'client, 'model, 'source> {
     model: &'model ModelCrd,
     source: Option<(&'source ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    source_binding_name: Option<&'client str>,
     target: ::minio::s3::client::Client<'client>,
     target_ref: &'source ObjectStorageRef,
 }
@@ -292,17 +301,21 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
     }
 
-    fn inverted(&self) -> Result<Self>
+    fn inverted(&self, bucket: &'client str) -> Result<(Self, &'client str)>
     where
         'source: 'client,
     {
         match self.source.as_ref() {
-            Some((source_ref, sync_policy)) => Ok(Self {
-                model: self.model,
-                source: Some((self.target_ref, *sync_policy)),
-                target: source_ref.get_client(),
-                target_ref: source_ref,
-            }),
+            Some((source_ref, sync_policy)) => Ok((
+                Self {
+                    model: self.model,
+                    source: Some((self.target_ref, *sync_policy)),
+                    source_binding_name: Some(bucket),
+                    target: source_ref.get_client(),
+                    target_ref: source_ref,
+                },
+                self.source_binding_name.unwrap_or(bucket),
+            )),
             None => bail!("cannot invert object storage session without source storage"),
         }
     }
@@ -393,10 +406,17 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         .map_err(|error: Error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
     }
 
-    async fn sync_bucket_pull_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
-        self.inverted()?
-            .sync_bucket_push_always(source, bucket)
+    async fn sync_bucket_pull_always(&self, _: &ObjectStorageRef, bucket: &str) -> Result<()> {
+        self.target
+            .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
             .await
+            .map_err(|error| {
+                anyhow!("failed to enable bucket versioning for Pulling ({bucket}): {error}")
+            })?;
+
+        let (source_session, bucket) = self.inverted(bucket)?;
+        let source = self.target_ref;
+        source_session.sync_bucket_push_always(source, bucket).await
     }
 
     async fn sync_bucket_pull_on_create(
@@ -422,10 +442,17 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             Err(_) => {
                 self.target
                     .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
-                    .await?;
+                    .await
+                    .map_err(|error| {
+                        anyhow!(
+                            "failed to enable bucket versioning for Pushing ({bucket}): {error}"
+                        )
+                    })?;
 
-                // TODO: create a bucket on remote-side
-                let bucket_arn = self.admin().set_remote_target(source, bucket).await?;
+                let bucket_arn = self
+                    .admin()
+                    .set_remote_target(source, self.source_binding_name, bucket)
+                    .await?;
                 self.target
                     .set_bucket_replication(&SetBucketReplicationArgs {
                         extra_headers: None,
@@ -436,7 +463,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                             role: Some(bucket_arn.clone()),
                             rules: vec![ReplicationRule {
                                 destination: Destination {
-                                    bucket_arn,
+                                    bucket_arn: bucket_arn.clone(),
                                     access_control_translation: None,
                                     account: None,
                                     encryption_config: None,
@@ -447,9 +474,9 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                                 delete_marker_replication_status: Some(true),
                                 existing_object_replication_status: Some(true),
                                 filter: None,
-                                id: Some(source.name.clone()),
+                                id: Some(bucket_arn),
                                 prefix: None,
-                                priority: None,
+                                priority: Some(1),
                                 source_selection_criteria: None,
                                 delete_replication_status: Some(true),
                                 status: true,
@@ -590,19 +617,20 @@ impl<'storage> MinioAdminClient<'storage> {
     async fn set_remote_target(
         &self,
         target: &ObjectStorageRef,
-        bucket_name: &str,
+        bucket_source: Option<&str>,
+        bucket_target: &str,
     ) -> Result<String> {
         let origin_creds = self.storage.provider.fetch();
         let target_creds = target.provider.fetch();
 
         let site = json! ({
-            "sourcebucket": bucket_name,
+            "sourcebucket": bucket_target,
             "endpoint": target.endpoint.host_str(),
             "credentials": {
                 "accessKey": target_creds.access_key,
                 "secretKey": target_creds.secret_key,
             },
-            "targetbucket": bucket_name,
+            "targetbucket": bucket_source.unwrap_or(bucket_target),
             "secure": target.endpoint.scheme() == "https",
             "type": "replication",
             "replicationSync": false,
@@ -613,7 +641,7 @@ impl<'storage> MinioAdminClient<'storage> {
         self.execute(
             Method::PUT,
             "/admin/v3/set-remote-target",
-            &[("bucket", bucket_name)],
+            &[("bucket", bucket_target)],
             Some(&ciphertext),
         )
         .and_then(|resp| async move {

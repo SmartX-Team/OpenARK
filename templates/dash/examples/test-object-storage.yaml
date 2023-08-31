@@ -226,14 +226,6 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
 metadata:
-  name: my-bucket-cloned-pull
-  namespace: my-storage-owned
-spec:
-  dynamic: {}
----
-apiVersion: dash.ulagbulag.io/v1alpha1
-kind: Model
-metadata:
   name: my-bucket-cloned-push
   namespace: my-storage-owned
 spec:
@@ -278,11 +270,23 @@ spec:
   model: my-bucket-cloned-pull
   storage:
     cloned:
-      source: my-object-storage-cloned-push
-      target: my-object-storage
+      source: my-object-storage-cloned-push # Sender
+      sourceBindingName: my-bucket-cloned-push
+      target: my-object-storage # Receiver
       syncPolicy:
         pull: Always
         push: Never
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: my-bucket-cloned-pull
+  namespace: my-storage-cloned-push
+spec:
+  model: my-bucket-cloned-push
+  storage:
+    owned:
+      target: my-object-storage
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
@@ -293,22 +297,12 @@ spec:
   model: my-bucket-cloned-push
   storage:
     cloned:
-      source: my-object-storage-owned
-      target: my-object-storage
+      source: my-object-storage-owned # Receiver
+      sourceBindingName: my-bucket-cloned-push
+      target: my-object-storage # Sender
       syncPolicy:
         pull: Never
         push: Always
----
-apiVersion: dash.ulagbulag.io/v1alpha1
-kind: ModelStorageBinding
-metadata:
-  name: my-bucket-cloned-pull
-  namespace: my-storage-owned
-spec:
-  model: my-bucket-cloned-pull
-  storage:
-    owned:
-      target: my-object-storage
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding

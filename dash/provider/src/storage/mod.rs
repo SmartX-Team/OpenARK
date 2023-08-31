@@ -10,7 +10,8 @@ use dash_api::model::{
     ModelFieldSpec, ModelSpec,
 };
 use dash_api::model_storage_binding::{
-    ModelStorageBindingStorageKind, ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy,
+    ModelStorageBindingStorageKind, ModelStorageBindingStorageSourceSpec,
+    ModelStorageBindingStorageSpec,
 };
 use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
@@ -42,10 +43,15 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
         for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
             let storage = ModelStorageBindingStorageSpec {
                 source: storage_name.source().and_then(|(name, _)| {
-                    storage
-                        .source()
-                        .map(|(storage, sync_policy)| (name.as_ref(), storage, sync_policy))
+                    storage.source().map(|(storage, sync_policy)| {
+                        ModelStorageBindingStorageSourceSpec {
+                            name,
+                            storage,
+                            sync_policy,
+                        }
+                    })
                 }),
+                source_binding_name: storage.source_binding_name(),
                 target: storage.target(),
                 target_name: storage_name.target(),
             };
@@ -62,10 +68,15 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
         for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
             let storage = ModelStorageBindingStorageSpec {
                 source: storage_name.source().and_then(|(name, _)| {
-                    storage
-                        .source()
-                        .map(|(storage, sync_policy)| (name.as_ref(), storage, sync_policy))
+                    storage.source().map(|(storage, sync_policy)| {
+                        ModelStorageBindingStorageSourceSpec {
+                            name,
+                            storage,
+                            sync_policy,
+                        }
+                    })
                 }),
+                source_binding_name: storage.source_binding_name(),
                 target: storage.target(),
                 target_name: storage_name.target(),
             };
@@ -104,6 +115,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             ModelStorageKindSpec::Database(target) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Database")?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -113,6 +125,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(target) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Kubernetes")?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -128,6 +141,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                             ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
                         }
                     })?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -234,6 +248,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             ModelStorageKindSpec::Database(target) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Database")?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -242,6 +257,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(target) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Kubernetes")?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -256,6 +272,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
                             ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
                         }
                     })?,
+                    source_binding_name: storage.source_binding_name,
                     target,
                     target_name: storage.target_name,
                 };
@@ -327,17 +344,27 @@ pub fn assert_source_is_none<T, R>(source: Option<T>, name: &'static str) -> Res
 }
 
 pub fn assert_source_is_same<'a, T, R>(
-    source: Option<(&'a str, T, ModelStorageBindingSyncPolicy)>,
+    source: Option<ModelStorageBindingStorageSourceSpec<'a, T>>,
     name: &'static str,
     map: impl FnOnce(T) -> Result<R, &'static str>,
-) -> Result<Option<(&'a str, R, ModelStorageBindingSyncPolicy)>> {
+) -> Result<Option<ModelStorageBindingStorageSourceSpec<'a, R>>> {
     source
-        .map(|(source_name, source, sync_policy)| match map(source) {
-            Ok(source) => Ok((source_name, source, sync_policy)),
-            Err(source) => {
-                bail!("Sync to {name} from other source ({source}) is not supported")
-            }
-        })
+        .map(
+            |ModelStorageBindingStorageSourceSpec {
+                 name: source_name,
+                 storage: source,
+                 sync_policy,
+             }| match map(source) {
+                Ok(source) => Ok(ModelStorageBindingStorageSourceSpec {
+                    name: source_name,
+                    storage: source,
+                    sync_policy,
+                }),
+                Err(source) => {
+                    bail!("Sync to {name} from other source ({source}) is not supported")
+                }
+            },
+        )
         .transpose()
 }
 

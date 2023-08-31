@@ -79,6 +79,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     ) -> Result<()> {
         let storage = ModelStorageBindingStorageSpec {
             source: None,
+            source_binding_name: None,
             target: storage,
             target_name: name,
         };
@@ -100,6 +101,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::Database(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Database")?,
+                    source_binding_name: storage.source_binding_name,
                     target: spec,
                     target_name: storage.target_name,
                 };
@@ -108,6 +110,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Kubernetes")?,
+                    source_binding_name: storage.source_binding_name,
                     target: spec,
                     target_name: storage.target_name,
                 };
@@ -122,6 +125,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
                             ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
                         }
                     })?,
+                    source_binding_name: storage.source_binding_name,
                     target: spec,
                     target_name: storage.target_name,
                 };

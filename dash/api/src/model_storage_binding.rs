@@ -55,6 +55,13 @@ impl<Storage> ModelStorageBindingStorageKind<Storage> {
         }
     }
 
+    pub fn source_binding_name(&self) -> Option<&str> {
+        match self {
+            Self::Cloned(spec) => spec.source_binding_name.as_deref(),
+            Self::Owned(_) => None,
+        }
+    }
+
     pub fn target(&self) -> &Storage {
         match self {
             Self::Cloned(spec) => &spec.target,
@@ -67,6 +74,8 @@ impl<Storage> ModelStorageBindingStorageKind<Storage> {
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingStorageKindClonedSpec<Storage> {
     pub source: Storage,
+    #[serde(default)]
+    pub source_binding_name: Option<String>,
     pub target: Storage,
     #[serde(default)]
     pub sync_policy: ModelStorageBindingSyncPolicy,
@@ -75,9 +84,28 @@ pub struct ModelStorageBindingStorageKindClonedSpec<Storage> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingStorageSpec<'name, Storage> {
-    pub source: Option<(&'name str, Storage, ModelStorageBindingSyncPolicy)>,
+    pub source: Option<ModelStorageBindingStorageSourceSpec<'name, Storage>>,
+    pub source_binding_name: Option<&'name str>,
     pub target: Storage,
     pub target_name: &'name str,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageBindingStorageSourceSpec<'name, Storage> {
+    pub name: &'name str,
+    pub storage: Storage,
+    pub sync_policy: ModelStorageBindingSyncPolicy,
+}
+
+impl<'name, Storage> ModelStorageBindingStorageSourceSpec<'name, Storage> {
+    pub fn as_deref(&self) -> ModelStorageBindingStorageSourceSpec<'name, &'_ Storage> {
+        ModelStorageBindingStorageSourceSpec {
+            name: self.name,
+            storage: &self.storage,
+            sync_policy: self.sync_policy,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
