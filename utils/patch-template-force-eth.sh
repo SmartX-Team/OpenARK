@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
 
 ethernet_name="$(ip a | grep enp | awk '{print $2}' | grep -Po '^en[a-z0-9]+' | tail -n1)"
 wlan_name="$(ip a | grep wlp | awk '{print $2}' | grep -Po '^wl[a-z0-9]+' | tail -n1)"
