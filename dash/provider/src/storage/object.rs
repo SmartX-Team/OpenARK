@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Error, Result};
+use byte_unit::Byte;
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
     model_storage_binding::{
@@ -9,17 +10,21 @@ use dash_api::{
     },
     storage::object::{
         ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
-        ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedSpec,
-        ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
+        ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedReplicationSpec,
+        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec,
+        ModelStorageObjectSpec,
     },
 };
 use futures::{future::try_join_all, TryFutureExt};
-use k8s_openapi::api::{
-    core::v1::Secret,
-    networking::v1::{
-        HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
-        IngressServiceBackend, IngressSpec, ServiceBackendPort,
+use k8s_openapi::{
+    api::{
+        core::v1::{ResourceRequirements, Secret},
+        networking::v1::{
+            HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
+            IngressServiceBackend, IngressSpec, ServiceBackendPort,
+        },
     },
+    apimachinery::pkg::api::resource::Quantity,
 };
 use kube::{
     api::PostParams,
@@ -206,20 +211,15 @@ impl<'model> ObjectStorageRef {
     ) -> Result<ModelStorageObjectRefSpec> {
         let ModelStorageObjectOwnedSpec {
             deletion_policy: ModelStorageObjectDeletionPolicy::Retain,
-            resources,
+            replication,
+            runtime_class_name,
+            storage_class_name,
         } = storage;
 
         async fn get_latest_minio_image() -> Result<String> {
             // TODO: to be implemented
             Ok("minio/minio:RELEASE.2023-06-09T07-32-12Z".into())
         }
-
-        fn random_string(n: usize) -> String {
-            let mut rng = thread_rng();
-            (0..n).map(|_| rng.sample(Alphanumeric) as char).collect()
-        }
-
-        let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
 
         let tenant_name = "object-storage";
         let labels = {
@@ -228,78 +228,19 @@ impl<'model> ObjectStorageRef {
             map
         };
 
-        let secret_env_configuration = {
-            let name = format!("{tenant_name}-env-configuration");
-            get_or_create(&api_secret, "secret", &name, || Secret {
-                metadata: ObjectMeta {
-                    labels: Some(labels.clone()),
-                    name: Some(name.clone()),
-                    namespace: Some(namespace.to_string()),
-                    ..Default::default()
-                },
-                immutable: Some(false),
-                string_data: Some({
-                    let mut map: BTreeMap<String, String> = BTreeMap::default();
-                    map.insert(
-                        "config.env".into(),
-                        format!(
-                            r#"
-export MINIO_BROWSER="on"
-export MINIO_STORAGE_CLASS_STANDARD="EC:4"
-export MINIO_ROOT_USER="{username}"
-export MINIO_ROOT_PASSWORD="{password}"
-"#,
-                            username = random_string(16),
-                            password = random_string(32),
-                        ),
-                    );
-                    map
-                }),
-                ..Default::default()
-            })
-            .await?
-        };
-
-        let secret_creds = {
-            let name = format!("{tenant_name}-secret");
-            get_or_create(&api_secret, "secret", &name, || Secret {
-                metadata: ObjectMeta {
-                    labels: Some(labels.clone()),
-                    name: Some(name.clone()),
-                    namespace: Some(namespace.to_string()),
-                    ..Default::default()
-                },
-                immutable: Some(true),
-                string_data: Some({
-                    let mut map: BTreeMap<String, String> = BTreeMap::default();
-                    map.insert("accesskey".into(), Default::default());
-                    map.insert("secretkey".into(), Default::default());
-                    map
-                }),
-                ..Default::default()
-            })
-            .await?
-        };
-
         let secret_user_0 = {
-            let name = format!("{tenant_name}-user-0");
-            get_or_create(&api_secret, "secret", &name, || Secret {
-                metadata: ObjectMeta {
-                    labels: Some(labels.clone()),
-                    name: Some(name.clone()),
-                    namespace: Some(namespace.to_string()),
-                    ..Default::default()
-                },
-                immutable: Some(true),
-                string_data: Some({
-                    let mut map: BTreeMap<String, String> = BTreeMap::default();
-                    map.insert("CONSOLE_ACCESS_KEY".into(), random_string(16));
-                    map.insert("CONSOLE_SECRET_KEY".into(), random_string(32));
-                    map
-                }),
-                ..Default::default()
-            })
-            .await?
+            let name = tenant_name;
+            let pool_name = "pool-0";
+
+            let spec = MinioTenantSpec {
+                image: get_latest_minio_image().await?,
+                labels: &labels,
+                pool_name,
+                replication,
+                runtime_class_name,
+                storage_class_name,
+            };
+            get_or_create_minio_tenant(kube, namespace, name, spec).await?
         };
 
         {
@@ -318,169 +259,6 @@ export MINIO_ROOT_PASSWORD="{password}"
                     }),
                 },
             )
-            .await?
-        };
-
-        {
-            let name = tenant_name;
-            let pool_name = "pool-0";
-
-            let minio_image = get_latest_minio_image().await?;
-
-            let api_tenant = {
-                let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
-                let spec = ModelCustomResourceDefinitionRefSpec {
-                    name: "tenants.minio.min.io/v2".into(),
-                };
-                client.api_custom_resource(&spec, None).await?
-            };
-            get_or_create(&api_tenant, "tenant", name, || DynamicObject {
-                types: Some(TypeMeta {
-                    api_version: "minio.min.io/v2".into(),
-                    kind: "Tenant".into(),
-                }),
-                metadata: ObjectMeta {
-                    labels: Some(labels),
-                    name: Some(name.to_string()),
-                    namespace: Some(namespace.to_string()),
-                    ..Default::default()
-                },
-                data: json!({
-                    "spec": {
-                        "configuration": {
-                            "name": secret_env_configuration.name_any(),
-                        },
-                        "credsSecret": {
-                            "name": secret_creds.name_any(),
-                        },
-                        "exposeServices": {},
-                        "image": minio_image,
-                        "imagePullSecret": {},
-                        "mountPath": "/export",
-                        "pools": [
-                            {
-                                "affinity": {
-                                    "nodeAffinity": {
-                                        // KISS normal control plane nodes should be preferred
-                                        "preferredDuringSchedulingIgnoredDuringExecution": [
-                                            {
-                                                "weight": 1,
-                                                "preference": {
-                                                    "matchExpressions": [
-                                                        {
-                                                            "key": "node-role.kubernetes.io/kiss-ephemeral-control-plane",
-                                                            "operator": "DoesNotExist",
-                                                        },
-                                                    ],
-                                                },
-                                            },
-                                            {
-                                                "weight": 2,
-                                                "preference": {
-                                                    "matchExpressions": [
-                                                        {
-                                                            "key": "node-role.kubernetes.io/kiss",
-                                                            "operator": "In",
-                                                            "values": [
-                                                                "Compute",
-                                                            ],
-                                                        },
-                                                    ],
-                                                },
-                                            },
-                                            {
-                                                "weight": 4,
-                                                "preference": {
-                                                    "matchExpressions": [
-                                                        {
-                                                            "key": "node-role.kubernetes.io/kiss",
-                                                            "operator": "In",
-                                                            "values": [
-                                                                "Gateway",
-                                                            ],
-                                                        },
-                                                    ],
-                                                },
-                                            },
-                                        ],
-                                        "requiredDuringSchedulingIgnoredDuringExecution": {
-                                            "nodeSelectorTerms": [
-                                                {
-                                                    "matchExpressions": [
-                                                        {
-                                                            "key": "node-role.kubernetes.io/kiss",
-                                                            "operator": "In",
-                                                            "values": [
-                                                                "Compute",
-                                                                "ControlPlane",
-                                                                "Gateway",
-                                                            ],
-                                                        },
-                                                    ],
-                                                },
-                                            ],
-                                        },
-                                    },
-                                    "podAntiAffinity": {
-                                        "requiredDuringSchedulingIgnoredDuringExecution": [
-                                            {
-                                                "labelSelector": {
-                                                    "matchExpressions": [
-                                                        {
-                                                            "key": "v1.min.io/tenant",
-                                                            "operator": "In",
-                                                            "values": [
-                                                                name,
-                                                            ],
-                                                        },
-                                                        {
-                                                            "key": "v1.min.io/pool",
-                                                            "operator": "In",
-                                                            "values": [
-                                                                pool_name,
-                                                            ],
-                                                        },
-                                                    ],
-                                                },
-                                                "topologyKey": "kubernetes.io/hostname",
-                                            },
-                                        ],
-                                    },
-                                },
-                                "name": pool_name,
-                                "resources": {
-                                    "requests": {
-                                        "cpu": "16",
-                                        "memory": "31Gi",
-                                    },
-                                },
-                                "runtimeClassName": "",
-                                "servers": 4,
-                                "volumeClaimTemplate": {
-                                    "metadata": {
-                                        "name": "data",
-                                    },
-                                    "spec": {
-                                        "accessModes": [
-                                            "ReadWriteOnce",
-                                        ],
-                                        "resources": resources,
-                                        "storageClassName": "ceph-block",
-                                    },
-                                    "status": {},
-                                },
-                                "volumesPerServer": 4,
-                            },
-                        ],
-                        "requestAutoCert": false,
-                        "users": [
-                            {
-                                "name": secret_user_0.name_any(),
-                            },
-                        ],
-                    },
-                }),
-            })
             .await?
         };
 
@@ -511,6 +289,21 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     fn admin(&self) -> MinioAdminClient<'_> {
         MinioAdminClient {
             storage: self.target_ref,
+        }
+    }
+
+    fn inverted(&self) -> Result<Self>
+    where
+        'source: 'client,
+    {
+        match self.source.as_ref() {
+            Some((source_ref, sync_policy)) => Ok(Self {
+                model: self.model,
+                source: Some((self.target_ref, *sync_policy)),
+                target: source_ref.get_client(),
+                target_ref: source_ref,
+            }),
+            None => bail!("cannot invert object storage session without source storage"),
         }
     }
 
@@ -601,8 +394,9 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     }
 
     async fn sync_bucket_pull_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
-        // TODO: to be implemented
-        bail!("Always pull policy is not supported yet ({bucket})")
+        self.inverted()?
+            .sync_bucket_push_always(source, bucket)
+            .await
     }
 
     async fn sync_bucket_pull_on_create(
@@ -997,6 +791,279 @@ async fn get_or_create_ingress(
     .await
 }
 
+struct MinioTenantSpec<'a> {
+    image: String,
+    labels: &'a BTreeMap<String, String>,
+    pool_name: &'a str,
+    replication: &'a ModelStorageObjectOwnedReplicationSpec,
+    runtime_class_name: &'a str,
+    storage_class_name: &'a str,
+}
+
+async fn get_or_create_minio_tenant(
+    kube: &Client,
+    namespace: &str,
+    name: &str,
+    MinioTenantSpec {
+        image,
+        labels,
+        pool_name,
+        replication:
+            ModelStorageObjectOwnedReplicationSpec {
+                total_nodes,
+                total_volumes_per_node,
+                resources,
+            },
+        runtime_class_name,
+        storage_class_name,
+    }: MinioTenantSpec<'_>,
+) -> Result<Secret> {
+    fn random_string(n: usize) -> String {
+        let mut rng = thread_rng();
+        (0..n).map(|_| rng.sample(Alphanumeric) as char).collect()
+    }
+
+    let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
+    let api_tenant = {
+        let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
+        let spec = ModelCustomResourceDefinitionRefSpec {
+            name: "tenants.minio.min.io/v2".into(),
+        };
+        client.api_custom_resource(&spec, None).await?
+    };
+
+    let total_volumes = total_nodes * total_volumes_per_node;
+    let parity_level = total_volumes / 4; // >> 2
+    let (
+        ModelStorageObjectOwnedReplicationComputeResource(compute_resources),
+        ModelStorageObjectOwnedReplicationStorageResource(storage_resources),
+    ) = split_resources(resources, total_volumes)?;
+
+    let secret_env_configuration = {
+        let name = format!("{name}-env-configuration");
+        get_or_create(&api_secret, "secret", &name, || Secret {
+            metadata: ObjectMeta {
+                labels: Some(labels.clone()),
+                name: Some(name.clone()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            immutable: Some(false),
+            string_data: Some({
+                let mut map: BTreeMap<String, String> = BTreeMap::default();
+                map.insert(
+                    "config.env".into(),
+                    format!(
+                        r#"
+export MINIO_BROWSER="on"
+export MINIO_STORAGE_CLASS_STANDARD="EC:{parity_level}"
+export MINIO_ROOT_USER="{username}"
+export MINIO_ROOT_PASSWORD="{password}"
+"#,
+                        username = random_string(16),
+                        password = random_string(32),
+                    ),
+                );
+                map
+            }),
+            ..Default::default()
+        })
+        .await?
+    };
+
+    let secret_creds = {
+        let name = format!("{name}-secret");
+        get_or_create(&api_secret, "secret", &name, || Secret {
+            metadata: ObjectMeta {
+                labels: Some(labels.clone()),
+                name: Some(name.clone()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            immutable: Some(true),
+            string_data: Some({
+                let mut map: BTreeMap<String, String> = BTreeMap::default();
+                map.insert("accesskey".into(), Default::default());
+                map.insert("secretkey".into(), Default::default());
+                map
+            }),
+            ..Default::default()
+        })
+        .await?
+    };
+
+    let secret_user_0 = {
+        let name = format!("{name}-user-0");
+        get_or_create(&api_secret, "secret", &name, || Secret {
+            metadata: ObjectMeta {
+                labels: Some(labels.clone()),
+                name: Some(name.clone()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            immutable: Some(true),
+            string_data: Some({
+                let mut map: BTreeMap<String, String> = BTreeMap::default();
+                map.insert("CONSOLE_ACCESS_KEY".into(), random_string(16));
+                map.insert("CONSOLE_SECRET_KEY".into(), random_string(32));
+                map
+            }),
+            ..Default::default()
+        })
+        .await?
+    };
+
+    let users = [&secret_user_0]
+        .iter()
+        .map(|user| {
+            json!({
+                "name": user.name_any(),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    get_or_create(&api_tenant, "tenant", name, || DynamicObject {
+        types: Some(TypeMeta {
+            api_version: "minio.min.io/v2".into(),
+            kind: "Tenant".into(),
+        }),
+        metadata: ObjectMeta {
+            labels: Some(labels.clone()),
+            name: Some(name.to_string()),
+            namespace: Some(namespace.to_string()),
+            ..Default::default()
+        },
+        data: json!({
+            "spec": {
+                "configuration": {
+                    "name": secret_env_configuration.name_any(),
+                },
+                "credsSecret": {
+                    "name": secret_creds.name_any(),
+                },
+                "exposeServices": {},
+                "image": image,
+                "imagePullSecret": {},
+                "mountPath": "/export",
+                "pools": [
+                    {
+                        "affinity": {
+                            "nodeAffinity": {
+                                // KISS normal control plane nodes should be preferred
+                                "preferredDuringSchedulingIgnoredDuringExecution": [
+                                    {
+                                        "weight": 1,
+                                        "preference": {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "node-role.kubernetes.io/kiss-ephemeral-control-plane",
+                                                    "operator": "DoesNotExist",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                    {
+                                        "weight": 2,
+                                        "preference": {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "node-role.kubernetes.io/kiss",
+                                                    "operator": "In",
+                                                    "values": [
+                                                        "Compute",
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    },
+                                    {
+                                        "weight": 4,
+                                        "preference": {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "node-role.kubernetes.io/kiss",
+                                                    "operator": "In",
+                                                    "values": [
+                                                        "Gateway",
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    },
+                                ],
+                                "requiredDuringSchedulingIgnoredDuringExecution": {
+                                    "nodeSelectorTerms": [
+                                        {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "node-role.kubernetes.io/kiss",
+                                                    "operator": "In",
+                                                    "values": [
+                                                        "Compute",
+                                                        "ControlPlane",
+                                                        "Gateway",
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            },
+                            "podAntiAffinity": {
+                                "requiredDuringSchedulingIgnoredDuringExecution": [
+                                    {
+                                        "labelSelector": {
+                                            "matchExpressions": [
+                                                {
+                                                    "key": "v1.min.io/tenant",
+                                                    "operator": "In",
+                                                    "values": [
+                                                        name,
+                                                    ],
+                                                },
+                                                {
+                                                    "key": "v1.min.io/pool",
+                                                    "operator": "In",
+                                                    "values": [
+                                                        pool_name,
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                        "topologyKey": "kubernetes.io/hostname",
+                                    },
+                                ],
+                            },
+                        },
+                        "name": pool_name,
+                        "resources": compute_resources,
+                        "runtimeClassName": runtime_class_name,
+                        "servers": total_nodes,
+                        "volumeClaimTemplate": {
+                            "metadata": {
+                                "labels": labels,
+                            },
+                            "spec": {
+                                "accessModes": [
+                                    "ReadWriteOnce",
+                                ],
+                                "resources": storage_resources,
+                                "storageClassName": storage_class_name,
+                            },
+                        },
+                        "volumesPerServer": total_volumes_per_node,
+                    },
+                ],
+                "requestAutoCert": false,
+                "users": users,
+            },
+        }),
+    })
+    .await?;
+
+    Ok(secret_user_0)
+}
+
 async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
 where
     Data: FnOnce() -> K,
@@ -1016,3 +1083,67 @@ where
         Err(error) => bail!("failed to get {kind} ({name}): {error}"),
     }
 }
+
+fn split_resources(
+    resources: &ResourceRequirements,
+    total_volumes: u32,
+) -> Result<(
+    ModelStorageObjectOwnedReplicationComputeResource,
+    ModelStorageObjectOwnedReplicationStorageResource,
+)> {
+    fn split_storage(
+        compute_resources: &mut Option<BTreeMap<String, Quantity>>,
+        total_volumes: u32,
+        fill_default: bool,
+    ) -> Result<Option<BTreeMap<String, Quantity>>> {
+        let compute_resources = match compute_resources {
+            Some(compute_resources) => compute_resources,
+            None if fill_default => compute_resources.get_or_insert_with(Default::default),
+            None => return Ok(None),
+        };
+        if fill_default {
+            compute_resources.entry("cpu".into()).or_insert_with(|| {
+                Quantity(ModelStorageObjectOwnedReplicationSpec::default_resources_cpu().into())
+            });
+            compute_resources.entry("memory".into()).or_insert_with(|| {
+                Quantity(ModelStorageObjectOwnedReplicationSpec::default_resources_memory().into())
+            });
+        }
+
+        let mut storage_resources = BTreeMap::default();
+        let mut storage_resource = compute_resources.remove("storage");
+        if fill_default {
+            storage_resource.get_or_insert_with(|| {
+                Quantity(ModelStorageObjectOwnedReplicationSpec::default_resources_storage().into())
+            });
+        }
+        if let Some(storage_resource) = storage_resource {
+            let storage_resource_as_bytes: Byte = storage_resource
+                .0
+                .parse()
+                .map_err(|error| anyhow!("failed to parse storage volume size: {error}"))?;
+            let storage_resource_per_volume =
+                storage_resource_as_bytes.get_bytes() / total_volumes as u128;
+            storage_resources.insert(
+                "storage".into(),
+                Quantity(storage_resource_per_volume.to_string()),
+            );
+        }
+        Ok(Some(storage_resources))
+    }
+
+    let mut compute = resources.clone();
+    let storage = ResourceRequirements {
+        claims: compute.claims.clone(),
+        limits: split_storage(&mut compute.limits, total_volumes, false)?,
+        requests: split_storage(&mut compute.requests, total_volumes, true)?,
+    };
+    Ok((
+        ModelStorageObjectOwnedReplicationComputeResource(compute),
+        ModelStorageObjectOwnedReplicationStorageResource(storage),
+    ))
+}
+
+struct ModelStorageObjectOwnedReplicationComputeResource(ResourceRequirements);
+
+struct ModelStorageObjectOwnedReplicationStorageResource(ResourceRequirements);

@@ -12,7 +12,12 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: my-storage-cloned-one-bucket
+  name: my-storage-cloned-pull
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-storage-cloned-push
 ---
 apiVersion: v1
 kind: Namespace
@@ -47,7 +52,19 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: object-storage-user-0
-  namespace: my-storage-cloned-one-bucket
+  namespace: my-storage-cloned-pull
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: my-storage-cloned-push
 immutable: true
 type: Opaque
 # FIXME: change your own secret!
@@ -93,7 +110,38 @@ spec:
       endpoint: http://minio.my-storage-owned.svc.ops.openark/
       resources:
         requests:
-          storage: 64Mi
+          storage: 1Ti
+      secretRef:
+        mapAccessKey: CONSOLE_ACCESS_KEY
+        mapSecretKey: CONSOLE_SECRET_KEY
+        name: object-storage-user-0
+      totalNodes: 1
+      totalVolumesPerNode: 4
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: my-object-storage
+  namespace: my-storage-cloned-pull
+spec:
+  objectStorage:
+    owned:
+      deletionPolicy: Retain
+      resources:
+        requests:
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: my-object-storage-owned
+  namespace: my-storage-cloned-pull
+spec:
+  objectStorage:
+    borrowed:
+      endpoint: http://minio.my-storage-owned.svc.ops.openark/
       secretRef:
         mapAccessKey: CONSOLE_ACCESS_KEY
         mapSecretKey: CONSOLE_SECRET_KEY
@@ -103,20 +151,22 @@ apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorage
 metadata:
   name: my-object-storage
-  namespace: my-storage-cloned-one-bucket
+  namespace: my-storage-cloned-push
 spec:
   objectStorage:
     owned:
       deletionPolicy: Retain
       resources:
         requests:
-          storage: 64Mi
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorage
 metadata:
   name: my-object-storage-owned
-  namespace: my-storage-cloned-one-bucket
+  namespace: my-storage-cloned-push
 spec:
   objectStorage:
     borrowed:
@@ -137,7 +187,9 @@ spec:
       deletionPolicy: Retain
       resources:
         requests:
-          storage: 64Mi
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
@@ -158,8 +210,32 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: Model
 metadata:
-  name: my-bucket-cloned-one-bucket
-  namespace: my-storage-cloned-one-bucket
+  name: my-bucket-cloned-pull
+  namespace: my-storage-cloned-pull
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: my-bucket-cloned-push
+  namespace: my-storage-cloned-push
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: my-bucket-cloned-pull
+  namespace: my-storage-owned
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: my-bucket-cloned-push
+  namespace: my-storage-owned
 spec:
   dynamic: {}
 ---
@@ -196,10 +272,25 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
 metadata:
-  name: my-bucket-cloned-one-bucket
-  namespace: my-storage-cloned-one-bucket
+  name: my-bucket-cloned-pull
+  namespace: my-storage-cloned-pull
 spec:
-  model: my-bucket-cloned-one-bucket
+  model: my-bucket-cloned-pull
+  storage:
+    cloned:
+      source: my-object-storage-owned
+      target: my-object-storage
+      syncPolicy:
+        pull: Always
+        push: Never
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: my-bucket-cloned-push
+  namespace: my-storage-cloned-push
+spec:
+  model: my-bucket-cloned-push
   storage:
     cloned:
       source: my-object-storage-owned
@@ -207,6 +298,28 @@ spec:
       syncPolicy:
         pull: Never
         push: Always
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: my-bucket-cloned-pull
+  namespace: my-storage-owned
+spec:
+  model: my-bucket-cloned-pull
+  storage:
+    owned:
+      target: my-object-storage
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: my-bucket-cloned-push
+  namespace: my-storage-owned
+spec:
+  model: my-bucket-cloned-push
+  storage:
+    owned:
+      target: my-object-storage
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding

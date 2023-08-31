@@ -55,29 +55,98 @@ pub struct ModelStorageObjectOwnedSpec {
     #[serde(default)]
     pub deletion_policy: ModelStorageObjectDeletionPolicy,
 
-    #[serde(default = "ModelStorageObjectOwnedSpec::default_resources")]
-    pub resources: ResourceRequirements,
+    #[serde(default, flatten)]
+    pub replication: ModelStorageObjectOwnedReplicationSpec,
+
+    #[serde(default = "ModelStorageObjectOwnedSpec::default_runtime_class_name")]
+    pub runtime_class_name: String,
+
+    #[serde(default = "ModelStorageObjectOwnedSpec::default_storage_class_name")]
+    pub storage_class_name: String,
 }
 
 impl Default for ModelStorageObjectOwnedSpec {
     fn default() -> Self {
         Self {
             deletion_policy: Default::default(),
-            resources: Self::default_resources(),
+            replication: Default::default(),
+            runtime_class_name: Self::default_runtime_class_name(),
+            storage_class_name: Self::default_storage_class_name(),
         }
     }
 }
 
 impl ModelStorageObjectOwnedSpec {
+    fn default_runtime_class_name() -> String {
+        Default::default()
+    }
+
+    fn default_storage_class_name() -> String {
+        "ceph-block".into()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageObjectOwnedReplicationSpec {
+    #[serde(default = "ModelStorageObjectOwnedReplicationSpec::default_resources")]
+    pub resources: ResourceRequirements,
+
+    #[serde(default = "ModelStorageObjectOwnedReplicationSpec::default_total_nodes")]
+    pub total_nodes: u32,
+
+    #[serde(default = "ModelStorageObjectOwnedReplicationSpec::default_total_volumes_per_node")]
+    pub total_volumes_per_node: u32,
+}
+
+impl Default for ModelStorageObjectOwnedReplicationSpec {
+    fn default() -> Self {
+        Self {
+            resources: Self::default_resources(),
+            total_nodes: Self::default_total_nodes(),
+            total_volumes_per_node: Self::default_total_volumes_per_node(),
+        }
+    }
+}
+
+impl ModelStorageObjectOwnedReplicationSpec {
+    pub const fn default_resources_cpu() -> &'static str {
+        "16"
+    }
+
+    pub const fn default_resources_memory() -> &'static str {
+        "31Gi"
+    }
+
+    pub const fn default_resources_storage() -> &'static str {
+        "1TiB"
+    }
+
     fn default_resources() -> ResourceRequirements {
         ResourceRequirements {
             requests: Some({
                 let mut map = BTreeMap::default();
-                map.insert("storage".into(), Quantity("64Mi".into()));
+                map.insert("cpu".into(), Quantity(Self::default_resources_cpu().into()));
+                map.insert(
+                    "memory".into(),
+                    Quantity(Self::default_resources_memory().into()),
+                );
+                map.insert(
+                    "storage".into(),
+                    Quantity(Self::default_resources_storage().into()),
+                );
                 map
             }),
             ..Default::default()
         }
+    }
+
+    const fn default_total_nodes() -> u32 {
+        4
+    }
+
+    const fn default_total_volumes_per_node() -> u32 {
+        4
     }
 }
 
