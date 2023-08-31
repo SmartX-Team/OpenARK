@@ -9,6 +9,8 @@ metadata:
     kissService: "false"
     serviceType: dash
 spec:
+  backoffLimit: 0
+  suspend: false
   ttlSecondsAfterFinished: 1
   template:
     metadata:
@@ -17,6 +19,7 @@ spec:
         kissService: "false"
         serviceType: dash
     spec:
+{% if spec.hard or spec.power == "on" %}
       affinity:
         nodeAffinity:
           # KISS normal control plane nodes should be preferred
@@ -33,12 +36,16 @@ spec:
                     operator: In
                     values:
                       - ControlPlane
+{% else %}
+      nodeName: "{{ spec.box.spec.machine.uuid }}"
+{% endif %}
       restartPolicy: OnFailure
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       serviceAccount: kiss-system
       containers:
+{% if spec.hard %}
 {% if spec.box.spec.power.type == 'IntelAMT' %}
         - name: power-management-wsmancli
           image: quay.io/ulagbulag/openark-wsmancli:latest
@@ -65,6 +72,27 @@ spec:
             - power
             - {{ spec.power }}
 {% endif %}
+{% elif spec.power == "on" %}
+{# TODO: to be implemented (WOL) #}
+{% else %}
+        - name: power-management-host
+          image: quay.io/app-sre/ubi8-ubi:latest
+          command:
+{% if spec.power == "off" %}
+            - poweroff
+{% else %}
+            - reboot
+{% endif %}
+          hostIPC: true
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - name: run
+              mountPath: /run
+            - name: sys-fs-cgroup
+              mountPath: /sys/fs/cgroup
+{% endif %}
           resources:
             requests:
               cpu: 30m
@@ -72,3 +100,15 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
+{% if not spec.hard and spec.power != "on" %}
+      restartPolicy: Never
+      volumes:
+        - name: run
+          hostPath:
+            path: /run
+            type: Directory
+        - name: sys-fs-cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+{% endif %}

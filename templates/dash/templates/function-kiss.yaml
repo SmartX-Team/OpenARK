@@ -57,6 +57,9 @@ spec:
           - "on"
           - "off"
           - "reset"
+    - name: /hard/ # Key 값
+      boolean: # Value 종류 (예제에서는, 다음의 문자열 중 하나를 선택하기)
+        default: false # 기본값
   actor: # 함수 구현체 정보
     job: # 함수 구현체 종류 (예제에서는, 쿠버네티스 Job)
       source: # 함수 구현체 출처
