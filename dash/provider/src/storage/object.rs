@@ -429,64 +429,78 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     }
 
     async fn sync_bucket_push_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
-        match self
+        self.target
+            .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
+            .await
+            .map_err(|error| {
+                anyhow!("failed to enable bucket versioning for Pushing ({bucket}): {error}")
+            })?;
+
+        let bucket_arn = self
+            .admin()
+            .set_remote_target(source, self.source_binding_name, bucket)
+            .await?;
+
+        let mut rules = self
             .target
             .get_bucket_replication(&GetBucketReplicationArgs {
                 bucket,
                 ..Default::default()
             })
             .await
-        {
-            // TODO: to be implemented
-            Ok(response) => bail!("resync feature is not implemented yet ({bucket}): {response:?}"),
-            Err(_) => {
-                self.target
-                    .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
-                    .await
-                    .map_err(|error| {
-                        anyhow!(
-                            "failed to enable bucket versioning for Pushing ({bucket}): {error}"
-                        )
-                    })?;
+            .map(|response| response.config.rules)
+            .unwrap_or_default();
 
-                let bucket_arn = self
-                    .admin()
-                    .set_remote_target(source, self.source_binding_name, bucket)
-                    .await?;
-                self.target
-                    .set_bucket_replication(&SetBucketReplicationArgs {
-                        extra_headers: None,
-                        extra_query_params: None,
-                        region: None,
-                        bucket,
-                        config: &ReplicationConfig {
-                            role: Some(bucket_arn.clone()),
-                            rules: vec![ReplicationRule {
-                                destination: Destination {
-                                    bucket_arn: bucket_arn.clone(),
-                                    access_control_translation: None,
-                                    account: None,
-                                    encryption_config: None,
-                                    metrics: None,
-                                    replication_time: None,
-                                    storage_class: None,
-                                },
-                                delete_marker_replication_status: Some(true),
-                                existing_object_replication_status: Some(true),
-                                filter: None,
-                                id: Some(bucket_arn),
-                                prefix: None,
-                                priority: Some(1),
-                                source_selection_criteria: None,
-                                delete_replication_status: Some(true),
-                                status: true,
-                            }],
-                        },
-                    })
-                    .await?;
-                Ok(())
-            }
+        if rules
+            .iter()
+            .any(|rule| rule.destination.bucket_arn == bucket_arn)
+        {
+            return Ok(());
+        } else {
+            rules.push(ReplicationRule {
+                destination: Destination {
+                    bucket_arn: bucket_arn.clone(),
+                    access_control_translation: None,
+                    account: None,
+                    encryption_config: None,
+                    metrics: None,
+                    replication_time: None,
+                    storage_class: None,
+                },
+                delete_marker_replication_status: Some(true),
+                existing_object_replication_status: Some(true),
+                filter: None,
+                id: Some(bucket_arn.clone()),
+                prefix: None,
+                priority: rules
+                    .iter()
+                    .map(|rule| rule.priority.unwrap_or(1))
+                    .max()
+                    .unwrap_or_default()
+                    .checked_add(1),
+                source_selection_criteria: None,
+                delete_replication_status: Some(true),
+                status: true,
+            });
         }
+
+        self.target
+            .set_bucket_replication(&SetBucketReplicationArgs {
+                extra_headers: None,
+                extra_query_params: None,
+                region: None,
+                bucket,
+                config: &ReplicationConfig {
+                    role: if rules.len() == 1 {
+                        Some(bucket_arn)
+                    } else {
+                        None
+                    },
+                    rules,
+                },
+            })
+            .await?;
+        Ok(())
     }
 }
 
