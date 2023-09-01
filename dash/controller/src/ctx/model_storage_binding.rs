@@ -139,7 +139,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .await
                 }
                 Err(e) => {
-                    warn!("failed to delete dash job ({namespace}/{name}): {e}");
+                    warn!("failed to delete model storage binding ({namespace}/{name}): {e}");
                     Ok(Action::requeue(
                         <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                     ))
