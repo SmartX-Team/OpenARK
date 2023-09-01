@@ -221,7 +221,7 @@ RUN dnf install -y \
     && BLUEMAN_SRC_FILENAME="blueman-${BLUEMAN_VERSION}.tar.xz" \
     && BLUEMAN_SRC_FILE="/opt/${BLUEMAN_SRC_FILENAME}.tar.xz" \
     && BLUEMAN_SRC_HOME="/opt/${BLUEMAN_SRC_FILENAME%.tar.xz}" \
-    && wget -O "${BLUEMAN_SRC_FILE}" "${BLUEMAN_REPO}/${BLUEMAN_VERSION}/${BLUEMAN_SRC_FILENAME}" \
+    && wget -qO "${BLUEMAN_SRC_FILE}" "${BLUEMAN_REPO}/${BLUEMAN_VERSION}/${BLUEMAN_SRC_FILENAME}" \
     # Decompress the downloaded file
     && tar -x -C "$(dirname "${BLUEMAN_SRC_HOME}")" -f "${BLUEMAN_SRC_FILE}" \
     # Build
@@ -273,7 +273,7 @@ RUN true \
     # Download
     && GST_RTSP_SERVER_SRC_FILE="/opt/gst-rtsp-server.tar.xz" \
     && GST_RTSP_SERVER_SRC_HOME="/opt/${GST_RTSP_SERVER_FILENAME%.tar.xz}" \
-    && wget -O "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_REPO}/${GST_RTSP_SERVER_FILENAME}" \
+    && wget -qO "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_REPO}/${GST_RTSP_SERVER_FILENAME}" \
     # Decompress the downloaded file
     && tar -x -C "$(dirname "${GST_RTSP_SERVER_SRC_HOME}")" -f "${GST_RTSP_SERVER_SRC_FILE}" \
     # Build
@@ -304,7 +304,7 @@ RUN true \
     && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
     # Download
     && DEEPSTREAM_SDK_FILE="/opt/deepstream-sdk.tbz2" \
-    && wget -O "${DEEPSTREAM_SDK_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/DeepStream_${DEEPSTREAM_VERSION_RELEASE}/deepstream_sdk_v${DEEPSTREAM_VERSION_FULL}_$(uname -m).tbz2" \
+    && wget -qO "${DEEPSTREAM_SDK_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/DeepStream_${DEEPSTREAM_VERSION_RELEASE}/deepstream_sdk_v${DEEPSTREAM_VERSION_FULL}_$(uname -m).tbz2" \
     # Decompress the downloaded file
     && tar -x -C '/' -f "${DEEPSTREAM_SDK_FILE}" \
     # Install
@@ -376,7 +376,7 @@ RUN true \
     && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
     && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
     && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
-    && wget -O "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
+    && wget -qO "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
     # Decompress the downloaded file
     && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
     && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
@@ -396,7 +396,7 @@ RUN true \
     # Download
     && LUTRIS_HOME="/opt/lutris" \
     && LUTRIS_OBJ_FILE="/opt/lutris.tar.xz" \
-    && wget -O "${LUTRIS_OBJ_FILE}" "${LUTRIS_REPO}/${LUTRIS_VERSION}" \
+    && wget -qO "${LUTRIS_OBJ_FILE}" "${LUTRIS_REPO}/${LUTRIS_VERSION}" \
     # Decompress the downloaded file
     && tar -x -C "$(dirname "${LUTRIS_HOME}")" -f "${LUTRIS_OBJ_FILE}" \
     # Environment Variables Configuration
