@@ -50,7 +50,10 @@ where
             .and_then(|timestamp| {
                 let timestamp: i64 = timestamp.parse().ok()?;
                 let naive_date_time = NaiveDateTime::from_timestamp_millis(timestamp)?;
-                Some(DateTime::<Utc>::from_utc(naive_date_time, Utc))
+                Some(DateTime::<Utc>::from_naive_utc_and_offset(
+                    naive_date_time,
+                    Utc,
+                ))
             }) {
             Some(timestamp) if Utc::now() - timestamp >= duration_session_start => {}
             Some(_) => {
