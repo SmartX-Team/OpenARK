@@ -616,6 +616,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             delete_target,
             source,
             sync_source,
+            sync_source_overwrite,
         }: BucketJobSpec<'_>,
     ) -> Result<()> {
         let api = Api::<Job>::namespaced(self.kube.clone(), self.namespace);
@@ -693,7 +694,11 @@ mc alias set 'target' "${TARGET_ENDPOINT}" "${TARGET_ACCESS_KEY}" "${TARGET_SECR
 echo '* Starting sync...'
 if [ "x${SOURCE_ENDPOINT}" != 'x' ]; then
     if [ "x${SOURCE_SYNC}" = 'xtrue' ]; then
-        mc mirror "source/${SOURCE_BUCKET}" "target/${TARGET_BUCKET}" --overwrite --quiet
+        __ARGS=''
+        if [ "x${SOURCE_SYNC_OVERWRITE}" = 'xtrue' ]; then
+            __ARGS="${__ARGS} --overwrite"
+        fi
+        mc mirror "source/${SOURCE_BUCKET}" "target/${TARGET_BUCKET}" --quiet ${__ARGS}
     fi
 fi
 
@@ -745,6 +750,11 @@ exec true
                                     EnvVar {
                                         name: "SOURCE_SYNC".into(),
                                         value: Some(sync_source.to_string()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_SYNC_OVERWRITE".into(),
+                                        value: Some(sync_source_overwrite.to_string()),
                                         value_from: None,
                                     },
                                     EnvVar {
@@ -1337,6 +1347,7 @@ struct BucketJobSpec<'a> {
     delete_target: bool,
     source: Option<&'a ObjectStorageRef>,
     sync_source: bool,
+    sync_source_overwrite: bool,
 }
 
 async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
