@@ -27,6 +27,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
+    const FINALIZER_NAME: &'static str =
+        <Self as ::ark_core_k8s::manager::Ctx>::Data::FINALIZER_NAME;
 
     async fn reconcile(
         manager: Arc<Manager<Self>>,
@@ -64,6 +66,17 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     .and_then(|status| status.channel.as_ref())
                     .cloned(),
                 DashJobState::Deleting,
+            )
+            .await;
+        } else if !data
+            .finalizers()
+            .iter()
+            .any(|finalizer| finalizer == <Self as ::ark_core_k8s::manager::Ctx>::FINALIZER_NAME)
+        {
+            return <Self as ::ark_core_k8s::manager::Ctx>::add_finalizer_or_requeue_namespaced(
+                manager.kube.clone(),
+                &namespace,
+                &name,
             )
             .await;
         }
@@ -143,7 +156,14 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 }
             }
             DashJobState::Deleting => match validator.delete(data.as_ref().clone()).await {
-                Ok(_) => Self::remove_finalizer_or_requeue(&namespace, &manager.kube, &name).await,
+                Ok(_) => {
+                    <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer_or_requeue_namespaced(
+                        manager.kube.clone(),
+                        &namespace,
+                        &name,
+                    )
+                    .await
+                }
                 Err(e) => {
                     warn!("failed to delete dash job ({namespace}/{name}): {e}");
                     Ok(Action::requeue(
@@ -204,29 +224,6 @@ impl Ctx {
         let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
         Ok(())
-    }
-
-    async fn remove_finalizer_or_requeue(
-        namespace: &str,
-        kube: &Client,
-        name: &str,
-    ) -> Result<Action, Error> {
-        let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
-            kube.clone(),
-            namespace,
-        );
-        match <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer(api, name).await {
-            Ok(()) => {
-                info!("dash job has finalized: {namespace}/{name}");
-                Ok(Action::await_change())
-            }
-            Err(e) => {
-                warn!("failed to finalize dash job state ({namespace}/{name}): {e}");
-                Ok(Action::requeue(
-                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                ))
-            }
-        }
     }
 
     async fn delete_or_requeue(

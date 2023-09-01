@@ -81,4 +81,44 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                 (model.spec, storage)
             })
     }
+
+    pub async fn delete(&self, spec: &ModelStorageBindingSpec) -> Result<()> {
+        let model = self
+            .model
+            .kubernetes_storage
+            .load_model(&spec.model)
+            .await?;
+
+        let source = match spec.storage.source() {
+            Some((source_name, sync_policy)) => self
+                .model
+                .kubernetes_storage
+                .load_model_storage(source_name)
+                .await
+                .map(|source| {
+                    Some(ModelStorageBindingStorageSourceSpec {
+                        name: source_name,
+                        storage: source,
+                        sync_policy,
+                    })
+                })?,
+            None => None,
+        };
+        let target_name = spec.storage.target();
+        let target = self
+            .model
+            .kubernetes_storage
+            .load_model_storage(target_name)
+            .await?;
+        let storage = ModelStorageBindingStorageSpec {
+            source: source.as_ref().map(|storage| storage.as_deref()),
+            source_binding_name: spec.storage.source_binding_name(),
+            target: &target,
+            target_name,
+        };
+
+        self.model_storage
+            .unbind_model(storage, &model, spec.deletion_policy)
+            .await
+    }
 }

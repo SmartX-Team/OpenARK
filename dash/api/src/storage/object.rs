@@ -5,7 +5,6 @@ use k8s_openapi::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
 use vine_api::user_auth::Url;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -52,9 +51,6 @@ pub struct ModelStorageObjectClonedSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectOwnedSpec {
-    #[serde(default)]
-    pub deletion_policy: ModelStorageObjectDeletionPolicy,
-
     #[serde(default, flatten)]
     pub replication: ModelStorageObjectOwnedReplicationSpec,
 
@@ -68,7 +64,6 @@ pub struct ModelStorageObjectOwnedSpec {
 impl Default for ModelStorageObjectOwnedSpec {
     fn default() -> Self {
         Self {
-            deletion_policy: Default::default(),
             replication: Default::default(),
             runtime_class_name: Self::default_runtime_class_name(),
             storage_class_name: Self::default_storage_class_name(),
@@ -191,30 +186,5 @@ impl ModelStorageObjectRefSecretRefSpec {
 
     fn default_name() -> String {
         "object-storage-user-0".into()
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Display,
-    EnumString,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    JsonSchema,
-)]
-pub enum ModelStorageObjectDeletionPolicy {
-    Retain,
-}
-
-impl Default for ModelStorageObjectDeletionPolicy {
-    fn default() -> Self {
-        Self::Retain
     }
 }

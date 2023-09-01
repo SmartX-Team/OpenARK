@@ -2,6 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Error, Result};
 use byte_unit::Byte;
+use chrono::Utc;
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
     model_storage_binding::{
@@ -11,15 +12,19 @@ use dash_api::{
     },
     storage::object::{
         ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
-        ModelStorageObjectDeletionPolicy, ModelStorageObjectOwnedReplicationSpec,
-        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec,
-        ModelStorageObjectSpec,
+        ModelStorageObjectOwnedReplicationSpec, ModelStorageObjectOwnedSpec,
+        ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
 use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::{
     api::{
-        core::v1::{ResourceRequirements, Secret},
+        batch::v1::{Job, JobSpec},
+        core::v1::{
+            Affinity, Container, EnvVar, NodeAffinity, NodeSelector, NodeSelectorRequirement,
+            NodeSelectorTerm, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
+            ResourceRequirements, Secret,
+        },
         networking::v1::{
             HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
             IngressServiceBackend, IngressSpec, ServiceBackendPort,
@@ -92,10 +97,14 @@ impl ObjectStorageClient {
 
     pub fn get_session<'model>(
         &self,
+        kube: &'model Client,
+        namespace: &'model str,
         model: &'model ModelCrd,
     ) -> ObjectStorageSession<'_, 'model, '_> {
         ObjectStorageSession {
+            kube,
             model,
+            namespace,
             source: self
                 .source
                 .as_ref()
@@ -218,7 +227,6 @@ impl<'model> ObjectStorageRef {
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<ModelStorageObjectRefSpec> {
         let ModelStorageObjectOwnedSpec {
-            deletion_policy: ModelStorageObjectDeletionPolicy::Retain,
             replication,
             runtime_class_name,
             storage_class_name,
@@ -283,7 +291,9 @@ impl<'model> ObjectStorageRef {
 }
 
 pub struct ObjectStorageSession<'client, 'model, 'source> {
+    kube: &'model Client,
     model: &'model ModelCrd,
+    namespace: &'model str,
     source: Option<(&'source ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
     source_binding_name: Option<&'client str>,
     target: ::minio::s3::client::Client<'client>,
@@ -308,7 +318,9 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         match self.source.as_ref() {
             Some((source_ref, sync_policy)) => Ok((
                 Self {
+                    kube: self.kube,
                     model: self.model,
+                    namespace: self.namespace,
                     source: Some((self.target_ref, *sync_policy)),
                     source_binding_name: Some(bucket),
                     target: source_ref.get_client(),
@@ -384,7 +396,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             Some((source, ModelStorageBindingSyncPolicy { pull, push })) => {
                 match pull {
                     ModelStorageBindingSyncPolicyPull::Always => {
-                        self.sync_bucket_pull_always(source, &bucket_name).await?
+                        self.sync_bucket_pull_always(&bucket_name).await?
                     }
                     ModelStorageBindingSyncPolicyPull::OnCreate => {
                         self.sync_bucket_pull_on_create(source, &bucket_name)
@@ -396,8 +408,8 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                     ModelStorageBindingSyncPolicyPush::Always => {
                         self.sync_bucket_push_always(source, &bucket_name).await?
                     }
-                    ModelStorageBindingSyncPolicyPush::OnDelete
-                    | ModelStorageBindingSyncPolicyPush::Never => (),
+                    ModelStorageBindingSyncPolicyPush::OnDelete => (),
+                    ModelStorageBindingSyncPolicyPush::Never => (),
                 }
                 Ok(())
             }
@@ -406,7 +418,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         .map_err(|error: Error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
     }
 
-    async fn sync_bucket_pull_always(&self, _: &ObjectStorageRef, bucket: &str) -> Result<()> {
+    async fn sync_bucket_pull_always(&self, bucket: &str) -> Result<()> {
         self.target
             .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
             .await
@@ -424,8 +436,12 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         source: &ObjectStorageRef,
         bucket: &str,
     ) -> Result<()> {
-        // TODO: to be implemented
-        bail!("OnCreate pull policy is not supported yet ({bucket})")
+        let spec = BucketJobSpec {
+            source: Some(source),
+            sync_source: true,
+            ..Default::default()
+        };
+        self.get_or_create_bucket_job(bucket, "pull", spec).await
     }
 
     async fn sync_bucket_push_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
@@ -500,6 +516,275 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                 },
             })
             .await?;
+        Ok(())
+    }
+
+    pub async fn delete_bucket(&self) -> Result<()> {
+        let bucket_name = self.get_bucket_name();
+        if self.is_bucket_exists().await? {
+            if self.unsync_bucket(Some(bucket_name.clone()), true).await? {
+                let spec = BucketJobSpec {
+                    delete_target: true,
+                    ..Default::default()
+                };
+                self.get_or_create_bucket_job(&bucket_name, "delete", spec)
+                    .await
+                    .map_err(|error| anyhow!("failed to delete a bucket ({bucket_name}): {error}"))
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    pub async fn unsync_bucket(
+        &self,
+        bucket_name: Option<String>,
+        delete_bucket: bool,
+    ) -> Result<bool> {
+        let bucket_name = bucket_name.unwrap_or_else(|| self.get_bucket_name());
+        match &self.source {
+            Some((source, ModelStorageBindingSyncPolicy { pull, push })) => {
+                let delete = match pull {
+                    ModelStorageBindingSyncPolicyPull::Always => {
+                        self.unsync_bucket_pull_always(source, &bucket_name).await?
+                    }
+                    ModelStorageBindingSyncPolicyPull::OnCreate => true,
+                    ModelStorageBindingSyncPolicyPull::Never => true,
+                };
+                let delete = delete
+                    & match push {
+                        ModelStorageBindingSyncPolicyPush::Always => {
+                            self.unsync_bucket_push_always(source, &bucket_name).await?
+                        }
+                        ModelStorageBindingSyncPolicyPush::OnDelete => {
+                            self.unsync_bucket_push_on_delete(&bucket_name, delete_bucket)
+                                .await?
+                        }
+                        ModelStorageBindingSyncPolicyPush::Never => true,
+                    };
+                Ok(delete)
+            }
+            None => Ok(true),
+        }
+        .map_err(|error: Error| anyhow!("failed to unsync a bucket ({bucket_name}): {error}"))
+    }
+
+    async fn unsync_bucket_pull_always(
+        &self,
+        _source: &ObjectStorageRef,
+        _bucket: &str,
+    ) -> Result<bool> {
+        dbg!("unsyncing on Pull=Always is not supported");
+        Ok(true)
+    }
+
+    async fn unsync_bucket_push_always(
+        &self,
+        _source: &ObjectStorageRef,
+        _bucket: &str,
+    ) -> Result<bool> {
+        dbg!("unsyncing on Push=Always is not supported");
+        Ok(true)
+    }
+
+    async fn unsync_bucket_push_on_delete(
+        &self,
+        bucket: &str,
+        delete_bucket: bool,
+    ) -> Result<bool> {
+        let (source_session, bucket) = self.inverted(bucket)?;
+        let spec = BucketJobSpec {
+            delete_source: delete_bucket,
+            source: Some(self.target_ref),
+            sync_source: true,
+            ..Default::default()
+        };
+        source_session
+            .get_or_create_bucket_job(bucket, "push", spec)
+            .await?;
+        Ok(false)
+    }
+
+    async fn get_or_create_bucket_job(
+        &self,
+        bucket: &str,
+        command: &str,
+        BucketJobSpec {
+            delete_source,
+            delete_target,
+            source,
+            sync_source,
+        }: BucketJobSpec<'_>,
+    ) -> Result<()> {
+        let api = Api::<Job>::namespaced(self.kube.clone(), self.namespace);
+        let name = format!(
+            "{bucket}-{command}-{timestamp}",
+            timestamp = Utc::now().timestamp(),
+        );
+
+        get_or_create(&api, "service", &name, || {
+            let source_bucket = self.source_binding_name.unwrap_or(bucket).to_string();
+            let target_bucket = bucket.to_string();
+
+            let source_creds = source.as_ref().map(|source| source.provider.fetch());
+            let target_creds = self.target_ref.provider.fetch();
+
+            let source_endpoint = source.as_ref().map(|source| source.endpoint.to_string());
+            let target_endpoint = self.target_ref.endpoint.to_string();
+
+            let labels: BTreeMap<_, _> = vec![
+                ("dash.ulagbulag.io/modelstorage.name", bucket),
+                (
+                    "dash.ulagbulag.io/modelstorage.objectstorage.command",
+                    command,
+                ),
+            ]
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into()))
+            .collect();
+
+            Job {
+                metadata: ObjectMeta {
+                    labels: Some(labels.clone()),
+                    name: Some(name.clone()),
+                    namespace: Some(self.namespace.to_string()),
+                    ..Default::default()
+                },
+                spec: Some(JobSpec {
+                    ttl_seconds_after_finished: Some(30),
+                    template: PodTemplateSpec {
+                        metadata: Some(ObjectMeta {
+                            labels: Some(labels),
+                            ..Default::default()
+                        }),
+                        spec: Some(PodSpec {
+                            affinity: Some(Affinity {
+                                node_affinity: Some(get_default_node_affinity()),
+                                ..Default::default()
+                            }),
+                            containers: vec![Container {
+                                name: "minio-client".into(),
+                                image: Some("docker.io/minio/mc:latest".into()),
+                                image_pull_policy: Some("Always".into()),
+                                command: Some(vec![
+                                    "/usr/bin/env".into(),
+                                    "/bin/bash".into(),
+                                    "-c".into(),
+                                ]),
+                                args: Some(vec![r#"
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+# Add endpoints
+echo '* Adding endpoints...'
+if [ "x${SOURCE_ENDPOINT}" != 'x' ]; then
+    mc alias set 'source' "${SOURCE_ENDPOINT}" "${SOURCE_ACCESS_KEY}" "${SOURCE_SECRET_KEY}"
+fi
+mc alias set 'target' "${TARGET_ENDPOINT}" "${TARGET_ACCESS_KEY}" "${TARGET_SECRET_KEY}"
+
+# Sync
+echo '* Starting sync...'
+if [ "x${SOURCE_ENDPOINT}" != 'x' ]; then
+    if [ "x${SOURCE_SYNC}" = 'xtrue' ]; then
+        mc mirror "source/${SOURCE_BUCKET}" "target/${TARGET_BUCKET}" --overwrite --quiet
+    fi
+fi
+
+# Delete
+echo '* Deleting buckets...'
+if [ "x${SOURCE_ENDPOINT}" != 'x' ]; then
+    if [ "x${SOURCE_DELETE_BUCKET}" = 'xtrue' ]; then
+        mc rb "source/${SOURCE_BUCKET}" --force
+    fi
+fi
+if [ "x${TARGET_DELETE_BUCKET}" = 'xtrue' ]; then
+    mc rb "target/${TARGET_BUCKET}" --force
+fi
+
+# Finished!
+exec true
+"#
+                                .into()]),
+                                env: Some(vec![
+                                    EnvVar {
+                                        name: "SOURCE_ACCESS_KEY".into(),
+                                        value: source_creds
+                                            .as_ref()
+                                            .map(|creds| creds.access_key.clone()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_BUCKET".into(),
+                                        value: Some(source_bucket),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_DELETE_BUCKET".into(),
+                                        value: Some(delete_source.to_string()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_ENDPOINT".into(),
+                                        value: source_endpoint,
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_SECRET_KEY".into(),
+                                        value: source_creds
+                                            .as_ref()
+                                            .map(|creds| creds.secret_key.clone()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "SOURCE_SYNC".into(),
+                                        value: Some(sync_source.to_string()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_ACCESS_KEY".into(),
+                                        value: Some(target_creds.access_key),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_BUCKET".into(),
+                                        value: Some(target_bucket),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_DELETE_BUCKET".into(),
+                                        value: Some(delete_target.to_string()),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_ENDPOINT".into(),
+                                        value: Some(target_endpoint),
+                                        value_from: None,
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_SECRET_KEY".into(),
+                                        value: Some(target_creds.secret_key),
+                                        value_from: None,
+                                    },
+                                ]),
+                                ..Default::default()
+                            }],
+                            restart_policy: Some("OnFailure".into()),
+                            ..Default::default()
+                        }),
+                    },
+                    ..Default::default()
+                }),
+                status: None,
+            }
+        })
+        .await?;
         Ok(())
     }
 }
@@ -990,67 +1275,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                 "pools": [
                     {
                         "affinity": {
-                            "nodeAffinity": {
-                                // KISS normal control plane nodes should be preferred
-                                "preferredDuringSchedulingIgnoredDuringExecution": [
-                                    {
-                                        "weight": 1,
-                                        "preference": {
-                                            "matchExpressions": [
-                                                {
-                                                    "key": "node-role.kubernetes.io/kiss-ephemeral-control-plane",
-                                                    "operator": "DoesNotExist",
-                                                },
-                                            ],
-                                        },
-                                    },
-                                    {
-                                        "weight": 2,
-                                        "preference": {
-                                            "matchExpressions": [
-                                                {
-                                                    "key": "node-role.kubernetes.io/kiss",
-                                                    "operator": "In",
-                                                    "values": [
-                                                        "Compute",
-                                                    ],
-                                                },
-                                            ],
-                                        },
-                                    },
-                                    {
-                                        "weight": 4,
-                                        "preference": {
-                                            "matchExpressions": [
-                                                {
-                                                    "key": "node-role.kubernetes.io/kiss",
-                                                    "operator": "In",
-                                                    "values": [
-                                                        "Gateway",
-                                                    ],
-                                                },
-                                            ],
-                                        },
-                                    },
-                                ],
-                                "requiredDuringSchedulingIgnoredDuringExecution": {
-                                    "nodeSelectorTerms": [
-                                        {
-                                            "matchExpressions": [
-                                                {
-                                                    "key": "node-role.kubernetes.io/kiss",
-                                                    "operator": "In",
-                                                    "values": [
-                                                        "Compute",
-                                                        "ControlPlane",
-                                                        "Gateway",
-                                                    ],
-                                                },
-                                            ],
-                                        },
-                                    ],
-                                },
-                            },
+                            "nodeAffinity": get_default_node_affinity(),
                             "podAntiAffinity": {
                                 "requiredDuringSchedulingIgnoredDuringExecution": [
                                     {
@@ -1104,6 +1329,14 @@ export MINIO_ROOT_PASSWORD="{password}"
     .await?;
 
     Ok(secret_user_0)
+}
+
+#[derive(Default)]
+struct BucketJobSpec<'a> {
+    delete_source: bool,
+    delete_target: bool,
+    source: Option<&'a ObjectStorageRef>,
+    sync_source: bool,
 }
 
 async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
@@ -1184,6 +1417,45 @@ fn split_resources(
         ModelStorageObjectOwnedReplicationComputeResource(compute),
         ModelStorageObjectOwnedReplicationStorageResource(storage),
     ))
+}
+
+fn get_default_node_affinity() -> NodeAffinity {
+    NodeAffinity {
+        preferred_during_scheduling_ignored_during_execution: Some(vec![
+            PreferredSchedulingTerm {
+                preference: NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "node-role.kubernetes.io/kiss-ephemeral-control-plane".into(),
+                        operator: "DoesNotExist".into(),
+                        values: None,
+                    }]),
+                    match_fields: None,
+                },
+                weight: 1,
+            },
+            PreferredSchedulingTerm {
+                preference: NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "node-role.kubernetes.io/kiss".into(),
+                        operator: "In".into(),
+                        values: Some(vec!["Gateway".into()]),
+                    }]),
+                    match_fields: None,
+                },
+                weight: 2,
+            },
+        ]),
+        required_during_scheduling_ignored_during_execution: Some(NodeSelector {
+            node_selector_terms: vec![NodeSelectorTerm {
+                match_expressions: Some(vec![NodeSelectorRequirement {
+                    key: "node-role.kubernetes.io/kiss".into(),
+                    operator: "In".into(),
+                    values: Some(vec!["Compute".into(), "Gateway".into()]),
+                }]),
+                match_fields: None,
+            }],
+        }),
+    }
 }
 
 struct ModelStorageObjectOwnedReplicationComputeResource(ResourceRequirements);

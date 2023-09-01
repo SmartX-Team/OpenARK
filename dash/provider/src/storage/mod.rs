@@ -188,7 +188,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     ) -> Result<Option<Value>> {
         ObjectStorageClient::try_new(self.kube, self.namespace, storage)
             .await?
-            .get_session(model)
+            .get_session(self.kube, self.namespace, model)
             .get(ref_name)
             .await
     }
@@ -315,7 +315,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     ) -> Result<Vec<Value>> {
         ObjectStorageClient::try_new(self.kube, self.namespace, storage)
             .await?
-            .get_session(model)
+            .get_session(self.kube, self.namespace, model)
             .get_list()
             .await
     }

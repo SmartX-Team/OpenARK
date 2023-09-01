@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
-    model_storage_binding::ModelStorageBindingStorageSpec,
+    model_storage_binding::{ModelStorageBindingDeletionPolicy, ModelStorageBindingStorageSpec},
     storage::{
         db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
         object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec,
@@ -163,14 +163,122 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
         model: &ModelCrd,
     ) -> Result<()> {
-        ObjectStorageClient::try_new(
-            self.kubernetes_storage.kube,
-            self.kubernetes_storage.namespace,
-            storage,
-        )
-        .await?
-        .get_session(model)
-        .create_bucket()
-        .await
+        let KubernetesStorageClient { kube, namespace } = self.kubernetes_storage;
+
+        ObjectStorageClient::try_new(kube, namespace, storage)
+            .await?
+            .get_session(kube, namespace, model)
+            .create_bucket()
+            .await
+    }
+
+    pub(crate) async fn unbind_model(
+        &self,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageCrd>,
+        model: &ModelCrd,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
+    ) -> Result<()> {
+        match &storage.target.spec.kind {
+            ModelStorageKindSpec::Database(spec) => {
+                let storage =
+                    ModelStorageBindingStorageSpec {
+                        source: assert_source_is_same(storage.source, "Database", |source| {
+                            match &source.spec.kind {
+                                ModelStorageKindSpec::Database(source) => Ok(source),
+                                ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
+                                ModelStorageKindSpec::ObjectStorage(_) => Err("ObjectStorage"),
+                            }
+                        })?,
+                        source_binding_name: storage.source_binding_name,
+                        target: spec,
+                        target_name: storage.target_name,
+                    };
+                self.unbind_model_to_database(storage, model, deletion_policy)
+                    .await
+            }
+            ModelStorageKindSpec::Kubernetes(spec) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_same(storage.source, "Kubernetes", |source| {
+                        match &source.spec.kind {
+                            ModelStorageKindSpec::Database(_) => Err("Database"),
+                            ModelStorageKindSpec::Kubernetes(source) => Ok(source),
+                            ModelStorageKindSpec::ObjectStorage(_) => Err("ObjectStorage"),
+                        }
+                    })?,
+                    source_binding_name: storage.source_binding_name,
+                    target: spec,
+                    target_name: storage.target_name,
+                };
+                self.unbind_model_to_kubernetes(storage, model, deletion_policy)
+            }
+            ModelStorageKindSpec::ObjectStorage(spec) => {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: assert_source_is_same(storage.source, "ObjectStorage", |source| {
+                        match &source.spec.kind {
+                            ModelStorageKindSpec::Database(_) => Err("Database"),
+                            ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
+                            ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
+                        }
+                    })?,
+                    source_binding_name: storage.source_binding_name,
+                    target: spec,
+                    target_name: storage.target_name,
+                };
+                self.unbind_model_to_object(storage, model, deletion_policy)
+                    .await
+            }
+        }
+    }
+
+    async fn unbind_model_to_database(
+        &self,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
+        model: &ModelCrd,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
+    ) -> Result<()> {
+        match deletion_policy {
+            ModelStorageBindingDeletionPolicy::Delete => {
+                DatabaseStorageClient::try_new(storage.target)
+                    .await?
+                    .get_session(model)
+                    .delete_table()
+                    .await
+            }
+            ModelStorageBindingDeletionPolicy::Retain => Ok(()),
+        }
+    }
+
+    fn unbind_model_to_kubernetes(
+        &self,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
+        model: &ModelCrd,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
+    ) -> Result<()> {
+        let ModelStorageKubernetesSpec {} = storage.target;
+        match deletion_policy {
+            ModelStorageBindingDeletionPolicy::Delete => match model.spec {
+                ModelSpec::CustomResourceDefinitionRef(_) => Ok(()),
+                _ => bail!("kubernetes storage can only used for CRDs"),
+            },
+            ModelStorageBindingDeletionPolicy::Retain => Ok(()),
+        }
+    }
+
+    async fn unbind_model_to_object(
+        &self,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
+        model: &ModelCrd,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
+    ) -> Result<()> {
+        let KubernetesStorageClient { kube, namespace } = self.kubernetes_storage;
+
+        let client = ObjectStorageClient::try_new(kube, namespace, storage).await?;
+        let session = client.get_session(kube, namespace, model);
+        match deletion_policy {
+            ModelStorageBindingDeletionPolicy::Delete => session.delete_bucket().await,
+            ModelStorageBindingDeletionPolicy::Retain => {
+                session.unsync_bucket(None, false).await.map(|_| ())
+            }
+        }
     }
 }

@@ -37,6 +37,7 @@ where
     const NAME: &'static str;
     const NAMESPACE: &'static str;
     const FALLBACK: Duration = Duration::from_secs(30 * 60); // 30 minutes
+    const FINALIZER_NAME: &'static str = "";
 
     fn get_subcrds() -> Vec<CustomResourceDefinition> {
         Default::default()
@@ -180,7 +181,63 @@ where
     where
         Self: Sized;
 
-    async fn remove_finalizer(api: Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
+    async fn add_finalizer(api: &Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt,
+    {
+        let crd = <<Self as Ctx>::Data as CustomResourceExt>::api_resource();
+
+        let patch = Patch::Merge(json!({
+            "apiVersion": crd.api_version,
+            "kind": crd.kind,
+            "metadata": {
+                "finalizers": [
+                    <Self as Ctx>::FINALIZER_NAME,
+                ],
+            },
+        }));
+        let pp = PatchParams::apply(<Self as Ctx>::NAME);
+        api.patch(name, &pp, &patch).await?;
+        Ok(())
+    }
+
+    async fn add_finalizer_or_requeue(
+        api: &Api<<Self as Ctx>::Data>,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<Action, Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt,
+    {
+        let namespace = namespace.unwrap_or_default();
+        match <Self as Ctx>::add_finalizer(api, name).await {
+            Ok(()) => {
+                info!("added finalizer tag ({namespace}/{name})");
+                Ok(Action::await_change())
+            }
+            Err(e) => {
+                warn!("failed to add finalize tag ({namespace}/{name}): {e}");
+                Ok(Action::requeue(<Self as Ctx>::FALLBACK))
+            }
+        }
+    }
+
+    async fn add_finalizer_or_requeue_namespaced(
+        kube: Client,
+        namespace: &str,
+        name: &str,
+    ) -> Result<Action, Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = NamespaceResourceScope>,
+    {
+        let api = Api::<<Self as Ctx>::Data>::namespaced(kube, namespace);
+        <Self as Ctx>::add_finalizer_or_requeue(&api, Some(namespace), name).await
+    }
+
+    async fn remove_finalizer(api: &Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
     where
         Self: Sized,
         <Self as Ctx>::Data: CustomResourceExt,
@@ -197,6 +254,41 @@ where
         let pp = PatchParams::apply(<Self as Ctx>::NAME);
         api.patch(name, &pp, &patch).await?;
         Ok(())
+    }
+
+    async fn remove_finalizer_or_requeue(
+        api: &Api<<Self as Ctx>::Data>,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<Action, Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt,
+    {
+        let namespace = namespace.unwrap_or_default();
+        match <Self as Ctx>::remove_finalizer(api, name).await {
+            Ok(()) => {
+                info!("finalizing ({namespace}/{name})");
+                Ok(Action::await_change())
+            }
+            Err(e) => {
+                warn!("failed to finalize ({namespace}/{name}): {e}");
+                Ok(Action::requeue(<Self as Ctx>::FALLBACK))
+            }
+        }
+    }
+
+    async fn remove_finalizer_or_requeue_namespaced(
+        kube: Client,
+        namespace: &str,
+        name: &str,
+    ) -> Result<Action, Error>
+    where
+        Self: Sized,
+        <Self as Ctx>::Data: CustomResourceExt + Resource<Scope = NamespaceResourceScope>,
+    {
+        let api = Api::<<Self as Ctx>::Data>::namespaced(kube, namespace);
+        <Self as Ctx>::remove_finalizer_or_requeue(&api, Some(namespace), name).await
     }
 
     fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action

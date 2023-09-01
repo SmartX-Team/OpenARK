@@ -36,8 +36,14 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingSpec {
+    #[serde(default)]
+    pub deletion_policy: ModelStorageBindingDeletionPolicy,
     pub model: String,
     pub storage: ModelStorageBindingStorageKind<String>,
+}
+
+impl ModelStorageBindingCrd {
+    pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-model-storage-bindings";
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -190,11 +196,39 @@ impl Default for ModelStorageBindingSyncPolicyPush {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum ModelStorageBindingDeletionPolicy {
+    Delete,
+    Retain,
+}
+
+impl Default for ModelStorageBindingDeletionPolicy {
+    fn default() -> Self {
+        Self::Retain
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageBindingStatus {
     #[serde(default)]
     pub state: ModelStorageBindingState,
+    #[serde(default)]
+    pub deletion_policy: ModelStorageBindingDeletionPolicy,
     pub model: Option<ModelSpec>,
     pub storage: Option<ModelStorageBindingStorageKind<ModelStorageSpec>>,
     pub last_updated: DateTime<Utc>,
@@ -218,6 +252,7 @@ pub struct ModelStorageBindingStatus {
 pub enum ModelStorageBindingState {
     Pending,
     Ready,
+    Deleting,
 }
 
 impl Default for ModelStorageBindingState {

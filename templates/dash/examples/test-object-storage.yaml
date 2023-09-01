@@ -106,7 +106,6 @@ metadata:
 spec:
   objectStorage:
     cloned:
-      deletionPolicy: Retain
       endpoint: http://minio.my-storage-owned.svc.ops.openark/
       resources:
         requests:
@@ -126,7 +125,6 @@ metadata:
 spec:
   objectStorage:
     owned:
-      deletionPolicy: Retain
       resources:
         requests:
           storage: 1Ti
@@ -155,7 +153,6 @@ metadata:
 spec:
   objectStorage:
     owned:
-      deletionPolicy: Retain
       resources:
         requests:
           storage: 1Ti
@@ -184,7 +181,6 @@ metadata:
 spec:
   objectStorage:
     owned:
-      deletionPolicy: Retain
       resources:
         requests:
           storage: 1Ti
@@ -245,6 +241,7 @@ metadata:
   name: my-bucket-borrowed
   namespace: my-storage-borrowed
 spec:
+  deletionPolicy: Delete
   model: my-bucket-borrowed
   storage:
     owned:
@@ -256,6 +253,7 @@ metadata:
   name: my-bucket-cloned
   namespace: my-storage-cloned
 spec:
+  deletionPolicy: Retain
   model: my-bucket-cloned
   storage:
     owned:
@@ -267,6 +265,7 @@ metadata:
   name: my-bucket-cloned-pull
   namespace: my-storage-cloned-pull
 spec:
+  deletionPolicy: Delete
   model: my-bucket-cloned-pull
   storage:
     cloned:
@@ -274,8 +273,8 @@ spec:
       sourceBindingName: my-bucket-cloned-push
       target: my-object-storage # Receiver
       syncPolicy:
-        pull: Always
-        push: Never
+        pull: OnCreate
+        push: OnDelete
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
@@ -283,6 +282,7 @@ metadata:
   name: my-bucket-cloned-pull
   namespace: my-storage-cloned-push
 spec:
+  deletionPolicy: Retain
   model: my-bucket-cloned-push
   storage:
     owned:
@@ -294,6 +294,7 @@ metadata:
   name: my-bucket-cloned-push
   namespace: my-storage-cloned-push
 spec:
+  deletionPolicy: Retain
   model: my-bucket-cloned-push
   storage:
     cloned:
@@ -310,6 +311,7 @@ metadata:
   name: my-bucket-cloned-push
   namespace: my-storage-owned
 spec:
+  deletionPolicy: Retain
   model: my-bucket-cloned-push
   storage:
     owned:
@@ -321,6 +323,7 @@ metadata:
   name: my-bucket-owned
   namespace: my-storage-owned
 spec:
+  deletionPolicy: Retain
   model: my-bucket-owned
   storage:
     owned:
