@@ -83,7 +83,7 @@ language-tags = { version = "=0.3", features = ["serde"] }
 log = { version = "=0.4" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "d305e04d8fd0254742c07f9c69bf1b4209a1dea5", features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "a86e34ca346a9bbe3d05a334d3ef902800c5671c", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 ndarray = { version = "=0.15", features = ["serde"] }

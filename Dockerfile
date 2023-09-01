@@ -32,7 +32,7 @@ RUN mkdir /out \
     # Exclude netai packages
     && sed -i 's/^\( *\)\(.*\# *exclude( *alpine *)\)$/\1# \2/g' ./Cargo.toml \
     # Replace minio-wasm package into minio
-    && sed -i 's/rev *\= *\"d305e04d8fd0254742c07f9c69bf1b4209a1dea5\"\,//g' ./Cargo.toml \
+    && sed -i 's/rev *\= *\"a86e34ca346a9bbe3d05a334d3ef902800c5671c\"\,//g' ./Cargo.toml \
     # Replace reqwest-wasm package into reqwest
     && sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml \
     # Build

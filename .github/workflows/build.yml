@@ -53,7 +53,7 @@ jobs:
           && sudo apt-get install -y clang mold
 
       - name: Replace minio-wasm package into minio
-        run: sed -i 's/rev *\= *\"8ffbd847b68be585ff738db0cea6bc77a1ed7952\"\,//g' ./Cargo.toml
+        run: sed -i 's/rev *\= *\"a86e34ca346a9bbe3d05a334d3ef902800c5671c\"\,//g' ./Cargo.toml
 
       - name: Replace reqwest-wasm package into reqwest
         run: sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml
