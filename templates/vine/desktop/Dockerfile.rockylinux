@@ -286,6 +286,9 @@ RUN true \
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
+ARG DEEPSTREAM_VERSION_MAJOR="6"
+ARG DEEPSTREAM_VERSION_MINOR="2"
+ARG DEEPSTREAM_VERSION_PATCH="0"
 RUN true \
     # Get the latest version
     && DEEPSTREAM_VERSION=$( \
@@ -294,9 +297,9 @@ RUN true \
     ) \
     # Parse the version information
     && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
-    && DEEPSTREAM_VERSION_MAJOR="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')" \
-    && DEEPSTREAM_VERSION_MINOR="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $2}')" \
-    && DEEPSTREAM_VERSION_PATCH="$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')" \
+    && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION_MAJOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')"}" \
+    && DEEPSTREAM_VERSION_MINOR="${DEEPSTREAM_VERSION_MINOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $2}')"}" \
+    && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION_PATCH:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')"}" \
     && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
     && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
     # Download
