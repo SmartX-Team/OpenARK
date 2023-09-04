@@ -29,10 +29,43 @@ spec:
               mountPath: /host/proc
             - name: host-sys
               mountPath: /host/sys
+        - name: wifi
+          image: quay.io/app-sre/ubi8-ubi:latest
+          command:
+            - /usr/bin/bash
+            - -c
+          args:
+            - >
+              dnf install -y python311
+              && /opt/scripts/optimize-wifi.py
+              && sleep infinity
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - name: host-run
+              mountPath: /run
+            - name: host-sys-fs-cgroup
+              mountPath: /sys/fs/cgroup
+            - name: scripts
+              mountPath: /opt/scripts
+      hostIPC: true
       volumes:
         - name: host-proc
           hostPath:
             path: /proc
+        - name: host-run
+          hostPath:
+            path: /run
+            type: Directory
         - name: host-sys
           hostPath:
             path: /sys
+        - name: host-sys-fs-cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+        - name: scripts
+          configMap:
+            defaultMode: 365
+            name: ansible-task-optimize

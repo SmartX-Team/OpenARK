@@ -83,7 +83,6 @@ spec:
 {% else %}
             - reboot
 {% endif %}
-          hostIPC: true
           securityContext:
             privileged: true
             runAsUser: 0
@@ -101,6 +100,7 @@ spec:
               cpu: 100m
               memory: 100Mi
 {% if not spec.hard and spec.power != "on" %}
+      hostIPC: true
       restartPolicy: Never
       volumes:
         - name: run
