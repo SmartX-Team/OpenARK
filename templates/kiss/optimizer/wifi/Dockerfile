@@ -11,6 +11,7 @@ FROM "quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION}"
 # Install dependencies
 RUN dnf install -y \
     iproute \
+    iputils \
     NetworkManager \
     python3 \
     && rm -rf /var/cache/dnf/*

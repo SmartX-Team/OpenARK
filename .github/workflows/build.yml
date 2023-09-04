@@ -273,8 +273,8 @@ jobs:
           context: ./templates/kiss/optimizer/wifi
           containerfiles: |
             ./templates/kiss/optimizer/wifi/Dockerfile
-          build-args: |
-            ROCKYLINUX_VERSION=${{ env.ROCKYLINUX_VERSION }}
+          # build-args: |
+          #   ROCKYLINUX_VERSION=${{ env.ROCKYLINUX_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
