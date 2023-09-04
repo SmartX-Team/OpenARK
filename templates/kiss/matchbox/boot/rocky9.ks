@@ -407,6 +407,47 @@ WantedBy=multi-user.target
 EOF
 ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
 
+# Network Configuration
+mkdir -p /etc/systemd/system/multi-user.target.wants/
+
+## Wireless (Wi-Fi)
+cat <<EOF >/usr/local/bin/optimize-wifi.sh
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+# Remove BSSID condition
+if
+    nmcli connection show '10-kiss-enable-master' |
+        grep -Po '^connection\.type\: *802\-11\-wireless\$' >dev/null
+then
+    nmcli connection modify '10-kiss-enable-master' -802-11-wireless.bssid ""
+    systemctl restart NetworkManager
+fi
+
+# Finished!
+exec true
+EOF
+chmod u+x /usr/local/bin/optimize-wifi.sh
+
+cat <<EOF >/etc/systemd/system/optimize-wifi.service
+[Unit]
+Description=Optimize wireless networking performance.
+Wants=network-online.target
+After=network-online.target
+[Service]
+ExecStart=/usr/local/bin/optimize-wifi.sh
+Restart=on-failure
+RestartSec=30
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sf /etc/systemd/system/optimize-wifi.service /etc/systemd/system/multi-user.target.wants/optimize-wifi.service
+
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/
 cat <<EOF >/etc/sysctl.d/50-hugepages.conf
