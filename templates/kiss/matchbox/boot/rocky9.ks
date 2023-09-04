@@ -577,6 +577,8 @@ class ConnectionDatabase:
             print(f'Current: {current}')
             print(f'Switching to: {best}')
             best.connect(self._nm_connection)
+            return True
+        return False
 
 
 if __name__ == '__main__':
@@ -587,8 +589,10 @@ if __name__ == '__main__':
     connections.reset()
 
     while True:
-        connections.update_connection()
-        time.sleep(5)
+        if connections.update_connection():
+            time.sleep(5)
+        else:
+            time.sleep(5 * 60)  # 5 minutes
 EOF
 chmod u+x /usr/local/bin/optimize-wifi.py
 
