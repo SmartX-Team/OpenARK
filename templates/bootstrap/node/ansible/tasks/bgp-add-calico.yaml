@@ -1,1 +1,26 @@
-../../../../kiss/tasks/common/bgp-add-calico.yaml
+---
+# reference: https://github.com/kubernetes-sigs/kubespray/blob/master/roles/network_plugin/calico/tasks/peer_with_router.yml
+- name: Calico | Configure peering with router(s) at global scope
+  command:
+    cmd: "{{ bin_dir }}/calicoctl.sh apply -f -"
+    stdin: "{{ stdin is string | ternary(stdin, stdin|to_json) }}"
+  vars:
+    stdin: >
+      {
+        "apiVersion": "projectcalico.org/v3",
+        "kind": "BGPPeer",
+        "metadata": {
+          "name": "global-{{ hostvars[item].ansible_ssh_host }}"
+        },
+        "spec": {
+          "asNumber": "{{ hostvars[item].router_as | default(global_as_num) }}",
+          "peerIP": "{{ hostvars[item].ansible_ssh_host }}"
+        }
+      }
+  register: output
+  retries: 4
+  until: output.rc == 0
+  delay: "{{ 5 }}"
+  with_inventory_hostnames: global_rr
+  when:
+    - inventory_hostname == groups['kube_control_plane'][0]
