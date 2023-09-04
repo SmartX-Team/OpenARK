@@ -452,19 +452,24 @@ class Connection:
         self._latency: float | None = None
 
     def _calculate_latency(self) -> None:
+        PING_SECS = 4
+
         parsed = _run_shell(
             'ip route '
             '| head -n 1 '
             '| awk \'{print \$3}\' '
-            '| xargs ping -U -c 4 '
+            f'| xargs ping -U -c {PING_SECS} -w {PING_SECS + 1} '
             '| tail -n 1 '
             '| awk \'{print \$4}\'',
         ).strip().split('/')
-        latency_avg = float(parsed[1])
-        latency_dev = float(parsed[3])
-        latency = latency_avg + latency_dev
-        # latency_min = float(parsed[0])
-        # latency = latency_min
+        if len(parsed) == 4:
+            latency_avg = float(parsed[1])
+            latency_dev = float(parsed[3])
+            latency = latency_avg + latency_dev
+            # latency_min = float(parsed[0])
+            # latency = latency_min
+        else:
+            latency = float(2 * PING_SECS * 1000)
 
         if self._latency is None:
             self._latency = latency
