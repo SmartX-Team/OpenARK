@@ -540,7 +540,7 @@ class ConnectionDatabase:
             '&& sleep 10'
         )
 
-    def update_connection(self):
+    def update_connection(self) -> bool:
         def _candidate_score_sort_key(item: tuple[Connection, int]) -> (int, str):
             connection, score = item
             return -score, connection._bssid
