@@ -30,15 +30,14 @@ spec:
             - name: host-sys
               mountPath: /host/sys
         - name: wifi
-          image: quay.io/app-sre/ubi8-ubi:latest
+          image: quay.io/ulagbulag/openark-kiss-optimizer-wifi
           command:
             - /usr/bin/bash
             - -c
           args:
             - >
-              dnf install -y python311
-              && /opt/scripts/optimize-wifi.py
-              && sleep infinity
+              /opt/scripts/optimize-wifi.py
+              && exec sleep infinity
           securityContext:
             privileged: true
             runAsUser: 0
@@ -50,6 +49,7 @@ spec:
             - name: scripts
               mountPath: /opt/scripts
       hostIPC: true
+      hostNetwork: true
       volumes:
         - name: host-proc
           hostPath:

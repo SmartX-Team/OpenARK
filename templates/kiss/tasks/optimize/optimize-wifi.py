@@ -122,7 +122,10 @@ class ConnectionDatabase:
         return fetched
 
     def is_available(self) -> bool:
-        return _run_shell('ip a | grep wlp').strip() != ''
+        return _run_shell(
+            f'nmcli connection show {self._nm_connection} '
+            '| grep -Po \'^connection\.type\: *802\-11\-wireless$\''
+        ).strip() != ''
 
     def reset(self) -> None:
         return _run_shell(
