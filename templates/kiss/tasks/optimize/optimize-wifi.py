@@ -60,7 +60,7 @@ class Connection:
         if self._latency is None:
             self._latency = latency
         else:
-            self._latency = min(self._latency, latency)
+            self._latency = (self._latency + latency) / 2
 
     @classmethod
     def get_list(cls) -> list['Connection']:
