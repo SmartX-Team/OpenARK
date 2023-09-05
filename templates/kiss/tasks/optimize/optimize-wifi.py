@@ -4,7 +4,6 @@
 # found in the LICENSE file.
 
 import subprocess
-import sys
 import time
 
 
