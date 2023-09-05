@@ -4,6 +4,7 @@
 # found in the LICENSE file.
 
 import subprocess
+import sys
 import time
 
 
@@ -134,7 +135,7 @@ class ConnectionDatabase:
             '&& sleep 10'
         )
 
-    def update_connection(self) -> bool:
+    def update_connection(self, is_updated: bool) -> bool:
         def _candidate_score_sort_key(item: tuple[Connection, int]) -> (int, str):
             connection, score = item
             return -score, connection._bssid
@@ -169,9 +170,11 @@ class ConnectionDatabase:
         if candidates_score_sorted:
             best, _ = candidates_score_sorted[0]
             print(f'Current: {current}')
-            print(f'Switching to: {best}')
+            print(f'Switching to: {best}', flush=True)
             best.connect(self._nm_connection)
             return True
+        elif is_updated:
+            print(f'Current: {current}')
         return False
 
 
@@ -182,8 +185,10 @@ if __name__ == '__main__':
         exit(0)
     connections.reset()
 
+    is_updated = True
     while True:
-        if connections.update_connection():
+        is_updated = connections.update_connection(is_updated)
+        if is_updated:
             time.sleep(5)
         else:
             time.sleep(5 * 60)  # 5 minutes
