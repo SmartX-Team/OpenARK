@@ -139,15 +139,20 @@ class ConnectionDatabase:
             connection, score = item
             return -score, connection._bssid
 
-        infos = Connection.get_list()
-        current = self._fetch_connection(next(
-            info
-            for info in infos
-            if info._in_use and (
-                not self._ssid
-                or self._ssid == info._ssid
-            )
-        ))
+        while True:
+            try:
+                infos = Connection.get_list()
+                current = self._fetch_connection(next(
+                    info
+                    for info in infos
+                    if info._in_use and (
+                        not self._ssid
+                        or self._ssid == info._ssid
+                    )
+                ))
+            except StopIteration:
+                continue
+            break
 
         candidates = [
             self._fetch_connection(info)
