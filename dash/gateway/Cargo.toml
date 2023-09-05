@@ -24,9 +24,9 @@ vine-api = { path = "../../vine/api" }
 vine-plugin = { path = "../../vine/plugin" }
 vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
 
-anyhow = { workspace = true }
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
+anyhow = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",

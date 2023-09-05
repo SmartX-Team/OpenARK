@@ -12,6 +12,7 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
+    "dash/plugins/storage-sync",
     "dash/provider",
     "dash/provider/api",
     "dash/provider/client",
