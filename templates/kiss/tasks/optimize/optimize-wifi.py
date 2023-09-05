@@ -73,7 +73,7 @@ class Connection:
         ]
 
     def calculate_score(self, base: 'Connection') -> tuple[bool, int]:
-        QUALITY_PANELTY = 10
+        QUALITY_PANELTY = 0
 
         if self._latency is not None and self._latency > base._latency:
             return (False, 0)
