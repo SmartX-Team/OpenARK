@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG PYTORCH_RELEASE="23.07"
+ARG PYTORCH_RELEASE="23.08"
 ARG PYTHON_VERSION="3"
 
 # Configure user-specific environment variables
@@ -124,6 +124,8 @@ RUN apt-get update && apt-get install -y \
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
+    # Podman-Compose Configuration
+    && pip3 install podman-compose \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
     && echo '[storage]' >/etc/containers/storage.conf \
     && echo 'driver = "overlay"' >>/etc/containers/storage.conf \
