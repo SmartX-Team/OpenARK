@@ -14,7 +14,7 @@ data:
   ###########################################################################
   # Bare-metal Box Commissioning Configuration
   ###########################################################################
-  allow_critical_commands: "true"
+  allow_critical_commands: "false"
   allow_pruning_network_interfaces: "false"
 
   ###########################################################################
