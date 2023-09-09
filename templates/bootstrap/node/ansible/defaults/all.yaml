@@ -314,7 +314,7 @@ all:
         # Fill values override here
         # See upstream https://github.com/postfinance/kubelet-csr-approver
         kubelet_csr_approver_values:
-          bypassDnsResolution: "false"
+          bypassDnsResolution: "true"
 
         # additional configurations
         kube_owner: root
