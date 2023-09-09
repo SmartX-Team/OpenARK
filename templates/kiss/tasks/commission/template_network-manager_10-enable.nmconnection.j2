@@ -21,6 +21,7 @@ addr-gen-mode=eui64
 dns-search=
 method=disabled
 
+{% if kiss_network_wireless_wifi_ssid != "" %}
 [wifi]
 mode=infrastructure
 ssid={{ kiss_network_wireless_wifi_ssid }}
@@ -29,5 +30,6 @@ ssid={{ kiss_network_wireless_wifi_ssid }}
 auth-log=open
 key-mgmt={{ kiss_network_wireless_wifi_key_mgmt }}
 psk={{ kiss_network_wireless_wifi_key_psk }}
+{% endif %}
 
 [proxy]
