@@ -261,7 +261,7 @@ all:
           - MutatingAdmissionWebhook
           - ValidatingAdmissionWebhook
           - PodNodeSelector
-          - PodSecurity
+          # - PodSecurity
         kube_apiserver_admission_control_config_file: true
         # EventRateLimit plugin configuration
         kube_apiserver_admission_event_rate_limits:
