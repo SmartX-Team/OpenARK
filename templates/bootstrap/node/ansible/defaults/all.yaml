@@ -313,7 +313,8 @@ all:
 
         # Fill values override here
         # See upstream https://github.com/postfinance/kubelet-csr-approver
-        kubelet_csr_approver_values: {}
+        kubelet_csr_approver_values:
+          bypassDnsResolution: "false"
 
         # additional configurations
         kube_owner: root
@@ -321,5 +322,5 @@ all:
 
         # create a default Pod Security Configuration and deny running of insecure pods
         # kube_system namespace is exempted by default
-        kube_pod_security_use_default: true
+        kube_pod_security_use_default: false
         kube_pod_security_default_enforce: restricted
