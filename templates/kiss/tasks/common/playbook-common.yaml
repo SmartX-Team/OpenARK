@@ -98,11 +98,6 @@
         upstream_dns_servers:
           - "{{ lookup('env', 'kiss_network_nameserver_incluster_ipv4') }}"
 
-    - name: Execute task with extended PATH
-      shell: echo ${PATH}
-      environment:
-        PATH: "{{ ansible_env.PATH }}:/usr/local/bin:/opt/bin"
-
 - hosts: os_flatcar
   gather_facts: false
   tasks:
