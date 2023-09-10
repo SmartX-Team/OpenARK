@@ -22,6 +22,9 @@ spec:
           args:
             - >
               echo madvise >/host/sys/kernel/mm/transparent_hugepage/enabled
+              && echo 2099999999 > /host/proc/sys/fs/inotify/max_queued_events
+              && echo 2099999999 > /host/proc/sys/fs/inotify/max_user_instances
+              && echo 2099999999 > /host/proc/sys/fs/inotify/max_user_watches
               && echo 0 > /host/proc/sys/vm/nr_hugepages
               && exec sleep infinity
           volumeMounts:
