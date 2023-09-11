@@ -458,7 +458,7 @@ impl AnsibleClient {
                                     &group.cluster_name,
                                 )),
                                 default_mode: Some(0o400),
-                                optional: Some(true),
+                                optional: Some(!self.kiss.group_enforce_ansible_control_planes),
                                 ..Default::default()
                             }),
                             ..Default::default()

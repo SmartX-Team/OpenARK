@@ -12,6 +12,7 @@ pub struct KissConfig {
     pub bootstrapper_node_size: usize,
     pub etcd_nodes_max: usize,
     pub group_enable_default_cluster: bool,
+    pub group_enforce_ansible_control_planes: bool,
     pub group_force_reset: bool,
     pub group_force_reset_os: bool,
     pub kubespray_image: String,
@@ -37,6 +38,10 @@ impl KissConfig {
             bootstrapper_node_size: infer(&config, "bootstrapper_node_size")?,
             etcd_nodes_max: infer(&config, "etcd_nodes_max")?,
             group_enable_default_cluster: infer(&config, "group_enable_default_cluster")?,
+            group_enforce_ansible_control_planes: infer(
+                &config,
+                "group_enforce_ansible_control_planes",
+            )?,
             group_force_reset: infer(&config, "group_force_reset")?,
             group_force_reset_os: infer(&config, "group_force_reset_os")?,
             kubespray_image: infer(&config, "kubespray_image")?,
