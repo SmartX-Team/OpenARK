@@ -33,8 +33,9 @@ spec:
             - name: host-sys
               mountPath: /host/sys
       #   - name: wifi
-      #     image: quay.io/ulagbulag/openark-kiss-optimizer-wifi
+      #     image: quay.io/ulagbulag/openark-kiss-optimizer-wifi:latest
       #     command:
+      #       - /usr/bin/env
       #       - /usr/bin/bash
       #       - -c
       #     args:
@@ -49,10 +50,13 @@ spec:
       #         mountPath: /run
       #       - name: host-sys-fs-cgroup
       #         mountPath: /sys/fs/cgroup
+      #         readOnly: true
+      #       - name: host-var-run-dbus
+      #         mountPath: /var/run/dbus
       #       - name: scripts
       #         mountPath: /opt/scripts
-      # hostIPC: true
-      # hostNetwork: true
+      hostIPC: true
+      hostNetwork: true
       volumes:
         - name: host-proc
           hostPath:
@@ -67,6 +71,10 @@ spec:
         - name: host-sys-fs-cgroup
           hostPath:
             path: /sys/fs/cgroup
+            type: Directory
+        - name: host-var-run-dbus
+          hostPath:
+            path: /var/run/dbus
             type: Directory
         - name: scripts
           configMap:
