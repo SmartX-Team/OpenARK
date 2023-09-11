@@ -157,6 +157,13 @@ fi
 _IS_DESKTOP="false"
 _IS_NVIDIA_MANUAL="false"
 
+## SBSA Architecture Configuration
+if [ "$(uname -m)" = 'aarch64' ]; then
+    ARCH_SBSA='sbsa'
+else
+    ARCH_SBSA="$(uname -m)"
+fi
+
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 ## Wireless - WIFI
@@ -317,7 +324,7 @@ if lspci | grep 'NVIDIA'; then
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
             dnf install -y kernel-devel kernel-headers
-            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/$(uname -m)/cuda-rhel$(rpm -E %rhel).repo"
+            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
             dnf module install -y "nvidia-driver:latest-dkms"
             dnf install -y \
                 cuda \
