@@ -2,6 +2,13 @@
 # -- Namespace of the main rook operator
 # operatorNamespace: csi-rook-ceph
 
+# -- Cluster ceph.conf override
+configOverride: |
+  [global]
+  mon_allow_pool_delete = true
+  osd_pool_default_size = 3
+  osd_pool_default_min_size = 2
+
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment
