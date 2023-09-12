@@ -85,6 +85,9 @@ BLOCKDEV="/sys/block"
 ROOTDEV=""
 ROOTSIZE=1000000000
 
+# Remove all LVM partitions
+dmsetup remove_all
+
 # /sys/block/*/size is in 512 byte chunks
 for DEV in $(lsblk -d | sed 's/^\(nvme[0-9]\+n[0-9]\+\)\?\([sv]d[a-z]\+\)\?.*$/\1\2/g' | xargs); do
     if [ -d ${BLOCKDEV}/${DEV} ]; then
