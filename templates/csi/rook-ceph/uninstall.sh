@@ -69,4 +69,4 @@ echo "- Removing Namespace ... "
 kubectl delete namespace "${NAMESPACE}"
 
 # Finished!
-echo "Installed!"
+echo "Uninstalled!"
