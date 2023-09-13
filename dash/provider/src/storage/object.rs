@@ -1449,11 +1449,22 @@ fn get_default_node_affinity() -> NodeAffinity {
                     match_expressions: Some(vec![NodeSelectorRequirement {
                         key: "node-role.kubernetes.io/kiss".into(),
                         operator: "In".into(),
-                        values: Some(vec!["Gateway".into()]),
+                        values: Some(vec!["Compute".into()]),
                     }]),
                     match_fields: None,
                 },
                 weight: 2,
+            },
+            PreferredSchedulingTerm {
+                preference: NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "node-role.kubernetes.io/kiss".into(),
+                        operator: "In".into(),
+                        values: Some(vec!["Gateway".into()]),
+                    }]),
+                    match_fields: None,
+                },
+                weight: 4,
             },
         ]),
         required_during_scheduling_ignored_during_execution: Some(NodeSelector {
@@ -1461,7 +1472,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                 match_expressions: Some(vec![NodeSelectorRequirement {
                     key: "node-role.kubernetes.io/kiss".into(),
                     operator: "In".into(),
-                    values: Some(vec!["Compute".into(), "Gateway".into()]),
+                    values: Some(vec!["Compute".into(), "ControlPlane".into(), "Gateway".into()]),
                 }]),
                 match_fields: None,
             }],
