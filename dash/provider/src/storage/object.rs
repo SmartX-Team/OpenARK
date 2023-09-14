@@ -232,7 +232,6 @@ impl<'model> ObjectStorageRef {
             Ok("minio/minio:RELEASE.2023-06-09T07-32-12Z".into())
         }
 
-        let minio_domain = get_minio_domain(namespace).await?;
         let tenant_name = "object-storage";
         let labels = {
             let mut map: BTreeMap<String, String> = BTreeMap::default();
@@ -250,7 +249,7 @@ impl<'model> ObjectStorageRef {
                 pool_name,
                 storage,
             };
-            get_or_create_minio_tenant(kube, namespace, name, &minio_domain, spec).await?
+            get_or_create_minio_tenant(kube, namespace, name, spec).await?
         };
 
         {
@@ -273,7 +272,11 @@ impl<'model> ObjectStorageRef {
         };
 
         Ok(ModelStorageObjectRefSpec {
-            endpoint: format!("http://{minio_domain}/").parse()?,
+            endpoint: format!(
+                "http://{minio_domain}/",
+                minio_domain = get_minio_domain(namespace).await?,
+            )
+            .parse()?,
             secret_ref: ModelStorageObjectRefSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
@@ -1132,7 +1135,6 @@ async fn get_or_create_minio_tenant(
     kube: &Client,
     namespace: &str,
     name: &str,
-    minio_domain: &str,
     MinioTenantSpec {
         image,
         labels,
@@ -1278,14 +1280,6 @@ export MINIO_ROOT_PASSWORD="{password}"
                 "exposeServices": {
                     "console": minio_console_external_service.is_enabled(),
                     "minio": minio_external_service.is_enabled(),
-                },
-                "features": {
-                    "bucketDNS": true,
-                    "domains": {
-                        "minio": [
-                            minio_domain,
-                        ],
-                    },
                 },
                 "image": image,
                 "imagePullSecret": {},
