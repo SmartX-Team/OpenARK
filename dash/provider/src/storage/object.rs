@@ -24,7 +24,7 @@ use k8s_openapi::{
         core::v1::{
             Affinity, Container, EnvVar, NodeAffinity, NodeSelector, NodeSelectorRequirement,
             NodeSelectorTerm, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
-            ResourceRequirements, Secret,
+            ResourceRequirements, Secret, Service,
         },
         networking::v1::{
             HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
@@ -271,12 +271,27 @@ impl<'model> ObjectStorageRef {
             .await?
         };
 
+        let minio_domain = {
+            let api = Api::<Service>::namespaced(kube.clone(), namespace);
+            match api.get_opt("minio").await?.and_then(|service| {
+                service
+                    .status
+                    .and_then(|status| status.load_balancer)
+                    .and_then(|load_balancer| load_balancer.ingress)
+                    .and_then(|ingresses| {
+                        ingresses
+                            .into_iter()
+                            .filter_map(|ingress| ingress.ip)
+                            .next()
+                    })
+            }) {
+                Some(ip) => ip,
+                None => get_kubernetes_minio_domain(namespace).await?,
+            }
+        };
+
         Ok(ModelStorageObjectRefSpec {
-            endpoint: format!(
-                "http://{minio_domain}/",
-                minio_domain = get_minio_domain(namespace).await?,
-            )
-            .parse()?,
+            endpoint: format!("http://{minio_domain}/").parse()?,
             secret_ref: ModelStorageObjectRefSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
@@ -1496,7 +1511,7 @@ fn get_default_node_affinity() -> NodeAffinity {
     }
 }
 
-async fn get_minio_domain(namespace: &str) -> Result<String> {
+async fn get_kubernetes_minio_domain(namespace: &str) -> Result<String> {
     Ok(format!(
         "minio.{namespace}.svc.{cluster_domain}",
         cluster_domain = get_cluster_domain().await?,
