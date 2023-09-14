@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, net::Ipv4Addr};
 
 use k8s_openapi::{
     api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
@@ -51,6 +51,12 @@ pub struct ModelStorageObjectClonedSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectOwnedSpec {
+    #[serde(default)]
+    pub minio_console_external_service: ModelStorageObjectOwnedExternalServiceSpec,
+
+    #[serde(default)]
+    pub minio_external_service: ModelStorageObjectOwnedExternalServiceSpec,
+
     #[serde(default, flatten)]
     pub replication: ModelStorageObjectOwnedReplicationSpec,
 
@@ -64,6 +70,8 @@ pub struct ModelStorageObjectOwnedSpec {
 impl Default for ModelStorageObjectOwnedSpec {
     fn default() -> Self {
         Self {
+            minio_console_external_service: Default::default(),
+            minio_external_service: Default::default(),
             replication: Default::default(),
             runtime_class_name: Self::default_runtime_class_name(),
             storage_class_name: Self::default_storage_class_name(),
@@ -142,6 +150,22 @@ impl ModelStorageObjectOwnedReplicationSpec {
 
     const fn default_total_volumes_per_node() -> u32 {
         4
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStorageObjectOwnedExternalServiceSpec {
+    #[serde(default)]
+    pub address_pool: Option<String>,
+
+    #[serde(default)]
+    pub ip: Option<Ipv4Addr>,
+}
+
+impl ModelStorageObjectOwnedExternalServiceSpec {
+    pub const fn is_enabled(&self) -> bool {
+        self.address_pool.is_some() || self.ip.is_some()
     }
 }
 

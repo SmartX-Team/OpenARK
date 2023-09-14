@@ -18,7 +18,9 @@ ark-core = { path = "../../ark/core", features = ["actix-web"] }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
 dash-provider-api = { path = "../provider/api" }
-dash-provider-client = { path = "../provider/client" }
+dash-provider-client = { path = "../provider/client", features = [
+    "dash-provider",
+] }
 kiss-plugin = { path = "../../kiss/plugin" }
 vine-api = { path = "../../vine/api" }
 vine-plugin = { path = "../../vine/plugin" }

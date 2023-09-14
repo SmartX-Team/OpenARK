@@ -18,6 +18,7 @@ default = []
 i-want-to-cleanup-all-before-running-for-my-testing = []
 
 [dependencies]
+ark-core-k8s = { path = "../../ark/core/k8s", features = ["domain"] }
 dash-api = { path = "../api" }
 dash-provider-api = { path = "./api" }
 

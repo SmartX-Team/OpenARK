@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Error, Result};
+use ark_core_k8s::domain::get_cluster_domain;
 use byte_unit::Byte;
 use chrono::Utc;
 use dash_api::{
@@ -226,17 +227,12 @@ impl<'model> ObjectStorageRef {
         namespace: &str,
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<ModelStorageObjectRefSpec> {
-        let ModelStorageObjectOwnedSpec {
-            replication,
-            runtime_class_name,
-            storage_class_name,
-        } = storage;
-
         async fn get_latest_minio_image() -> Result<String> {
             // TODO: to be implemented
             Ok("minio/minio:RELEASE.2023-06-09T07-32-12Z".into())
         }
 
+        let minio_domain = get_minio_domain(namespace).await?;
         let tenant_name = "object-storage";
         let labels = {
             let mut map: BTreeMap<String, String> = BTreeMap::default();
@@ -252,11 +248,9 @@ impl<'model> ObjectStorageRef {
                 image: get_latest_minio_image().await?,
                 labels: &labels,
                 pool_name,
-                replication,
-                runtime_class_name,
-                storage_class_name,
+                storage,
             };
-            get_or_create_minio_tenant(kube, namespace, name, spec).await?
+            get_or_create_minio_tenant(kube, namespace, name, &minio_domain, spec).await?
         };
 
         {
@@ -279,8 +273,7 @@ impl<'model> ObjectStorageRef {
         };
 
         Ok(ModelStorageObjectRefSpec {
-            // TODO: use real cluster domain name (not ops.openark.)
-            endpoint: format!("http://minio.{namespace}.svc.ops.openark/").parse()?,
+            endpoint: format!("http://{minio_domain}/").parse()?,
             secret_ref: ModelStorageObjectRefSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
@@ -1132,27 +1125,31 @@ struct MinioTenantSpec<'a> {
     image: String,
     labels: &'a BTreeMap<String, String>,
     pool_name: &'a str,
-    replication: &'a ModelStorageObjectOwnedReplicationSpec,
-    runtime_class_name: &'a str,
-    storage_class_name: &'a str,
+    storage: &'a ModelStorageObjectOwnedSpec,
 }
 
 async fn get_or_create_minio_tenant(
     kube: &Client,
     namespace: &str,
     name: &str,
+    minio_domain: &str,
     MinioTenantSpec {
         image,
         labels,
         pool_name,
-        replication:
-            ModelStorageObjectOwnedReplicationSpec {
-                total_nodes,
-                total_volumes_per_node,
-                resources,
+        storage:
+            ModelStorageObjectOwnedSpec {
+                minio_console_external_service,
+                minio_external_service,
+                replication:
+                    ModelStorageObjectOwnedReplicationSpec {
+                        total_nodes,
+                        total_volumes_per_node,
+                        resources,
+                    },
+                runtime_class_name,
+                storage_class_name,
             },
-        runtime_class_name,
-        storage_class_name,
     }: MinioTenantSpec<'_>,
 ) -> Result<Secret> {
     fn random_string(n: usize) -> String {
@@ -1278,7 +1275,18 @@ export MINIO_ROOT_PASSWORD="{password}"
                 "credsSecret": {
                     "name": secret_creds.name_any(),
                 },
-                "exposeServices": {},
+                "exposeServices": {
+                    "console": minio_console_external_service.is_enabled(),
+                    "minio": minio_external_service.is_enabled(),
+                },
+                "features": {
+                    "bucketDNS": true,
+                    "domains": {
+                        "minio": [
+                            minio_domain,
+                        ],
+                    },
+                },
                 "image": image,
                 "imagePullSecret": {},
                 "mountPath": "/export",
@@ -1332,6 +1340,16 @@ export MINIO_ROOT_PASSWORD="{password}"
                     },
                 ],
                 "requestAutoCert": false,
+                "serviceMetadata": {
+                    "consoleServiceAnnotations": {
+                        "metallb.universe.tf/address-pool": minio_console_external_service.address_pool,
+                        "metallb.universe.tf/loadBalancerIPs": minio_console_external_service.ip,
+                    },
+                    "minioServiceAnnotations": {
+                        "metallb.universe.tf/address-pool": minio_external_service.address_pool,
+                        "metallb.universe.tf/loadBalancerIPs": minio_external_service.ip,
+                    },
+                },
                 "users": users,
             },
         }),
@@ -1472,12 +1490,23 @@ fn get_default_node_affinity() -> NodeAffinity {
                 match_expressions: Some(vec![NodeSelectorRequirement {
                     key: "node-role.kubernetes.io/kiss".into(),
                     operator: "In".into(),
-                    values: Some(vec!["Compute".into(), "ControlPlane".into(), "Gateway".into()]),
+                    values: Some(vec![
+                        "Compute".into(),
+                        "ControlPlane".into(),
+                        "Gateway".into(),
+                    ]),
                 }]),
                 match_fields: None,
             }],
         }),
     }
+}
+
+async fn get_minio_domain(namespace: &str) -> Result<String> {
+    Ok(format!(
+        "minio.{namespace}.svc.{cluster_domain}",
+        cluster_domain = get_cluster_domain().await?,
+    ))
 }
 
 struct ModelStorageObjectOwnedReplicationComputeResource(ResourceRequirements);

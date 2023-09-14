@@ -6,7 +6,6 @@ use dash_api::{
     function::FunctionCrd,
     job::{DashJobCrd, DashJobSpec},
 };
-use dash_provider::storage::KubernetesStorageClient;
 use dash_provider_api::{
     job::{FunctionActorJobMetadata, FunctionChannelKindJob},
     FunctionChannelKind,
@@ -39,12 +38,13 @@ impl<'a> DashProviderClient<'a> {
         }
     }
 
+    #[cfg(feature = "dash-provider")]
     pub async fn create(
         &self,
         function_name: &str,
         value: BTreeMap<String, Value>,
     ) -> Result<DashJobCrd> {
-        let storage = KubernetesStorageClient {
+        let storage = ::dash_provider::storage::KubernetesStorageClient {
             namespace: &self.session.namespace,
             kube: &self.client,
         };
@@ -236,6 +236,7 @@ impl<'a> DashProviderClient<'a> {
             .map(|stream| stream.map_ok(|line| line.into()))
     }
 
+    #[cfg(feature = "dash-provider")]
     pub async fn restart(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
         match self.get(function_name, job_name).await? {
             Some(job) => {

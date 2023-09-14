@@ -8,6 +8,7 @@ edition = "2021"
 [features]
 default = []
 data = ["schemars", "serde", "strum"]
+domain = ["anyhow", "resolv-conf"]
 manager = [
     "anyhow",
     "async-trait",
@@ -18,6 +19,7 @@ manager = [
     "schemars",
     "serde",
     "serde_json",
+    "tokio",
 ]
 
 [dependencies]
@@ -34,7 +36,9 @@ kube = { workspace = true, optional = true, features = [
     "ws",
 ] }
 log = { workspace = true, optional = true }
+resolv-conf = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["fs"] }
