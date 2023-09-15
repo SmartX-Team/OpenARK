@@ -1296,6 +1296,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                     "minio": minio_external_service.is_enabled(),
                 },
                 "image": image,
+                "imagePullPolicy": "Always",
                 "imagePullSecret": {},
                 "mountPath": "/export",
                 "pools": [
