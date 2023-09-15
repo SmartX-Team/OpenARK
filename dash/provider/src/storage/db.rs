@@ -471,22 +471,6 @@ where
     fn unquoted(&self, s: &mut dyn std::fmt::Write) {
         write!(s, "{}", self.0.as_ref()).unwrap();
     }
-
-    fn prepare(&self, s: &mut dyn std::fmt::Write, q: Quote) {
-        write!(s, "{}{}{}", q, self.quoted(q), q).unwrap();
-    }
-
-    fn quoted(&self, q: Quote) -> String {
-        let mut b = [0; 4];
-        let qq: &str = q.encode_utf8(&mut b);
-        self.to_string().replace(qq, qq.repeat(2).as_str())
-    }
-
-    fn to_string(&self) -> String {
-        let mut s = String::new();
-        self.unquoted(&mut s);
-        s
-    }
 }
 
 type Columns = BTreeMap<RuntimeIden, ColumnDef>;
