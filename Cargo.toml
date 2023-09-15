@@ -43,6 +43,7 @@ members = [
     "vine/session",
     "vine/storage",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 actix-cors = { version = "=0.6" }
