@@ -13,7 +13,7 @@ use dash_api::{
 };
 use kube::ResourceExt;
 use sea_orm::{
-    sea_query::{ColumnDef, Expr, IntoIden, Quote, Table, TableRef},
+    sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
     ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
     EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, QueryResult, Schema, Statement,
