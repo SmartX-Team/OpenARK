@@ -13,7 +13,7 @@ use dash_api::{
 };
 use kube::ResourceExt;
 use sea_orm::{
-    sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
+    sea_query::{ColumnDef, Expr, IntoIden, Quote, Table, TableRef},
     ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
     EnumIter, Iden, PrimaryKeyTrait, QueryFilter, QueryOrder, QueryResult, Schema, Statement,
@@ -472,11 +472,11 @@ where
         write!(s, "{}", self.0.as_ref()).unwrap();
     }
 
-    fn prepare(&self, s: &mut dyn std::fmt::Write, q: char) {
+    fn prepare(&self, s: &mut dyn std::fmt::Write, q: Quote) {
         write!(s, "{}{}{}", q, self.quoted(q), q).unwrap();
     }
 
-    fn quoted(&self, q: char) -> String {
+    fn quoted(&self, q: Quote) -> String {
         let mut b = [0; 4];
         let qq: &str = q.encode_utf8(&mut b);
         self.to_string().replace(qq, qq.repeat(2).as_str())
