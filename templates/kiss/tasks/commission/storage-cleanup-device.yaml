@@ -19,7 +19,7 @@
         force: true
 
     - name: Unregister all logical devices
-      command: dmsetup remove_all --force
+      command: dmsetup remove_all
 
     - name: Update facts
       setup:
