@@ -6,7 +6,8 @@ use ark_core::result::Result as SessionResult;
 use dash_api::{function::FunctionCrd, job::DashJobCrd, model::ModelCrd};
 use dash_provider_api::job::Payload;
 use reqwest::{Client, Method, Url};
-use serde::{de::DeserializeOwned, Serialize};
+use schemars::JsonSchema;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionRef};
 
@@ -50,7 +51,7 @@ impl DashClient {
         self.get(format!("/function/{name}/")).await
     }
 
-    pub async fn get_function_list(&self) -> Result<Vec<String>> {
+    pub async fn get_function_list(&self) -> Result<ObjectRef> {
         self.get("/function/").await
     }
 }
@@ -104,7 +105,7 @@ impl DashClient {
         self.get(format!("/model/{name}/function/")).await
     }
 
-    pub async fn get_model_list(&self) -> Result<Vec<String>> {
+    pub async fn get_model_list(&self) -> Result<ObjectRef> {
         self.get("/model/").await
     }
 
@@ -204,4 +205,13 @@ impl DashClient {
         }
         url
     }
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectRef {
+    pub name: String,
+    pub namespace: String,
 }
