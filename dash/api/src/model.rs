@@ -558,6 +558,10 @@ impl ModelFieldKindNativeSpec {
         }
     }
 
+    pub const fn is_array(&self) -> bool {
+        self.to_type().is_array()
+    }
+
     pub const fn to_type(&self) -> ModelFieldKindNativeType {
         match self {
             // BEGIN primitive types
@@ -669,7 +673,11 @@ pub enum ModelFieldKindNativeType {
 }
 
 impl ModelFieldKindNativeType {
-    pub fn to_natural(&self) -> &'static str {
+    pub const fn is_array(&self) -> bool {
+        matches!(self, Self::StringArray | Self::ObjectArray)
+    }
+
+    pub const fn to_natural(&self) -> &'static str {
         match self {
             // BEGIN primitive types
             Self::None => "None",
