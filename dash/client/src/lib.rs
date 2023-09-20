@@ -51,7 +51,7 @@ impl DashClient {
         self.get(format!("/function/{name}/")).await
     }
 
-    pub async fn get_function_list(&self) -> Result<ObjectRef> {
+    pub async fn get_function_list(&self) -> Result<Vec<ObjectRef>> {
         self.get("/function/").await
     }
 }
@@ -105,7 +105,7 @@ impl DashClient {
         self.get(format!("/model/{name}/function/")).await
     }
 
-    pub async fn get_model_list(&self) -> Result<ObjectRef> {
+    pub async fn get_model_list(&self) -> Result<Vec<ObjectRef>> {
         self.get("/model/").await
     }
 
