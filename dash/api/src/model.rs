@@ -674,6 +674,7 @@ pub enum ModelFieldKindNativeType {
 
 impl ModelFieldKindNativeType {
     pub const fn is_array(&self) -> bool {
+        // BEGIN aggregation types
         matches!(self, Self::StringArray | Self::ObjectArray)
     }
 
