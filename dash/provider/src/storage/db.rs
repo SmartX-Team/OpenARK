@@ -536,7 +536,7 @@ fn convert_field_to_column(
         } => {
             // attribute: default
             if let Some(default) = default {
-                column.default(*default);
+                column.default(**default);
             }
 
             // attribute: type

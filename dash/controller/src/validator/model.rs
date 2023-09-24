@@ -139,9 +139,13 @@ impl ModelFieldsParser {
                 })
             }
             Some("number") => {
-                let default = prop.default.as_ref().and_then(|e| e.0.as_f64());
-                let minimum = prop.minimum;
-                let maximum = prop.maximum;
+                let default = prop
+                    .default
+                    .as_ref()
+                    .and_then(|e| e.0.as_f64())
+                    .map(Into::into);
+                let minimum = prop.minimum.map(Into::into);
+                let maximum = prop.maximum.map(Into::into);
 
                 Some(ModelFieldKindNativeSpec::Number {
                     default,

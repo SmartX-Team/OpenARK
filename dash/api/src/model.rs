@@ -67,7 +67,9 @@ impl ModelCrd {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatus {
     #[serde(default)]
@@ -82,7 +84,9 @@ pub type ModelFieldsNativeSpec = ModelFieldsSpec<ModelFieldKindNativeSpec>;
 pub type ModelFieldNativeSpec = ModelFieldSpec<ModelFieldKindNativeSpec>;
 pub type ModelFieldExtendedSpec = ModelFieldSpec<ModelFieldKindExtendedSpec>;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFieldSpec<Kind = ModelFieldKindSpec> {
     pub name: String,
@@ -128,14 +132,27 @@ impl ModelFieldSpec {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFieldAttributeSpec {
     #[serde(default)]
     pub optional: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModelFieldKindSpec {
     Native(ModelFieldKindNativeSpec),
     Extended(ModelFieldKindExtendedSpec),
@@ -164,19 +181,19 @@ mod _impl_jsonschema_for_model_field_kind_spec {
             },
             Integer {
                 #[serde(default)]
-                default: &'a Option<i64>,
+                default: &'a Option<super::Integer>,
                 #[serde(default)]
-                minimum: &'a Option<i64>,
+                minimum: &'a Option<super::Integer>,
                 #[serde(default)]
-                maximum: &'a Option<i64>,
+                maximum: &'a Option<super::Integer>,
             },
             Number {
                 #[serde(default)]
-                default: &'a Option<f64>,
+                default: &'a Option<super::Number>,
                 #[serde(default)]
-                minimum: &'a Option<f64>,
+                minimum: &'a Option<super::Number>,
                 #[serde(default)]
-                maximum: &'a Option<f64>,
+                maximum: &'a Option<super::Number>,
             },
             String {
                 #[serde(default)]
@@ -293,19 +310,19 @@ mod _impl_jsonschema_for_model_field_kind_spec {
             },
             Integer {
                 #[serde(default)]
-                default: Option<i64>,
+                default: Option<super::Integer>,
                 #[serde(default)]
-                minimum: Option<i64>,
+                minimum: Option<super::Integer>,
                 #[serde(default)]
-                maximum: Option<i64>,
+                maximum: Option<super::Integer>,
             },
             Number {
                 #[serde(default)]
-                default: Option<f64>,
+                default: Option<super::Number>,
                 #[serde(default)]
-                minimum: Option<f64>,
+                minimum: Option<super::Number>,
                 #[serde(default)]
-                maximum: Option<f64>,
+                maximum: Option<super::Number>,
             },
             String {
                 #[serde(default)]
@@ -448,6 +465,20 @@ mod _impl_jsonschema_for_model_field_kind_spec {
 }
 
 impl ModelFieldKindSpec {
+    pub fn get_children(&self) -> Option<&Vec<String>> {
+        match self {
+            Self::Native(spec) => spec.get_children(),
+            Self::Extended(spec) => spec.get_children(),
+        }
+    }
+
+    pub fn get_children_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            Self::Native(spec) => spec.get_children_mut(),
+            Self::Extended(spec) => spec.get_children_mut(),
+        }
+    }
+
     pub const fn to_type(&self) -> ModelFieldKindType {
         match self {
             Self::Native(spec) => ModelFieldKindType::Native(spec.to_type()),
@@ -456,7 +487,9 @@ impl ModelFieldKindSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindNativeSpec {
     // BEGIN primitive types
@@ -467,19 +500,19 @@ pub enum ModelFieldKindNativeSpec {
     },
     Integer {
         #[serde(default)]
-        default: Option<i64>,
+        default: Option<Integer>,
         #[serde(default)]
-        minimum: Option<i64>,
+        minimum: Option<Integer>,
         #[serde(default)]
-        maximum: Option<i64>,
+        maximum: Option<Integer>,
     },
     Number {
         #[serde(default)]
-        default: Option<f64>,
+        default: Option<Number>,
         #[serde(default)]
-        minimum: Option<f64>,
+        minimum: Option<Number>,
         #[serde(default)]
-        maximum: Option<f64>,
+        maximum: Option<Number>,
     },
     String {
         #[serde(default)]
@@ -583,7 +616,9 @@ impl ModelFieldKindNativeSpec {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindStringSpec {
     Dynamic {},
@@ -603,7 +638,9 @@ impl Default for ModelFieldKindStringSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindExtendedSpec {
     // BEGIN reference types
@@ -611,6 +648,14 @@ pub enum ModelFieldKindExtendedSpec {
 }
 
 impl ModelFieldKindExtendedSpec {
+    pub fn get_children(&self) -> Option<&Vec<String>> {
+        None
+    }
+
+    pub fn get_children_mut(&mut self) -> Option<&mut Vec<String>> {
+        None
+    }
+
     pub const fn to_type(&self) -> ModelFieldKindExtendedType {
         match self {
             // BEGIN reference types
@@ -737,7 +782,9 @@ pub enum ModelFieldDateTimeDefaultType {
     Now,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelCustomResourceDefinitionRefSpec {
     pub name: String,
@@ -774,3 +821,7 @@ impl Default for ModelState {
         Self::Pending
     }
 }
+
+pub type Integer = i64;
+
+pub type Number = ::ordered_float::OrderedFloat<f64>;

@@ -11,8 +11,8 @@ use anyhow::{anyhow, bail, Error, Result};
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use dash_api::model::{
-    ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec, ModelFieldSpec,
-    ModelFieldsNativeSpec, ModelFieldsSpec,
+    Integer, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
+    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, Number,
 };
 use inflector::Inflector;
 use regex::Regex;
@@ -85,7 +85,7 @@ impl InputTemplate {
                 minimum,
                 maximum,
             } => {
-                let value_i64: i64 = value.parse()?;
+                let value_i64: Integer = value.parse()?;
                 assert_cmp(
                     &name,
                     &value_i64,
@@ -111,7 +111,7 @@ impl InputTemplate {
                 minimum,
                 maximum,
             } => {
-                let value_f64: f64 = value.parse()?;
+                let value_f64: Number = value.parse()?;
                 assert_cmp(
                     &name,
                     &value_f64,
@@ -250,7 +250,7 @@ impl InputTemplate {
                 default: _,
                 minimum,
                 maximum,
-            } => match value.as_f64() {
+            } => match value.as_f64().map(Into::into) {
                 Some(value_number) => {
                     assert_cmp(
                         &name,
@@ -705,7 +705,7 @@ impl<'a> ItemTemplate<'a> {
                 default: _,
                 minimum,
                 maximum,
-            } => match value.as_f64() {
+            } => match value.as_f64().map(Into::into) {
                 Some(value_number) => {
                     assert_cmp(
                         &name,

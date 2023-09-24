@@ -23,12 +23,10 @@ pub mod login {
                 Err(response) => Ok(response.into()),
             }
         } {
-            Ok(response) if matches!(response, UserSessionResponse::Accept { .. }) => {
-                Redirect::to("../../")
-                    .temporary()
-                    .respond_to(&request)
-                    .map_into_boxed_body()
-            }
+            Ok(UserSessionResponse::Accept { .. }) => Redirect::to("../../")
+                .temporary()
+                .respond_to(&request)
+                .map_into_boxed_body(),
             Ok(response) => HttpResponse::Forbidden().json(response),
             Err(e) => {
                 error!("failed to login: {e}");

@@ -1,4 +1,4 @@
-use std::{ops::Deref, str::FromStr};
+use std::{cmp::Ordering, ops::Deref, str::FromStr};
 
 use anyhow::{bail, Result};
 use k8s_openapi::api::core::v1::NodeSpec;
@@ -165,14 +165,14 @@ impl Deref for Url {
 }
 
 impl PartialOrd for Url {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.as_str().partial_cmp(other.0.as_str())
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(<Self as Ord>::cmp(self, other))
     }
 }
 
 impl Ord for Url {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.as_str().cmp(other.0.as_str())
+    fn cmp(&self, other: &Self) -> Ordering {
+        <str as Ord>::cmp(self.0.as_str(), other.0.as_str())
     }
 }
 

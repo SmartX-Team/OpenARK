@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::Deref, str::FromStr};
+use std::{cmp::Ordering, collections::BTreeMap, ops::Deref, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use kube::{CustomResource, ResourceExt};
@@ -96,14 +96,14 @@ impl Deref for EmailAddress {
 }
 
 impl PartialOrd for EmailAddress {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.as_str().partial_cmp(other.0.as_str())
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(<Self as Ord>::cmp(self, other))
     }
 }
 
 impl Ord for EmailAddress {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.as_str().cmp(other.0.as_str())
+    fn cmp(&self, other: &Self) -> Ordering {
+        <str as Ord>::cmp(self.0.as_str(), other.0.as_str())
     }
 }
 

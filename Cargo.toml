@@ -93,6 +93,12 @@ num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [
     "rustls-tls",
 ] }
+ordered-float = { version = "4.0", default-features = false, features = [
+    "bytemuck",
+    "schemars",
+    "serde",
+    "std",
+] }
 ort = { version = "=1.14.8", default-features = false, features = [
     # Common
     "copy-dylibs",
