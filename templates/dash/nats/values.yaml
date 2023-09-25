@@ -1,0 +1,39 @@
+---
+############################################################
+# NATS config
+############################################################
+config:
+  # cluster:
+  #   routeURLs:
+  #     k8sClusterDomain: ops.openark
+
+  # websocket:
+  #   enabled: true
+
+  #   ############################################################
+  #   # ingress
+  #   ############################################################
+  #   # service must be enabled also
+  #   ingress:
+  #     enabled: true
+  #     # must contain at least 1 host otherwise ingress will not be created
+  #     # hosts: []
+  #     path: /dash/nats/
+
+  monitor:
+    enabled: true
+
+############################################################
+# stateful set -> pod template -> prom-exporter container
+############################################################
+# config.monitor must be enabled
+promExporter:
+  enabled: true
+
+############################################################
+# other nats extension points
+############################################################
+
+# service account
+serviceAccount:
+  enabled: true
