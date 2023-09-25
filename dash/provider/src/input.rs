@@ -11,8 +11,8 @@ use anyhow::{anyhow, bail, Error, Result};
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use dash_api::model::{
-    Integer, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldNativeSpec,
-    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, Number,
+    Integer, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
+    ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, Number,
 };
 use inflector::Inflector;
 use regex::Regex;
@@ -349,10 +349,7 @@ impl InputTemplate {
                 }
                 value => assert_optional(&name, &value, &base_field.parsed, optional),
             },
-            ModelFieldKindNativeSpec::Object {
-                children: _,
-                dynamic,
-            } => match value {
+            ModelFieldKindNativeSpec::Object { children: _, kind } => match value {
                 Value::String(ref_name) => {
                     let input = InputFieldValue {
                         name,
@@ -362,11 +359,12 @@ impl InputTemplate {
                     };
                     self.update_field_value_impl(storage, input, optional).await
                 }
-                Value::Object(children) => {
-                    if *dynamic {
+                Value::Object(children) => match kind {
+                    ModelFieldKindObjectSpec::Dynamic => {
                         *field = Value::Object(children);
                         Ok(())
-                    } else {
+                    }
+                    ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(storage, child, optional)
@@ -374,7 +372,7 @@ impl InputTemplate {
                         }
                         Ok(())
                     }
-                }
+                },
                 value => assert_optional(&name, &value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
@@ -578,10 +576,7 @@ impl InputTemplate {
                 }
                 Ok(())
             }
-            ModelFieldKindNativeSpec::Object {
-                children,
-                dynamic: _,
-            } => {
+            ModelFieldKindNativeSpec::Object { children, kind: _ } => {
                 if field.is_null() {
                     *field = Value::Object(Default::default());
                 }
@@ -795,22 +790,20 @@ impl<'a> ItemTemplate<'a> {
                 }
                 value => assert_optional(&name, &value, base_field, optional),
             },
-            ModelFieldKindNativeSpec::Object {
-                children: _,
-                dynamic,
-            } => match value {
-                Value::Object(children) => {
-                    if *dynamic {
+            ModelFieldKindNativeSpec::Object { children: _, kind } => match value {
+                Value::Object(children) => match kind {
+                    ModelFieldKindObjectSpec::Dynamic => {
                         *field = Value::Object(children);
                         Ok(())
-                    } else {
+                    }
+                    ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(child, optional)?;
                         }
                         Ok(())
                     }
-                }
+                },
                 value => assert_optional(&name, &value, base_field, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
@@ -1018,10 +1011,7 @@ impl<'a> ItemTemplate<'a> {
                 }
                 Ok(())
             }
-            ModelFieldKindNativeSpec::Object {
-                children,
-                dynamic: _,
-            } => {
+            ModelFieldKindNativeSpec::Object { children, kind: _ } => {
                 if field.is_null() {
                     *field = Value::Object(Default::default());
                 }

@@ -219,7 +219,7 @@ mod _impl_jsonschema_for_model_field_kind_spec {
                 #[serde(default)]
                 children: &'a Vec<String>,
                 #[serde(default)]
-                dynamic: &'a bool,
+                kind: &'a super::ModelFieldKindObjectSpec,
             },
             ObjectArray {
                 #[serde(default)]
@@ -277,8 +277,8 @@ mod _impl_jsonschema_for_model_field_kind_spec {
                         super::ModelFieldKindNativeSpec::StringArray {} => {
                             ModelFieldKindSpec::StringArray {}
                         }
-                        super::ModelFieldKindNativeSpec::Object { children, dynamic } => {
-                            ModelFieldKindSpec::Object { children, dynamic }
+                        super::ModelFieldKindNativeSpec::Object { children, kind } => {
+                            ModelFieldKindSpec::Object { children, kind }
                         }
                         super::ModelFieldKindNativeSpec::ObjectArray { children } => {
                             ModelFieldKindSpec::ObjectArray { children }
@@ -347,7 +347,7 @@ mod _impl_jsonschema_for_model_field_kind_spec {
                 #[serde(default)]
                 children: Vec<String>,
                 #[serde(default)]
-                dynamic: bool,
+                kind: super::ModelFieldKindObjectSpec,
             },
             ObjectArray {
                 #[serde(default)]
@@ -415,10 +415,10 @@ mod _impl_jsonschema_for_model_field_kind_spec {
                                 Self::Native(super::ModelFieldKindNativeSpec::Uuid {})
                             }
                             // BEGIN aggregation types
-                            ModelFieldKindSpec::Object { children, dynamic } => {
+                            ModelFieldKindSpec::Object { children, kind } => {
                                 Self::Native(super::ModelFieldKindNativeSpec::Object {
                                     children,
-                                    dynamic,
+                                    kind,
                                 })
                             }
                             ModelFieldKindSpec::ObjectArray { children } => {
@@ -538,7 +538,7 @@ pub enum ModelFieldKindNativeSpec {
         #[serde(default)]
         children: Vec<String>,
         #[serde(default)]
-        dynamic: bool,
+        kind: ModelFieldKindObjectSpec,
     },
     ObjectArray {
         #[serde(default)]
@@ -635,6 +635,22 @@ pub enum ModelFieldKindStringSpec {
 impl Default for ModelFieldKindStringSpec {
     fn default() -> Self {
         Self::Dynamic {}
+    }
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelFieldKindObjectSpec {
+    Dynamic,
+    OneOfStatic,
+    Static,
+}
+
+impl Default for ModelFieldKindObjectSpec {
+    fn default() -> Self {
+        Self::Static {}
     }
 }
 

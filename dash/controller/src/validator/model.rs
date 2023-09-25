@@ -6,8 +6,9 @@ use std::{
 use anyhow::{bail, Result};
 use dash_api::model::{
     ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
-    ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,
-    ModelFieldSpec, ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+    ModelFieldKindNativeSpec, ModelFieldKindObjectSpec, ModelFieldKindSpec,
+    ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
+    ModelFieldsSpec, ModelSpec,
 };
 use dash_provider::{imp::assert_contains, name, storage::KubernetesStorageClient};
 use inflector::Inflector;
@@ -29,7 +30,7 @@ impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
                 name: "/".into(),
                 kind: ModelFieldKindNativeSpec::Object {
                     children: Default::default(),
-                    dynamic: true,
+                    kind: ModelFieldKindObjectSpec::Dynamic,
                 },
                 attribute: ModelFieldAttributeSpec { optional: true },
             }]),
@@ -198,8 +199,24 @@ impl ModelFieldsParser {
                     self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
 
                 Some(ModelFieldKindNativeSpec::Object {
+                    kind: match prop.one_of.as_ref() {
+                        Some(one_of) => {
+                            let one_of = one_of
+                                .iter()
+                                .filter_map(|one_of| one_of.required.as_ref())
+                                .flatten()
+                                .cloned()
+                                .collect::<BTreeSet<_>>();
+                            if children == one_of {
+                                ModelFieldKindObjectSpec::OneOfStatic
+                            } else {
+                                warn!("partial oneOf property is not supported");
+                                ModelFieldKindObjectSpec::Static
+                            }
+                        }
+                        None => ModelFieldKindObjectSpec::Static,
+                    },
                     children: children.into_iter().collect(),
-                    dynamic: false,
                 })
             }
             Some("array") => {
@@ -245,7 +262,7 @@ impl ModelFieldsParser {
                     "/metadata/labels/".into(),
                     "/metadata/name/".into(),
                 ],
-                dynamic: false,
+                kind: ModelFieldKindObjectSpec::Static,
             },
             attribute: ModelFieldAttributeSpec { optional: false },
         };
@@ -256,7 +273,7 @@ impl ModelFieldsParser {
             name: name.to_string(),
             kind: ModelFieldKindNativeSpec::Object {
                 children: vec![],
-                dynamic: true,
+                kind: ModelFieldKindObjectSpec::Dynamic,
             },
             attribute: ModelFieldAttributeSpec { optional: false },
         };
@@ -278,7 +295,7 @@ impl ModelFieldsParser {
             name: name.to_string(),
             kind: ModelFieldKindNativeSpec::Object {
                 children: vec![],
-                dynamic: true,
+                kind: ModelFieldKindObjectSpec::Dynamic,
             },
             attribute: ModelFieldAttributeSpec { optional: false },
         };
@@ -374,10 +391,7 @@ impl ModelFieldsParser {
             ModelFieldKindNativeSpec::Uuid {} => {}
             // BEGIN aggregation types
             ModelFieldKindNativeSpec::StringArray {} => {}
-            ModelFieldKindNativeSpec::Object {
-                children,
-                dynamic: _,
-            }
+            ModelFieldKindNativeSpec::Object { children, kind: _ }
             | ModelFieldKindNativeSpec::ObjectArray { children } => {
                 *children = children
                     .iter()
@@ -457,7 +471,7 @@ impl ModelFieldsParser {
                                 name: name.to_string(),
                                 kind: ModelFieldKindNativeSpec::Object {
                                     children: children.into_iter().collect(),
-                                    dynamic: false,
+                                    kind: ModelFieldKindObjectSpec::Static,
                                 },
                                 attribute: ModelFieldAttributeSpec { optional: false },
                             };

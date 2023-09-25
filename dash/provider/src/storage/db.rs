@@ -5,7 +5,8 @@ use chrono::{NaiveDateTime, Utc};
 use dash_api::{
     model::{
         ModelCrd, ModelFieldDateTimeDefaultType, ModelFieldKindNativeSpec,
-        ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldsNativeSpec, ModelState,
+        ModelFieldKindObjectSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec,
+        ModelFieldsNativeSpec, ModelState,
     },
     storage::db::{
         ModelStorageDatabaseBorrowedSpec, ModelStorageDatabaseOwnedSpec, ModelStorageDatabaseSpec,
@@ -601,16 +602,16 @@ fn convert_field_to_column(
             column.json();
             Ok(Some(column))
         }
-        ModelFieldKindNativeSpec::Object {
-            children: _,
-            dynamic,
-        } => {
+        ModelFieldKindNativeSpec::Object { children: _, kind } => {
             // attribute: type
-            if *dynamic {
-                column.json();
-                Ok(Some(column))
-            } else {
-                Ok(None)
+            match kind {
+                ModelFieldKindObjectSpec::Dynamic => {
+                    column.json();
+                    Ok(Some(column))
+                }
+                ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
+                    Ok(None)
+                }
             }
         }
         ModelFieldKindNativeSpec::ObjectArray { children: _ } => {
