@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-storage
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: my-storage
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: model
+  namespace: my-storage
+spec:
+  customResourceDefinitionRef:
+    name: models.dash.ulagbulag.io/v1alpha1
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: model-storage
+  namespace: my-storage
+spec:
+  customResourceDefinitionRef:
+    name: modelstorages.dash.ulagbulag.io/v1alpha1
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: model-storage-binding
+  namespace: my-storage
+spec:
+  customResourceDefinitionRef:
+    name: modelstoragebindings.dash.ulagbulag.io/v1alpha1
