@@ -213,7 +213,7 @@ impl ModelFieldsParser {
                             if one_of == properties {
                                 ModelFieldKindObjectSpec::Enumerate
                             } else {
-                                warn!("partial oneOf property is not supported for {name:?}: {format:?}");
+                                warn!("partial oneOf property is not supported: {name:?}");
                                 ModelFieldKindObjectSpec::Static
                             }
                         }
