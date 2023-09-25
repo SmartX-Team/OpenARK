@@ -644,7 +644,7 @@ impl Default for ModelFieldKindStringSpec {
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindObjectSpec {
     Dynamic,
-    OneOfStatic,
+    Enumerate,
     Static,
 }
 

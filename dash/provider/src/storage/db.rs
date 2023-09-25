@@ -609,9 +609,7 @@ fn convert_field_to_column(
                     column.json();
                     Ok(Some(column))
                 }
-                ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
-                    Ok(None)
-                }
+                ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => Ok(None),
             }
         }
         ModelFieldKindNativeSpec::ObjectArray { children: _ } => {

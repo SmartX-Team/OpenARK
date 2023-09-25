@@ -210,19 +210,25 @@ impl InputTemplate {
                 *field = Value::Null;
                 Ok(())
             }
-            ModelFieldKindNativeSpec::Boolean { default: _ } => {
-                if value.is_boolean() {
-                    *field = value;
+            ModelFieldKindNativeSpec::Boolean { default: _ } => match value {
+                Value::Bool(value) => {
+                    *field = Value::Bool(value);
                     Ok(())
-                } else {
-                    assert_optional(&name, &value, &base_field.parsed, optional)
                 }
-            }
+                Value::String(value) => {
+                    *field = Value::Bool(value.parse()?);
+                    Ok(())
+                }
+                value => assert_optional(&name, &value, &base_field.parsed, optional),
+            },
             ModelFieldKindNativeSpec::Integer {
                 default: _,
                 minimum,
                 maximum,
-            } => match value.as_i64() {
+            } => match value
+                .as_i64()
+                .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+            {
                 Some(value_number) => {
                     assert_cmp(
                         &name,
@@ -241,7 +247,7 @@ impl InputTemplate {
                         Ordering::Less,
                     )?;
 
-                    *field = value;
+                    *field = Value::Number(value_number.into());
                     Ok(())
                 }
                 None => assert_optional(&name, &value, &base_field.parsed, optional),
@@ -250,8 +256,13 @@ impl InputTemplate {
                 default: _,
                 minimum,
                 maximum,
-            } => match value.as_f64().map(Into::into) {
-                Some(value_number) => {
+            } => match value
+                .as_f64()
+                .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+                .map(Number::from)
+                .and_then(|value| Some((value, ::serde_json::Number::from_f64(value.0)?)))
+            {
+                Some((value_number, value)) => {
                     assert_cmp(
                         &name,
                         &value_number,
@@ -269,7 +280,7 @@ impl InputTemplate {
                         Ordering::Less,
                     )?;
 
-                    *field = value;
+                    *field = Value::Number(value);
                     Ok(())
                 }
                 None => assert_optional(&name, &value, &base_field.parsed, optional),
@@ -364,7 +375,7 @@ impl InputTemplate {
                         *field = Value::Object(children);
                         Ok(())
                     }
-                    ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
+                    ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(storage, child, optional)
@@ -796,7 +807,7 @@ impl<'a> ItemTemplate<'a> {
                         *field = Value::Object(children);
                         Ok(())
                     }
-                    ModelFieldKindObjectSpec::OneOfStatic | ModelFieldKindObjectSpec::Static => {
+                    ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(child, optional)?;

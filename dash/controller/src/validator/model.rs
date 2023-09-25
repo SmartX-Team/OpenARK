@@ -199,18 +199,21 @@ impl ModelFieldsParser {
                     self.parse_json_property_aggregation(&name, prop.properties.as_ref())?;
 
                 Some(ModelFieldKindNativeSpec::Object {
-                    kind: match prop.one_of.as_ref() {
-                        Some(one_of) => {
+                    kind: match prop.one_of.as_ref().zip(prop.properties.as_ref()) {
+                        Some((one_of, properties)) => {
                             let one_of = one_of
                                 .iter()
                                 .filter_map(|one_of| one_of.required.as_ref())
                                 .flatten()
-                                .cloned()
                                 .collect::<BTreeSet<_>>();
-                            if children == one_of {
-                                ModelFieldKindObjectSpec::OneOfStatic
+                            let properties = properties
+                                .keys()
+                                .filter(|&property| property != "default")
+                                .collect::<BTreeSet<_>>();
+                            if one_of == properties {
+                                ModelFieldKindObjectSpec::Enumerate
                             } else {
-                                warn!("partial oneOf property is not supported");
+                                warn!("partial oneOf property is not supported for {name:?}: {format:?}");
                                 ModelFieldKindObjectSpec::Static
                             }
                         }
