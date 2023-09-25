@@ -156,7 +156,7 @@ impl ModelFieldsParser {
             Some("string") => match prop.format.as_ref().map(AsRef::as_ref) {
                 // BEGIN string format
                 Some("date-time") => Some(ModelFieldKindNativeSpec::DateTime { default: None }),
-                Some("ip") => Some(ModelFieldKindNativeSpec::Ip {}),
+                Some("ip" | "ipv4") => Some(ModelFieldKindNativeSpec::Ip {}),
                 Some("uuid") => Some(ModelFieldKindNativeSpec::Uuid {}),
                 // END string format
                 None => match &prop.enum_ {
