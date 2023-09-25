@@ -1,7 +1,6 @@
 [workspace]
 default-members = ["ark/cli"]
 members = [
-    # "ipwis-binding",
     "ark/api",
     "ark/cli",
     "ark/core",
