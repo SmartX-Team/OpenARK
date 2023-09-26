@@ -605,11 +605,21 @@ fn convert_field_to_column(
         ModelFieldKindNativeSpec::Object { children: _, kind } => {
             // attribute: type
             match kind {
-                ModelFieldKindObjectSpec::Dynamic => {
+                ModelFieldKindObjectSpec::Dynamic {} => {
                     column.json();
                     Ok(Some(column))
                 }
-                ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => Ok(None),
+                ModelFieldKindObjectSpec::Enumerate { choices } => {
+                    // attribute: default
+                    if let Some(default) = choices.first() {
+                        column.default(default);
+                    }
+
+                    // attribute: choices
+                    column.enumeration(name.clone(), choices.iter().map(RuntimeIden::from_str));
+                    Ok(Some(column))
+                }
+                ModelFieldKindObjectSpec::Static {} => Ok(None),
             }
         }
         ModelFieldKindNativeSpec::ObjectArray { children: _ } => {

@@ -371,11 +371,12 @@ impl InputTemplate {
                     self.update_field_value_impl(storage, input, optional).await
                 }
                 Value::Object(children) => match kind {
-                    ModelFieldKindObjectSpec::Dynamic => {
+                    ModelFieldKindObjectSpec::Dynamic {} => {
                         *field = Value::Object(children);
                         Ok(())
                     }
-                    ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => {
+                    ModelFieldKindObjectSpec::Enumerate { choices: _ }
+                    | ModelFieldKindObjectSpec::Static {} => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(storage, child, optional)
@@ -803,11 +804,12 @@ impl<'a> ItemTemplate<'a> {
             },
             ModelFieldKindNativeSpec::Object { children: _, kind } => match value {
                 Value::Object(children) => match kind {
-                    ModelFieldKindObjectSpec::Dynamic => {
+                    ModelFieldKindObjectSpec::Dynamic {} => {
                         *field = Value::Object(children);
                         Ok(())
                     }
-                    ModelFieldKindObjectSpec::Enumerate | ModelFieldKindObjectSpec::Static => {
+                    ModelFieldKindObjectSpec::Enumerate { choices: _ }
+                    | ModelFieldKindObjectSpec::Static {} => {
                         for (child, value) in children.into_iter() {
                             let child = InputField::sub_object(&name, &child, value);
                             self.update_field_value_impl(child, optional)?;

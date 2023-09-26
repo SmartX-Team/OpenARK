@@ -639,13 +639,13 @@ impl Default for ModelFieldKindStringSpec {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
 pub enum ModelFieldKindObjectSpec {
-    Dynamic,
-    Enumerate,
-    Static,
+    Dynamic {},
+    Enumerate { choices: Vec<String> },
+    Static {},
 }
 
 impl Default for ModelFieldKindObjectSpec {
