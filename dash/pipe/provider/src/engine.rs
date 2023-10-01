@@ -111,6 +111,10 @@ impl PipeEngine {
                 })
                 .flatten()
                 .collect::<Vec<_>>();
+            if addrs.is_empty() {
+                bail!("failed to parse NATS address: no available addresses");
+            }
+
             match ::nats::connect(addrs).await {
                 Ok(client) => client,
                 Err(error) => bail!("failed to init NATS client: {error}"),
