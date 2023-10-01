@@ -7,6 +7,29 @@ config:
   #   routeURLs:
   #     k8sClusterDomain: ops.openark
 
+  jetstream:
+    enabled: true
+
+    fileStore:
+      enabled: true
+      dir: /data
+
+      ############################################################
+      # stateful set -> volume claim templates -> jetstream pvc
+      ############################################################
+      pvc:
+        enabled: true
+        size: 1Ti
+        storageClassName: ceph-block
+
+      # defaults to the PVC size
+      maxSize:
+
+    memoryStore:
+      enabled: true
+      # ensure that container has a sufficient memory limit greater than maxSize
+      maxSize: 1Gi
+
   # websocket:
   #   enabled: true
 

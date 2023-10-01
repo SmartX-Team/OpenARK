@@ -11,7 +11,9 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
-    "dash/plugins/storage-sync",
+    "dash/pipe/functions/identity",
+    "dash/pipe/functions/loader-webcam",
+    "dash/pipe/provider",
     "dash/provider",
     "dash/provider/api",
     "dash/provider/client",
@@ -63,6 +65,12 @@ chrono = { version = "=0.4", features = ["serde"] }
 clap = { version = "=4.4", features = ["env", "derive"] }
 csv = { version = "=1.2" }
 ctrlc = { version = "=3.4" }
+deltalake = { version = "0.16", features = [
+    "arrow",
+    "datafusion",
+    "parquet",
+    "s3",
+] }
 email_address = { version = "=0.2" }
 futures = { version = "=0.3" }
 gethostname = { version = "=0.4" }
@@ -87,6 +95,7 @@ mime = { version = "=0.3" }
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "06d98675b4457e9139f6c01cea4a0659cb82c82c", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
+nats = { package = "async-nats", version = "0.32" }
 ndarray = { version = "=0.15", features = ["serde"] }
 num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [

@@ -1,5 +1,5 @@
 [package]
-name = "dash-plugin-storage-sync"
+name = "dash-pipe-function-identity"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,14 @@ authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
 documentation = "https://docs.rs/kiss-api"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-readme = "../../../README.md"
+readme = "../../README.md"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dash-pipe-provider = { path = "../../provider" }
+
+anyhow = { workspace = true }
+serde_json = { workspace = true }
