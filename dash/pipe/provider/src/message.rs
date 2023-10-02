@@ -11,6 +11,7 @@ pub enum PipeMessages<Value = (), Payload = Bytes>
 where
     Payload: Default,
 {
+    None,
     Single(PipeMessage<Value, Payload>),
     Batch(Vec<PipeMessage<Value, Payload>>),
 }
@@ -21,6 +22,7 @@ impl<Value> PipeMessages<Value> {
         storage: &StorageSet,
     ) -> Result<PipeMessages<Value, ()>> {
         match self {
+            Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value.dump_payloads(storage).await.map(PipeMessages::Single),
             Self::Batch(values) => {
                 try_join_all(values.into_iter().map(|value| value.dump_payloads(storage)))
@@ -37,6 +39,7 @@ where
 {
     pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessages<Value>> {
         match self {
+            Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value.load_payloads(storage).await.map(PipeMessages::Single),
             Self::Batch(values) => {
                 try_join_all(values.into_iter().map(|value| value.load_payloads(storage)))
@@ -48,6 +51,7 @@ where
 
     pub fn into_vec(self) -> Vec<PipeMessage<Value, Payload>> {
         match self {
+            Self::None => Default::default(),
             Self::Single(value) => vec![value],
             Self::Batch(values) => values,
         }

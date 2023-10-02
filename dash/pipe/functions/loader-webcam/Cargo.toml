@@ -17,5 +17,8 @@ repository = "https://github.com/ulagbulag/OpenARK"
 dash-pipe-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
+nokhwa = { workspace = true, features = ["input-native", "output-threaded"] }
 serde = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

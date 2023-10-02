@@ -1,7 +1,5 @@
-use std::{future::Future, sync::Arc};
-
 use anyhow::{anyhow, bail, Result};
-use clap::{ArgAction, Args, Parser};
+use clap::{ArgAction, Parser};
 use futures::StreamExt;
 use log::warn;
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
@@ -9,15 +7,16 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::task::yield_now;
 
 use crate::{
+    function::Function,
     message::PipeMessages,
     storage::{StorageSet, StorageType},
     PipeMessage,
 };
 
 #[derive(Clone, Debug, Parser, Serialize, Deserialize)]
-pub struct PipeEngine<FunctionArgs = EmptyArgs>
+pub struct PipeArgs<F>
 where
-    FunctionArgs: Args,
+    F: Function,
 {
     #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
     addrs: Vec<String>,
@@ -27,7 +26,7 @@ where
     batch_size: Option<usize>,
 
     #[command(flatten)]
-    function_args: FunctionArgs,
+    function_args: <F as Function>::Args,
 
     #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -49,9 +48,9 @@ where
     stream_out: Option<String>,
 }
 
-impl<FunctionArgs> PipeEngine<FunctionArgs>
+impl<F> PipeArgs<F>
 where
-    FunctionArgs: Args,
+    F: Function,
 {
     pub fn from_env() -> Self {
         Self::parse()
@@ -62,7 +61,7 @@ where
         self
     }
 
-    pub fn with_function_args(mut self, function_args: FunctionArgs) -> Self {
+    pub fn with_function_args(mut self, function_args: <F as Function>::Args) -> Self {
         self.function_args = function_args;
         self
     }
@@ -88,9 +87,9 @@ where
     }
 }
 
-impl<FunctionArgs> PipeEngine<FunctionArgs>
+impl<F> PipeArgs<F>
 where
-    FunctionArgs: Clone + Args,
+    F: Function,
 {
     fn parse_addrs(&self) -> Result<Vec<ServerAddr>> {
         let addrs = self
@@ -109,14 +108,16 @@ where
         }
     }
 
-    async fn init_context(&self) -> Result<Context<FunctionArgs>> {
+    async fn init_context(&self) -> Result<Context<F>> {
         let client = ::nats::connect(self.parse_addrs()?)
             .await
             .map_err(|error| anyhow!("failed to init NATS client: {error}"))?;
 
         Ok(Context {
             batch_size: self.batch_size,
-            function_args: self.function_args.clone().into(),
+            function: <F as Function>::try_new(&self.function_args)
+                .await
+                .map_err(|error| anyhow!("failed to init function: {error}"))?,
             storage: {
                 let default_output = match self.persistence {
                     Some(true) => StorageType::LakeHouse,
@@ -137,75 +138,53 @@ where
         })
     }
 
-    pub fn loop_forever<F, Fut, Input, Output>(&self, tick: F)
-    where
-        F: Fn(Arc<FunctionArgs>, PipeMessages<Input>) -> Fut,
-        Fut: Future<Output = Result<Option<PipeMessages<Output>>>>,
-        Input: DeserializeOwned,
-        Output: Serialize,
-    {
+    pub fn loop_forever(&self) {
         ::ark_core::logger::init_once();
 
         if let Err(error) = ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .expect("failed to init tokio runtime")
-            .block_on(self.loop_forever_async(tick))
+            .block_on(self.loop_forever_async())
         {
             panic!("{error}")
         }
     }
 
-    async fn loop_forever_async<F, Fut, Input, Output>(&self, tick: F) -> Result<()>
-    where
-        F: Fn(Arc<FunctionArgs>, PipeMessages<Input>) -> Fut,
-        Fut: Future<Output = Result<Option<PipeMessages<Output>>>>,
-        Input: DeserializeOwned,
-        Output: Serialize,
-    {
+    async fn loop_forever_async(&self) -> Result<()> {
         let mut ctx = self.init_context().await?;
 
         loop {
             // yield per every loop
             yield_now().await;
 
-            if let Err(error) = self.tick_async(&mut ctx, &tick).await {
+            if let Err(error) = self.tick_async(&mut ctx).await {
                 warn!("{error}")
             }
         }
     }
 
-    async fn tick_async<F, Fut, Input, Output>(
-        &self,
-        ctx: &mut Context<FunctionArgs>,
-        f: F,
-    ) -> Result<()>
-    where
-        F: Fn(Arc<FunctionArgs>, PipeMessages<Input>) -> Fut,
-        Fut: Future<Output = Result<Option<PipeMessages<Output>>>>,
-        Input: DeserializeOwned,
-        Output: Serialize,
-    {
+    async fn tick_async(&self, ctx: &mut Context<F>) -> Result<()> {
         match ctx.read_inputs().await? {
-            Some(inputs) => match f(ctx.function_args.clone(), inputs).await? {
-                Some(outputs) => ctx.write_outputs(outputs).await,
-                None => Ok(()),
+            Some(inputs) => match ctx.function.tick(inputs).await? {
+                PipeMessages::None => Ok(()),
+                outputs => ctx.write_outputs(outputs).await,
             },
             None => Ok(()),
         }
     }
 }
 
-struct Context<FunctionArgs> {
+struct Context<F> {
     batch_size: Option<usize>,
     client: Client,
-    function_args: Arc<FunctionArgs>,
+    function: F,
     storage: StorageSet,
     stream_input: Option<Subscriber>,
     stream_output: Option<String>,
 }
 
-impl<FunctionArgs> Context<FunctionArgs> {
+impl<F> Context<F> {
     async fn read_inputs<Value>(&mut self) -> Result<Option<PipeMessages<Value>>>
     where
         Value: DeserializeOwned,
@@ -246,7 +225,7 @@ impl<FunctionArgs> Context<FunctionArgs> {
                     None => Ok(None),
                 },
             },
-            None => Ok(None),
+            None => Ok(Some(PipeMessages::None)),
         }
     }
 
@@ -286,6 +265,3 @@ impl<FunctionArgs> Context<FunctionArgs> {
         }
     }
 }
-
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
-pub struct EmptyArgs {}
