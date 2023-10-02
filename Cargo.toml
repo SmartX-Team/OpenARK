@@ -11,8 +11,8 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
+    "dash/pipe/connectors/webcam",
     "dash/pipe/functions/identity",
-    "dash/pipe/functions/loader-webcam",
     "dash/pipe/provider",
     "dash/provider",
     "dash/provider/api",
@@ -77,7 +77,7 @@ gethostname = { version = "=0.4" }
 half = { version = "=2.3" }
 home = { version = "=0.5" }
 http-cache-reqwest = { version = "=0.11", features = ["manager-cacache"] }
-image = { version = "=0.24" }
+image = { version = "=0.24", default-features = false }
 inflector = { package = "Inflector", version = "=0.11" }
 influxdb2 = { version = "=0.4", default-features = false, features = [
     "rustls",

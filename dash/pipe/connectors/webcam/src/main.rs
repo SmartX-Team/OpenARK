@@ -56,17 +56,15 @@ pub struct FunctionArgs {
 )]
 #[serde(rename_all = "camelCase")]
 pub enum CameraEncoder {
-    // Avif,
     Bmp,
-    Jpeg,
     #[default]
+    Jpeg,
     Png,
 }
 
 impl CameraEncoder {
     const fn as_extension(&self) -> &'static str {
         match self {
-            // CameraEncoder::Avif => ".avif",
             CameraEncoder::Bmp => ".bmp",
             CameraEncoder::Jpeg => ".jpeg",
             CameraEncoder::Png => ".png",

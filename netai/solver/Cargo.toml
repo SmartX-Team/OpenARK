@@ -24,7 +24,24 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 futures = { workspace = true }
 half = { workspace = true }
-image = { workspace = true }
+image = { workspace = true, features = [
+    "bmp",
+    "dds",
+    "dxt",
+    "farbfeld",
+    "gif",
+    "hdr",
+    "ico",
+    "jpeg",
+    "jpeg_rayon",
+    "openexr",
+    "png",
+    "pnm",
+    "qoi",
+    "tga",
+    "tiff",
+    "webp",
+] }
 itertools = { workspace = true }
 log = { workspace = true }
 mime = { workspace = true }
