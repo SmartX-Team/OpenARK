@@ -2,23 +2,17 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
-use bytes::Bytes;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, PipePayload};
 use image::{codecs, RgbImage};
-use log::warn;
+use log::error;
 use opencv::{
     core::{Mat, MatTraitConst, MatTraitConstManual, Vec3b, Vector},
     imgcodecs,
     videoio::{self, VideoCapture, VideoCaptureTrait},
 };
 use serde::{Deserialize, Serialize};
-use tokio::{
-    spawn,
-    sync::mpsc::{self, Receiver},
-    task::{yield_now, JoinHandle},
-    time::sleep,
-};
+use tokio::time::sleep;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -73,10 +67,12 @@ impl CameraEncoder {
 }
 
 pub struct Function {
-    encoder: CameraEncoder,
-    frame: FrameCounter,
-    job: Option<JoinHandle<Result<()>>>,
-    rx: Receiver<Bytes>,
+    camera_encoder: CameraEncoder,
+    capture: VideoCapture,
+    frame: Mat,
+    frame_counter: FrameCounter,
+    frame_size: FrameSize,
+    params: Vector<i32>,
 }
 
 #[async_trait]
@@ -90,85 +86,15 @@ impl ::dash_pipe_provider::Function for Function {
             camera_device,
             camera_encoder,
         } = args.clone();
-        let (tx, rx) = mpsc::channel(3);
 
         Ok(Self {
-            encoder: camera_encoder,
+            camera_encoder,
+            capture: VideoCapture::from_file(&camera_device, videoio::CAP_ANY)
+                .map_err(|error| anyhow!("failed to init video capture: {error}"))?,
             frame: Default::default(),
-            job: Some(spawn(async move {
-                let mut capture = VideoCapture::from_file(&camera_device, videoio::CAP_ANY)?;
-                let params = Vector::default();
-
-                let mut frame = Mat::default();
-                let mut frame_size = FrameSize::default();
-                loop {
-                    match capture.read(&mut frame) {
-                        Ok(true) => {
-                            let buffer = match camera_encoder {
-                                CameraEncoder::Bmp | CameraEncoder::Jpeg => {
-                                    // convert image
-                                    let mut buffer = Default::default();
-                                    match imgcodecs::imencode(
-                                        camera_encoder.as_extension(),
-                                        &frame,
-                                        &mut buffer,
-                                        &params,
-                                    ) {
-                                        Ok(true) => buffer.into(),
-                                        Ok(false) => bail!("failed to encode image frame"),
-                                        Err(error) => {
-                                            bail!("failed to encode image frame: {error}")
-                                        }
-                                    }
-                                }
-                                CameraEncoder::Png => {
-                                    // load image
-                                    let buffer = Mat::data_typed::<Vec3b>(&frame)
-                                        .map_err(|error| {
-                                            anyhow!("failed to catch frame data type: {error}")
-                                        })?
-                                        .iter()
-                                        .flat_map(|pixel| {
-                                            let [p1, p2, p3] = pixel.0;
-                                            [p3, p2, p1]
-                                        })
-                                        .collect();
-
-                                    // parse image
-                                    let (width, height) = frame_size.get_or_insert(&frame);
-                                    let image = RgbImage::from_raw(width, height, buffer)
-                                        .ok_or_else(|| {
-                                            anyhow!("failed to get sufficient frame data")
-                                        })?;
-
-                                    // encode image
-                                    let mut buffer = vec![];
-                                    match camera_encoder {
-                                        CameraEncoder::Bmp | CameraEncoder::Jpeg => unreachable!(
-                                            "unsupported image codec for native image crate"
-                                        ),
-                                        CameraEncoder::Png => image.write_with_encoder(
-                                            codecs::png::PngEncoder::new(&mut buffer),
-                                        ),
-                                    }
-                                    .map(|()| buffer)
-                                    .map_err(|error| {
-                                        anyhow!("failed to encode image frame: {error}")
-                                    })?
-                                }
-                            };
-
-                            match tx.send(buffer.into()).await {
-                                Ok(()) => yield_now().await,
-                                Err(error) => bail!("failed to get frame: {error}"),
-                            }
-                        }
-                        Ok(false) => bail!("video capture is disconnected!"),
-                        Err(error) => bail!("failed to capture a frame: {error}"),
-                    }
-                }
-            })),
-            rx,
+            frame_counter: Default::default(),
+            frame_size: Default::default(),
+            params: Default::default(),
         })
     }
 
@@ -176,41 +102,75 @@ impl ::dash_pipe_provider::Function for Function {
         &mut self,
         _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
     ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
-        match &mut self.job {
-            Some(job) => {
-                if job.is_finished() {
-                    match self.job.take().unwrap().await {
-                        Ok(Ok(())) => {
-                            unreachable!("the producer job should not be gracefully terminated")
+        let frame = match self.capture.read(&mut self.frame) {
+            Ok(true) => {
+                match self.camera_encoder {
+                    CameraEncoder::Bmp | CameraEncoder::Jpeg => {
+                        // convert image
+                        let mut buffer = Default::default();
+                        match imgcodecs::imencode(
+                            self.camera_encoder.as_extension(),
+                            &self.frame,
+                            &mut buffer,
+                            &self.params,
+                        ) {
+                            Ok(true) => Vec::from(buffer).into(),
+                            Ok(false) => bail!("failed to encode image frame"),
+                            Err(error) => {
+                                bail!("failed to encode image frame: {error}")
+                            }
                         }
-                        Ok(Err(error)) => {
-                            warn!("failed on producer job: {error}");
-                            sleep(Duration::from_millis(u64::MAX)).await;
-                            Ok(PipeMessages::None)
-                        }
-                        Err(error) => panic!("failed to terminate producer job: {error}"),
                     }
-                } else {
-                    match self.rx.recv().await {
-                        Some(frame) => {
-                            let frame_idx = self.frame.next();
-                            Ok(PipeMessages::Single(PipeMessage {
-                                payloads: vec![PipePayload::new(
-                                    format!(
-                                        "image/{frame_idx:06}{ext}",
-                                        ext = self.encoder.as_extension(),
-                                    ),
-                                    frame,
-                                )],
-                                value: frame_idx,
-                            }))
+                    CameraEncoder::Png => {
+                        // load image
+                        let buffer = Mat::data_typed::<Vec3b>(&self.frame)
+                            .map_err(|error| anyhow!("failed to catch frame data type: {error}"))?
+                            .iter()
+                            .flat_map(|pixel| {
+                                let [p1, p2, p3] = pixel.0;
+                                [p3, p2, p1]
+                            })
+                            .collect();
+
+                        // parse image
+                        let (width, height) = self.frame_size.get_or_insert(&self.frame);
+                        let image = RgbImage::from_raw(width, height, buffer)
+                            .ok_or_else(|| anyhow!("failed to get sufficient frame data"))?;
+
+                        // encode image
+                        let mut buffer = vec![];
+                        match self.camera_encoder {
+                            CameraEncoder::Bmp | CameraEncoder::Jpeg => {
+                                unreachable!("unsupported image codec for native image crate")
+                            }
+                            CameraEncoder::Png => {
+                                image.write_with_encoder(codecs::png::PngEncoder::new(&mut buffer))
+                            }
                         }
-                        None => Ok(PipeMessages::None),
+                        .map(|()| buffer.into())
+                        .map_err(|error| anyhow!("failed to encode image frame: {error}"))?
                     }
                 }
             }
-            None => unreachable!("the process should be exited"),
-        }
+            Ok(false) => {
+                error!("video capture is disconnected!");
+                sleep(Duration::from_millis(u64::MAX)).await;
+                return Ok(PipeMessages::None);
+            }
+            Err(error) => bail!("failed to capture a frame: {error}"),
+        };
+
+        let frame_idx = self.frame_counter.next();
+        Ok(PipeMessages::Single(PipeMessage {
+            payloads: vec![PipePayload::new(
+                format!(
+                    "image/{frame_idx:06}{ext}",
+                    ext = self.camera_encoder.as_extension(),
+                ),
+                frame,
+            )],
+            value: frame_idx,
+        }))
     }
 }
 

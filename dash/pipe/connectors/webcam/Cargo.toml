@@ -18,10 +18,9 @@ dash-pipe-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bytes = { workspace = true }
 clap = { workspace = true }
 image = { workspace = true, features = ["png"] }
 log = { workspace = true }
 opencv = { workspace = true, features = ["imgcodecs", "videoio"] }
 serde = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = ["time"] }
