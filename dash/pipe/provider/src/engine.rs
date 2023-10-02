@@ -22,11 +22,11 @@ pub struct PipeEngine {
     #[serde(default)]
     batch_size: Option<usize>,
 
-    #[arg(long, env = "PIPE_PERSISTENCE", action=ArgAction::SetTrue)]
+    #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
     #[serde(default)]
     persistence: Option<bool>,
 
-    #[arg(long, env = "PIPE_REPLY", action=ArgAction::SetTrue)]
+    #[arg(long, env = "PIPE_REPLY", action = ArgAction::SetTrue)]
     #[serde(default)]
     reply: Option<bool>,
 
