@@ -8,7 +8,7 @@ edition = "2021"
 [features]
 default = []
 data = ["schemars", "serde", "strum"]
-domain = ["anyhow", "resolv-conf"]
+domain = ["anyhow", "resolv-conf", "tokio/fs"]
 manager = [
     "anyhow",
     "async-trait",
@@ -41,4 +41,4 @@ schemars = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["fs"] }
+tokio = { workspace = true, optional = true }
