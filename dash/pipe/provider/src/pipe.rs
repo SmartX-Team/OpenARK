@@ -124,8 +124,8 @@ where
 
         let storage = Arc::new({
             let default_output = match self.persistence {
-                Some(true) => StorageType::S3,
-                Some(false) | None => StorageType::Nats,
+                Some(true) => StorageType::PERSISTENT,
+                Some(false) | None => StorageType::TEMPORARY,
             };
             StorageSet::try_new(&self.storage, &client, default_output).await?
         });

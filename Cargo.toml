@@ -65,12 +65,7 @@ chrono = { version = "=0.4", features = ["serde"] }
 clap = { version = "=4.4", features = ["env", "derive"] }
 csv = { version = "=1.2" }
 ctrlc = { version = "=3.4" }
-deltalake = { version = "0.16", features = [
-    "arrow",
-    "datafusion",
-    "parquet",
-    "s3",
-] }
+deltalake = { version = "0.16", default-features = false }
 email_address = { version = "=0.2" }
 futures = { version = "=0.3" }
 gethostname = { version = "=0.4" }

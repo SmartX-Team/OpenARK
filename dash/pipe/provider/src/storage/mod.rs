@@ -1,5 +1,8 @@
+#[cfg(feature = "lakehouse")]
 mod lakehouse;
+#[cfg(feature = "nats-storage")]
 mod nats;
+#[cfg(feature = "s3")]
 mod s3;
 
 use anyhow::{anyhow, Result};
@@ -11,29 +14,38 @@ use serde::{Deserialize, Serialize};
 
 pub struct StorageSet {
     default_output: StorageType,
+    #[cfg(feature = "lakehouse")]
     lakehouse: self::lakehouse::Storage,
+    #[cfg(feature = "nats-storage")]
     nats: self::nats::Storage,
+    #[cfg(feature = "s3")]
     s3: self::s3::Storage,
 }
 
 impl StorageSet {
     pub async fn try_new(
         args: &StorageArgs,
-        client: &::nats::Client,
+        #[cfg_attr(not(feature = "nats-storage"), allow(unused_variables))] client: &::nats::Client,
         default_output: StorageType,
     ) -> Result<Self> {
         Ok(Self {
             default_output,
+            #[cfg(feature = "lakehouse")]
             lakehouse: self::lakehouse::Storage::try_new(&args.s3, &args.bucket_name).await?,
+            #[cfg(feature = "nats-storage")]
             nats: self::nats::Storage::try_new(&args.nats, client, &args.bucket_name).await?,
+            #[cfg(feature = "s3")]
             s3: self::s3::Storage::try_new(&args.s3, &args.bucket_name).await?,
         })
     }
 
     pub const fn get(&self, type_: StorageType) -> &(dyn Send + Sync + Storage) {
         match type_ {
+            #[cfg(feature = "lakehouse")]
             StorageType::LakeHouse => &self.lakehouse,
+            #[cfg(feature = "nats-storage")]
             StorageType::Nats => &self.nats,
+            #[cfg(feature = "s3")]
             StorageType::S3 => &self.s3,
         }
     }
@@ -45,9 +57,28 @@ impl StorageSet {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum StorageType {
+    #[cfg(feature = "lakehouse")]
     LakeHouse,
+    #[cfg(feature = "nats-storage")]
     Nats,
+    #[cfg(feature = "s3")]
     S3,
+}
+
+impl StorageType {
+    #[cfg(feature = "nats-storage")]
+    pub const TEMPORARY: Self = Self::Nats;
+    #[cfg(all(not(feature = "nats-storage"), feature = "s3"))]
+    pub const TEMPORARY: Self = Self::S3;
+    #[cfg(all(not(feature = "nats-storage"), not(feature = "s3")))]
+    pub const TEMPORARY: Self = Self::LakeHouse;
+
+    #[cfg(feature = "s3")]
+    pub const PERSISTENT: Self = Self::S3;
+    #[cfg(all(not(feature = "s3"), feature = "lakehouse"))]
+    pub const PERSISTENT: Self = Self::LakeHouse;
+    #[cfg(all(not(feature = "s3"), not(feature = "lakehouse")))]
+    pub const PERSISTENT: Self = Self::Nats;
 }
 
 #[async_trait]
@@ -74,9 +105,11 @@ pub struct StorageArgs {
     #[arg(long, env = "BUCKET", value_name = "NAME")]
     bucket_name: String,
 
+    #[cfg(feature = "nats-storage")]
     #[command(flatten)]
     nats: self::nats::StorageNatsArgs,
 
+    #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
     s3: self::s3::StorageS3Args,
 }

@@ -13,6 +13,14 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["lakehouse", "s3"]
+
+# storages
+lakehouse = ["deltalake/parquet", "deltalake/s3"]
+nats-storage = []
+s3 = ["minio"]
+
 [dependencies]
 ark-core = { path = "../../../ark/core" }
 
@@ -23,7 +31,7 @@ clap = { workspace = true }
 deltalake = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
-minio = { workspace = true }
+minio = { workspace = true, optional = true }
 nats = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

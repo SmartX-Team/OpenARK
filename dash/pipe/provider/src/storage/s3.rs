@@ -41,7 +41,7 @@ impl Storage {
 #[async_trait]
 impl super::Storage for Storage {
     fn storage_type(&self) -> super::StorageType {
-        super::StorageType::LakeHouse
+        super::StorageType::S3
     }
 
     async fn get(&self, path: &Path) -> Result<Bytes> {
