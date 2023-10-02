@@ -9,7 +9,7 @@ use log::error;
 use opencv::{
     core::{Mat, MatTraitConst, MatTraitConstManual, Vec3b, Vector},
     imgcodecs,
-    videoio::{self, VideoCapture, VideoCaptureTrait},
+    videoio::{self, VideoCapture, VideoCaptureTrait, VideoCaptureTraitConst},
 };
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -87,10 +87,15 @@ impl ::dash_pipe_provider::Function for Function {
             camera_encoder,
         } = args.clone();
 
+        let capture = VideoCapture::from_file(&camera_device, videoio::CAP_ANY)
+            .map_err(|error| anyhow!("failed to init video capture: {error}"))?;
+        if !capture.is_opened().unwrap_or_default() {
+            bail!("failed to open video capture");
+        }
+
         Ok(Self {
             camera_encoder,
-            capture: VideoCapture::from_file(&camera_device, videoio::CAP_ANY)
-                .map_err(|error| anyhow!("failed to init video capture: {error}"))?,
+            capture,
             frame: Default::default(),
             frame_counter: Default::default(),
             frame_size: Default::default(),
