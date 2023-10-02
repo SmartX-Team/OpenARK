@@ -17,3 +17,5 @@ repository = "https://github.com/ulagbulag/OpenARK"
 dash-pipe-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }

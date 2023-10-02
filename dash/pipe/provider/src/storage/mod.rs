@@ -18,13 +18,13 @@ impl StorageSet {
     pub async fn try_new(
         args: &StorageArgs,
         client: &::nats::Client,
-        bucket_name: &str,
         default_output: StorageType,
     ) -> Result<Self> {
         Ok(Self {
             default_output,
-            lakehouse: self::lakehouse::Storage::try_new(&args.lakehouse, bucket_name).await?,
-            nats: self::nats::Storage::try_new(&args.nats, client, bucket_name).await?,
+            lakehouse: self::lakehouse::Storage::try_new(&args.lakehouse, &args.bucket_name)
+                .await?,
+            nats: self::nats::Storage::try_new(&args.nats, client, &args.bucket_name).await?,
         })
     }
 
@@ -78,5 +78,5 @@ pub struct StorageArgs {
 }
 
 fn parse_path(path: impl AsRef<str>) -> Result<Path> {
-    Path::parse(path).map_err(|error| anyhow!("failed to parse path: {error}"))
+    Path::parse(path).map_err(|error| anyhow!("failed to parse storage path: {error}"))
 }

@@ -11,15 +11,16 @@ pub enum PipeMessages<Value = (), Payload = Bytes>
 where
     Payload: Default,
 {
-    None,
     Single(PipeMessage<Value, Payload>),
     Batch(Vec<PipeMessage<Value, Payload>>),
 }
 
 impl<Value> PipeMessages<Value> {
-    pub async fn dump_payloads(self, storage: &StorageSet) -> Result<PipeMessages<Value, ()>> {
+    pub(crate) async fn dump_payloads(
+        self,
+        storage: &StorageSet,
+    ) -> Result<PipeMessages<Value, ()>> {
         match self {
-            Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value.dump_payloads(storage).await.map(PipeMessages::Single),
             Self::Batch(values) => {
                 try_join_all(values.into_iter().map(|value| value.dump_payloads(storage)))
@@ -34,9 +35,8 @@ impl<Value, Payload> PipeMessages<Value, Payload>
 where
     Payload: Default,
 {
-    pub async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessages<Value>> {
+    pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessages<Value>> {
         match self {
-            Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value.load_payloads(storage).await.map(PipeMessages::Single),
             Self::Batch(values) => {
                 try_join_all(values.into_iter().map(|value| value.load_payloads(storage)))
@@ -48,7 +48,6 @@ where
 
     pub fn into_vec(self) -> Vec<PipeMessage<Value, Payload>> {
         match self {
-            Self::None => Default::default(),
             Self::Single(value) => vec![value],
             Self::Batch(values) => values,
         }
@@ -84,22 +83,37 @@ where
     }
 }
 
-impl<Value, Payload> TryFrom<PipeMessage<Value, Payload>> for Bytes
+impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
     Payload: Serialize,
     Value: Serialize,
 {
     type Error = Error;
 
-    fn try_from(value: PipeMessage<Value, Payload>) -> Result<Self> {
-        ::serde_json::to_vec(&value)
+    fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
+        ::serde_json::to_vec(value)
             .map(Into::into)
             .map_err(Into::into)
     }
 }
 
+impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for ::serde_json::Value
+where
+    Payload: Serialize,
+    Value: Serialize,
+{
+    type Error = Error;
+
+    fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
+        ::serde_json::to_value(value).map_err(Into::into)
+    }
+}
+
 impl<Value> PipeMessage<Value> {
-    pub async fn dump_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value, ()>> {
+    pub(crate) async fn dump_payloads(
+        self,
+        storage: &StorageSet,
+    ) -> Result<PipeMessage<Value, ()>> {
         Ok(PipeMessage {
             payloads: try_join_all(
                 self.payloads
@@ -113,7 +127,7 @@ impl<Value> PipeMessage<Value> {
 }
 
 impl<Value, Payload> PipeMessage<Value, Payload> {
-    pub async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
+    pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
         Ok(PipeMessage {
             payloads: try_join_all(
                 self.payloads
@@ -123,6 +137,22 @@ impl<Value, Payload> PipeMessage<Value, Payload> {
             .await?,
             value: self.value,
         })
+    }
+
+    pub fn to_json(&self) -> Result<::serde_json::Value>
+    where
+        Payload: Serialize,
+        Value: Serialize,
+    {
+        self.try_into()
+    }
+
+    pub fn to_json_bytes(&self) -> Result<Bytes>
+    where
+        Payload: Serialize,
+        Value: Serialize,
+    {
+        self.try_into()
     }
 }
 
@@ -136,7 +166,7 @@ pub struct PipePayload<Value = Bytes> {
 }
 
 impl PipePayload {
-    pub async fn dump(self, storage: &StorageSet) -> Result<PipePayload<()>> {
+    pub(crate) async fn dump(self, storage: &StorageSet) -> Result<PipePayload<()>> {
         Ok(PipePayload {
             value: storage
                 .get_default_output()
@@ -149,7 +179,15 @@ impl PipePayload {
 }
 
 impl<Value> PipePayload<Value> {
-    pub async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
+    pub fn new(key: String, value: Value) -> Self {
+        Self {
+            key,
+            storage: None,
+            value,
+        }
+    }
+
+    pub(crate) async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
         Ok(PipePayload {
             value: match self.storage {
                 Some(type_) => storage.get(type_).get_with_str(&self.key).await?,
