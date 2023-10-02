@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use anyhow::{anyhow, bail, Error, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
-use clap::Parser;
 use deltalake::{DeltaTable, DeltaTableBuilder, ObjectStore, Path};
 use futures::TryFutureExt;
-use serde::{Deserialize, Serialize};
-use url::Url;
+
+use super::s3::StorageS3Args;
 
 pub struct Storage {
     table: DeltaTable,
@@ -15,25 +14,22 @@ pub struct Storage {
 
 impl Storage {
     pub async fn try_new(
-        StorageLakeHouseArgs {
+        StorageS3Args {
             access_key,
-            deltalake_endpoint,
+            s3_endpoint,
             region,
             secret_key,
-        }: &StorageLakeHouseArgs,
+        }: &StorageS3Args,
         bucket_name: &str,
     ) -> Result<Self> {
         Ok(Self {
             table: {
-                let allow_http = deltalake_endpoint.scheme() == "http";
+                let allow_http = s3_endpoint.scheme() == "http";
                 let table_uri = format!("s3a://{bucket_name}/");
 
                 let mut backend_config: HashMap<String, String> = HashMap::new();
                 backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());
-                backend_config.insert(
-                    "AWS_ENDPOINT_URL".to_string(),
-                    deltalake_endpoint.to_string(),
-                );
+                backend_config.insert("AWS_ENDPOINT_URL".to_string(), s3_endpoint.to_string());
                 backend_config.insert("AWS_REGION".to_string(), region.clone());
                 backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key.clone());
                 backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
@@ -90,24 +86,4 @@ impl super::Storage for Storage {
                 anyhow!("failed to delete object from DeltaLake object store: {error}")
             })
     }
-}
-
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
-pub struct StorageLakeHouseArgs {
-    #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
-    access_key: String,
-
-    #[arg(long, env = "AWS_ENDPOINT_URL", value_name = "URL")]
-    deltalake_endpoint: Url,
-
-    #[arg(
-        long,
-        env = "AWS_REGION",
-        value_name = "REGION",
-        default_value = "us-east-1"
-    )]
-    region: String,
-
-    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", value_name = "VALUE")]
-    secret_key: String,
 }

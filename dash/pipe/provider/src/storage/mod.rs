@@ -1,5 +1,6 @@
 mod lakehouse;
 mod nats;
+mod s3;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -12,6 +13,7 @@ pub struct StorageSet {
     default_output: StorageType,
     lakehouse: self::lakehouse::Storage,
     nats: self::nats::Storage,
+    s3: self::s3::Storage,
 }
 
 impl StorageSet {
@@ -22,9 +24,9 @@ impl StorageSet {
     ) -> Result<Self> {
         Ok(Self {
             default_output,
-            lakehouse: self::lakehouse::Storage::try_new(&args.lakehouse, &args.bucket_name)
-                .await?,
+            lakehouse: self::lakehouse::Storage::try_new(&args.s3, &args.bucket_name).await?,
             nats: self::nats::Storage::try_new(&args.nats, client, &args.bucket_name).await?,
+            s3: self::s3::Storage::try_new(&args.s3, &args.bucket_name).await?,
         })
     }
 
@@ -32,6 +34,7 @@ impl StorageSet {
         match type_ {
             StorageType::LakeHouse => &self.lakehouse,
             StorageType::Nats => &self.nats,
+            StorageType::S3 => &self.s3,
         }
     }
 
@@ -44,6 +47,7 @@ impl StorageSet {
 pub enum StorageType {
     LakeHouse,
     Nats,
+    S3,
 }
 
 #[async_trait]
@@ -71,10 +75,10 @@ pub struct StorageArgs {
     bucket_name: String,
 
     #[command(flatten)]
-    lakehouse: self::lakehouse::StorageLakeHouseArgs,
+    nats: self::nats::StorageNatsArgs,
 
     #[command(flatten)]
-    nats: self::nats::StorageNatsArgs,
+    s3: self::s3::StorageS3Args,
 }
 
 fn parse_path(path: impl AsRef<str>) -> Result<Path> {

@@ -20,6 +20,8 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
-opencv = { workspace = true, features = ["videoio"] }
+image = { workspace = true, default-features = false, features = ["png"] }
+log = { workspace = true }
+opencv = { workspace = true, features = ["imgcodecs", "videoio"] }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

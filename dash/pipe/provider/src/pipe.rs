@@ -1,10 +1,15 @@
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+
 use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
-use futures::StreamExt;
+use futures::{Future, StreamExt};
 use log::warn;
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::task::yield_now;
+use tokio::{spawn, task::yield_now};
 
 use crate::{
     function::Function,
@@ -27,6 +32,10 @@ where
 
     #[command(flatten)]
     function_args: <F as Function>::Args,
+
+    #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "NUM")]
+    #[serde(default)]
+    max_tasks: Option<usize>,
 
     #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -113,28 +122,39 @@ where
             .await
             .map_err(|error| anyhow!("failed to init NATS client: {error}"))?;
 
+        let storage = Arc::new({
+            let default_output = match self.persistence {
+                Some(true) => StorageType::S3,
+                Some(false) | None => StorageType::Nats,
+            };
+            StorageSet::try_new(&self.storage, &client, default_output).await?
+        });
+
         Ok(Context {
-            batch_size: self.batch_size,
             function: <F as Function>::try_new(&self.function_args)
                 .await
+                .map(Into::into)
                 .map_err(|error| anyhow!("failed to init function: {error}"))?,
-            storage: {
-                let default_output = match self.persistence {
-                    Some(true) => StorageType::LakeHouse,
-                    Some(false) | None => StorageType::Nats,
-                };
-                StorageSet::try_new(&self.storage, &client, default_output).await?
+            reader: ReadContext {
+                batch_size: self.batch_size,
+                storage: storage.clone(),
+                stream_input: match &self.stream_in {
+                    Some(stream) => client
+                        .subscribe(stream.clone())
+                        .await
+                        .map(Some)
+                        .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
+                    None => None,
+                },
             },
-            stream_input: match &self.stream_in {
-                Some(stream) => client
-                    .subscribe(stream.clone())
-                    .await
-                    .map(Some)
-                    .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
-                None => None,
+            writer: WriteContext {
+                atomic_session: AtomicSession::new(
+                    self.batch_size.unwrap_or(1) * self.max_tasks.unwrap_or(8),
+                ),
+                client,
+                storage,
+                stream_output: self.stream_out.clone(),
             },
-            stream_output: self.stream_out.clone(),
-            client,
         })
     }
 
@@ -158,33 +178,44 @@ where
             // yield per every loop
             yield_now().await;
 
-            if let Err(error) = self.tick_async(&mut ctx).await {
+            if let Err(error) = tick_async(&mut ctx).await {
                 warn!("{error}")
             }
         }
     }
+}
 
-    async fn tick_async(&self, ctx: &mut Context<F>) -> Result<()> {
-        match ctx.read_inputs().await? {
-            Some(inputs) => match ctx.function.tick(inputs).await? {
-                PipeMessages::None => Ok(()),
-                outputs => ctx.write_outputs(outputs).await,
-            },
-            None => Ok(()),
-        }
+async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
+where
+    F: Function,
+{
+    match ctx.reader.read_inputs().await? {
+        Some(inputs) => match ctx.function.tick(inputs).await? {
+            PipeMessages::None => Ok(()),
+            outputs => {
+                let mut writer = ctx.writer.clone();
+                spawn(async move { writer.write_outputs(outputs).await });
+                ctx.writer.atomic_session.wait().await;
+                Ok(())
+            }
+        },
+        None => Ok(()),
     }
 }
 
 struct Context<F> {
-    batch_size: Option<usize>,
-    client: Client,
     function: F,
-    storage: StorageSet,
-    stream_input: Option<Subscriber>,
-    stream_output: Option<String>,
+    reader: ReadContext,
+    writer: WriteContext,
 }
 
-impl<F> Context<F> {
+struct ReadContext {
+    batch_size: Option<usize>,
+    storage: Arc<StorageSet>,
+    stream_input: Option<Subscriber>,
+}
+
+impl ReadContext {
     async fn read_inputs<Value>(&mut self) -> Result<Option<PipeMessages<Value>>>
     where
         Value: DeserializeOwned,
@@ -243,25 +274,72 @@ impl<F> Context<F> {
             None => Ok(None),
         }
     }
+}
 
+#[derive(Clone)]
+struct WriteContext {
+    atomic_session: AtomicSession,
+    client: Client,
+    storage: Arc<StorageSet>,
+    stream_output: Option<String>,
+}
+
+impl WriteContext {
     async fn write_outputs<Value>(&mut self, messages: PipeMessages<Value>) -> Result<()>
     where
         Value: Serialize,
     {
         match &self.stream_output {
             Some(stream) => {
-                for output in messages.dump_payloads(&self.storage).await?.into_vec() {
-                    let output = output
-                        .to_json_bytes()
-                        .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;
-                    self.client
-                        .publish(stream.clone(), output)
-                        .await
-                        .map_err(|error| anyhow!("failed to publish NATS output: {error}"))?
-                }
-                Ok(())
+                self.atomic_session
+                    .alloc(async {
+                        for output in messages.dump_payloads(&self.storage).await?.into_vec() {
+                            let output = output
+                                .to_json_bytes()
+                                .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;
+                            self.client
+                                .publish(stream.clone(), output)
+                                .await
+                                .map_err(|error| {
+                                    anyhow!("failed to publish NATS output: {error}")
+                                })?;
+                        }
+                        Ok(())
+                    })
+                    .await
             }
             None => Ok(()),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct AtomicSession {
+    max_tasks: usize,
+    num_tasks: Arc<AtomicUsize>,
+}
+
+impl AtomicSession {
+    fn new(max_tasks: usize) -> Self {
+        Self {
+            max_tasks,
+            num_tasks: Default::default(),
+        }
+    }
+
+    async fn alloc<F>(&self, task: F) -> <F as Future>::Output
+    where
+        F: Future,
+    {
+        self.num_tasks.fetch_add(1, Ordering::SeqCst);
+        let result = task.await;
+        self.num_tasks.fetch_sub(1, Ordering::SeqCst);
+        result
+    }
+
+    async fn wait(&self) {
+        while self.num_tasks.load(Ordering::SeqCst) >= self.max_tasks {
+            yield_now().await
         }
     }
 }

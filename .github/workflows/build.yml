@@ -50,10 +50,10 @@ jobs:
       - name: Install dependencies
         run: >
           sudo apt-get update
-          && sudo apt-get install -y clang libopencv-dev mold
+          && sudo apt-get install -y clang libopencv-dev mold nasm
 
       - name: Replace minio-wasm package into minio
-        run: sed -i 's/rev *\= *\"06d98675b4457e9139f6c01cea4a0659cb82c82c\"\,//g' ./Cargo.toml
+        run: sed -i 's/rev *\= *\"5be4686e307b058aa4190134a555c925301c59b2\"\,//g' ./Cargo.toml
 
       - name: Replace reqwest-wasm package into reqwest
         run: sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml

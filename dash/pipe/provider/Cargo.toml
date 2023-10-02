@@ -23,6 +23,7 @@ clap = { workspace = true }
 deltalake = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
+minio = { workspace = true }
 nats = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

@@ -21,7 +21,7 @@ RUN apk add --no-cache libgcc opencv
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
-RUN apk add --no-cache clang-dev musl-dev opencv-dev
+RUN apk add --no-cache clang-dev musl-dev nasm opencv-dev
 
 # Load source files
 ADD . /src
@@ -32,7 +32,7 @@ RUN mkdir /out \
     # Exclude netai packages
     && sed -i 's/^\( *\)\(.*\# *exclude( *alpine *)\)$/\1# \2/g' ./Cargo.toml \
     # Replace minio-wasm package into minio
-    && sed -i 's/rev *\= *\"06d98675b4457e9139f6c01cea4a0659cb82c82c\"\,//g' ./Cargo.toml \
+    && sed -i 's/rev *\= *\"5be4686e307b058aa4190134a555c925301c59b2\"\,//g' ./Cargo.toml \
     # Replace reqwest-wasm package into reqwest
     && sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml \
     # Build
