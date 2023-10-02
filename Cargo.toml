@@ -96,9 +96,7 @@ num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [
     "rustls-tls",
 ] }
-opencv = { version = "0.84", default-features = false, features = [
-    "clang-runtime",
-] }
+opencv = { version = "0.84", default-features = false }
 ordered-float = { version = "4.0", default-features = false, features = [
     "bytemuck",
     "schemars",
