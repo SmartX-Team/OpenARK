@@ -97,12 +97,12 @@ minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = 
 ] } # not deployed to crates.io
 nats = { package = "async-nats", version = "0.32" }
 ndarray = { version = "=0.15", features = ["serde"] }
-nokhwa = { git = "https://github.com/ulagbulag/nokhwa.git", branch = "v0.10.3", version = "0.10", default-features = false, features = [
-    "decoding",
-] }
 num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [
     "rustls-tls",
+] }
+opencv = { version = "0.84", default-features = false, features = [
+    "clang-runtime",
 ] }
 ordered-float = { version = "4.0", default-features = false, features = [
     "bytemuck",

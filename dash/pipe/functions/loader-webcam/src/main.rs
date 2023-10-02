@@ -1,16 +1,17 @@
-use anyhow::Result;
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use bytes::{Bytes, BytesMut};
 use clap::Parser;
 use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, PipePayload};
-use nokhwa::{
-    pixel_format,
-    utils::{CameraIndex, RequestedFormat, RequestedFormatType},
-    Buffer, CallbackCamera,
+use opencv::{
+    core::{Mat, MatTraitConstManual, Vec3b},
+    videoio::{self, VideoCapture, VideoCaptureTrait},
 };
 use serde::{Deserialize, Serialize};
 use tokio::{
-    runtime::Handle,
+    spawn,
     sync::mpsc::{self, Receiver},
+    task::{yield_now, JoinHandle},
 };
 
 fn main() {
@@ -24,8 +25,8 @@ pub struct FunctionArgs {
 }
 
 pub struct Function {
-    _camera: CallbackCamera,
-    rx: Receiver<Buffer>,
+    _job: JoinHandle<Result<()>>,
+    rx: Receiver<Bytes>,
 }
 
 #[async_trait]
@@ -35,19 +36,38 @@ impl ::dash_pipe_provider::Function for Function {
     type Output = ();
 
     async fn try_new(args: &<Self as ::dash_pipe_provider::Function>::Args) -> Result<Self> {
+        let FunctionArgs { camera_device } = args.clone();
         let (tx, rx) = mpsc::channel(3);
-        let handle = Handle::current();
 
         Ok(Self {
-            _camera: CallbackCamera::new(
-                CameraIndex::String(args.camera_device.clone()),
-                RequestedFormat::new::<pixel_format::RgbFormat>(
-                    RequestedFormatType::HighestFrameRate(30),
-                ),
-                move |frame| {
-                    handle.block_on(tx.send(frame)).ok();
-                },
-            )?,
+            _job: spawn(async move {
+                let mut capture = VideoCapture::from_file(&camera_device, videoio::CAP_ANY)?;
+
+                let mut frame = Mat::default();
+                loop {
+                    // yield per every loop
+                    yield_now().await;
+
+                    match capture.read(&mut frame) {
+                        Ok(true) => {
+                            let pixels = Mat::data_typed::<Vec3b>(&frame).map_err(|error| {
+                                anyhow!("failed to convert video capture frame: {error}")
+                            })?;
+
+                            let mut buffer = BytesMut::default();
+                            for pixel in pixels {
+                                buffer.extend(pixel.iter().rev());
+                            }
+
+                            if let Err(error) = tx.send(buffer.into()).await {
+                                bail!("failed to get frame: {error}");
+                            }
+                        }
+                        Ok(false) => bail!("video capture is disconnected!"),
+                        Err(error) => bail!("failed to capture a frame: {error}"),
+                    }
+                }
+            }),
             rx,
         })
     }
@@ -57,8 +77,8 @@ impl ::dash_pipe_provider::Function for Function {
         _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
     ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         match self.rx.recv().await {
-            Some(buffer) => Ok(PipeMessages::Single(PipeMessage {
-                payloads: vec![PipePayload::new("image".into(), buffer.buffer_bytes())],
+            Some(frame) => Ok(PipeMessages::Single(PipeMessage {
+                payloads: vec![PipePayload::new("image".into(), frame)],
                 value: (),
             })),
             None => Ok(PipeMessages::None),
