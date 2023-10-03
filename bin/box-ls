@@ -7,16 +7,6 @@
 set -e -o pipefail
 
 ###########################################################
-#   Configuration                                         #
-###########################################################
-
-# Set environment variables
-if [ "x${SSH_KEYFILE_PATH}" = 'x' ]; then
-    echo "Environment variable \"SSH_KEYFILE_PATH\" is not set."
-    exit 1
-fi
-
-###########################################################
 #   Find box(es)                                          #
 ###########################################################
 
