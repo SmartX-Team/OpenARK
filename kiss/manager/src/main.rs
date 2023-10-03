@@ -4,7 +4,7 @@ mod latest;
 use std::{cmp::Ordering, time::Duration};
 
 use anyhow::Result;
-use log::{info, warn};
+use tracing::{info, warn};
 
 async fn sync_cluster(
     current_handler: &self::current::Handler,
@@ -36,8 +36,8 @@ async fn sync_cluster(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // initialize logger
-    ::ark_core::logger::init_once();
+    // initialize tracer
+    ::ark_core::tracer::init_once();
 
     // create the handlers
     let current = self::current::Handler::try_default().await?;

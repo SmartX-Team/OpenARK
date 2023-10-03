@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use actix_cors::Cors;
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
 use anyhow::Result;
-use ark_core::{env::infer, logger};
+use ark_core::{env::infer, tracer};
 use kube::Client;
 
 #[get("/")]
@@ -63,6 +63,6 @@ async fn main() {
         .map_err(Into::into)
     }
 
-    logger::init_once();
+    tracer::init_once();
     try_main().await.expect("running a server")
 }

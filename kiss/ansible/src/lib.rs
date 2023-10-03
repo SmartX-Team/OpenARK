@@ -21,7 +21,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, Error,
 };
-use log::info;
+use tracing::info;
 
 pub struct AnsibleClient {
     pub kiss: self::config::KissConfig,

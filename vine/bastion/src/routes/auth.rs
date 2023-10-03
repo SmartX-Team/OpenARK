@@ -1,6 +1,6 @@
 use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
 use kube::Client;
-use log::error;
+use tracing::error;
 use vine_api::user_auth::UserAuthResponse;
 
 #[get("/auth")]

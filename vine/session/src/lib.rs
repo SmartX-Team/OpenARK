@@ -16,9 +16,9 @@ use kube::{
     api::{DeleteParams, ListParams, Patch, PatchParams},
     Api, Client, Resource, ResourceExt,
 };
-use log::info;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
+use tracing::info;
 use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
 pub(crate) mod consts {

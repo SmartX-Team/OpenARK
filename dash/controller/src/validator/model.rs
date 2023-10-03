@@ -16,8 +16,8 @@ use itertools::Itertools;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
     CustomResourceDefinitionVersion, JSONSchemaProps,
 };
-use log::warn;
 use regex::Regex;
+use tracing::warn;
 
 pub struct ModelValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,

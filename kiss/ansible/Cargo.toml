@@ -28,6 +28,6 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] } #
-log = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+tracing = { workspace = true }

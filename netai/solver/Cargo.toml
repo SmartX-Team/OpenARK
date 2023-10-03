@@ -43,7 +43,6 @@ image = { workspace = true, features = [
     "webp",
 ] }
 itertools = { workspace = true }
-log = { workspace = true }
 mime = { workspace = true }
 ndarray = { workspace = true }
 ort = { workspace = true }
@@ -53,3 +52,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 tokio = { workspace = true, features = ["process"] }
+tracing = { workspace = true }

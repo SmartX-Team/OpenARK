@@ -15,11 +15,11 @@ manager = [
     "futures",
     "k8s-openapi",
     "kube",
-    "log",
     "schemars",
     "serde",
     "serde_json",
     "tokio",
+    "tracing",
 ]
 
 [dependencies]
@@ -35,10 +35,10 @@ kube = { workspace = true, optional = true, features = [
     "rustls-tls",
     "ws",
 ] }
-log = { workspace = true, optional = true }
 resolv-conf = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }

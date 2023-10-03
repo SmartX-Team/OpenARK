@@ -30,7 +30,7 @@ base64 = { workspace = true, optional = true }
 chrono = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
-log = { workspace = true }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+tracing = { workspace = true }

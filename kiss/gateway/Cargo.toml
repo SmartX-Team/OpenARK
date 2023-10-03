@@ -26,5 +26,5 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
-log = { workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }

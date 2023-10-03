@@ -5,9 +5,9 @@ use actix_web::{
     web::{Data, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use ark_core::{env::infer, logger};
-use log::warn;
+use ark_core::{env::infer, tracer};
 use netai_solver::session::Session;
+use tracing::warn;
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -75,6 +75,6 @@ async fn main() {
         .map_err(Into::into)
     }
 
-    logger::init_once();
+    tracer::init_once();
     try_main().await.expect("running a server")
 }

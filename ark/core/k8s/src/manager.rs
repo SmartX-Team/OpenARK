@@ -2,7 +2,7 @@ use core::{future::Future, time::Duration};
 use std::sync::Arc;
 
 use anyhow::Result;
-use ark_core::logger;
+use ark_core::tracer;
 use async_trait::async_trait;
 use futures::StreamExt;
 use k8s_openapi::{
@@ -14,9 +14,9 @@ use kube::{
     runtime::{controller::Action, watcher::Config, Controller},
     Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
 };
-use log::{info, warn};
 use serde::de::DeserializeOwned;
 use serde_json::json;
+use tracing::{info, warn};
 
 pub struct Manager<C> {
     pub kube: Client,
@@ -96,7 +96,7 @@ where
         F: FnOnce(Client) -> Fut + Send,
         Fut: Future<Output = Result<Api<<Self as Ctx>::Data>>> + Send,
     {
-        logger::init_once();
+        tracer::init_once();
 
         let client = Client::try_default().await?;
         let ctx = Arc::new(Self::try_default().await?);

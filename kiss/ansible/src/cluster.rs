@@ -4,9 +4,9 @@ use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
 use kube::{api::ListParams, Api, Client, Error};
-use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::config::KissConfig;
 

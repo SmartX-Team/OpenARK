@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, PipePayload};
 use image::{codecs, RgbImage};
-use log::error;
 use opencv::{
     core::{Mat, MatTraitConst, MatTraitConstManual, Vec3b, Vector},
     imgcodecs,
@@ -13,6 +12,7 @@ use opencv::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
+use tracing::error;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()

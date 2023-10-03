@@ -14,9 +14,9 @@ use kube::{
     core::ObjectMeta,
     Api, Client, ResourceExt,
 };
-use log::{info, warn};
 use semver::Version;
 use serde_json::json;
+use tracing::{info, warn};
 
 pub struct Handler {
     api_config: Api<ConfigMap>,

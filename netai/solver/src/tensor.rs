@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use futures::{future::try_join_all, TryFutureExt};
 use image::{imageops::FilterType, GenericImageView, Pixel};
 use itertools::Itertools;
-use log::warn;
 use ndarray::{Array, Array1, ArrayBase, ArrayView, Axis, IxDyn};
 use ort::{
     session::{Input, Output},
@@ -15,6 +14,7 @@ use ort::{
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 use tokio::io::AsyncReadExt;
+use tracing::warn;
 
 use crate::primitive::AsPrimitive;
 

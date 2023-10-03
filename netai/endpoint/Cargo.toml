@@ -20,4 +20,4 @@ netai-solver = { path = "../solver" }
 actix-multipart = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }

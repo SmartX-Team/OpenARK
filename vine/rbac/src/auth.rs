@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Node;
 use kube::{api::ListParams, Api, Client, ResourceExt};
-use log::{info, warn};
+use tracing::{info, warn};
 use vine_api::{
     user::UserCrd,
     user_auth::{UserAuthError, UserAuthResponse},

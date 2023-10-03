@@ -7,10 +7,10 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use ark_core::{env::infer, logger};
+use ark_core::{env::infer, tracer};
 use futures::StreamExt;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
-use log::{info, warn};
+use tracing::{info, warn};
 use reqwest::{
     header::{HeaderName, HOST, ORIGIN, REFERER},
     Client, Method,
@@ -140,6 +140,6 @@ async fn main() {
         .map_err(Into::into)
     }
 
-    logger::init_once();
+    tracer::init_once();
     try_main().await.expect("running a server")
 }

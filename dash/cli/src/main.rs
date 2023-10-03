@@ -1,7 +1,7 @@
 use std::{env, future::Future};
 
 use anyhow::Result;
-use ark_core::{logger, result::Result as SessionResult};
+use ark_core::{result::Result as SessionResult, tracer};
 use clap::{value_parser, ArgAction, Parser, Subcommand};
 use dash_provider::{client::FunctionSession, input::InputFieldString};
 use dash_provider_api::SessionContextMetadata;
@@ -38,11 +38,11 @@ struct ArgsCommon {
 
 impl ArgsCommon {
     fn run(self) -> Result<()> {
-        self.init_logger();
+        self.init_tracer();
         Ok(())
     }
 
-    fn init_logger(&self) {
+    fn init_tracer(&self) {
         // You can see how many times a particular flag or argument occurred
         // Note, only flags can have multiple occurrences
         let debug_level = match self.debug {
@@ -53,7 +53,7 @@ impl ArgsCommon {
             level => unreachable!("too high debug level: {level}"),
         };
         env::set_var("RUST_LOG", debug_level);
-        logger::init_once();
+        tracer::init_once();
     }
 }
 

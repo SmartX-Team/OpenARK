@@ -10,13 +10,13 @@ pub trait Infer<'a> {
     where
         Self: Sized,
     {
-        // init logger
-        crate::logger::init_once();
+        // init tracer
+        crate::tracer::init_once();
 
         match <Self as Infer<'a>>::try_infer().await {
             Ok(this) => this,
             Err(e) => {
-                ::log::error!("failed to infer: {e}");
+                ::tracing::error!("failed to infer: {e}");
                 panic!("failed to infer: {e}");
             }
         }

@@ -5,7 +5,7 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Node;
 use kube::{runtime::controller::Action, Error, ResourceExt};
-use log::{info, warn};
+use tracing::{info, warn};
 use vine_api::user::UserCrd;
 use vine_session::SessionManager;
 

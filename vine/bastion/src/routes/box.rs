@@ -5,7 +5,7 @@ pub mod login {
         HttpRequest, HttpResponse, Responder,
     };
     use kube::Client;
-    use log::error;
+    use tracing::error;
     use uuid::Uuid;
     use vine_api::user_auth::UserSessionResponse;
 

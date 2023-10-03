@@ -6,10 +6,10 @@ use std::sync::{
 use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
 use futures::{Future, StreamExt};
-use log::warn;
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{spawn, task::yield_now};
+use tracing::warn;
 
 use crate::{
     function::Function,
@@ -159,7 +159,7 @@ where
     }
 
     pub fn loop_forever(&self) {
-        ::ark_core::logger::init_once();
+        ::ark_core::tracer::init_once();
 
         if let Err(error) = ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()

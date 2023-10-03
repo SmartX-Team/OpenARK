@@ -11,8 +11,8 @@ use kube::{
     runtime::controller::Action,
     Api, CustomResourceExt, Error, ResourceExt,
 };
-use log::{info, warn};
 use serde_json::json;
+use tracing::{info, warn};
 
 #[derive(Default)]
 pub struct Ctx {}

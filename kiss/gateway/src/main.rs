@@ -6,7 +6,7 @@ use actix_web::{
     App, HttpResponse, HttpServer, Responder,
 };
 use anyhow::{bail, Result};
-use ark_core::{env::infer, logger};
+use ark_core::{env::infer, tracer};
 use chrono::Utc;
 use kiss_api::r#box::{
     request::{BoxCommissionQuery, BoxNewQuery},
@@ -17,8 +17,8 @@ use kube::{
     core::ObjectMeta,
     Api, Client, CustomResourceExt,
 };
-use log::warn;
 use serde_json::json;
+use tracing::warn;
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -181,6 +181,6 @@ async fn main() {
         .map_err(Into::into)
     }
 
-    logger::init_once();
+    tracer::init_once();
     try_main().await.expect("running a server")
 }

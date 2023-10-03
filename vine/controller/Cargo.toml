@@ -28,5 +28,5 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
-log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }

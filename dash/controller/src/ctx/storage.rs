@@ -13,8 +13,8 @@ use kube::{
     runtime::controller::Action,
     Api, Client, CustomResourceExt, Error, ResourceExt,
 };
-use log::{info, warn};
 use serde_json::json;
+use tracing::{info, warn};
 
 use crate::validator::storage::ModelStorageValidator;
 

@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use ark_core::env::infer;
-use log::warn;
 use octocrab::Octocrab;
 use semver::Version;
+use tracing::warn;
 
 pub struct Handler {
     instance: Arc<Octocrab>,

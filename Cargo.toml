@@ -85,7 +85,8 @@ itertools = { version = "=0.11" }
 k8s-openapi = { version = "=0.20", features = ["schemars", "v1_26"] }
 kube = { version = "=0.86", default-features = false }
 language-tags = { version = "=0.3", features = ["serde"] }
-log = { version = "=0.4" }
+tracing = { version = "=0.1" }
+tracing-subscriber = { version = "0.3" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "5be4686e307b058aa4190134a555c925301c59b2", features = [
@@ -115,7 +116,6 @@ ort = { version = "=1.15", default-features = false, features = [
     "tensorrt",
 ] }
 paste = { version = "=1.0" }
-pretty_env_logger = { version = "=0.5" }
 rand = { version = "=0.8" }
 regex = { version = "=1.9" }
 reqwest = { git = "https://github.com/ulagbulag/reqwest-wasm.git", package = "reqwest-wasm", version = "=0.11", default-features = false, features = [
