@@ -47,7 +47,7 @@ impl Client {
         fields: impl IntoIterator<Item = &ModelFieldNativeSpec>,
         value: &Value,
     ) -> Result<()> {
-        let time = Utc::now().timestamp_nanos();
+        let time = Utc::now().timestamp_nanos_opt().unwrap_or_default();
         let precision = TimestampPrecision::Nanoseconds;
 
         let body = fields
@@ -60,8 +60,7 @@ impl Client {
                 w.flush()?;
                 Ok::<_, io::Error>(buf)
             })
-            .map(Bytes::from)
-            .map(::reqwest::Body::from)?;
+            .map(Bytes::from)?;
 
         self.api
             .write_line_protocol_with_precision(&self.api.org, &self.bucket, body, precision)

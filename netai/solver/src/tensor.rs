@@ -9,7 +9,8 @@ use log::warn;
 use ndarray::{Array, Array1, ArrayBase, ArrayView, Axis, IxDyn};
 use ort::{
     session::{Input, Output},
-    tensor::{InputTensor, OrtOwnedTensor, TensorElementDataType},
+    tensor::{OrtOwnedTensor, TensorElementDataType},
+    value::DynArrayRef,
 };
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -20,30 +21,31 @@ use crate::primitive::AsPrimitive;
 #[allow(clippy::enum_variant_names)]
 pub enum OutputTensor<'a, D = IxDyn>
 where
-    D: ndarray::Dimension,
+    D: ::ndarray::Dimension,
 {
-    Int8Tensor(OrtOwnedTensor<'a, i8, D>),
-    Int16Tensor(OrtOwnedTensor<'a, i16, D>),
-    Int32Tensor(OrtOwnedTensor<'a, i32, D>),
-    Int64Tensor(OrtOwnedTensor<'a, i64, D>),
-    Uint8Tensor(OrtOwnedTensor<'a, u8, D>),
-    Uint16Tensor(OrtOwnedTensor<'a, u16, D>),
-    Uint32Tensor(OrtOwnedTensor<'a, u32, D>),
-    Uint64Tensor(OrtOwnedTensor<'a, u64, D>),
-    Bfloat16Tensor(OrtOwnedTensor<'a, ::half::bf16, D>),
-    Float16Tensor(OrtOwnedTensor<'a, ::half::f16, D>),
-    FloatTensor(OrtOwnedTensor<'a, f32, D>),
-    DoubleTensor(OrtOwnedTensor<'a, f64, D>),
-    StringTensor(OrtOwnedTensor<'a, String, D>),
+    Bool(OrtOwnedTensor<'a, bool, D>),
+    Int8(OrtOwnedTensor<'a, i8, D>),
+    Int16(OrtOwnedTensor<'a, i16, D>),
+    Int32(OrtOwnedTensor<'a, i32, D>),
+    Int64(OrtOwnedTensor<'a, i64, D>),
+    Uint8(OrtOwnedTensor<'a, u8, D>),
+    Uint16(OrtOwnedTensor<'a, u16, D>),
+    Uint32(OrtOwnedTensor<'a, u32, D>),
+    Uint64(OrtOwnedTensor<'a, u64, D>),
+    Bfloat16(OrtOwnedTensor<'a, ::half::bf16, D>),
+    Float16(OrtOwnedTensor<'a, ::half::f16, D>),
+    Float(OrtOwnedTensor<'a, f32, D>),
+    Double(OrtOwnedTensor<'a, f64, D>),
+    String(OrtOwnedTensor<'a, String, D>),
 }
 
 impl<'a, D> OutputTensor<'a, D>
 where
-    D: 'a + ndarray::Dimension,
+    D: 'a + ::ndarray::Dimension,
 {
     fn argmax_with<S>(mat: &ArrayBase<S, D>) -> Array1<usize>
     where
-        S: ndarray::Data,
+        S: ::ndarray::Data,
         S::Elem: PartialOrd,
     {
         mat.rows()
@@ -65,10 +67,10 @@ where
         groups: &[usize],
     ) -> Array1<Option<usize>>
     where
-        S: ndarray::Data,
+        S: ::ndarray::Data,
         S::Elem: PartialOrd + AsPrimitive<f64> + ::std::fmt::Debug,
-        D: ndarray::RemoveAxis,
-        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+        D: ::ndarray::RemoveAxis,
+        <D as ::ndarray::Dimension>::Smaller: ::ndarray::Dimension<Larger = D>,
     {
         let mat = match label_drop {
             Some(label_drop) => {
@@ -107,10 +109,10 @@ where
 
     fn softmax_with<S>(mat: &ArrayBase<S, D>, axis: Axis) -> Array<f64, D>
     where
-        S: ndarray::Data,
+        S: ::ndarray::Data,
         S::Elem: PartialOrd + AsPrimitive<f64>,
-        D: ndarray::RemoveAxis,
-        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+        D: ::ndarray::RemoveAxis,
+        <D as ::ndarray::Dimension>::Smaller: ::ndarray::Dimension<Larger = D>,
     {
         let exp = mat.mapv(|value| value.as_().exp());
         let sum = exp.sum_axis(axis).insert_axis(axis);
@@ -119,10 +121,10 @@ where
 
     fn softmax_2d_with<S>(mat: &ArrayBase<S, D>) -> Array<f64, D>
     where
-        S: ndarray::Data,
+        S: ::ndarray::Data,
         S::Elem: PartialOrd + AsPrimitive<f64>,
-        D: ndarray::RemoveAxis,
-        <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+        D: ::ndarray::RemoveAxis,
+        <D as ::ndarray::Dimension>::Smaller: ::ndarray::Dimension<Larger = D>,
     {
         Self::softmax_with(mat, Axis(1))
     }
@@ -145,7 +147,7 @@ where
 #[async_trait]
 impl ToTensor for ::actix_multipart::form::bytes::Bytes {
     type Field = TensorField;
-    type Output = InputTensor;
+    type Output = DynArrayRef<'static>;
 
     async fn into_tensor(
         self,
@@ -158,7 +160,7 @@ impl ToTensor for ::actix_multipart::form::bytes::Bytes {
 #[async_trait]
 impl ToTensor for ::actix_multipart::form::tempfile::TempFile {
     type Field = TensorField;
-    type Output = InputTensor;
+    type Output = DynArrayRef<'static>;
 
     async fn into_tensor(
         self,
@@ -175,7 +177,7 @@ impl ToTensor for ::actix_multipart::form::tempfile::TempFile {
 #[async_trait]
 impl ToTensor for ::actix_multipart::form::text::Text<String> {
     type Field = TensorField;
-    type Output = InputTensor;
+    type Output = DynArrayRef<'static>;
 
     async fn into_tensor(
         self,
@@ -194,10 +196,10 @@ impl ToTensor for ::actix_multipart::form::text::Text<String> {
 #[async_trait]
 impl<T> ToTensor for Vec<T>
 where
-    T: ToTensor<Field = TensorField, Output = InputTensor>,
+    T: ToTensor<Field = TensorField, Output = DynArrayRef<'static>>,
 {
     type Field = TensorField;
-    type Output = InputTensor;
+    type Output = DynArrayRef<'static>;
 
     async fn into_tensor(
         self,
@@ -210,23 +212,24 @@ where
         }
 
         match &array[0] {
-            InputTensor::Int8Tensor(_) => i8::unwrap_tensor_array(&array),
-            InputTensor::Int16Tensor(_) => i16::unwrap_tensor_array(&array),
-            InputTensor::Int32Tensor(_) => i32::unwrap_tensor_array(&array),
-            InputTensor::Int64Tensor(_) => i64::unwrap_tensor_array(&array),
-            InputTensor::Uint8Tensor(_) => u8::unwrap_tensor_array(&array),
-            InputTensor::Uint16Tensor(_) => u16::unwrap_tensor_array(&array),
-            InputTensor::Uint32Tensor(_) => u32::unwrap_tensor_array(&array),
-            InputTensor::Uint64Tensor(_) => u64::unwrap_tensor_array(&array),
-            InputTensor::Bfloat16Tensor(_) => {
+            DynArrayRef::Bool(_) => bool::unwrap_tensor_array(&array),
+            DynArrayRef::Int8(_) => i8::unwrap_tensor_array(&array),
+            DynArrayRef::Int16(_) => i16::unwrap_tensor_array(&array),
+            DynArrayRef::Int32(_) => i32::unwrap_tensor_array(&array),
+            DynArrayRef::Int64(_) => i64::unwrap_tensor_array(&array),
+            DynArrayRef::Uint8(_) => u8::unwrap_tensor_array(&array),
+            DynArrayRef::Uint16(_) => u16::unwrap_tensor_array(&array),
+            DynArrayRef::Uint32(_) => u32::unwrap_tensor_array(&array),
+            DynArrayRef::Uint64(_) => u64::unwrap_tensor_array(&array),
+            DynArrayRef::Bfloat16(_) => {
                 bail!("concatenating Bfloat16Tensors are not supported yet")
             }
-            InputTensor::Float16Tensor(_) => {
+            DynArrayRef::Float16(_) => {
                 bail!("concatenating Float16Tensors are not supported yet")
             }
-            InputTensor::FloatTensor(_) => f32::unwrap_tensor_array(&array),
-            InputTensor::DoubleTensor(_) => f64::unwrap_tensor_array(&array),
-            InputTensor::StringTensor(_) => String::unwrap_tensor_array(&array),
+            DynArrayRef::Float(_) => f32::unwrap_tensor_array(&array),
+            DynArrayRef::Double(_) => f64::unwrap_tensor_array(&array),
+            DynArrayRef::String(_) => String::unwrap_tensor_array(&array),
         }
         .map_err(|e| anyhow!("failed to concatenate the tensors: {e}"))
     }
@@ -235,10 +238,10 @@ where
 #[async_trait]
 impl<T> ToTensor for BTreeMap<String, T>
 where
-    T: ToTensor<Field = TensorField, Output = InputTensor>,
+    T: ToTensor<Field = TensorField, Output = DynArrayRef<'static>>,
 {
     type Field = TensorFieldMap;
-    type Output = Vec<InputTensor>;
+    type Output = Vec<DynArrayRef<'static>>;
 
     async fn into_tensor(
         self,
@@ -342,7 +345,7 @@ impl TensorField {
 }
 
 impl TensorField {
-    fn convert_bytes(&self, bytes: &[u8]) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8]) -> Result<DynArrayRef<'static>> {
         self.kind.convert_bytes(bytes, self.tensor_type)
     }
 }
@@ -355,7 +358,7 @@ pub enum TensorKind {
 }
 
 impl TensorKind {
-    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<DynArrayRef<'static>> {
         match self {
             Self::Text(kind) => kind.convert_bytes(bytes),
             Self::Image(kind) => kind.convert_bytes(bytes, tensor_type),
@@ -377,13 +380,13 @@ pub struct TextKind {
 }
 
 impl TextKind {
-    fn convert_bytes(&self, bytes: &[u8]) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8]) -> Result<DynArrayRef<'static>> {
         String::from_utf8(bytes.to_vec())
             .map_err(Into::into)
             .and_then(|s| self.convert_string(s))
     }
 
-    fn convert_string(&self, s: String) -> Result<InputTensor> {
+    fn convert_string(&self, s: String) -> Result<DynArrayRef<'static>> {
         if let Some(max_len) = self.max_len {
             let len = s.len();
             if len > max_len as usize {
@@ -391,8 +394,8 @@ impl TextKind {
             }
         }
 
-        Ok(InputTensor::StringTensor(
-            Array1::from_vec(vec![s]).into_dyn(),
+        Ok(DynArrayRef::String(
+            Array1::from_vec(vec![s]).into_dyn().into(),
         ))
     }
 }
@@ -406,12 +409,12 @@ pub struct ImageKind {
 }
 
 impl ImageKind {
-    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<InputTensor> {
+    fn convert_bytes(&self, bytes: &[u8], tensor_type: TensorType) -> Result<DynArrayRef<'static>> {
         fn convert_image<I>(
             image: I,
             tensor_type: TensorType,
             shape: (usize, usize, usize, usize),
-        ) -> InputTensor
+        ) -> DynArrayRef<'static>
         where
             I: GenericImageView,
             <I as GenericImageView>::Pixel: Pixel<Subpixel = u8>,
@@ -424,10 +427,12 @@ impl ImageKind {
 
             match tensor_type {
                 TensorType::Uint8 => {
-                    InputTensor::Uint8Tensor(Array::from_shape_fn(shape, get_pixel).into_dyn())
+                    DynArrayRef::Uint8(Array::from_shape_fn(shape, get_pixel).into_dyn().into())
                 }
-                TensorType::Float32 => InputTensor::FloatTensor(
-                    Array::from_shape_fn(shape, |idx| (get_pixel(idx) as f32) / 255.0).into_dyn(),
+                TensorType::Float32 => DynArrayRef::Float(
+                    Array::from_shape_fn(shape, |idx| (get_pixel(idx) as f32) / 255.0)
+                        .into_dyn()
+                        .into(),
                 ),
                 _ => unreachable!("unsupported tensor type: {tensor_type:?}"),
             }
@@ -600,11 +605,11 @@ impl Default for TensorType {
 }
 
 trait UnwrapTensor {
-    fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>>
+    fn unwrap_tensor<'a>(tensor: &'a DynArrayRef) -> Result<ArrayView<'a, Self, IxDyn>>
     where
         Self: Sized;
 
-    fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor>
+    fn unwrap_tensor_array(array: &[DynArrayRef]) -> Result<DynArrayRef<'static>>
     where
         Self: Sized;
 }
@@ -613,7 +618,7 @@ macro_rules! impl_tensor {
     ( $( $name:ident => $ty:ty , )* ) => {
         impl<'a, D> OutputTensor<'a, D>
         where
-            D: 'a + ndarray::Dimension,
+            D: 'a + ::ndarray::Dimension,
         {
             pub fn argmax(&self) -> Array1<usize> {
                 match self {
@@ -630,8 +635,8 @@ macro_rules! impl_tensor {
                 groups: &[usize],
             ) -> Array1<Option<usize>>
             where
-                D: ndarray::RemoveAxis,
-                <D as ndarray::Dimension>::Smaller: ndarray::Dimension<Larger = D>,
+                D: ::ndarray::RemoveAxis,
+                <D as ::ndarray::Dimension>::Smaller: ::ndarray::Dimension<Larger = D>,
             {
                 match self {
                     $(
@@ -648,28 +653,28 @@ macro_rules! impl_tensor {
 
         $(
             impl UnwrapTensor for $ty {
-                fn unwrap_tensor(tensor: &InputTensor) -> Result<ArrayView<Self, IxDyn>> {
+                fn unwrap_tensor<'a>(tensor: &'a DynArrayRef) -> Result<ArrayView<'a, Self, IxDyn>> {
                     match tensor {
-                        InputTensor::$name(tensor) => Ok(tensor.view()),
+                        DynArrayRef::$name(tensor) => Ok(tensor.view()),
                         _ => bail!("cannot combine other types than {}", stringify!($ty)),
                     }
                 }
 
-                fn unwrap_tensor_array(array: &[InputTensor]) -> Result<InputTensor> {
+                fn unwrap_tensor_array(array: &[DynArrayRef]) -> Result<DynArrayRef<'static>> {
                     let array: Vec<_> = array
                         .iter()
                         .map(<$ty as UnwrapTensor>::unwrap_tensor)
                         .collect::<Result<_>>()?;
 
-                    ndarray::concatenate(Axis(0), &array)
-                        .map(InputTensor::$name)
-                        .map_err(Into::into)
+                    let concatenated: ::ndarray::CowArray<Self, IxDyn> =
+                        ::ndarray::concatenate(Axis(0), &array)?.into();
+                    Ok(DynArrayRef::$name(concatenated))
                 }
             }
 
             impl<'a, D> From<OrtOwnedTensor<'a, $ty, D>> for OutputTensor<'a, D>
             where
-                D: ndarray::Dimension,
+                D: ::ndarray::Dimension,
             {
                 fn from(value: OrtOwnedTensor<'a, $ty, D>) -> Self {
                     Self::$name(value)
@@ -680,17 +685,18 @@ macro_rules! impl_tensor {
 }
 
 impl_tensor!(
-    Int8Tensor => i8,
-    Int16Tensor => i16,
-    Int32Tensor => i32,
-    Int64Tensor => i64,
-    Uint8Tensor => u8,
-    Uint16Tensor => u16,
-    Uint32Tensor => u32,
-    Uint64Tensor => u64,
-    FloatTensor => f32,
-    DoubleTensor => f64,
-    Bfloat16Tensor => ::half::bf16,
-    Float16Tensor => ::half::f16,
-    StringTensor => String,
+    Bool => bool,
+    Int8 => i8,
+    Int16 => i16,
+    Int32 => i32,
+    Int64 => i64,
+    Uint8 => u8,
+    Uint16 => u16,
+    Uint32 => u32,
+    Uint64 => u64,
+    Float => f32,
+    Double => f64,
+    Bfloat16 => ::half::bf16,
+    Float16 => ::half::f16,
+    String => String,
 );

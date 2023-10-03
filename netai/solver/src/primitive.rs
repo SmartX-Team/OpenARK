@@ -27,6 +27,7 @@ macro_rules! impl_as_primitive {
     ( & half => $dest:ty as $kind:ident , ) => {
         impl_as_primitive!(
             [
+                bool,
                 ::half::bf16, ::half::f16,
             ] => $dest as $kind ,
         );

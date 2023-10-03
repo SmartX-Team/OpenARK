@@ -28,13 +28,13 @@ members = [
     "kiss/plugin",
     "netai/api",
     "netai/client",
-    # "netai/endpoint",          # exclude(alpine)
-    # "netai/solver",            # exclude(alpine)
-    # "proxyx/api",              # exclude(alpine)
-    # "proxyx/cli",              # exclude(alpine)
-    # "proxyx/provider/api",     # exclude(alpine)
-    # "proxyx/provider/chatgpt", # exclude(alpine)
-    # "proxyx/storage/influxdb", # exclude(alpine)
+    "netai/endpoint",          # exclude(alpine)
+    "netai/solver",            # exclude(alpine)
+    "proxyx/api",              # exclude(alpine)
+    "proxyx/cli",              # exclude(alpine)
+    "proxyx/provider/api",     # exclude(alpine)
+    "proxyx/provider/chatgpt", # exclude(alpine)
+    "proxyx/storage/influxdb", # exclude(alpine)
     "vine/api",
     "vine/bastion",
     "vine/cli",
@@ -103,7 +103,7 @@ ordered-float = { version = "4.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-ort = { version = "=1.14.8", default-features = false, features = [
+ort = { version = "=1.15", default-features = false, features = [
     # Common
     "copy-dylibs",
     "download-binaries",

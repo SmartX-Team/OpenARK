@@ -3,10 +3,9 @@ use std::path::PathBuf;
 use actix_web::{dev::Payload, http::header, HttpRequest, HttpResponse};
 use anyhow::{bail, Result};
 use ark_core::env;
-use ndarray::IxDyn;
 use ort::{
-    tensor::{DynOrtTensor, InputTensor},
-    Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
+    value::DynArrayRef, Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel,
+    SessionBuilder, Value,
 };
 use tokio::fs;
 
@@ -89,7 +88,45 @@ impl Session {
         &*self.model
     }
 
-    pub(crate) fn run_raw(&self, inputs: impl AsRef<[InputTensor]>) -> Result<SessionOutput<'_>> {
+    pub(crate) fn run_raw(&self, inputs: &[DynArrayRef]) -> Result<SessionOutput> {
+        let inputs: Vec<_> = inputs
+            .iter()
+            .map(|array| match array {
+                DynArrayRef::Bool(array) => DynArrayRef::Bool(array.view().into()),
+                DynArrayRef::Int8(array) => DynArrayRef::Int8(array.view().into()),
+                DynArrayRef::Int16(array) => DynArrayRef::Int16(array.view().into()),
+                DynArrayRef::Int32(array) => DynArrayRef::Int32(array.view().into()),
+                DynArrayRef::Int64(array) => DynArrayRef::Int64(array.view().into()),
+                DynArrayRef::Uint8(array) => DynArrayRef::Uint8(array.view().into()),
+                DynArrayRef::Uint16(array) => DynArrayRef::Uint16(array.view().into()),
+                DynArrayRef::Uint32(array) => DynArrayRef::Uint32(array.view().into()),
+                DynArrayRef::Uint64(array) => DynArrayRef::Uint64(array.view().into()),
+                DynArrayRef::Bfloat16(array) => DynArrayRef::Bfloat16(array.view().into()),
+                DynArrayRef::Float16(array) => DynArrayRef::Float16(array.view().into()),
+                DynArrayRef::Float(array) => DynArrayRef::Float(array.view().into()),
+                DynArrayRef::Double(array) => DynArrayRef::Double(array.view().into()),
+                DynArrayRef::String(array) => DynArrayRef::String(array.view().into()),
+            })
+            .collect();
+        let inputs = inputs
+            .iter()
+            .map(|array| match array {
+                DynArrayRef::Bool(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Int8(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Int16(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Int32(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Int64(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Uint8(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Uint16(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Uint32(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Uint64(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Bfloat16(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Float16(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Float(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::Double(array) => Value::from_array(self.inner.allocator(), array),
+                DynArrayRef::String(array) => Value::from_array(self.inner.allocator(), array),
+            })
+            .collect::<Result<_, _>>()?;
         self.inner
             .run(inputs)
             .map(|inner| SessionOutput {
@@ -113,7 +150,7 @@ impl Session {
 
 pub(crate) struct SessionOutput<'a> {
     session: &'a Session,
-    inner: Vec<DynOrtTensor<'a, IxDyn>>,
+    inner: Vec<Value<'static>>,
 }
 
 impl<'a> SessionOutput<'a> {
@@ -215,10 +252,10 @@ async fn load_model(model: impl Model) -> Result<::ort::Session> {
         .into();
     let session = SessionBuilder::new(&environment)?
         .with_execution_providers([
-            ExecutionProvider::cuda(),
-            ExecutionProvider::acl(),
-            ExecutionProvider::tensorrt(),
-            ExecutionProvider::cpu(),
+            ExecutionProvider::CUDA(Default::default()),
+            ExecutionProvider::ACL(Default::default()),
+            ExecutionProvider::TensorRT(Default::default()),
+            ExecutionProvider::CPU(Default::default()),
         ])?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
         .with_model_from_file(path)?;

@@ -7,7 +7,7 @@ use anyhow::{bail, Result};
 use futures::TryFutureExt;
 use itertools::Itertools;
 use netai_api::nlp::{QuestionWord, QuestionWordInput};
-use ort::tensor::InputTensor;
+use ort::value::DynArrayRef;
 use rust_tokenizers::{tokenizer::TruncationStrategy, TokenizedInput};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -141,7 +141,7 @@ impl Tokenizer {
             max_len: usize,
             pad: i64,
             f: impl Fn(&'a TokenizedInput) -> TIter,
-        ) -> ::anyhow::Result<ndarray::Array<i64, ndarray::Ix2>>
+        ) -> ::anyhow::Result<ndarray::Array<i64, ::ndarray::Ix2>>
         where
             T: 'a + Copy + Into<i64>,
             TIter: IntoIterator<Item = T>,
@@ -161,7 +161,7 @@ impl Tokenizer {
                 .collect::<Result<_, _>>()?;
 
             let arrays: Vec<_> = arrays.iter().map(|array| array.view()).collect();
-            ndarray::concatenate(ndarray::Axis(0), &arrays).map_err(Into::into)
+            ::ndarray::concatenate(ndarray::Axis(0), &arrays).map_err(Into::into)
         }
 
         let inputs_str_raw = inputs_str.collect_tokenizer_inputs(&self.order);
@@ -239,7 +239,7 @@ impl Tokenizer {
             })
             .sorted_by_key(|(_, field, _)| field.index)
             .map(|(name, field, value)| match field.tensor_type {
-                crate::tensor::TensorType::Int64 => Ok(InputTensor::Int64Tensor(value)),
+                crate::tensor::TensorType::Int64 => Ok(DynArrayRef::Int64(value.into())),
                 _ => bail!("failed to convert tensor type: {name:?}"),
             })
             .collect::<Result<_>>()?
@@ -349,8 +349,8 @@ struct TokenizerInput<'a> {
 }
 
 struct TokenizedInputs {
-    input_ids: ndarray::Array<i64, ndarray::Ix2>,
-    inputs: Vec<InputTensor>,
+    input_ids: ::ndarray::Array<i64, ::ndarray::Ix2>,
+    inputs: Vec<DynArrayRef<'static>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
