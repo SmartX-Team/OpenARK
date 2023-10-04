@@ -72,5 +72,5 @@ impl super::Storage for Storage {
     }
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageNatsArgs {}

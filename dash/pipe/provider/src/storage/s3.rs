@@ -85,7 +85,7 @@ impl super::Storage for Storage {
     }
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageS3Args {
     #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
     pub(super) access_key: String,

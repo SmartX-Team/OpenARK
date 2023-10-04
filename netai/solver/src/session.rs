@@ -1,21 +1,42 @@
 use std::path::PathBuf;
 
 use actix_web::{dev::Payload, http::header, HttpRequest, HttpResponse};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use ark_core::env;
 use ort::{
     value::DynArrayRef, Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel,
     SessionBuilder, Value,
 };
+use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::{
     io::{Request, Response},
     models::{Model, ModelKind},
     role::Role,
-    tensor::{OutputTensor, TensorField, TensorFieldMap, TensorType},
+    tensor::{BatchedTensor, OutputTensor, TensorField, TensorFieldMap, TensorType},
     BoxSolver,
 };
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "clap", derive(::clap::Parser))]
+pub struct SessionArgs {
+    #[cfg_attr(feature = "clap", command(flatten))]
+    pub model: crate::models::huggingface::Model,
+
+    #[cfg_attr(
+        feature = "clap",
+        arg(
+            long,
+            env = "MODEL_KIND",
+            value_name = "KIND",
+            value_enum,
+            default_value_t = Default::default()
+        )
+    )]
+    #[serde(default)]
+    pub model_kind: ModelKind,
+}
 
 pub struct Session {
     inner: ::ort::Session,
@@ -28,19 +49,26 @@ pub struct Session {
 
 impl Session {
     pub async fn try_default() -> Result<Self> {
-        match env::infer("MODEL_KIND")? {
-            ModelKind::Huggingface => {
-                Self::try_new(crate::models::huggingface::Model {
-                    repo: env::infer("MODEL_REPO")?,
-                    role: env::infer("MODEL_ROLE")?,
-                })
-                .await
-            }
+        Self::try_new(SessionArgs {
+            model: crate::models::huggingface::Model {
+                repo: env::infer("MODEL_REPO")?,
+                role: env::infer("MODEL_ROLE")?,
+            },
+            model_kind: env::infer("MODEL_KIND")?,
+        })
+        .await
+    }
+
+    pub async fn try_new(SessionArgs { model, model_kind }: SessionArgs) -> Result<Self> {
+        match model_kind {
+            ModelKind::Huggingface => Self::with_model(model).await,
         }
     }
 
-    pub async fn try_new(model: impl 'static + Model) -> Result<Self> {
-        let session = load_model(&model).await?;
+    pub async fn with_model(model: impl 'static + Model) -> Result<Self> {
+        let session = load_model(&model)
+            .await
+            .map_err(|error| anyhow!("failed to load model: {error}"))?;
 
         let inputs = session
             .inputs
@@ -60,7 +88,10 @@ impl Session {
             .collect();
         let role = model.get_role();
 
-        let solver = role.load_solver(&model).await?;
+        let solver = role
+            .load_solver(&model)
+            .await
+            .map_err(|error| anyhow!("failed to load model solver: {error}"))?;
 
         Ok(Self {
             inner: session,
@@ -136,10 +167,14 @@ impl Session {
             .map_err(Into::into)
     }
 
+    pub async fn run(&self, tensors: BatchedTensor) -> Result<BatchedTensor> {
+        self.solver.solve(self, tensors).await
+    }
+
     pub async fn run_web(&self, req: HttpRequest, payload: Payload) -> HttpResponse {
         let request = Request { req, payload };
 
-        match self.solver.solve(self, request).await {
+        match self.solver.solve_web(self, request).await {
             Ok(Response::Json(value)) => HttpResponse::Ok()
                 .insert_header((header::CONTENT_TYPE, ::mime::APPLICATION_JSON))
                 .body(value),
@@ -238,10 +273,22 @@ async fn load_model(model: impl Model) -> Result<::ort::Session> {
 
     // Download model
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).await?;
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|error| anyhow!("failed to create model storage directory: {error}"))?;
     }
-    if !fs::try_exists(&path).await? || !model.verify(&path).await? {
-        model.download_to(&path).await?;
+    if !fs::try_exists(&path)
+        .await
+        .map_err(|error| anyhow!("failed to check model status: {error}"))?
+        || !model
+            .verify(&path)
+            .await
+            .map_err(|error| anyhow!("failed to verify stored model: {error}"))?
+    {
+        model
+            .download_to(&path)
+            .await
+            .map_err(|error| anyhow!("failed to download model: {error}"))?;
     }
 
     // Load model
@@ -258,6 +305,7 @@ async fn load_model(model: impl Model) -> Result<::ort::Session> {
             ExecutionProvider::CPU(Default::default()),
         ])?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_model_from_file(path)?;
+        .with_model_from_file(path)
+        .map_err(|error| anyhow!("failed to load ONNX model: {error}"))?;
     Ok(session)
 }

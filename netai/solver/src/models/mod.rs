@@ -79,6 +79,7 @@ where
     Copy,
     Clone,
     Debug,
+    Default,
     Display,
     EnumString,
     PartialEq,
@@ -89,6 +90,9 @@ where
     Serialize,
     Deserialize,
 )]
+#[cfg_attr(feature = "clap", derive(::clap::ValueEnum))]
+#[cfg_attr(feature = "clap", clap(rename_all = "camelCase"))]
 pub enum ModelKind {
+    #[default]
     Huggingface,
 }

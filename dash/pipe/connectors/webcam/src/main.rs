@@ -18,7 +18,7 @@ fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
     #[arg(long, env = "PIPE_WEBCAM_CAMERA_DEVICE", value_name = "PATH")]
     camera_device: String,
@@ -28,7 +28,7 @@ pub struct FunctionArgs {
         env = "PIPE_WEBCAM_CAMERA_ENCODER",
         value_name = "TYPE",
         value_enum,
-        default_value_t = CameraEncoder::default()
+        default_value_t = Default::default()
     )]
     #[serde(default)]
     camera_encoder: CameraEncoder,
@@ -75,7 +75,7 @@ pub struct Function {
     params: Vector<i32>,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ::dash_pipe_provider::Function for Function {
     type Args = FunctionArgs;
     type Input = ();

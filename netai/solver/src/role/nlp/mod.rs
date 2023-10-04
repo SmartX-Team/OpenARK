@@ -1,5 +1,5 @@
-pub mod question_answering;
-pub mod zero_shot_classification;
+mod question_answering;
+mod zero_shot_classification;
 
 use std::borrow::Cow;
 
@@ -373,6 +373,7 @@ enum TokenizeOrder {
     Serialize,
     Deserialize,
 )]
+#[cfg_attr(feature = "clap", derive(::clap::ValueEnum))]
 pub enum Role {
     // NLP
     QuestionAnswering,
@@ -395,7 +396,7 @@ impl Role {
             // NLP
             Self::QuestionAnswering => match model.get_kind() {
                 crate::models::ModelKind::Huggingface => {
-                    crate::role::nlp::question_answering::Solver::load_from_huggingface(
+                    self::question_answering::Solver::load_from_huggingface(
                         *self,
                         &model.get_repo(),
                     )
@@ -405,7 +406,7 @@ impl Role {
             },
             Self::ZeroShotClassification => match model.get_kind() {
                 crate::models::ModelKind::Huggingface => {
-                    crate::role::nlp::zero_shot_classification::Solver::load_from_huggingface(
+                    self::zero_shot_classification::Solver::load_from_huggingface(
                         *self,
                         &model.get_repo(),
                     )

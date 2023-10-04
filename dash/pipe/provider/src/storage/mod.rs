@@ -100,7 +100,7 @@ pub trait Storage {
     async fn delete(&self, path: &Path) -> Result<()>;
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageArgs {
     #[arg(long, env = "BUCKET", value_name = "NAME")]
     bucket_name: String,

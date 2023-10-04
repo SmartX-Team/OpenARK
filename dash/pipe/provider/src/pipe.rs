@@ -1,6 +1,10 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -8,17 +12,21 @@ use clap::{ArgAction, Parser};
 use futures::{Future, StreamExt};
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{spawn, task::yield_now};
-use tracing::warn;
+use tokio::{
+    spawn,
+    sync::mpsc::{self, Receiver, Sender},
+    task::{yield_now, JoinHandle},
+};
+use tracing::{error, warn};
 
 use crate::{
     function::Function,
     message::PipeMessages,
     storage::{StorageSet, StorageType},
-    PipeMessage,
+    PipeMessage, PipePayload,
 };
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct PipeArgs<F>
 where
     F: Function,
@@ -30,10 +38,14 @@ where
     #[serde(default)]
     batch_size: Option<usize>,
 
+    #[arg(long, env = "PIPE_BATCH_TIMEOUT", value_name = "MILLISECONDS")]
+    #[serde(default)]
+    batch_timeout_ms: Option<u64>,
+
     #[command(flatten)]
     function_args: <F as Function>::Args,
 
-    #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "NUM")]
+    #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
     #[serde(default)]
     max_tasks: Option<usize>,
 
@@ -63,6 +75,10 @@ where
 {
     pub fn from_env() -> Self {
         Self::parse()
+    }
+
+    pub fn default_max_tasks(&self) -> usize {
+        self.max_tasks.unwrap_or(8)
     }
 
     pub fn with_batch_size(mut self, batch_size: usize) -> Self {
@@ -122,6 +138,7 @@ where
             .await
             .map_err(|error| anyhow!("failed to init NATS client: {error}"))?;
 
+        let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
         let storage = Arc::new({
             let default_output = match self.persistence {
                 Some(true) => StorageType::PERSISTENT,
@@ -131,29 +148,36 @@ where
         });
 
         Ok(Context {
+            batch_size: self.batch_size,
+            batch_timeout: self.batch_timeout_ms.map(Duration::from_millis),
             function: <F as Function>::try_new(&self.function_args)
                 .await
                 .map(Into::into)
                 .map_err(|error| anyhow!("failed to init function: {error}"))?,
-            reader: ReadContext {
-                batch_size: self.batch_size,
-                storage: storage.clone(),
-                stream_input: match &self.stream_in {
-                    Some(stream) => client
-                        .subscribe(stream.clone())
-                        .await
-                        .map(Some)
-                        .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
-                    None => None,
-                },
+            reader: match &self.stream_in {
+                Some(stream) => {
+                    let (tx, rx) = mpsc::channel(max_tasks);
+
+                    Some(ReadContext {
+                        _job: ReadSession {
+                            storage: storage.clone(),
+                            stream: client.subscribe(stream.clone()).await.map_err(|error| {
+                                anyhow!("failed to init NATS input stream: {error}")
+                            })?,
+                            tx: tx.into(),
+                        }
+                        .loop_forever()
+                        .await,
+                        rx,
+                    })
+                }
+                None => None,
             },
             writer: WriteContext {
-                atomic_session: AtomicSession::new(
-                    self.batch_size.unwrap_or(1) * self.max_tasks.unwrap_or(8),
-                ),
+                atomic_session: AtomicSession::new(max_tasks),
                 client,
                 storage,
-                stream_output: self.stream_out.clone(),
+                stream: self.stream_out.clone(),
             },
         })
     }
@@ -189,90 +213,147 @@ async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
-    match ctx.reader.read_inputs().await? {
-        Some(inputs) => match ctx.function.tick(inputs).await? {
-            PipeMessages::None => Ok(()),
-            outputs => {
-                let mut writer = ctx.writer.clone();
-                spawn(async move { writer.write_outputs(outputs).await });
-                ctx.writer.atomic_session.wait().await;
-                Ok(())
+    async fn recv_one<Value>(reader: &mut ReadContext<Value>) -> Result<PipeMessage<Value>> {
+        reader
+            .rx
+            .recv()
+            .await
+            .ok_or_else(|| anyhow!("reader job connection closed"))
+    }
+
+    let inputs = match &mut ctx.reader {
+        Some(reader) => match ctx.batch_size {
+            Some(batch_size) => {
+                let timer = ctx.batch_timeout.map(Timer::new);
+
+                let mut inputs = vec![recv_one(reader).await?];
+                for _ in 1..batch_size {
+                    if timer
+                        .as_ref()
+                        .map(|timer| timer.is_outdated())
+                        .unwrap_or_default()
+                    {
+                        break;
+                    } else {
+                        inputs.push(recv_one(reader).await?)
+                    }
+                }
+                PipeMessages::Batch(inputs)
             }
+            None => PipeMessages::Single(recv_one(reader).await?),
         },
-        None => Ok(()),
+        None => PipeMessages::None,
+    };
+
+    let input_payloads = inputs.get_payloads_ref();
+
+    match ctx.function.tick(inputs).await? {
+        PipeMessages::None => Ok(()),
+        outputs => {
+            let mut writer = ctx.writer.clone();
+            spawn(async move { writer.write_outputs(&input_payloads, outputs).await });
+            ctx.writer.atomic_session.wait().await;
+            Ok(())
+        }
     }
 }
 
-struct Context<F> {
+struct Timer {
+    timeout: Duration,
+    timestamp: Instant,
+}
+
+impl Timer {
+    fn new(timeout: Duration) -> Self {
+        Self {
+            timeout,
+            timestamp: Instant::now(),
+        }
+    }
+
+    fn is_outdated(&self) -> bool {
+        self.timestamp.elapsed() >= self.timeout
+    }
+}
+
+struct Context<F>
+where
+    F: Function,
+{
+    batch_size: Option<usize>,
+    batch_timeout: Option<Duration>,
     function: F,
-    reader: ReadContext,
+    reader: Option<ReadContext<<F as Function>::Input>>,
     writer: WriteContext,
 }
 
-struct ReadContext {
-    batch_size: Option<usize>,
-    storage: Arc<StorageSet>,
-    stream_input: Option<Subscriber>,
+struct ReadContext<Value> {
+    _job: JoinHandle<()>,
+    rx: Receiver<PipeMessage<Value>>,
 }
 
-impl ReadContext {
-    async fn read_inputs<Value>(&mut self) -> Result<Option<PipeMessages<Value>>>
-    where
-        Value: DeserializeOwned,
-    {
-        match self.read_message_batch().await? {
-            Some(inputs) => inputs
-                .load_payloads(&self.storage)
-                .await
-                .map(Some)
-                .map_err(|error| anyhow!("failed to read NATS input: {error}")),
-            None => Ok(None),
-        }
-    }
+struct ReadSession<Value> {
+    storage: Arc<StorageSet>,
+    stream: Subscriber,
+    tx: Arc<Sender<PipeMessage<Value>>>,
+}
 
-    async fn read_message_batch<Value>(&mut self) -> Result<Option<PipeMessages<Value, ()>>>
-    where
-        Value: DeserializeOwned,
-    {
-        match &self.stream_input {
-            Some(_) => match self.batch_size {
-                Some(batch_size) => {
-                    let mut inputs = vec![];
-                    for _ in 0..batch_size {
-                        match self.read_message_once().await? {
-                            Some(input) => inputs.push(input),
-                            None => break,
-                        }
-                    }
-
-                    if inputs.is_empty() {
-                        Ok(None)
-                    } else {
-                        Ok(Some(PipeMessages::Batch(inputs)))
+impl<Value> ReadSession<Value>
+where
+    Value: 'static + Send + Sync + DeserializeOwned,
+{
+    async fn loop_forever(mut self) -> JoinHandle<()> {
+        spawn(async move {
+            loop {
+                match self.read_input_one().await {
+                    Ok(()) => yield_now().await,
+                    Err(error) => {
+                        error!("failed to read inputs: {error}");
+                        break;
                     }
                 }
-                None => match self.read_message_once().await? {
-                    Some(input) => Ok(Some(PipeMessages::Single(input))),
-                    None => Ok(None),
-                },
-            },
-            None => Ok(Some(PipeMessages::None)),
+            }
+        })
+    }
+
+    async fn read_input_one(&mut self) -> Result<()> {
+        async fn send_one<Value>(
+            tx: &Sender<PipeMessage<Value>>,
+            input: PipeMessage<Value>,
+        ) -> Result<()> {
+            tx.send(input)
+                .await
+                .map_err(|error| anyhow!("failed to send NATS input: {error}"))
+        }
+
+        match self.read_message_one().await? {
+            Some(input) => {
+                if input.payloads.is_empty() {
+                    send_one(&self.tx, input.load_payloads_as_empty()).await
+                } else {
+                    let storage = self.storage.clone();
+                    let tx = self.tx.clone();
+                    spawn(async move {
+                        let input = input
+                            .load_payloads(&storage)
+                            .await
+                            .map_err(|error| anyhow!("failed to read NATS input: {error}"))?;
+                        send_one(&tx, input).await
+                    });
+                    Ok(())
+                }
+            }
+            None => Ok(()),
         }
     }
 
-    async fn read_message_once<Value>(&mut self) -> Result<Option<PipeMessage<Value, ()>>>
-    where
-        Value: DeserializeOwned,
-    {
-        match &mut self.stream_input {
-            Some(stream) => stream
-                .next()
-                .await
-                .map(TryInto::try_into)
-                .transpose()
-                .map_err(|error| anyhow!("failed to subscribe NATS input: {error}")),
-            None => Ok(None),
-        }
+    async fn read_message_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
+        self.stream
+            .next()
+            .await
+            .map(TryInto::try_into)
+            .transpose()
+            .map_err(|error| anyhow!("failed to subscribe NATS input: {error}"))
     }
 }
 
@@ -281,19 +362,27 @@ struct WriteContext {
     atomic_session: AtomicSession,
     client: Client,
     storage: Arc<StorageSet>,
-    stream_output: Option<String>,
+    stream: Option<String>,
 }
 
 impl WriteContext {
-    async fn write_outputs<Value>(&mut self, messages: PipeMessages<Value>) -> Result<()>
+    async fn write_outputs<Value>(
+        &mut self,
+        input_payloads: &HashMap<String, PipePayload<()>>,
+        messages: PipeMessages<Value>,
+    ) -> Result<()>
     where
         Value: Serialize,
     {
-        match &self.stream_output {
+        match &self.stream {
             Some(stream) => {
                 self.atomic_session
                     .alloc(async {
-                        for output in messages.dump_payloads(&self.storage).await?.into_vec() {
+                        for output in messages
+                            .dump_payloads(&self.storage, input_payloads)
+                            .await?
+                            .into_vec()
+                        {
                             let output = output
                                 .to_json_bytes()
                                 .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;

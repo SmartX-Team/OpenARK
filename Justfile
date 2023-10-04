@@ -8,6 +8,12 @@ export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 
 default:
   @just run
 
+init-conda:
+  conda create -n dash \
+    -c pytorch -c nvidia \
+    autopep8 pip python \
+    pytorch torchvision torchaudio pytorch-cuda=11.8
+
 fmt:
   cargo fmt --all
 

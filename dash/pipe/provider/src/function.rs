@@ -7,13 +7,10 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::PipeMessages;
 
-#[async_trait]
-pub trait Function
-where
-    Self: Send,
-{
+#[async_trait(?Send)]
+pub trait Function {
     type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
-    type Input: DeserializeOwned;
+    type Input: 'static + Send + Sync + DeserializeOwned;
     type Output: 'static + Send + Serialize;
 
     async fn try_new(args: &<Self as Function>::Args) -> Result<Self>

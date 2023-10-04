@@ -1,11 +1,17 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, HashMap},
+    mem::size_of,
+};
 
 use anyhow::{anyhow, bail, Error, Result};
 use async_trait::async_trait;
+use byteorder::{ByteOrder, NetworkEndian};
+use bytes::Bytes;
 use futures::{future::try_join_all, TryFutureExt};
+use half::{bf16, f16};
 use image::{imageops::FilterType, GenericImageView, Pixel};
 use itertools::Itertools;
-use ndarray::{Array, Array1, ArrayBase, ArrayView, Axis, IxDyn};
+use ndarray::{Array, Array1, ArrayBase, ArrayView, Axis, IxDyn, IxDynImpl};
 use ort::{
     session::{Input, Output},
     tensor::{OrtOwnedTensor, TensorElementDataType},
@@ -17,6 +23,389 @@ use tokio::io::AsyncReadExt;
 use tracing::warn;
 
 use crate::primitive::AsPrimitive;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchedTensor<Value = Bytes>
+where
+    Value: Default,
+{
+    batches: Vec<TensorSet<Value>>,
+}
+
+impl BatchedTensor {
+    pub fn collect_column<'a, 'k>(&'a self, key: &'k str) -> Result<DynArrayRef<'static>>
+    where
+        'a: 'k,
+    {
+        let tensors: Vec<_> = self
+            .collect_column_iter(key)
+            .map(DynArrayRef::try_from)
+            .collect::<Result<_>>()
+            .map_err(|error| anyhow!("failed to convert tensor type: {error}"))?;
+
+        match &tensors[0] {
+            DynArrayRef::Bool(_) => bool::unwrap_tensor_array(&tensors),
+            DynArrayRef::Int8(_) => i8::unwrap_tensor_array(&tensors),
+            DynArrayRef::Int16(_) => i16::unwrap_tensor_array(&tensors),
+            DynArrayRef::Int32(_) => i32::unwrap_tensor_array(&tensors),
+            DynArrayRef::Int64(_) => i64::unwrap_tensor_array(&tensors),
+            DynArrayRef::Uint8(_) => u8::unwrap_tensor_array(&tensors),
+            DynArrayRef::Uint16(_) => u16::unwrap_tensor_array(&tensors),
+            DynArrayRef::Uint32(_) => u32::unwrap_tensor_array(&tensors),
+            DynArrayRef::Uint64(_) => u64::unwrap_tensor_array(&tensors),
+            DynArrayRef::Bfloat16(_) => bf16::unwrap_tensor_array(&tensors),
+            DynArrayRef::Float16(_) => f16::unwrap_tensor_array(&tensors),
+            DynArrayRef::Float(_) => f32::unwrap_tensor_array(&tensors),
+            DynArrayRef::Double(_) => f64::unwrap_tensor_array(&tensors),
+            DynArrayRef::String(_) => String::unwrap_tensor_array(&tensors),
+        }
+    }
+}
+
+impl<Value> BatchedTensor<Value>
+where
+    Value: Default,
+{
+    fn collect_column_iter<'a, 'k>(
+        &'a self,
+        key: &'k str,
+    ) -> impl 'k + Iterator<Item = &'a Tensor<Value>>
+    where
+        'a: 'k,
+    {
+        self.batches.iter().filter_map(|batch| batch.map.get(key))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TensorSet<Value = Bytes>
+where
+    Value: Default,
+{
+    map: HashMap<String, Tensor<Value>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tensor<Value = Bytes> {
+    metadata: TensorMetadata,
+    #[serde(default)]
+    value: Value,
+}
+
+impl<'v> TryFrom<&'v Tensor> for DynArrayRef<'v> {
+    type Error = Error;
+
+    fn try_from(value: &'v Tensor) -> Result<Self> {
+        let Tensor {
+            metadata: TensorMetadata { dim, type_ },
+            value,
+        } = value;
+        let shape: IxDynImpl = dim.as_slice().into();
+
+        match type_ {
+            TensorType::Bool => {
+                let buffer = value.iter().map(|&e| e != 0).collect();
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Bool)
+            }
+            TensorType::Int8 => {
+                let buffer = value.iter().map(|&e| e as i8).collect();
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Int8)
+            }
+            TensorType::Int16 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<i16>());
+                NetworkEndian::read_i16_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Int16)
+            }
+            TensorType::Int32 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<i32>());
+                NetworkEndian::read_i32_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Int32)
+            }
+            TensorType::Int64 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<i64>());
+                NetworkEndian::read_i64_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Int64)
+            }
+            TensorType::Uint8 => ArrayView::from_shape(shape, value)
+                .map(Into::into)
+                .map(Self::Uint8),
+            TensorType::Uint16 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<u16>());
+                NetworkEndian::read_u16_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Uint16)
+            }
+            TensorType::Uint32 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<u32>());
+                NetworkEndian::read_u32_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Uint32)
+            }
+            TensorType::Uint64 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<u64>());
+                NetworkEndian::read_u64_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Uint64)
+            }
+            TensorType::Bfloat16 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<bf16>());
+                NetworkEndian::read_u16_into(value, &mut buffer);
+                let buffer = buffer.into_iter().map(bf16::from_bits).collect();
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Bfloat16)
+            }
+            TensorType::Float16 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<f16>());
+                NetworkEndian::read_u16_into(value, &mut buffer);
+                let buffer = buffer.into_iter().map(f16::from_bits).collect();
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Float16)
+            }
+            TensorType::Float32 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<f32>());
+                NetworkEndian::read_f32_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Float)
+            }
+            TensorType::Float64 => {
+                let mut buffer = Vec::with_capacity(value.len() / size_of::<f64>());
+                NetworkEndian::read_f64_into(value, &mut buffer);
+                Array::from_shape_vec(shape, buffer)
+                    .map(Into::into)
+                    .map(Self::Double)
+            }
+            // TODO: to be implemented!
+            TensorType::String => todo!(),
+        }
+        .map_err(Into::into)
+    }
+}
+
+impl<'v> From<DynArrayRef<'v>> for Tensor {
+    fn from(value: DynArrayRef<'v>) -> Self {
+        match value {
+            DynArrayRef::Bool(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Bool,
+                },
+                value: array
+                    .into_iter()
+                    .map(|e| e as u8)
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Int8(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Bool,
+                },
+                value: array
+                    .into_iter()
+                    .map(|e| e as u8)
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Int16(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Int16,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<i16>()];
+                        NetworkEndian::write_i16(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Int32(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Int32,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<i32>()];
+                        NetworkEndian::write_i32(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Int64(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Int64,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<i64>()];
+                        NetworkEndian::write_i64(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Uint8(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Uint8,
+                },
+                value: array.into_iter().collect::<Vec<_>>().into(),
+            },
+            DynArrayRef::Uint16(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Uint16,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<u16>()];
+                        NetworkEndian::write_u16(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Uint32(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Uint32,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<u32>()];
+                        NetworkEndian::write_u32(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Uint64(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Uint64,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<u64>()];
+                        NetworkEndian::write_u64(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Bfloat16(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Bfloat16,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<bf16>()];
+                        NetworkEndian::write_u16(&mut buf, e.to_bits());
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Float16(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Float16,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<f16>()];
+                        NetworkEndian::write_u16(&mut buf, e.to_bits());
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Float(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Float32,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<f32>()];
+                        NetworkEndian::write_f32(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            DynArrayRef::Double(array) => Self {
+                metadata: TensorMetadata {
+                    dim: array.shape().to_vec(),
+                    type_: TensorType::Float64,
+                },
+                value: array
+                    .into_iter()
+                    .flat_map(|e| {
+                        let mut buf = [0; size_of::<f64>()];
+                        NetworkEndian::write_f64(&mut buf, e);
+                        buf
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            },
+            // TODO: to be implemented!
+            DynArrayRef::String(_array) => todo!(),
+        }
+    }
+}
+
+impl<Value> Tensor<Value> {
+    pub fn detach(self) -> (Tensor<()>, Value) {
+        let Self { metadata, value } = self;
+        let tensor = Tensor {
+            metadata,
+            value: (),
+        };
+        (tensor, value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TensorMetadata {
+    dim: Vec<usize>,
+    #[serde(rename = "type")]
+    type_: TensorType,
+}
 
 #[allow(clippy::enum_variant_names)]
 pub enum OutputTensor<'a, D = IxDyn>

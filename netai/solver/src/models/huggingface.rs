@@ -4,13 +4,21 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use futures::{StreamExt, TryFutureExt};
 use reqwest::Response;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{fs, io, process::Command};
 
 use crate::role::Role;
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "clap", derive(::clap::Parser))]
 pub struct Model {
+    #[cfg_attr(feature = "clap", arg(long, env = "MODEL_REPO", value_name = "NAME"))]
     pub repo: String,
+
+    #[cfg_attr(
+        feature = "clap",
+        arg(long, env = "MODEL_ROLE", value_name = "ROLE", value_enum)
+    )]
     pub role: Role,
 }
 

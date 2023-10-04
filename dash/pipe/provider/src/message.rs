@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Error, Result};
 use bytes::Bytes;
 use futures::future::try_join_all;
@@ -7,7 +9,7 @@ use crate::storage::{StorageSet, StorageType};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PipeMessages<Value = (), Payload = Bytes>
+pub enum PipeMessages<Value = ::serde_json::Value, Payload = Bytes>
 where
     Payload: Default,
 {
@@ -16,19 +18,38 @@ where
     Batch(Vec<PipeMessage<Value, Payload>>),
 }
 
+#[cfg(feature = "pyo3")]
+impl From<PipeMessages> for Vec<PyPipeMessage> {
+    fn from(value: PipeMessages) -> Self {
+        match value {
+            PipeMessages::None => Default::default(),
+            PipeMessages::Single(value) => {
+                vec![value.into()]
+            }
+            PipeMessages::Batch(values) => values.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 impl<Value> PipeMessages<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
+        input_payloads: &HashMap<String, PipePayload<()>>,
     ) -> Result<PipeMessages<Value, ()>> {
         match self {
             Self::None => Ok(PipeMessages::None),
-            Self::Single(value) => value.dump_payloads(storage).await.map(PipeMessages::Single),
-            Self::Batch(values) => {
-                try_join_all(values.into_iter().map(|value| value.dump_payloads(storage)))
-                    .await
-                    .map(PipeMessages::Batch)
-            }
+            Self::Single(value) => value
+                .dump_payloads(storage, input_payloads)
+                .await
+                .map(PipeMessages::Single),
+            Self::Batch(values) => try_join_all(
+                values
+                    .into_iter()
+                    .map(|value| value.dump_payloads(storage, input_payloads)),
+            )
+            .await
+            .map(PipeMessages::Batch),
         }
     }
 }
@@ -37,15 +58,14 @@ impl<Value, Payload> PipeMessages<Value, Payload>
 where
     Payload: Default,
 {
-    pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessages<Value>> {
+    pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
         match self {
-            Self::None => Ok(PipeMessages::None),
-            Self::Single(value) => value.load_payloads(storage).await.map(PipeMessages::Single),
-            Self::Batch(values) => {
-                try_join_all(values.into_iter().map(|value| value.load_payloads(storage)))
-                    .await
-                    .map(PipeMessages::Batch)
-            }
+            PipeMessages::None => Default::default(),
+            PipeMessages::Single(value) => value.get_payloads_ref().collect(),
+            PipeMessages::Batch(values) => values
+                .iter()
+                .flat_map(|value| value.get_payloads_ref())
+                .collect(),
         }
     }
 
@@ -58,8 +78,147 @@ where
     }
 }
 
+#[cfg(feature = "pyo3")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PipeMessage<Value, Payload = Bytes> {
+#[::pyo3::pyclass]
+pub struct PyPipeMessage {
+    payloads: Vec<PipePayload>,
+    value: ::serde_json::Value,
+}
+
+#[cfg(feature = "pyo3")]
+impl From<PipeMessage> for PyPipeMessage {
+    fn from(PipeMessage { payloads, value }: PipeMessage) -> Self {
+        Self { payloads, value }
+    }
+}
+
+#[cfg(feature = "pyo3")]
+impl From<PyPipeMessage> for PipeMessage {
+    fn from(PyPipeMessage { payloads, value }: PyPipeMessage) -> Self {
+        Self { payloads, value }
+    }
+}
+
+#[cfg(feature = "pyo3")]
+#[::pyo3::pymethods]
+impl PyPipeMessage {
+    #[new]
+    fn new(payloads: Vec<(String, Option<Vec<u8>>)>, value: &::pyo3::PyAny) -> Self {
+        fn value_to_native(value: &::pyo3::PyAny) -> ::serde_json::Value {
+            if value.is_none() {
+                ::serde_json::Value::Null
+            } else if let Ok(value) = value.extract::<bool>() {
+                ::serde_json::Value::Bool(value)
+            } else if let Ok(value) = value.extract::<u64>() {
+                ::serde_json::Value::Number(value.into())
+            } else if let Ok(value) = value.extract::<i64>() {
+                ::serde_json::Value::Number(value.into())
+            } else if let Some(value) = value
+                .extract::<f64>()
+                .ok()
+                .and_then(::serde_json::Number::from_f64)
+            {
+                ::serde_json::Value::Number(value)
+            } else if let Ok(value) = value.extract::<String>() {
+                ::serde_json::Value::String(value)
+            } else if let Ok(values) = value.downcast::<::pyo3::types::PyList>() {
+                ::serde_json::Value::Array(values.iter().map(value_to_native).collect())
+            } else if let Ok(values) = value.downcast::<::pyo3::types::PyDict>() {
+                ::serde_json::Value::Object(
+                    values
+                        .iter()
+                        .filter_map(|(key, value)| {
+                            key.extract().ok().map(|key| (key, value_to_native(value)))
+                        })
+                        .collect(),
+                )
+            } else {
+                // do not save the value
+                ::serde_json::Value::Null
+            }
+        }
+
+        Self {
+            payloads: payloads
+                .into_iter()
+                .map(|(key, value)| {
+                    PipePayload::new(key, value.map(Into::into).unwrap_or_default())
+                })
+                .collect(),
+            value: value_to_native(value),
+        }
+    }
+
+    #[getter]
+    fn get_payloads(&self) -> Vec<(&str, &[u8])> {
+        self.payloads
+            .iter()
+            .map(
+                |PipePayload {
+                     key,
+                     storage: _,
+                     value,
+                 }| { (key.as_str(), value as &[u8]) },
+            )
+            .collect()
+    }
+
+    #[getter]
+    fn get_value(&self, py: ::pyo3::Python) -> ::pyo3::PyObject {
+        use pyo3::{types::IntoPyDict, IntoPy};
+
+        fn value_to_py(py: ::pyo3::Python, value: &::serde_json::Value) -> ::pyo3::PyObject {
+            match value {
+                ::serde_json::Value::Null => ().into_py(py),
+                ::serde_json::Value::Bool(value) => value.into_py(py),
+                ::serde_json::Value::Number(value) => match value.as_u64() {
+                    Some(value) => value.into_py(py),
+                    None => match value.as_i64() {
+                        Some(value) => value.into_py(py),
+                        None => match value.as_f64() {
+                            Some(value) => value.into_py(py),
+                            None => {
+                                unreachable!("one of the Rust Json Number type should be matched")
+                            }
+                        },
+                    },
+                },
+                ::serde_json::Value::String(value) => value.into_py(py),
+                ::serde_json::Value::Array(values) => values
+                    .iter()
+                    .map(|value| value_to_py(py, value))
+                    .collect::<Vec<_>>()
+                    .into_py(py),
+                ::serde_json::Value::Object(values) => values
+                    .iter()
+                    .map(|(key, value)| (key, value_to_py(py, value)))
+                    .into_py_dict(py)
+                    .into(),
+            }
+        }
+
+        value_to_py(py, &self.value)
+    }
+
+    #[classmethod]
+    fn from_json(_cls: &pyo3::types::PyType, data: &str) -> ::pyo3::PyResult<String> {
+        ::serde_json::from_str(data)
+            .map_err(|error| ::pyo3::exceptions::PyException::new_err(error.to_string()))
+    }
+
+    fn to_json(&self) -> ::pyo3::PyResult<String> {
+        ::serde_json::to_string(self)
+            .map_err(|error| ::pyo3::exceptions::PyException::new_err(error.to_string()))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self:?}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PipeMessage<Value = ::serde_json::Value, Payload = Bytes> {
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
     pub value: Value,
@@ -117,12 +276,13 @@ impl<Value> PipeMessage<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
+        input_payloads: &HashMap<String, PipePayload<()>>,
     ) -> Result<PipeMessage<Value, ()>> {
         Ok(PipeMessage {
             payloads: try_join_all(
                 self.payloads
                     .into_iter()
-                    .map(|payload| payload.dump(storage)),
+                    .map(|payload| payload.dump(storage, input_payloads)),
             )
             .await?,
             value: self.value,
@@ -131,6 +291,12 @@ impl<Value> PipeMessage<Value> {
 }
 
 impl<Value, Payload> PipeMessage<Value, Payload> {
+    fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
+        self.payloads
+            .iter()
+            .map(|payload| (payload.key.clone(), payload.get_ref()))
+    }
+
     pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
         Ok(PipeMessage {
             payloads: try_join_all(
@@ -141,6 +307,17 @@ impl<Value, Payload> PipeMessage<Value, Payload> {
             .await?,
             value: self.value,
         })
+    }
+
+    pub(crate) fn load_payloads_as_empty(self) -> PipeMessage<Value> {
+        PipeMessage {
+            payloads: self
+                .payloads
+                .into_iter()
+                .map(|payload| payload.load_as_empty())
+                .collect(),
+            value: self.value,
+        }
     }
 
     pub fn to_json(&self) -> Result<::serde_json::Value>
@@ -162,24 +339,11 @@ impl<Value, Payload> PipeMessage<Value, Payload> {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PipePayload<Value = Bytes> {
-    pub key: String,
+    key: String,
     #[serde(default)]
-    pub storage: Option<StorageType>,
-    #[serde(skip)]
-    pub value: Value,
-}
-
-impl PipePayload {
-    pub(crate) async fn dump(self, storage: &StorageSet) -> Result<PipePayload<()>> {
-        Ok(PipePayload {
-            value: storage
-                .get_default_output()
-                .put_with_str(&self.key, self.value)
-                .await?,
-            key: self.key,
-            storage: Some(storage.get_default_output().storage_type()),
-        })
-    }
+    storage: Option<StorageType>,
+    #[serde(default)]
+    value: Value,
 }
 
 impl<Value> PipePayload<Value> {
@@ -191,6 +355,17 @@ impl<Value> PipePayload<Value> {
         }
     }
 
+    pub(crate) fn get_ref<T>(&self) -> PipePayload<T>
+    where
+        T: Default,
+    {
+        PipePayload {
+            key: self.key.clone(),
+            storage: self.storage,
+            value: Default::default(),
+        }
+    }
+
     pub(crate) async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
         Ok(PipePayload {
             value: match self.storage {
@@ -199,6 +374,53 @@ impl<Value> PipePayload<Value> {
             },
             key: self.key,
             storage: self.storage,
+        })
+    }
+
+    pub(crate) fn load_as_empty<T>(self) -> PipePayload<T>
+    where
+        T: Default,
+    {
+        PipePayload {
+            key: self.key,
+            storage: self.storage,
+            value: Default::default(),
+        }
+    }
+
+    pub const fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
+impl PipePayload {
+    pub(crate) async fn dump(
+        self,
+        storage: &StorageSet,
+        input_payloads: &HashMap<String, PipePayload<()>>,
+    ) -> Result<PipePayload<()>> {
+        let Self {
+            key,
+            storage: _,
+            value,
+        } = self;
+
+        let last_storage = input_payloads.get(&key).and_then(|payload| payload.storage);
+        let next_storage = storage.get_default_output().storage_type();
+        Ok(PipePayload {
+            value: if last_storage
+                .map(|last_storage| last_storage == next_storage)
+                .unwrap_or_default()
+            {
+                // do not restore the payloads to the same storage
+            } else {
+                storage
+                    .get_default_output()
+                    .put_with_str(&key, value)
+                    .await?
+            },
+            key,
+            storage: Some(next_storage),
         })
     }
 }

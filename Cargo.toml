@@ -12,8 +12,8 @@ members = [
     "dash/gateway",
     "dash/openapi",
     "dash/pipe/connectors/webcam",
-    "dash/pipe/functions/ai",       # exclude(alpine)
     "dash/pipe/functions/identity",
+    "dash/pipe/functions/python",
     "dash/pipe/provider",
     "dash/provider",
     "dash/provider/api",
@@ -59,6 +59,7 @@ argon2 = { version = "=0.5" }
 async-recursion = { version = "=1.0" }
 async-trait = { version = "=0.1" }
 base64 = { version = "=0.21" }
+byteorder = { version = "=1.4" }
 bytes = { version = "=1.5" }
 byte-unit = { version = "=4.0" }
 chatgpt = { package = "chatgpt_rs", version = "=1.2" }
@@ -116,6 +117,7 @@ ort = { version = "=1.15", default-features = false, features = [
     "tensorrt",
 ] }
 paste = { version = "=1.0" }
+pyo3 = { version = "=0.19" }
 rand = { version = "=0.8" }
 regex = { version = "=1.9" }
 reqwest = { git = "https://github.com/ulagbulag/reqwest-wasm.git", package = "reqwest-wasm", version = "=0.11", default-features = false, features = [

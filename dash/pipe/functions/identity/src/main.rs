@@ -9,7 +9,7 @@ fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
     #[arg(long, env = "PIPE_IDENTITY_WRITE_TO_PERSISTENT_STORAGE", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -20,7 +20,7 @@ pub struct Function {
     args: FunctionArgs,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ::dash_pipe_provider::Function for Function {
     type Args = FunctionArgs;
     type Input = Value;

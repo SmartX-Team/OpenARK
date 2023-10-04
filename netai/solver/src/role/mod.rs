@@ -1,4 +1,4 @@
-pub mod nlp;
+mod nlp;
 
 use std::str::FromStr;
 
@@ -18,6 +18,22 @@ impl FromStr for Role {
 
     fn from_str(role: &str) -> std::result::Result<Self, Self::Err> {
         <self::nlp::Role as FromStr>::from_str(role).map(Self::Nlp)
+    }
+}
+
+#[cfg(feature = "clap")]
+impl ::clap::ValueEnum for Role {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            Self::Nlp(self::nlp::Role::QuestionAnswering),
+            Self::Nlp(self::nlp::Role::ZeroShotClassification),
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<::clap::builder::PossibleValue> {
+        match self {
+            Role::Nlp(value) => value.to_possible_value(),
+        }
     }
 }
 

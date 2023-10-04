@@ -13,6 +13,9 @@ repository = "https://github.com/ulagbulag/OpenARK"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 netai-api = { path = "../api", features = ["actix"] }
@@ -21,7 +24,9 @@ actix-multipart = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+byteorder = { workspace = true }
 bytes = { workspace = true }
+clap = { workspace = true, optional = true }
 futures = { workspace = true }
 half = { workspace = true }
 image = { workspace = true, features = [

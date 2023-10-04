@@ -3,15 +3,15 @@ use ark_core::env;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct Client {
-    http: ::reqwest::Client,
     host: String,
+    http: ::reqwest::Client,
 }
 
 impl Client {
     pub fn new(host: impl ToString) -> Result<Self> {
         Ok(Self {
-            http: ::reqwest::Client::builder().use_rustls_tls().build()?,
             host: host.to_string(),
+            http: ::reqwest::Client::builder().use_rustls_tls().build()?,
         })
     }
 

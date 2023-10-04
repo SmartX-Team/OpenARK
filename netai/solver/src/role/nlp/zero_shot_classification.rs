@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use futures::TryFutureExt;
 use netai_api::nlp::zero_shot_classification::{Inputs, Outputs};
 
+use crate::tensor::BatchedTensor;
+
 pub struct Solver {
     base: super::SolverBase,
 }
@@ -19,14 +21,32 @@ impl Solver {
 impl crate::Solver for Solver {
     async fn solve(
         &self,
+        _session: &crate::session::Session,
+        _tensors: BatchedTensor,
+    ) -> Result<BatchedTensor> {
+        todo!()
+    }
+
+    async fn solve_web(
+        &self,
         session: &crate::session::Session,
         mut request: crate::io::Request,
     ) -> Result<crate::io::Response> {
-        let Inputs { 0: inputs_str } = request.parse().await?;
+        let inputs = request.parse().await?;
+        let outputs = self.solve_raw(session, inputs)?;
+        crate::io::Response::from_json::<Outputs>(&outputs)
+    }
+}
 
+impl Solver {
+    fn solve_raw(
+        &self,
+        session: &crate::session::Session,
+        inputs: Inputs,
+    ) -> Result<Vec<Option<String>>> {
+        let Inputs { 0: inputs_str } = inputs;
         if inputs_str.is_empty() {
-            let outputs: Outputs = Default::default();
-            return crate::io::Response::from_json(&outputs);
+            return Ok(Default::default());
         }
 
         let super::LabelToId {
@@ -64,9 +84,8 @@ impl crate::Solver for Solver {
         let outputs = answers
             .into_iter()
             .zip(&inputs_str)
-            .map(|(index, input)| index.map(|index| input.question[index].as_str()))
+            .map(|(index, input)| index.map(|index| input.question[index].to_string()))
             .collect();
-
-        crate::io::Response::from_json::<Outputs>(&outputs)
+        Ok(outputs)
     }
 }
