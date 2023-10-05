@@ -56,6 +56,13 @@ echo "- Installing Prometheus ... "
 pushd "monitoring/prometheus" && ./install.sh && popd
 
 ###########################################################
+#   Install Daemonsets                                    #
+###########################################################
+
+# device plugins
+kubectl apply -f "./daemonset-fuse-device-plugin.yaml"
+
+###########################################################
 #   Install VINE                                          #
 ###########################################################
 

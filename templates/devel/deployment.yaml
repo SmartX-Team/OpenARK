@@ -124,8 +124,18 @@ spec:
             - name: http
               protocol: TCP
               containerPort: 80
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+                - seccomp:unconfined
+                - MKNOD
+                - SETFCAP
+                - SYS_ADMIN
+                - SYS_CHROOT
           resources:
             limits:
+              github.com/fuse: "1"
               nvidia.com/gpu: "1"
           volumeMounts:
             - name: home
@@ -152,7 +162,6 @@ spec:
       port: 8080
       protocol: TCP
       targetPort: 80
-  loadBalancerIP: 10.80.255.1
   type: LoadBalancer
 ---
 apiVersion: v1
@@ -162,8 +171,8 @@ metadata:
   namespace: openark-devel
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 1Ti
-  storageClassName: ceph-block
+  storageClassName: ceph-filesystem

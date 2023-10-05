@@ -10,7 +10,7 @@ ARG DESKTOP_VERSION="latest"
 FROM "quay.io/ulagbulag/openark-vine-desktop:${DESKTOP_VERSION}-${DESKTOP_DIST}" as server
 
 # Server Configuration
-CMD [ "/opt/openark/entrypoint.sh" ]
+CMD [ "/opt/openark/scripts/entrypoint.sh" ]
 ENTRYPOINT [ "/usr/bin/env" ]
 EXPOSE 22/tcp
 EXPOSE 80/tcp
@@ -31,3 +31,6 @@ ADD . /workspace
 RUN true \
     && mv /workspace/templates/devel/scripts /opt/openark \
     && rm -r /workspace/templates
+
+# Grant user to access to workspace
+RUN chown -R user:user /workspace
