@@ -11,9 +11,9 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
-    "dash/pipe/connectors/webcam",
+    "dash/pipe/connectors/webcam",  # exclude(alpine)
     "dash/pipe/functions/identity",
-    "dash/pipe/functions/python",
+    "dash/pipe/functions/python",   # exclude(alpine)
     "dash/pipe/provider",
     "dash/provider",
     "dash/provider/api",
