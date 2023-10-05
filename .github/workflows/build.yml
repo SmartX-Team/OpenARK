@@ -54,6 +54,7 @@ jobs:
           build-essential
           clang
           libclang-dev
+          libopencv-dev
           llvm-dev
           mold
           nasm
