@@ -1,0 +1,33 @@
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Configure environment variables
+ARG DESKTOP_DIST="ubuntu-pytorch"
+ARG DESKTOP_VERSION="latest"
+
+# Be ready for serving
+FROM "quay.io/ulagbulag/openark-vine-desktop:${DESKTOP_VERSION}-${DESKTOP_DIST}" as server
+
+# Server Configuration
+CMD [ "/opt/openark/entrypoint.sh" ]
+ENTRYPOINT [ "/usr/bin/env" ]
+EXPOSE 22/tcp
+EXPOSE 80/tcp
+USER root
+WORKDIR /
+
+# Install OpenSSH Server
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Load source files
+ADD . /workspace
+
+# Load scripts
+RUN true \
+    && mv /workspace/templates/devel/scripts /opt/openark \
+    && rm -r /workspace/templates

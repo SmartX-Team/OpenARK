@@ -1,0 +1,169 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openark-devel
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: openark-devel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: admin
+  namespace: openark-devel
+rules:
+  - apiGroups:
+      - ""
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: admin
+  namespace: openark-devel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: admin
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: admin
+    namespace: openark-devel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: admin
+  namespace: openark-devel
+rules:
+  - apiGroups:
+      - ""
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+metadata:
+  name: admin
+  namespace: openark-devel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: admin
+    namespace: openark-devel
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session
+  namespace: openark-devel
+  labels:
+    name: session
+    dashService: "true"
+    serviceType: devel-session
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: session
+  template:
+    metadata:
+      labels:
+        name: session
+        dashService: "true"
+        serviceType: devel-session
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: admin
+      containers:
+        - name: session
+          image: quay.io/ulagbulag/openark:latest-devel
+          imagePullPolicy: Always
+          ports:
+            - name: ssh
+              protocol: TCP
+              containerPort: 22
+            - name: http
+              protocol: TCP
+              containerPort: 80
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: home
+              mountPath: /home/user
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: session
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: session
+  namespace: openark-devel
+spec:
+  selector:
+    name: session
+  ports:
+    - name: ssh
+      port: 9894
+      protocol: TCP
+      targetPort: 22
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 80
+  loadBalancerIP: 10.80.255.1
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: session
+  namespace: openark-devel
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: ceph-block

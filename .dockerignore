@@ -26,7 +26,10 @@ Cargo.lock
 # Documentation
 **/*.md
 
-# Dockerfile/Containerfile
+# Dockerfile
+/.containerignore
+/.dockerignore
+/Containerfile*
 /Dockerfile*
 
 # Cargo settings
@@ -37,5 +40,8 @@ Cargo.lock
 /.vscode/
 /backup/
 /docs/
-/templates/
 **/tmp/
+
+# Templates
+/templates/
+!/templates/devel/scripts/

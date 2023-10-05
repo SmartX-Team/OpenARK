@@ -31,12 +31,33 @@ run *ARGS:
 
 oci-build:
   docker build \
+    --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
+    --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    .
+
+oci-build-devel:
+  docker build \
+    --file './Dockerfile.devel' \
+    --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel" \
+    --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    .
+
+oci-build-full:
+  docker build \
+    --file './Dockerfile.full' \
+    --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     .
 
 oci-push: oci-build
   docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}"
+
+oci-push-devel: oci-build-devel
+  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel"
+
+oci-push-full: oci-build-full
+  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full"
 
 oci-push-and-update-dash: oci-push
   kubectl -n dash delete pods --selector name=controller

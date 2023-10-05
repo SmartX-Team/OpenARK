@@ -3,11 +3,13 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG DEBIAN_VERSION="bullseye"
+ARG FUNCTION_HOME="/opt/dash/functions/builtins"
 ARG PACKAGE="openark"
+ARG PYTORCH_RELEASE="23.08"
+ARG PYTHON_VERSION="3"
 
 # Be ready for serving
-FROM "docker.io/library/debian:${DEBIAN_VERSION}" as server
+FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
 
 # Server Configuration
 EXPOSE 80/tcp
@@ -18,23 +20,11 @@ CMD [ "/bin/sh" ]
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib"
 
 # Install python dependencies
-ARG PYTORCH_WHL_REPO="https://download.pytorch.org/whl"
-ARG PYTORCH_VERSION_URL="https://pytorch.org/assets/quick-start-module.js"
 ADD ./netai/solver/requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y \
-    # Install python
+    # Install core dependencies
     curl \
-    python3-pip \
     # Install python dependencies
-    && PYTORCH_CUDA_VERSION="$( \
-    curl -s "${PYTORCH_VERSION_URL}" \
-    | grep 'let version_map=' \
-    | grep -Po '\"release\"\: +\K.*' \
-    | grep -Po '\"cuda\.y\"\: +\[\"cuda\"\, +\"\K[0-9.]+' | sed 's/\.//g' \
-    )" \
-    && python3 -m pip install --no-cache-dir --index-url "${PYTORCH_WHL_REPO}/cu${PYTORCH_CUDA_VERSION}" \
-    torch torchvision torchaudio \
-    && python3 -m pip install --no-cache-dir nvidia-pyindex \
     && python3 -m pip install --no-cache-dir --requirement /requirements.txt \
     # Cleanup
     && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
@@ -42,11 +32,22 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Be ready for building
-FROM "docker.io/library/rust:1-${DEBIAN_VERSION}" as builder
+FROM server as builder
 
 # Install dependencies
+ENV CARGO_HOME="/opt/cargo"
+ENV RUSTUP_HOME="/opt/rustup"
 RUN apt-get update && apt-get install -y \
     build-essential \
+    clang \
+    libclang-dev \
+    llvm-dev \
+    mold \
+    nasm \
+    # Install rustup
+    && curl https://sh.rustup.rs -sSf >/rustup.sh \
+    && bash /rustup.sh -y \
+    && rm /rustup.sh \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
@@ -55,12 +56,17 @@ ADD . /src
 WORKDIR /src
 
 # Build it!
+ARG FUNCTION_HOME
 RUN mkdir -p /out/bin /out/lib \
     # Build
-    && cargo build --all --workspace --release \
+    && "${CARGO_HOME}/bin/rustup" default stable \
+    && "${CARGO_HOME}/bin/cargo" build --all --workspace --release \
     && find ./target/release/ -maxdepth 1 -type f -perm -a=x -print0 | xargs -0 -I {} mv {} /out/bin \
     && mv /out/bin/*.so* /out/lib/ \
     && mv ./LICENSE /LICENSE \
+    # Copy pipe functions
+    && mkdir -p "${FUNCTION_HOME}" \
+    && mv ./dash/pipe/functions/python/examples "${FUNCTION_HOME}/python" \
     # # Remove duplicated onnxruntime CAPI binary
     # && rm -rf /out/libonnxruntime_providers_*.so \
     # Cleanup
@@ -68,6 +74,8 @@ RUN mkdir -p /out/bin /out/lib \
 
 # Copy executable files
 FROM server
+ARG FUNCTION_HOME
+COPY --from=builder "${FUNCTION_HOME}" "${FUNCTION_HOME}"
 COPY --from=builder /out/bin/* /usr/local/bin/
 COPY --from=builder /out/lib/* /usr/local/lib/
 COPY --from=builder /LICENSE /usr/share/licenses/${PACKAGE}/LICENSE
