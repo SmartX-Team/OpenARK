@@ -27,10 +27,14 @@ fi
 # Change user home directory permissions
 chown 'user:users' "${USER_HOME}"
 
-# Generate SSH keys
+# Generate Host SSH keys
 if [ ! -f "/etc/ssh/ssh_host_ed25519_key.pub" ]; then
+    cp -r /etc/.ssh/* /etc/ssh
     ssh-keygen -q -A
 fi
+rm -rf /etc/.ssh
+
+# Generate User SSH keys
 if [ ! -f "${USER_HOME}/.ssh/id_ed25519" ]; then
     su user -c "ssh-keygen -q -t ed25519 -f '${USER_HOME}/.ssh/id_ed25519' -N ''"
 fi

@@ -137,6 +137,8 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/user
+            - name: host-ssh
+              mountPath: /etc/ssh
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -145,6 +147,9 @@ spec:
         - name: home
           persistentVolumeClaim:
             claimName: session
+        - name: host-ssh
+          persistentVolumeClaim:
+            claimName: session-host-ssh
 ---
 apiVersion: v1
 kind: Service
@@ -176,4 +181,17 @@ spec:
   resources:
     requests:
       storage: 1Ti
+  storageClassName: ceph-filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: session-host-ssh
+  namespace: openark-devel
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 16Mi
   storageClassName: ceph-filesystem
