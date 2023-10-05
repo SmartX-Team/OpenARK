@@ -50,7 +50,13 @@ jobs:
       - name: Install dependencies
         run: >
           sudo apt-get update
-          && sudo apt-get install -y clang libopencv-dev mold nasm
+          && sudo apt-get install -y
+          build-essential
+          clang
+          libclang-dev
+          llvm-dev
+          mold
+          nasm
 
       - name: Replace minio-wasm package into minio
         run: sed -i 's/rev *\= *\"5be4686e307b058aa4190134a555c925301c59b2\"\,//g' ./Cargo.toml
