@@ -19,18 +19,16 @@ WORKDIR /
 
 # Install OpenSSH Server
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    libclang-dev \
+    llvm-dev \
+    mold \
+    nasm \
     openssh-server \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Load source files
-ADD . /workspace
-
 # Load scripts
-RUN true \
-    && mv /workspace/templates/devel/scripts /opt/openark \
-    && rm -r /workspace/templates
-
-# Grant user to access to workspace
-RUN chown -R user:user /workspace
+ADD ./templates/devel/scripts /opt/openark
