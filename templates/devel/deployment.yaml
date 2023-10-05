@@ -56,7 +56,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-metadata:
   name: admin
   namespace: openark-devel
 roleRef:
@@ -109,10 +108,6 @@ spec:
                     operator: In
                     values:
                       - Compute
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      serviceAccount: admin
       containers:
         - name: session
           image: quay.io/ulagbulag/openark:latest-devel
@@ -133,6 +128,8 @@ spec:
                 - SETFCAP
                 - SYS_ADMIN
                 - SYS_CHROOT
+                - SYS_SYS_ADMIN
+            privileged: true
           resources:
             limits:
               github.com/fuse: "1"
@@ -140,6 +137,10 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/user
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: admin
       volumes:
         - name: home
           persistentVolumeClaim:
