@@ -10,6 +10,7 @@ timm
 transformers[onnx]
 
 # Vision
+onnxsim>=0.4.33
 opencv-python<=4.8.0.74
 
 # Third-party Models
