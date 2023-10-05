@@ -15,8 +15,22 @@ def _init_processor() -> torch.device:
 
 
 def _init_model() -> Any:
-    return torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True) \
-        .to(device=_init_processor())
+    task = 'detect'
+
+    from ultralytics import YOLO
+    try:
+        return YOLO('yolov8n.engine', task=task)
+    except FileNotFoundError:
+        model = YOLO('yolov8n.pt', task=task)
+        model_path = model.export(
+            format='engine',
+            dynamic=True,
+            simplify=True,
+        )
+        del model
+        return YOLO(model_path, task=task)
+    # return torch.hub.load('ultralytics/yolov5', 'yolov5s.engine', pretrained=True) \
+    #     .to(device=_init_processor())
 
 
 # load model(s)
@@ -52,7 +66,7 @@ def tick(inputs: list[Any]) -> list[Any]:
     ]
 
     # execute inference
-    output_set = model(input_tensor, size=640).pandas().xyxy
+    output_set = model(input_tensor, imgsz=640, show=False)
 
     # pack payloads
     outputs = []
@@ -60,7 +74,7 @@ def tick(inputs: list[Any]) -> list[Any]:
         output_payloads = [(key, None)]
         output_value = {
             'key': key,
-            'value': json.loads(output.to_json(orient='records')),
+            'value': json.loads(output.tojson()),
         }
         outputs.append((output_payloads, output_value))
 

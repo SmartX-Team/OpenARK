@@ -53,6 +53,10 @@ where
     #[serde(default)]
     persistence: Option<bool>,
 
+    #[arg(long, env = "PIPE_QUEUE_GROUP", value_name = "NAME")]
+    #[serde(default)]
+    queue_group: Option<String>,
+
     #[arg(long, env = "PIPE_REPLY", action = ArgAction::SetTrue)]
     #[serde(default)]
     reply: Option<bool>,
@@ -161,7 +165,15 @@ where
                     Some(ReadContext {
                         _job: ReadSession {
                             storage: storage.clone(),
-                            stream: client.subscribe(stream.clone()).await.map_err(|error| {
+                            stream: match &self.queue_group {
+                                Some(queue_group) => {
+                                    client
+                                        .queue_subscribe(stream.clone(), queue_group.clone())
+                                        .await
+                                }
+                                None => client.subscribe(stream.clone()).await,
+                            }
+                            .map_err(|error| {
                                 anyhow!("failed to init NATS input stream: {error}")
                             })?,
                             tx: tx.into(),

@@ -58,10 +58,11 @@ def tick(inputs: list[Any]) -> list[Any]:
     # draw
     input_image = cv2.cvtColor(np.array(input_images[0][1]), cv2.COLOR_RGB2BGR)
     for input_object in inputs[0].value['value']:
+        input_object_box: dict[str, float] = input_object['box']
         input_object_color = (255, 0, 0)
         input_object_name: str = input_object['name']
-        pt_min = (int(input_object['xmin']), int(input_object['ymin']))
-        pt_max = (int(input_object['xmax']), int(input_object['ymax']))
+        pt_min = (int(input_object_box['x1']), int(input_object_box['y1']))
+        pt_max = (int(input_object_box['x2']), int(input_object_box['y2']))
 
         input_image = cv2.rectangle(
             input_image, pt_min, pt_max, input_object_color, 1)

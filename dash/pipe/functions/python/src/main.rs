@@ -65,7 +65,7 @@ impl ::dash_pipe_provider::Function for Function {
         let outputs: Vec<PyPipeMessage> = Python::with_gil(|py| {
             self.tick
                 .call1(py, (inputs,))
-                .map_err(|error| panic!("failed to execute python script: {error}"))
+                .map_err(|error| anyhow!("failed to execute python script: {error}"))
                 .and_then(|outputs| {
                     outputs.extract(py).map_err(|error| {
                         anyhow!("failed to extract python script outputs: {error}")

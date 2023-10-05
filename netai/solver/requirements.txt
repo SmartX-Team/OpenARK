@@ -1,8 +1,16 @@
+# Executors
 nvidia-cuda-runtime
 nvidia-curand
 nvidia-cufft
 
+# Runtime
 onnxruntime      # CPU
 onnxruntime-gpu  # CUDA, TensorRT
 timm
 transformers[onnx]
+
+# Vision
+opencv-python<=4.8.0.74
+
+# Third-party Models
+-r https://raw.githubusercontent.com/ultralytics/yolov5/master/requirements.txt
