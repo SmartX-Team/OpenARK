@@ -1,9 +1,11 @@
-use std::time::Duration;
+use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
-use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, PipePayload};
+use dash_pipe_provider::{
+    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageSet,
+};
 use image::{codecs, RgbImage};
 use opencv::{
     core::{Mat, MatTraitConst, MatTraitConstManual, Vec3b, Vector},
@@ -11,8 +13,6 @@ use opencv::{
     videoio::{self, VideoCapture, VideoCaptureTrait, VideoCaptureTraitConst},
 };
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
-use tracing::error;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -69,6 +69,7 @@ impl CameraEncoder {
 pub struct Function {
     camera_encoder: CameraEncoder,
     capture: VideoCapture,
+    ctx: FunctionContext,
     frame: Mat,
     frame_counter: FrameCounter,
     frame_size: FrameSize,
@@ -81,7 +82,11 @@ impl ::dash_pipe_provider::Function for Function {
     type Input = ();
     type Output = usize;
 
-    async fn try_new(args: &<Self as ::dash_pipe_provider::Function>::Args) -> Result<Self> {
+    async fn try_new(
+        args: &<Self as ::dash_pipe_provider::Function>::Args,
+        ctx: &mut FunctionContext,
+        _storage: &Arc<StorageSet>,
+    ) -> Result<Self> {
         let FunctionArgs {
             camera_device,
             camera_encoder,
@@ -96,6 +101,7 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(Self {
             camera_encoder,
             capture,
+            ctx: ctx.clone(),
             frame: Default::default(),
             frame_counter: Default::default(),
             frame_size: Default::default(),
@@ -158,9 +164,9 @@ impl ::dash_pipe_provider::Function for Function {
                 }
             }
             Ok(false) => {
-                error!("video capture is disconnected!");
-                sleep(Duration::from_millis(u64::MAX)).await;
-                return Ok(PipeMessages::None);
+                return self
+                    .ctx
+                    .terminate_err(anyhow!("video capture is disconnected!"))
             }
             Err(error) => bail!("failed to capture a frame: {error}"),
         };

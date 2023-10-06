@@ -273,7 +273,7 @@ where
 }
 
 impl<Value> PipeMessage<Value> {
-    pub(crate) async fn dump_payloads(
+    async fn dump_payloads(
         self,
         storage: &StorageSet,
         input_payloads: &HashMap<String, PipePayload<()>>,
@@ -355,7 +355,7 @@ impl<Value> PipePayload<Value> {
         }
     }
 
-    pub(crate) fn get_ref<T>(&self) -> PipePayload<T>
+    fn get_ref<T>(&self) -> PipePayload<T>
     where
         T: Default,
     {
@@ -366,7 +366,7 @@ impl<Value> PipePayload<Value> {
         }
     }
 
-    pub(crate) async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
+    async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
         Ok(PipePayload {
             value: match self.storage {
                 Some(type_) => storage.get(type_).get_with_str(&self.key).await?,
@@ -377,7 +377,7 @@ impl<Value> PipePayload<Value> {
         })
     }
 
-    pub(crate) fn load_as_empty<T>(self) -> PipePayload<T>
+    fn load_as_empty<T>(self) -> PipePayload<T>
     where
         T: Default,
     {
@@ -394,7 +394,7 @@ impl<Value> PipePayload<Value> {
 }
 
 impl PipePayload {
-    pub(crate) async fn dump(
+    async fn dump(
         self,
         storage: &StorageSet,
         input_payloads: &HashMap<String, PipePayload<()>>,

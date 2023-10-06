@@ -5,6 +5,8 @@ mod nats;
 #[cfg(feature = "s3")]
 mod s3;
 
+use std::pin::Pin;
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -85,6 +87,8 @@ impl StorageType {
 pub trait Storage {
     fn storage_type(&self) -> StorageType;
 
+    async fn list(&self) -> Result<Stream>;
+
     async fn get(&self, path: &Path) -> Result<Bytes>;
 
     async fn get_with_str(&self, path: &str) -> Result<Bytes> {
@@ -111,8 +115,31 @@ pub struct StorageArgs {
 
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
-    s3: self::s3::StorageS3Args,
+    s3: StorageS3Args,
 }
+
+#[cfg(any(feature = "lakehouse", feature = "s3"))]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+pub struct StorageS3Args {
+    #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
+    pub(super) access_key: String,
+
+    #[arg(
+        long,
+        env = "AWS_REGION",
+        value_name = "REGION",
+        default_value = "us-east-1"
+    )]
+    pub(super) region: String,
+
+    #[arg(long, env = "AWS_ENDPOINT_URL", value_name = "URL")]
+    pub(super) s3_endpoint: ::url::Url,
+
+    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", value_name = "VALUE")]
+    pub(super) secret_key: String,
+}
+
+pub type Stream = Pin<Box<dyn ::futures::Stream<Item = Result<(Path, Bytes)>>>>;
 
 fn parse_path(path: impl AsRef<str>) -> Result<Path> {
     Path::parse(path).map_err(|error| anyhow!("failed to parse storage path: {error}"))

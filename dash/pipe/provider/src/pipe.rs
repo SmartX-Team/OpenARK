@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    process::exit,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -13,14 +14,15 @@ use futures::{Future, StreamExt};
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{
-    spawn,
+    select, spawn,
     sync::mpsc::{self, Receiver, Sender},
     task::{yield_now, JoinHandle},
+    time::sleep,
 };
 use tracing::{error, warn};
 
 use crate::{
-    function::Function,
+    function::{Function, FunctionContext},
     message::PipeMessages,
     storage::{StorageSet, StorageType},
     PipeMessage, PipePayload,
@@ -151,13 +153,21 @@ where
             StorageSet::try_new(&self.storage, &client, default_output).await?
         });
 
+        let mut function_context = FunctionContext::default();
+        function_context.clone().trap_on_sigint()?;
+
         Ok(Context {
             batch_size: self.batch_size,
             batch_timeout: self.batch_timeout_ms.map(Duration::from_millis),
-            function: <F as Function>::try_new(&self.function_args)
-                .await
-                .map(Into::into)
-                .map_err(|error| anyhow!("failed to init function: {error}"))?,
+            function: <F as Function>::try_new(
+                &self.function_args,
+                &mut function_context,
+                &storage,
+            )
+            .await
+            .map(Into::into)
+            .map_err(|error| anyhow!("failed to init function: {error}"))?,
+            function_context,
             reader: match &self.stream_in {
                 Some(stream) => {
                     let (tx, rx) = mpsc::channel(max_tasks);
@@ -203,7 +213,8 @@ where
             .expect("failed to init tokio runtime")
             .block_on(self.loop_forever_async())
         {
-            panic!("{error}")
+            error!("{error}");
+            exit(1)
         }
     }
 
@@ -214,8 +225,15 @@ where
             // yield per every loop
             yield_now().await;
 
-            if let Err(error) = tick_async(&mut ctx).await {
-                warn!("{error}")
+            if ctx.function_context.is_terminating() {
+                break Ok(());
+            }
+
+            let response = tick_async(&mut ctx).await;
+            if ctx.function_context.is_terminating() {
+                break response;
+            } else if let Err(error) = response {
+                warn!("{error}");
             }
         }
     }
@@ -225,35 +243,52 @@ async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
-    async fn recv_one<Value>(reader: &mut ReadContext<Value>) -> Result<PipeMessage<Value>> {
-        reader
-            .rx
-            .recv()
-            .await
-            .ok_or_else(|| anyhow!("reader job connection closed"))
+    async fn recv_one<Value>(
+        function_context: &FunctionContext,
+        reader: &mut ReadContext<Value>,
+    ) -> Result<Option<PipeMessage<Value>>> {
+        loop {
+            select! {
+                input = reader
+                .rx
+                .recv() => break Ok(input),
+                () = sleep(Duration::from_millis(100)) => if function_context.is_terminating() {
+                    break Ok(None)
+                },
+            }
+        }
     }
 
     let inputs = match &mut ctx.reader {
-        Some(reader) => match ctx.batch_size {
-            Some(batch_size) => {
-                let timer = ctx.batch_timeout.map(Timer::new);
+        Some(reader) => {
+            let input = match recv_one(&ctx.function_context, reader).await? {
+                Some(input) => input,
+                None => return Ok(()),
+            };
+            match ctx.batch_size {
+                Some(batch_size) => {
+                    let timer = ctx.batch_timeout.map(Timer::new);
 
-                let mut inputs = vec![recv_one(reader).await?];
-                for _ in 1..batch_size {
-                    if timer
-                        .as_ref()
-                        .map(|timer| timer.is_outdated())
-                        .unwrap_or_default()
-                    {
-                        break;
-                    } else {
-                        inputs.push(recv_one(reader).await?)
+                    let mut inputs = vec![input];
+                    for _ in 1..batch_size {
+                        if timer
+                            .as_ref()
+                            .map(|timer| timer.is_outdated())
+                            .unwrap_or_default()
+                        {
+                            break;
+                        } else {
+                            inputs.push(match recv_one(&ctx.function_context, reader).await? {
+                                Some(input) => input,
+                                None => return Ok(()),
+                            })
+                        }
                     }
+                    PipeMessages::Batch(inputs)
                 }
-                PipeMessages::Batch(inputs)
+                None => PipeMessages::Single(input),
             }
-            None => PipeMessages::Single(recv_one(reader).await?),
-        },
+        }
         None => PipeMessages::None,
     };
 
@@ -295,6 +330,7 @@ where
     batch_size: Option<usize>,
     batch_timeout: Option<Duration>,
     function: F,
+    function_context: FunctionContext,
     reader: Option<ReadContext<<F as Function>::Input>>,
     writer: WriteContext,
 }

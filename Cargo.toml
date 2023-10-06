@@ -11,6 +11,7 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
+    "dash/pipe/connectors/storage",
     "dash/pipe/connectors/webcam",  # exclude(alpine)
     "dash/pipe/functions/identity",
     "dash/pipe/functions/python",   # exclude(alpine)
@@ -57,6 +58,7 @@ actix-web = { version = "=4.4", default-features = false, features = [
 anyhow = { version = "=1.0", features = ["backtrace"] }
 argon2 = { version = "=0.5" }
 async-recursion = { version = "=1.0" }
+async-stream = { version = "=0.3" }
 async-trait = { version = "=0.1" }
 base64 = { version = "=0.21" }
 byteorder = { version = "=1.4" }
@@ -67,7 +69,7 @@ chrono = { version = "=0.4", features = ["serde"] }
 clap = { version = "=4.4", features = ["env", "derive"] }
 csv = { version = "=1.2" }
 ctrlc = { version = "=3.4" }
-deltalake = { version = "0.16", default-features = false }
+deltalake = { version = "=0.16", default-features = false }
 email_address = { version = "=0.2" }
 futures = { version = "=0.3" }
 gethostname = { version = "=0.4" }
@@ -87,7 +89,7 @@ k8s-openapi = { version = "=0.20", features = ["schemars", "v1_26"] }
 kube = { version = "=0.86", default-features = false }
 language-tags = { version = "=0.3", features = ["serde"] }
 tracing = { version = "=0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing-subscriber = { version = "=0.3" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "5be4686e307b058aa4190134a555c925301c59b2", features = [
@@ -99,8 +101,8 @@ num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [
     "rustls-tls",
 ] }
-opencv = { version = "0.84", default-features = false }
-ordered-float = { version = "4.0", default-features = false, features = [
+opencv = { version = "=0.84", default-features = false }
+ordered-float = { version = "=4.0", default-features = false, features = [
     "bytemuck",
     "schemars",
     "serde",
@@ -147,6 +149,7 @@ sio = { git = "https://github.com/ulagbulag/sio-rs.git" }
 strum = { version = "=0.25", features = ["derive"] }
 tera = { version = "=1.19" }
 tokio = { version = "=1.32", features = ["macros", "rt"] }
+tokio-stream = { version = "=0.1" }
 url = { version = "=2.4", features = ["serde"] }
 uuid = { version = "=1.4", features = ["js", "serde", "v4"] }
 which = { version = "=4.4" }

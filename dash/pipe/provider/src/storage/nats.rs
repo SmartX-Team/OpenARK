@@ -1,15 +1,17 @@
 use std::io::Cursor;
 
 use anyhow::{anyhow, bail, Error, Result};
+use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use clap::Parser;
 use deltalake::Path;
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt};
 use nats::jetstream::object_store::ObjectStore;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 
+#[derive(Clone)]
 pub struct Storage {
     store: ObjectStore,
 }
@@ -36,6 +38,26 @@ impl Storage {
 impl super::Storage for Storage {
     fn storage_type(&self) -> super::StorageType {
         super::StorageType::Nats
+    }
+
+    async fn list(&self) -> Result<super::Stream> {
+        let storage = self.clone();
+        Ok(try_stream! {
+            let mut list = storage.store.list()
+                .map_err(|error| anyhow!("failed to list objects from NATS object store: {error}"))
+                .await?;
+            while let Some(item) = list.next().await
+            {
+                if let Ok(path) = item
+                    .map_err(Into::into)
+                    .and_then(|item| super::parse_path(item.name))
+                {
+                    let value = storage.get(&path).await?;
+                    yield (path, value);
+                }
+            }
+        }
+        .boxed())
     }
 
     async fn get(&self, path: &Path) -> Result<Bytes> {

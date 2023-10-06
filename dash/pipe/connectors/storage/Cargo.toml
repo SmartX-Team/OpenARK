@@ -1,5 +1,5 @@
 [package]
-name = "dash-pipe-connector-webcam"
+name = "dash-pipe-connector-storage"
 version = "0.1.0"
 edition = "2021"
 
@@ -19,7 +19,6 @@ dash-pipe-provider = { path = "../../provider" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
-image = { workspace = true, features = ["png"] }
-opencv = { workspace = true, features = ["imgcodecs", "videoio"] }
+futures = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["time"] }

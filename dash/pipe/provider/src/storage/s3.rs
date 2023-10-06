@@ -1,18 +1,17 @@
 use anyhow::{anyhow, bail, Error, Result};
+use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
-use clap::Parser;
 use deltalake::Path;
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt};
 use minio::s3::{
-    args::{GetObjectArgs, PutObjectApiArgs, RemoveObjectArgs},
+    args::{GetObjectArgs, ListObjectsV2Args, PutObjectApiArgs, RemoveObjectArgs},
     client::Client,
     creds::StaticProvider,
     http::BaseUrl,
 };
-use serde::{Deserialize, Serialize};
-use url::Url;
 
+#[derive(Clone)]
 pub struct Storage {
     base_url: BaseUrl,
     bucket_name: String,
@@ -21,12 +20,12 @@ pub struct Storage {
 
 impl Storage {
     pub async fn try_new(
-        StorageS3Args {
+        super::StorageS3Args {
             access_key,
             region: _,
             s3_endpoint,
             secret_key,
-        }: &StorageS3Args,
+        }: &super::StorageS3Args,
         bucket_name: &str,
     ) -> Result<Self> {
         Ok(Self {
@@ -44,6 +43,26 @@ impl super::Storage for Storage {
         super::StorageType::S3
     }
 
+    async fn list(&self) -> Result<super::Stream> {
+        let storage = self.clone();
+        Ok(try_stream! {
+            let args = ListObjectsV2Args::new(&storage.bucket_name)?;
+            let list = Client::new(storage.base_url.clone(), Some(&storage.provider))
+                .list_objects_v2(&args)
+                .map_err(|error| anyhow!("failed to list objects from S3 object store: {error}"))
+                .await?
+                .contents;
+            for item in list
+            {
+                if let Ok(path) = super::parse_path(item.name) {
+                    let value = storage.get(&path).await?;
+                    yield (path, value);
+                }
+            }
+        }
+        .boxed())
+    }
+
     async fn get(&self, path: &Path) -> Result<Bytes> {
         let args = GetObjectArgs::new(&self.bucket_name, path.as_ref())?;
 
@@ -54,12 +73,12 @@ impl super::Storage for Storage {
                 match object.bytes().await {
                     Ok(bytes) => Ok(bytes),
                     Err(error) => {
-                        bail!("failed to get object data from DeltaLake object store: {error}")
+                        bail!("failed to get object data from S3 object store: {error}")
                     }
                 }
             })
             .await
-            .map_err(|error| anyhow!("failed to get object from DeltaLake object store: {error}"))
+            .map_err(|error| anyhow!("failed to get object from S3 object store: {error}"))
     }
 
     async fn put(&self, path: &Path, bytes: Bytes) -> Result<()> {
@@ -69,7 +88,7 @@ impl super::Storage for Storage {
             .put_object_api(&args)
             .await
             .map(|_| ())
-            .map_err(|error| anyhow!("failed to put object into DeltaLake object store: {error}"))
+            .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
 
     async fn delete(&self, path: &Path) -> Result<()> {
@@ -79,28 +98,6 @@ impl super::Storage for Storage {
             .remove_object(&args)
             .await
             .map(|_| ())
-            .map_err(|error| {
-                anyhow!("failed to delete object from DeltaLake object store: {error}")
-            })
+            .map_err(|error| anyhow!("failed to delete object from S3 object store: {error}"))
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct StorageS3Args {
-    #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
-    pub(super) access_key: String,
-
-    #[arg(
-        long,
-        env = "AWS_REGION",
-        value_name = "REGION",
-        default_value = "us-east-1"
-    )]
-    pub(super) region: String,
-
-    #[arg(long, env = "AWS_ENDPOINT_URL", value_name = "URL")]
-    pub(super) s3_endpoint: Url,
-
-    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", value_name = "VALUE")]
-    pub(super) secret_key: String,
 }

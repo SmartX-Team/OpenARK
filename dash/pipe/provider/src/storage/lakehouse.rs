@@ -1,25 +1,25 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{anyhow, bail, Error, Result};
+use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use deltalake::{DeltaTable, DeltaTableBuilder, ObjectStore, Path};
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt};
 
-use super::s3::StorageS3Args;
-
+#[derive(Clone)]
 pub struct Storage {
-    table: DeltaTable,
+    table: Arc<DeltaTable>,
 }
 
 impl Storage {
     pub async fn try_new(
-        StorageS3Args {
+        super::StorageS3Args {
             access_key,
             s3_endpoint,
             region,
             secret_key,
-        }: &StorageS3Args,
+        }: &super::StorageS3Args,
         bucket_name: &str,
     ) -> Result<Self> {
         Ok(Self {
@@ -39,6 +39,7 @@ impl Storage {
                     .with_storage_options(backend_config)
                     .build()
                     .unwrap()
+                    .into()
             },
         })
     }
@@ -48,6 +49,18 @@ impl Storage {
 impl super::Storage for Storage {
     fn storage_type(&self) -> super::StorageType {
         super::StorageType::LakeHouse
+    }
+
+    async fn list(&self) -> Result<super::Stream> {
+        let storage = self.clone();
+        Ok(try_stream! {
+            let list = storage.table.get_files_iter();
+            for path in list {
+                let value = storage.get(&path).await?;
+                yield (path, value);
+            }
+        }
+        .boxed())
     }
 
     async fn get(&self, path: &Path) -> Result<Bytes> {

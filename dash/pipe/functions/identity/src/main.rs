@@ -1,7 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::{ArgAction, Parser};
-use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, PipePayload};
+use dash_pipe_provider::{
+    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageSet,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -26,7 +30,11 @@ impl ::dash_pipe_provider::Function for Function {
     type Input = Value;
     type Output = Value;
 
-    async fn try_new(args: &<Self as ::dash_pipe_provider::Function>::Args) -> Result<Self> {
+    async fn try_new(
+        args: &<Self as ::dash_pipe_provider::Function>::Args,
+        _ctx: &mut FunctionContext,
+        _storage: &Arc<StorageSet>,
+    ) -> Result<Self> {
         Ok(Self { args: args.clone() })
     }
 
