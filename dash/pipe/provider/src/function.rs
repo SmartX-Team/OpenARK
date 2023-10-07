@@ -17,8 +17,8 @@ use crate::{PipeMessages, StorageIO};
 #[async_trait(?Send)]
 pub trait Function {
     type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
-    type Input: 'static + Send + Sync + DeserializeOwned + JsonSchema;
-    type Output: 'static + Send + Sync + Serialize + JsonSchema;
+    type Input: 'static + Send + Sync + Default + DeserializeOwned + JsonSchema;
+    type Output: 'static + Send + Sync + Default + Serialize + JsonSchema;
 
     async fn try_new(
         args: &<Self as Function>::Args,
@@ -60,12 +60,18 @@ impl FunctionContext {
         self.is_terminating.store(true, Ordering::SeqCst)
     }
 
-    pub fn terminate_ok<T>(&self) -> Result<PipeMessages<T>> {
+    pub fn terminate_ok<T>(&self) -> Result<PipeMessages<T>>
+    where
+        T: Default,
+    {
         self.terminate();
         Ok(PipeMessages::None)
     }
 
-    pub fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>> {
+    pub fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>>
+    where
+        T: Default,
+    {
         self.terminate();
         Err(error.into())
     }

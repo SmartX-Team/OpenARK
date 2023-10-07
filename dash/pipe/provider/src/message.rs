@@ -13,6 +13,7 @@ use crate::storage::{StorageSet, StorageType};
 pub enum PipeMessages<Value = ::serde_json::Value, Payload = Bytes>
 where
     Payload: Default + JsonSchema,
+    Value: Default,
 {
     None,
     Single(PipeMessage<Value, Payload>),
@@ -32,7 +33,10 @@ impl From<PipeMessages> for Vec<PyPipeMessage> {
     }
 }
 
-impl<Value> PipeMessages<Value> {
+impl<Value> PipeMessages<Value>
+where
+    Value: Default,
+{
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
@@ -58,6 +62,7 @@ impl<Value> PipeMessages<Value> {
 impl<Value, Payload> PipeMessages<Value, Payload>
 where
     Payload: Default + JsonSchema,
+    Value: Default,
 {
     pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
         match self {
@@ -222,15 +227,17 @@ impl PyPipeMessage {
 pub struct PipeMessage<Value = ::serde_json::Value, Payload = Bytes>
 where
     Payload: Default + JsonSchema,
+    Value: Default,
 {
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
+    #[serde(default)]
     pub value: Value,
 }
 
 impl<Value> TryFrom<Bytes> for PipeMessage<Value, ()>
 where
-    Value: DeserializeOwned,
+    Value: Default + DeserializeOwned,
 {
     type Error = Error;
 
@@ -241,7 +248,7 @@ where
 
 impl<Value> TryFrom<::nats::Message> for PipeMessage<Value, ()>
 where
-    Value: DeserializeOwned,
+    Value: Default + DeserializeOwned,
 {
     type Error = Error;
 
@@ -253,7 +260,7 @@ where
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
     Payload: Default + Serialize + JsonSchema,
-    Value: Serialize,
+    Value: Default + Serialize,
 {
     type Error = Error;
 
@@ -267,7 +274,7 @@ where
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for ::serde_json::Value
 where
     Payload: Default + Serialize + JsonSchema,
-    Value: Serialize,
+    Value: Default + Serialize,
 {
     type Error = Error;
 
@@ -276,7 +283,10 @@ where
     }
 }
 
-impl<Value> PipeMessage<Value> {
+impl<Value> PipeMessage<Value>
+where
+    Value: Default,
+{
     async fn dump_payloads(
         self,
         storage: &StorageSet,
@@ -297,6 +307,7 @@ impl<Value> PipeMessage<Value> {
 impl<Value, Payload> PipeMessage<Value, Payload>
 where
     Payload: Default + JsonSchema,
+    Value: Default,
 {
     fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
         self.payloads

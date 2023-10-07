@@ -10,6 +10,7 @@ use deltalake::{SchemaDataType, SchemaField, SchemaTypeArray, SchemaTypeStruct};
 use map_macro::hash_map;
 use schemars::schema::{
     ArrayValidation, InstanceType, ObjectValidation, RootSchema, Schema, SchemaObject, SingleOrVec,
+    SubschemaValidation,
 };
 use serde_json::{json, Value};
 
@@ -19,6 +20,38 @@ pub trait FieldColumns {
 
 impl FieldColumns for RootSchema {
     fn to_data_types(&self) -> Result<Vec<SchemaField>> {
+        type Definitions = ::schemars::Map<String, Schema>;
+
+        fn find_schema_definition<'a>(
+            definitions: &'a Definitions,
+            schema: &'a Schema,
+        ) -> Result<&'a Schema> {
+            match schema {
+                Schema::Object(value) => find_schema_object_definition(definitions, value)
+                    .map(|result| result.unwrap_or(schema)),
+                schema => Ok(schema),
+            }
+        }
+
+        fn find_schema_object_definition<'a>(
+            definitions: &'a Definitions,
+            value: &'a SchemaObject,
+        ) -> Result<Option<&'a Schema>> {
+            const REFERENCE_ROOT: &str = "#/definitions/";
+            match value.reference.as_ref() {
+                Some(reference) if reference.starts_with(REFERENCE_ROOT) => {
+                    match definitions.get(&reference[REFERENCE_ROOT.len()..]) {
+                        Some(schema) => Ok(Some(schema)),
+                        None => bail!("no such json schema reference: {reference:?}"),
+                    }
+                }
+                Some(reference) => {
+                    bail!("relative json schema reference is not supported yet: {reference:?}")
+                }
+                None => Ok(None),
+            }
+        }
+
         fn find_instance_type_none(instance_types: &[InstanceType]) -> Option<usize> {
             instance_types
                 .iter()
@@ -27,30 +60,46 @@ impl FieldColumns for RootSchema {
                 .map(|(index, _)| index)
         }
 
+        fn find_schema_none(schemas: &[Schema]) -> Option<usize> {
+            schemas
+                .iter()
+                .enumerate()
+                .find(|(_, schema)| match schema {
+                    Schema::Object(value) => match &value.instance_type {
+                        Some(SingleOrVec::Single(instance_type)) => {
+                            matches!(**instance_type, InstanceType::Null)
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                })
+                .map(|(index, _)| index)
+        }
+
+        struct Context<'a> {
+            api_version: &'a Value,
+            definitions: &'a Definitions,
+            name: &'a str,
+        }
+
         trait JsonFieldColumn {
             fn to_data_type(
                 &self,
                 api_version: &Value,
-                definitions: &::schemars::Map<String, Schema>,
+                definitions: &Definitions,
                 name: &str,
                 nullable: bool,
             ) -> Result<Option<SchemaField>>;
         }
 
-        impl JsonFieldColumn for ::schemars::schema::Schema {
+        impl JsonFieldColumn for Schema {
             fn to_data_type(
                 &self,
                 api_version: &Value,
-                definitions: &schemars::Map<String, Schema>,
+                definitions: &Definitions,
                 name: &str,
                 nullable: bool,
             ) -> Result<Option<SchemaField>> {
-                struct Context<'a> {
-                    api_version: &'a Value,
-                    definitions: &'a schemars::Map<String, Schema>,
-                    name: &'a str,
-                }
-
                 fn parse_instance_type(
                     Context {
                         api_version,
@@ -88,14 +137,17 @@ impl FieldColumns for RootSchema {
                             nullable,
                             metadata("String".into()),
                         )),
-                        InstanceType::Array => value.array.to_array_data_type()?.map(|type_| {
-                            SchemaField::new(
-                                name.into(),
-                                SchemaDataType::array(type_),
-                                nullable,
-                                metadata("Array".into()),
-                            )
-                        }),
+                        InstanceType::Array => value
+                            .array
+                            .to_array_data_type(api_version, definitions)?
+                            .map(|type_| {
+                                SchemaField::new(
+                                    name.into(),
+                                    SchemaDataType::array(type_),
+                                    nullable,
+                                    metadata("Array".into()),
+                                )
+                            }),
                         InstanceType::Object => Some(SchemaField::new(
                             name.into(),
                             SchemaDataType::r#struct(SchemaTypeStruct::new(
@@ -126,23 +178,15 @@ impl FieldColumns for RootSchema {
                                 _ => unreachable!("json schema metadata should be Object"),
                             };
 
-                        const REFERENCE_ROOT: &str = "#/definitions/";
-                        let instance_type = match value.reference.as_ref() {
-                            Some(reference) if reference.starts_with(REFERENCE_ROOT) => {
-                                match definitions.get(&reference[REFERENCE_ROOT.len()..]) {
-                                    Some(schema) => {
-                                        return schema.to_data_type(
-                                            api_version,
-                                            definitions,
-                                            name,
-                                            nullable,
-                                        );
-                                    }
-                                    None => bail!("no such json schema reference: {reference:?}"),
-                                }
-                            }
-                            Some(reference) => {
-                                bail!("relative json schema reference is not supported yet: {reference:?}")
+                        let instance_type = match find_schema_object_definition(definitions, value)?
+                        {
+                            Some(schema) => {
+                                return schema.to_data_type(
+                                    api_version,
+                                    definitions,
+                                    name,
+                                    nullable,
+                                );
                             }
                             None => value.instance_type.as_ref(),
                         };
@@ -177,22 +221,87 @@ impl FieldColumns for RootSchema {
                                 },
                                 _ => bail!("union object is not supported yet"),
                             },
-                            None => None,
+                            None => {
+                                if let Some(subschemas) = value.subschemas.as_ref() {
+                                    subschemas.to_enum_data_type(ctx, nullable)?
+                                } else {
+                                    None
+                                }
+                            }
                         })
                     }
                 }
             }
         }
 
-        trait JsonFieldColumnArray {
-            fn to_array_data_type(&self) -> Result<Option<SchemaTypeArray>>;
+        trait JsonFieldColumnEnum {
+            fn to_enum_data_type(
+                &self,
+                ctx: Context,
+                nullable: bool,
+            ) -> Result<Option<SchemaField>>;
         }
 
-        impl JsonFieldColumnArray for Option<Box<ArrayValidation>> {
-            fn to_array_data_type(&self) -> Result<Option<SchemaTypeArray>> {
+        impl JsonFieldColumnEnum for SubschemaValidation {
+            fn to_enum_data_type(
+                &self,
+                ctx: Context,
+                nullable: bool,
+            ) -> Result<Option<SchemaField>> {
+                if let Some(schemas) = self.any_of.as_ref() {
+                    match schemas.len() {
+                        0 => Ok(None),
+                        1 => find_schema_definition(ctx.definitions, &schemas[0])?
+                            .to_enum_data_type(ctx, nullable),
+                        2 => match find_schema_none(schemas) {
+                            Some(index) => {
+                                find_schema_definition(ctx.definitions, &schemas[1 - index])?
+                                    .to_enum_data_type(ctx, nullable)
+                            }
+                            None => bail!("union enum is not supported yet"),
+                        },
+                        _ => bail!("union enum is not supported yet"),
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+        }
+
+        impl JsonFieldColumnEnum for Schema {
+            fn to_enum_data_type(
+                &self,
+                Context {
+                    api_version,
+                    definitions,
+                    name,
+                }: Context,
+                nullable: bool,
+            ) -> Result<Option<SchemaField>> {
+                self.to_data_type(api_version, definitions, name, nullable)
+            }
+        }
+
+        trait JsonFieldColumnArray {
+            fn to_array_data_type(
+                &self,
+                api_version: &Value,
+                definitions: &Definitions,
+            ) -> Result<Option<SchemaTypeArray>>;
+        }
+
+        impl JsonFieldColumnArray for Schema {
+            fn to_array_data_type(
+                &self,
+                api_version: &Value,
+                definitions: &Definitions,
+            ) -> Result<Option<SchemaTypeArray>> {
                 fn parse_instance_type(
+                    api_version: &Value,
+                    definitions: &Definitions,
                     instance_type: &InstanceType,
                     nullable: bool,
+                    value: &SchemaObject,
                 ) -> Result<Option<SchemaTypeArray>> {
                     Ok(match instance_type {
                         InstanceType::Null => None,
@@ -210,40 +319,80 @@ impl FieldColumns for RootSchema {
                         InstanceType::String => {
                             Some(SchemaTypeArray::new(self::types::string().into(), nullable))
                         }
-                        InstanceType::Array => {
-                            bail!("nested array is not supported yet")
-                        }
-                        InstanceType::Object => {
-                            bail!("nested object array is not supported yet")
-                        }
+                        InstanceType::Array => value
+                            .array
+                            .to_array_data_type(api_version, definitions)?
+                            .map(|type_| {
+                                SchemaTypeArray::new(SchemaDataType::array(type_).into(), nullable)
+                            }),
+                        InstanceType::Object => Some(SchemaTypeArray::new(
+                            SchemaDataType::r#struct(SchemaTypeStruct::new(
+                                value.object.to_data_types(api_version, definitions)?,
+                            ))
+                            .into(),
+                            nullable,
+                        )),
                     })
                 }
 
                 let nullable = false;
-                match self.as_ref().and_then(|value| value.items.as_ref()) {
-                    Some(SingleOrVec::Single(value)) => match &**value {
-                        Schema::Bool(true) => {
-                            bail!("dynamic array is not supported yet")
-                        }
-                        Schema::Bool(false) => Ok(None),
-                        Schema::Object(value) => match &value.instance_type {
-                            Some(SingleOrVec::Single(instance_type)) => {
-                                parse_instance_type(instance_type, nullable)
-                            }
-                            Some(SingleOrVec::Vec(instance_types)) => match instance_types.len() {
-                                0 => Ok(None),
-                                1 => parse_instance_type(&instance_types[0], nullable),
-                                2 => match find_instance_type_none(instance_types) {
-                                    Some(index) => {
-                                        parse_instance_type(&instance_types[1 - index], true)
+                match self {
+                    Schema::Bool(true) => {
+                        bail!("dynamic array is not supported yet")
+                    }
+                    Schema::Bool(false) => Ok(None),
+                    Schema::Object(value) => {
+                        match find_schema_object_definition(definitions, value)? {
+                            Some(schema) => schema.to_array_data_type(api_version, definitions),
+                            None => match &value.instance_type {
+                                Some(SingleOrVec::Single(instance_type)) => parse_instance_type(
+                                    api_version,
+                                    definitions,
+                                    instance_type,
+                                    nullable,
+                                    value,
+                                ),
+                                Some(SingleOrVec::Vec(instance_types)) => {
+                                    match instance_types.len() {
+                                        0 => Ok(None),
+                                        1 => parse_instance_type(
+                                            api_version,
+                                            definitions,
+                                            &instance_types[0],
+                                            nullable,
+                                            value,
+                                        ),
+                                        2 => match find_instance_type_none(instance_types) {
+                                            Some(index) => parse_instance_type(
+                                                api_version,
+                                                definitions,
+                                                &instance_types[1 - index],
+                                                true,
+                                                value,
+                                            ),
+                                            None => bail!("union array is not supported yet"),
+                                        },
+                                        _ => bail!("union array is not supported yet"),
                                     }
-                                    None => bail!("union array is not supported yet"),
-                                },
-                                _ => bail!("union array is not supported yet"),
+                                }
+                                None => Ok(None),
                             },
-                            None => Ok(None),
-                        },
-                    },
+                        }
+                    }
+                }
+            }
+        }
+
+        impl JsonFieldColumnArray for Option<&SingleOrVec<Schema>> {
+            fn to_array_data_type(
+                &self,
+                api_version: &Value,
+                definitions: &Definitions,
+            ) -> Result<Option<SchemaTypeArray>> {
+                match self {
+                    Some(SingleOrVec::Single(value)) => {
+                        value.to_array_data_type(api_version, definitions)
+                    }
                     Some(SingleOrVec::Vec(_)) => {
                         bail!("union array is not supported yet")
                     }
@@ -252,11 +401,23 @@ impl FieldColumns for RootSchema {
             }
         }
 
+        impl JsonFieldColumnArray for Option<Box<ArrayValidation>> {
+            fn to_array_data_type(
+                &self,
+                api_version: &Value,
+                definitions: &Definitions,
+            ) -> Result<Option<SchemaTypeArray>> {
+                self.as_ref()
+                    .and_then(|value| value.items.as_ref())
+                    .to_array_data_type(api_version, definitions)
+            }
+        }
+
         trait JsonFieldColumns {
             fn to_data_types(
                 &self,
                 api_version: &Value,
-                definitions: &::schemars::Map<String, Schema>,
+                definitions: &Definitions,
             ) -> Result<Vec<SchemaField>>;
         }
 
@@ -264,7 +425,7 @@ impl FieldColumns for RootSchema {
             fn to_data_types(
                 &self,
                 api_version: &Value,
-                definitions: &schemars::Map<String, Schema>,
+                definitions: &Definitions,
             ) -> Result<Vec<SchemaField>> {
                 self.properties
                     .iter()
@@ -282,7 +443,7 @@ impl FieldColumns for RootSchema {
             fn to_data_types(
                 &self,
                 api_version: &Value,
-                definitions: &schemars::Map<String, Schema>,
+                definitions: &Definitions,
             ) -> Result<Vec<SchemaField>> {
                 match self {
                     Some(value) => value.to_data_types(api_version, definitions),

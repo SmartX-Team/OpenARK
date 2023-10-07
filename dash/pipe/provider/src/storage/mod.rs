@@ -49,7 +49,7 @@ impl StorageSet {
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
     where
-        Value: JsonSchema,
+        Value: Default + JsonSchema,
     {
         Ok(Self {
             default,
@@ -137,7 +137,7 @@ pub enum MetadataStorageType {
 pub trait MetadataStorageExt<Value> {
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + DeserializeOwned;
+        Value: 'static + Send + Default + DeserializeOwned;
 }
 
 #[async_trait]
@@ -147,7 +147,7 @@ where
 {
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + DeserializeOwned,
+        Value: 'static + Send + Default + DeserializeOwned,
     {
         let mut list = self.list_metadata().await?;
 
@@ -168,11 +168,11 @@ where
 {
     async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
-        Value: 'static + Send + DeserializeOwned;
+        Value: 'static + Send + Default + DeserializeOwned;
 
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Serialize + JsonSchema;
+        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
 
     async fn flush(&self) -> Result<()> {
         Ok(())

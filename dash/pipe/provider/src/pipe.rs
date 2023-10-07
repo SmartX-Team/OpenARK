@@ -263,7 +263,10 @@ where
     async fn recv_one<Value>(
         function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
-    ) -> Result<Option<PipeMessage<Value>>> {
+    ) -> Result<Option<PipeMessage<Value>>>
+    where
+        Value: Default,
+    {
         loop {
             select! {
                 input = reader
@@ -353,12 +356,18 @@ where
     writer: WriteContext,
 }
 
-struct ReadContext<Value> {
+struct ReadContext<Value>
+where
+    Value: Default,
+{
     _job: JoinHandle<()>,
     rx: Receiver<PipeMessage<Value>>,
 }
 
-struct ReadSession<Value> {
+struct ReadSession<Value>
+where
+    Value: Default,
+{
     storage: Arc<StorageSet>,
     stream: Subscriber,
     tx: Arc<Sender<PipeMessage<Value>>>,
@@ -366,7 +375,7 @@ struct ReadSession<Value> {
 
 impl<Value> ReadSession<Value>
 where
-    Value: 'static + Send + Sync + DeserializeOwned,
+    Value: 'static + Send + Sync + Default + DeserializeOwned,
 {
     async fn loop_forever(mut self) -> JoinHandle<()> {
         spawn(async move {
@@ -386,7 +395,10 @@ where
         async fn send_one<Value>(
             tx: &Sender<PipeMessage<Value>>,
             input: PipeMessage<Value>,
-        ) -> Result<()> {
+        ) -> Result<()>
+        where
+            Value: Default,
+        {
             tx.send(input)
                 .await
                 .map_err(|error| anyhow!("failed to send NATS input: {error}"))
@@ -439,7 +451,7 @@ impl WriteContext {
         messages: PipeMessages<Value>,
     ) -> Result<()>
     where
-        Value: Send + Sync + Serialize + JsonSchema,
+        Value: Send + Sync + Default + Serialize + JsonSchema,
     {
         match &self.stream {
             Some(stream) => {

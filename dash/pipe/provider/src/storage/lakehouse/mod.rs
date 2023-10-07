@@ -39,7 +39,7 @@ impl Storage {
         bucket_name: &str,
     ) -> Result<Self>
     where
-        Value: JsonSchema,
+        Value: Default + JsonSchema,
     {
         let mut table = {
             let allow_http = s3_endpoint.scheme() == "http";
@@ -117,7 +117,7 @@ impl Storage {
 impl<Value> super::MetadataStorage<Value> for Storage {
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
-        Value: 'static + Send + DeserializeOwned,
+        Value: 'static + Send + Default + DeserializeOwned,
     {
         let ctx = SessionContext::new();
         ctx.register_table("table", self.table.clone())
@@ -134,7 +134,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
 
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
+        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
     {
         match self.writer.as_ref() {
             Some(writer) => writer

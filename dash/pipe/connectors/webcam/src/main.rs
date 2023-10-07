@@ -78,7 +78,18 @@ pub struct Function {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 pub struct FunctionOutput {
     index: usize,
@@ -89,7 +100,7 @@ pub struct FunctionOutput {
 #[async_trait(?Send)]
 impl ::dash_pipe_provider::Function for Function {
     type Args = FunctionArgs;
-    type Input = ();
+    type Input = FunctionOutput;
     type Output = FunctionOutput;
 
     async fn try_new(
