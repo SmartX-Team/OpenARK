@@ -9,20 +9,21 @@ use std::{
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use clap::Args;
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{PipeMessages, StorageSet};
+use crate::{PipeMessages, StorageIO};
 
 #[async_trait(?Send)]
 pub trait Function {
     type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
-    type Input: 'static + Send + Sync + DeserializeOwned;
-    type Output: 'static + Send + Serialize;
+    type Input: 'static + Send + Sync + DeserializeOwned + JsonSchema;
+    type Output: 'static + Send + Sync + Serialize + JsonSchema;
 
     async fn try_new(
         args: &<Self as Function>::Args,
         ctx: &mut FunctionContext,
-        storage: &Arc<StorageSet>,
+        storage: &Arc<StorageIO>,
     ) -> Result<Self>
     where
         Self: Sized;
@@ -35,7 +36,18 @@ pub trait Function {
 
 #[derive(Clone, Debug, Default)]
 pub struct FunctionContext {
+    is_disabled_write_metadata: bool,
     is_terminating: Arc<AtomicBool>,
+}
+
+impl FunctionContext {
+    pub fn disable_write_metadata(&mut self) {
+        self.is_disabled_write_metadata = true;
+    }
+
+    pub(crate) const fn is_disabled_write_metadata(&self) -> bool {
+        self.is_disabled_write_metadata
+    }
 }
 
 impl FunctionContext {

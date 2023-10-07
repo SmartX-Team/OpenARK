@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use dash_pipe_provider::{FunctionContext, PipeArgs, PipeMessages, PyPipeMessage, StorageSet};
+use dash_pipe_provider::{FunctionContext, PipeArgs, PipeMessages, PyPipeMessage, StorageIO};
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -32,7 +32,7 @@ impl ::dash_pipe_provider::Function for Function {
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::Function>::Args,
         _ctx: &mut FunctionContext,
-        _storage: &Arc<StorageSet>,
+        _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let FunctionArgs {
             python_script: file_path,

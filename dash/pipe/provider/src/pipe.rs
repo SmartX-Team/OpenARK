@@ -12,6 +12,7 @@ use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
 use futures::{Future, StreamExt};
 use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{
     select, spawn,
@@ -24,7 +25,7 @@ use tracing::{error, warn};
 use crate::{
     function::{Function, FunctionContext},
     message::PipeMessages,
-    storage::{StorageSet, StorageType},
+    storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet, StorageType},
     PipeMessage, PipePayload,
 };
 
@@ -146,11 +147,24 @@ where
 
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
         let storage = Arc::new({
-            let default_output = match self.persistence {
+            let default = match self.persistence {
                 Some(true) => StorageType::PERSISTENT,
                 Some(false) | None => StorageType::TEMPORARY,
             };
-            StorageSet::try_new(&self.storage, &client, default_output).await?
+            let default_metadata_type = MetadataStorageType::default();
+
+            StorageIO {
+                input: Arc::new({
+                    let default_metadata =
+                        MetadataStorageArgs::<<F as Function>::Input>::new(default_metadata_type);
+                    StorageSet::try_new(&self.storage, default, default_metadata).await?
+                }),
+                output: Arc::new({
+                    let default_metadata =
+                        MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
+                    StorageSet::try_new(&self.storage, default, default_metadata).await?
+                }),
+            }
         });
 
         let mut function_context = FunctionContext::default();
@@ -167,14 +181,14 @@ where
             .await
             .map(Into::into)
             .map_err(|error| anyhow!("failed to init function: {error}"))?,
-            function_context,
+            function_context: function_context.clone(),
             reader: match &self.stream_in {
                 Some(stream) => {
                     let (tx, rx) = mpsc::channel(max_tasks);
 
                     Some(ReadContext {
                         _job: ReadSession {
-                            storage: storage.clone(),
+                            storage: storage.input.clone(),
                             stream: match &self.queue_group {
                                 Some(queue_group) => {
                                     client
@@ -198,9 +212,11 @@ where
             writer: WriteContext {
                 atomic_session: AtomicSession::new(max_tasks),
                 client,
-                storage,
+                function_context,
+                storage: storage.output.clone(),
                 stream: self.stream_out.clone(),
             },
+            storage,
         })
     }
 
@@ -226,12 +242,13 @@ where
             yield_now().await;
 
             if ctx.function_context.is_terminating() {
-                break Ok(());
+                break ctx.storage.flush(&ctx.function_context).await;
             }
 
             let response = tick_async(&mut ctx).await;
             if ctx.function_context.is_terminating() {
-                break response;
+                let flush_response = ctx.storage.flush(&ctx.function_context).await;
+                break response.and(flush_response);
             } else if let Err(error) = response {
                 warn!("{error}");
             }
@@ -332,6 +349,7 @@ where
     function: F,
     function_context: FunctionContext,
     reader: Option<ReadContext<<F as Function>::Input>>,
+    storage: Arc<StorageIO>,
     writer: WriteContext,
 }
 
@@ -409,6 +427,7 @@ where
 struct WriteContext {
     atomic_session: AtomicSession,
     client: Client,
+    function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Option<String>,
 }
@@ -420,7 +439,7 @@ impl WriteContext {
         messages: PipeMessages<Value>,
     ) -> Result<()>
     where
-        Value: Serialize,
+        Value: Send + Sync + Serialize + JsonSchema,
     {
         match &self.stream {
             Some(stream) => {
@@ -431,6 +450,12 @@ impl WriteContext {
                             .await?
                             .into_vec()
                         {
+                            if !self.function_context.is_disabled_write_metadata() {
+                                self.storage
+                                    .get_default_metadata()
+                                    .put_metadata(&[&output])
+                                    .await?;
+                            }
                             let output = output
                                 .to_json_bytes()
                                 .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;

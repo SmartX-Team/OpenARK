@@ -1,11 +1,10 @@
 use anyhow::{anyhow, bail, Error, Result};
-use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use deltalake::Path;
-use futures::{StreamExt, TryFutureExt};
+use futures::TryFutureExt;
 use minio::s3::{
-    args::{GetObjectArgs, ListObjectsV2Args, PutObjectApiArgs, RemoveObjectArgs},
+    args::{GetObjectArgs, PutObjectApiArgs, RemoveObjectArgs},
     client::Client,
     creds::StaticProvider,
     http::BaseUrl,
@@ -41,26 +40,6 @@ impl Storage {
 impl super::Storage for Storage {
     fn storage_type(&self) -> super::StorageType {
         super::StorageType::S3
-    }
-
-    async fn list(&self) -> Result<super::Stream> {
-        let storage = self.clone();
-        Ok(try_stream! {
-            let args = ListObjectsV2Args::new(&storage.bucket_name)?;
-            let list = Client::new(storage.base_url.clone(), Some(&storage.provider))
-                .list_objects_v2(&args)
-                .map_err(|error| anyhow!("failed to list objects from S3 object store: {error}"))
-                .await?
-                .contents;
-            for item in list
-            {
-                if let Ok(path) = super::parse_path(item.name) {
-                    let value = storage.get(&path).await?;
-                    yield (path, value);
-                }
-            }
-        }
-        .boxed())
     }
 
     async fn get(&self, path: &Path) -> Result<Bytes> {

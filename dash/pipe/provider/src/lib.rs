@@ -8,4 +8,6 @@ pub use self::function::{Function, FunctionContext};
 pub use self::message::PyPipeMessage;
 pub use self::message::{PipeMessage, PipeMessages, PipePayload};
 pub use self::pipe::PipeArgs;
-pub use self::storage::{Storage, StorageSet, StorageType, Stream};
+pub use self::storage::{
+    MetadataStorage, MetadataStorageExt, Storage, StorageIO, StorageType, Stream,
+};

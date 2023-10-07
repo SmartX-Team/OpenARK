@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
-    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageSet,
+    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageIO,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -33,7 +33,7 @@ impl ::dash_pipe_provider::Function for Function {
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::Function>::Args,
         _ctx: &mut FunctionContext,
-        _storage: &Arc<StorageSet>,
+        _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self { args: args.clone() })
     }

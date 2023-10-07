@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::{bail, Error, Result};
 use bytes::Bytes;
 use futures::future::try_join_all;
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::storage::{StorageSet, StorageType};
@@ -11,7 +12,7 @@ use crate::storage::{StorageSet, StorageType};
 #[serde(untagged)]
 pub enum PipeMessages<Value = ::serde_json::Value, Payload = Bytes>
 where
-    Payload: Default,
+    Payload: Default + JsonSchema,
 {
     None,
     Single(PipeMessage<Value, Payload>),
@@ -56,7 +57,7 @@ impl<Value> PipeMessages<Value> {
 
 impl<Value, Payload> PipeMessages<Value, Payload>
 where
-    Payload: Default,
+    Payload: Default + JsonSchema,
 {
     pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
         match self {
@@ -217,8 +218,11 @@ impl PyPipeMessage {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PipeMessage<Value = ::serde_json::Value, Payload = Bytes> {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct PipeMessage<Value = ::serde_json::Value, Payload = Bytes>
+where
+    Payload: Default + JsonSchema,
+{
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
     pub value: Value,
@@ -248,7 +252,7 @@ where
 
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
-    Payload: Serialize,
+    Payload: Default + Serialize + JsonSchema,
     Value: Serialize,
 {
     type Error = Error;
@@ -262,7 +266,7 @@ where
 
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for ::serde_json::Value
 where
-    Payload: Serialize,
+    Payload: Default + Serialize + JsonSchema,
     Value: Serialize,
 {
     type Error = Error;
@@ -290,7 +294,10 @@ impl<Value> PipeMessage<Value> {
     }
 }
 
-impl<Value, Payload> PipeMessage<Value, Payload> {
+impl<Value, Payload> PipeMessage<Value, Payload>
+where
+    Payload: Default + JsonSchema,
+{
     fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
         self.payloads
             .iter()
@@ -337,8 +344,11 @@ impl<Value, Payload> PipeMessage<Value, Payload> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PipePayload<Value = Bytes> {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct PipePayload<Value = Bytes>
+where
+    Value: Default + JsonSchema,
+{
     key: String,
     #[serde(default)]
     storage: Option<StorageType>,
@@ -346,7 +356,10 @@ pub struct PipePayload<Value = Bytes> {
     value: Value,
 }
 
-impl<Value> PipePayload<Value> {
+impl<Value> PipePayload<Value>
+where
+    Value: Default + JsonSchema,
+{
     pub fn new(key: String, value: Value) -> Self {
         Self {
             key,
@@ -357,7 +370,7 @@ impl<Value> PipePayload<Value> {
 
     fn get_ref<T>(&self) -> PipePayload<T>
     where
-        T: Default,
+        T: Default + JsonSchema,
     {
         PipePayload {
             key: self.key.clone(),
@@ -379,7 +392,7 @@ impl<Value> PipePayload<Value> {
 
     fn load_as_empty<T>(self) -> PipePayload<T>
     where
-        T: Default,
+        T: Default + JsonSchema,
     {
         PipePayload {
             key: self.key,
@@ -406,7 +419,7 @@ impl PipePayload {
         } = self;
 
         let last_storage = input_payloads.get(&key).and_then(|payload| payload.storage);
-        let next_storage = storage.get_default_output().storage_type();
+        let next_storage = storage.get_default().storage_type();
         Ok(PipePayload {
             value: if last_storage
                 .map(|last_storage| last_storage == next_storage)
@@ -414,10 +427,7 @@ impl PipePayload {
             {
                 // do not restore the payloads to the same storage
             } else {
-                storage
-                    .get_default_output()
-                    .put_with_str(&key, value)
-                    .await?
+                storage.get_default().put_with_str(&key, value).await?
             },
             key,
             storage: Some(next_storage),

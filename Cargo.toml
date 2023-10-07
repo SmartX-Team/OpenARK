@@ -48,6 +48,20 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
+description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
+documentation = "https://docs.rs/kiss-api"
+edition = "2021"
+include = ["src/**/*.rs", "Cargo.toml"]
+keywords = ["iac", "kubernetes", "openark"]
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+readme = "./README.md"
+rust-version = "1.62"
+homepage = "https://github.com/ulagbulag/OpenARK"
+repository = "https://github.com/ulagbulag/OpenARK"
+version = "0.1.0"
+
 [workspace.dependencies]
 actix-cors = { version = "=0.6" }
 actix-multipart = { version = "=0.6", features = ["derive", "tempfile"] }
@@ -69,6 +83,7 @@ chrono = { version = "=0.4", features = ["serde"] }
 clap = { version = "=4.4", features = ["env", "derive"] }
 csv = { version = "=1.2" }
 ctrlc = { version = "=3.4" }
+datafusion = { version = "=31.0" }
 deltalake = { version = "=0.16", default-features = false }
 email_address = { version = "=0.2" }
 futures = { version = "=0.3" }
@@ -95,6 +110,7 @@ mime = { version = "=0.3" }
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "5be4686e307b058aa4190134a555c925301c59b2", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
+map-macro = { version = "0.2" }
 nats = { package = "async-nats", version = "0.32" }
 ndarray = { version = "=0.15", features = ["serde"] }
 num-traits = { version = "=0.2" }

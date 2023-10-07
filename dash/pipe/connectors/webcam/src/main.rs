@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{
-    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageSet,
+    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageIO,
 };
 use image::{codecs, RgbImage};
 use opencv::{
@@ -12,6 +12,7 @@ use opencv::{
     imgcodecs,
     videoio::{self, VideoCapture, VideoCaptureTrait, VideoCaptureTraitConst},
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 fn main() {
@@ -76,16 +77,25 @@ pub struct Function {
     params: Vector<i32>,
 }
 
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub struct FunctionOutput {
+    index: usize,
+    width: u32,
+    height: u32,
+}
+
 #[async_trait(?Send)]
 impl ::dash_pipe_provider::Function for Function {
     type Args = FunctionArgs;
     type Input = ();
-    type Output = usize;
+    type Output = FunctionOutput;
 
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::Function>::Args,
         ctx: &mut FunctionContext,
-        _storage: &Arc<StorageSet>,
+        _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let FunctionArgs {
             camera_device,
@@ -113,7 +123,7 @@ impl ::dash_pipe_provider::Function for Function {
         &mut self,
         _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
     ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
-        let frame = match self.capture.read(&mut self.frame) {
+        let (frame, (width, height)) = match self.capture.read(&mut self.frame) {
             Ok(true) => {
                 match self.camera_encoder {
                     CameraEncoder::Bmp | CameraEncoder::Jpeg => {
@@ -125,7 +135,12 @@ impl ::dash_pipe_provider::Function for Function {
                             &mut buffer,
                             &self.params,
                         ) {
-                            Ok(true) => Vec::from(buffer).into(),
+                            Ok(true) => {
+                                let frame = Vec::from(buffer).into();
+                                let width = self.frame.cols().try_into().unwrap_or_default();
+                                let height = self.frame.rows().try_into().unwrap_or_default();
+                                (frame, (width, height))
+                            }
                             Ok(false) => bail!("failed to encode image frame"),
                             Err(error) => {
                                 bail!("failed to encode image frame: {error}")
@@ -158,7 +173,7 @@ impl ::dash_pipe_provider::Function for Function {
                                 image.write_with_encoder(codecs::png::PngEncoder::new(&mut buffer))
                             }
                         }
-                        .map(|()| buffer.into())
+                        .map(|()| (buffer.into(), (width, height)))
                         .map_err(|error| anyhow!("failed to encode image frame: {error}"))?
                     }
                 }
@@ -180,7 +195,11 @@ impl ::dash_pipe_provider::Function for Function {
                 ),
                 frame,
             )],
-            value: frame_idx,
+            value: FunctionOutput {
+                width,
+                height,
+                index: frame_idx,
+            },
         }))
     }
 }
