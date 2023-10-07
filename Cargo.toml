@@ -71,18 +71,18 @@ actix-web = { version = "=4.4", default-features = false, features = [
 ] }
 anyhow = { version = "=1.0", features = ["backtrace"] }
 argon2 = { version = "=0.5" }
-arrow-json = { version = "=46.0" }
+arrow-json = { version = "=46.0" } # should be synced with deltalake
 async-recursion = { version = "=1.0" }
 async-stream = { version = "=0.3" }
 async-trait = { version = "=0.1" }
 base64 = { version = "=0.21" }
-byteorder = { version = "=1.4" }
+byteorder = { version = "=1.5" }
 bytes = { version = "=1.5" }
 byte-unit = { version = "=4.0" }
 chatgpt = { package = "chatgpt_rs", version = "=1.2" }
 chrono = { version = "=0.4", features = ["serde"] }
 clap = { version = "=4.4", features = ["env", "derive"] }
-csv = { version = "=1.2" }
+csv = { version = "=1.3" }
 ctrlc = { version = "=3.4" }
 datafusion = { version = "=31.0" }
 deltalake = { version = "=0.16", default-features = false }
@@ -108,7 +108,7 @@ tracing = { version = "=0.1" }
 tracing-subscriber = { version = "=0.3" }
 mime = { version = "=0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "5be4686e307b058aa4190134a555c925301c59b2", features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = false, rev = "1d097f0c9e587efecd0bb27cae4033ec33f510ce", features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 map-macro = { version = "0.2" }
@@ -119,13 +119,13 @@ octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features
     "rustls-tls",
 ] }
 opencv = { version = "=0.84", default-features = false }
-ordered-float = { version = "=4.0", default-features = false, features = [
+ordered-float = { version = "=4.1", default-features = false, features = [
     "bytemuck",
     "schemars",
     "serde",
     "std",
 ] }
-ort = { version = "=1.15", default-features = false, features = [
+ort = { version = "=1.16", default-features = false, features = [
     # Common
     "copy-dylibs",
     "download-binaries",
