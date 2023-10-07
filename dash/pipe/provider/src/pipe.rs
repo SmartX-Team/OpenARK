@@ -188,6 +188,7 @@ where
 
                     Some(ReadContext {
                         _job: ReadSession {
+                            function_context: function_context.clone(),
                             storage: storage.input.clone(),
                             stream: match &self.queue_group {
                                 Some(queue_group) => {
@@ -368,6 +369,7 @@ struct ReadSession<Value>
 where
     Value: Default,
 {
+    function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Subscriber,
     tx: Arc<Sender<PipeMessage<Value>>>,
@@ -406,7 +408,7 @@ where
 
         match self.read_message_one().await? {
             Some(input) => {
-                if input.payloads.is_empty() {
+                if self.function_context.is_disabled_load() || input.payloads.is_empty() {
                     send_one(&self.tx, input.load_payloads_as_empty()).await
                 } else {
                     let storage = self.storage.clone();
@@ -449,6 +451,18 @@ impl WriteContext {
         &mut self,
         input_payloads: &HashMap<String, PipePayload<()>>,
         messages: PipeMessages<Value>,
+    ) where
+        Value: Send + Sync + Default + Serialize + JsonSchema,
+    {
+        if let Err(error) = self.try_write_outputs(input_payloads, messages).await {
+            error!("{error}");
+        }
+    }
+
+    async fn try_write_outputs<Value>(
+        &mut self,
+        input_payloads: &HashMap<String, PipePayload<()>>,
+        messages: PipeMessages<Value>,
     ) -> Result<()>
     where
         Value: Send + Sync + Default + Serialize + JsonSchema,
@@ -464,11 +478,16 @@ impl WriteContext {
 
                         for output in outputs {
                             if !self.function_context.is_disabled_store_metadata() {
-                                self.storage
+                                if let Err(error) = self
+                                    .storage
                                     .get_default_metadata()
                                     .put_metadata(&[&output])
-                                    .await?;
+                                    .await
+                                {
+                                    warn!("{error}");
+                                }
                             }
+
                             let output = output
                                 .to_json_bytes()
                                 .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;

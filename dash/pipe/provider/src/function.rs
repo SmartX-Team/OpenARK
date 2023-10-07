@@ -36,11 +36,20 @@ pub trait Function {
 
 #[derive(Clone, Debug, Default)]
 pub struct FunctionContext {
+    is_disabled_load: bool,
     is_disabled_write_metadata: bool,
     is_terminating: Arc<AtomicBool>,
 }
 
 impl FunctionContext {
+    pub fn disable_load(&mut self) {
+        self.is_disabled_load = true;
+    }
+
+    pub(crate) const fn is_disabled_load(&self) -> bool {
+        self.is_disabled_load
+    }
+
     pub fn disable_store_metadata(&mut self) {
         self.is_disabled_write_metadata = true;
     }
