@@ -41,11 +41,11 @@ pub struct FunctionContext {
 }
 
 impl FunctionContext {
-    pub fn disable_write_metadata(&mut self) {
+    pub fn disable_store_metadata(&mut self) {
         self.is_disabled_write_metadata = true;
     }
 
-    pub(crate) const fn is_disabled_write_metadata(&self) -> bool {
+    pub(crate) const fn is_disabled_store_metadata(&self) -> bool {
         self.is_disabled_write_metadata
     }
 }

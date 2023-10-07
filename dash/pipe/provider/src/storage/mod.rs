@@ -25,7 +25,7 @@ pub struct StorageIO {
 
 impl StorageIO {
     pub(crate) async fn flush(&self, function_context: &FunctionContext) -> Result<()> {
-        if !function_context.is_disabled_write_metadata() {
+        if !function_context.is_disabled_store_metadata() {
             self.input.flush().await?;
             self.output.flush().await?;
         }
@@ -138,6 +138,10 @@ pub trait MetadataStorageExt<Value> {
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + Default + DeserializeOwned;
+
+    async fn list_as_empty(&self) -> Result<Stream<PipeMessage<Value>>>
+    where
+        Value: 'static + Send + Default + DeserializeOwned;
 }
 
 #[async_trait]
@@ -155,6 +159,19 @@ where
         Ok(try_stream! {
             while let Some(message) = list.try_next().await? {
                 yield message.load_payloads(&storage).await?;
+            }
+        }
+        .boxed())
+    }
+
+    async fn list_as_empty(&self) -> Result<Stream<PipeMessage<Value>>>
+    where
+        Value: 'static + Send + Default + DeserializeOwned,
+    {
+        let mut list = self.list_metadata().await?;
+        Ok(try_stream! {
+            while let Some(message) = list.try_next().await? {
+                yield message.load_payloads_as_empty();
             }
         }
         .boxed())

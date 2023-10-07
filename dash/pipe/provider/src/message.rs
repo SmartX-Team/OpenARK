@@ -425,11 +425,14 @@ impl PipePayload {
     ) -> Result<PipePayload<()>> {
         let Self {
             key,
-            storage: _,
+            storage: last_storage,
             value,
         } = self;
 
-        let last_storage = input_payloads.get(&key).and_then(|payload| payload.storage);
+        let last_storage = input_payloads
+            .get(&key)
+            .and_then(|payload| payload.storage)
+            .or(last_storage);
         let next_storage = storage.get_default().storage_type();
         Ok(PipePayload {
             value: if last_storage

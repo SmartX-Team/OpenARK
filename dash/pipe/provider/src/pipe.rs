@@ -457,12 +457,13 @@ impl WriteContext {
             Some(stream) => {
                 self.atomic_session
                     .alloc(async {
-                        for output in messages
+                        let outputs = messages
                             .dump_payloads(&self.storage, input_payloads)
                             .await?
-                            .into_vec()
-                        {
-                            if !self.function_context.is_disabled_write_metadata() {
+                            .into_vec();
+
+                        for output in outputs {
+                            if !self.function_context.is_disabled_store_metadata() {
                                 self.storage
                                     .get_default_metadata()
                                     .put_metadata(&[&output])

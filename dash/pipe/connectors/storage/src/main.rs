@@ -35,7 +35,7 @@ impl ::dash_pipe_provider::Function for Function {
     ) -> Result<Self> {
         Ok(Self {
             ctx: {
-                ctx.disable_write_metadata();
+                ctx.disable_store_metadata();
                 ctx.clone()
             },
             items: storage
