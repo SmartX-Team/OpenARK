@@ -61,8 +61,8 @@ jobs:
 
       - name: Disable clang linker
         run: >
-          sed 's/^linker *\=/#\0/g' ./.cargo/config.toml
-          && sed 's/^rustflags *\=/#\0/g' ./.cargo/config.toml
+          sed -i 's/^linker *\=/#\0/g' ./.cargo/config.toml
+          && sed -i 's/^rustflags *\=/#\0/g' ./.cargo/config.toml
 
       - name: Replace minio-wasm package into minio
         run: sed -i 's/rev *\= *\"1d097f0c9e587efecd0bb27cae4033ec33f510ce\"\,//g' ./Cargo.toml
