@@ -1,8 +1,3 @@
-# Executors
-nvidia-cuda-runtime
-nvidia-curand
-nvidia-cufft
-
 # Runtime
 onnxruntime      # CPU
 onnxruntime-gpu  # CUDA, TensorRT
