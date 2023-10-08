@@ -2,6 +2,7 @@
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
+export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
 
 export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
 
@@ -30,10 +31,11 @@ run *ARGS:
   cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release -- {{ ARGS }}
 
 oci-build:
-  docker build \
+  docker buildx build \
     --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --platform "${OCI_PLATFORMS}" \
     .
 
 oci-build-devel:
@@ -44,10 +46,11 @@ oci-build-devel:
     .
 
 oci-build-full:
-  docker build \
+  docker buildx build \
     --file './Dockerfile.full' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --platform "${OCI_PLATFORMS}" \
     .
 
 oci-push: oci-build
