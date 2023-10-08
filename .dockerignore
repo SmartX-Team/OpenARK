@@ -37,6 +37,7 @@ Cargo.lock
 
 # Editor
 /.github/
+/.hypothesis/
 /.vscode/
 /backup/
 /docs/
