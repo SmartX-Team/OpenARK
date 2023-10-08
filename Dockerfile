@@ -31,6 +31,9 @@ WORKDIR /src
 RUN mkdir /out \
     # Exclude netai packages
     && sed -i 's/^\( *\)\(.*\# *exclude( *alpine *)\)$/\1# \2/g' ./Cargo.toml \
+    # Include target-dependent packages
+    && sed -i 's/^\( *\)\(.*\# *include( *[_0-9a-z-]\+ *)\)$/\1# \2/g' ./Cargo.toml \
+    && sed -i "s/^\( *\)\# *\(.*\# *include( *$(uname -m) *)\)$/\1\2/g" ./Cargo.toml \
     # Replace minio-wasm package into minio
     && sed -i 's/rev *\= *\"[0-9a-f]\+\"\,//g' ./Cargo.toml \
     # Replace reqwest-wasm package into reqwest

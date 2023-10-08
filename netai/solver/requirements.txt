@@ -1,6 +1,11 @@
+# Executors
+nvidia-cuda-runtime  # include(x86_64)
+nvidia-cufft  # include(x86_64)
+nvidia-curand  # include(x86_64)
+
 # Runtime
 onnxruntime      # CPU
-#onnxruntime-gpu  # CUDA, TensorRT
+onnxruntime-gpu  # CUDA, TensorRT  # include(x86_64)
 timm
 transformers[onnx]
 

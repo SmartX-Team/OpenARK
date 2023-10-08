@@ -132,8 +132,9 @@ ort = { version = "=1.16", default-features = false, features = [
     "half",
     # "load-dynamic",
     # NOTE: external providers are supported by python packages in a container
-    "cuda",
-    "tensorrt",
+    "acl",      # include(aarch64)
+    "cuda",     # include(x86_64)
+    "tensorrt", # include(x86_64)
 ] }
 paste = { version = "=1.0" }
 pyo3 = { version = "=0.19" }
