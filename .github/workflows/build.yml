@@ -65,7 +65,7 @@ jobs:
           && sed -i 's/^rustflags *\=/#\0/g' ./.cargo/config.toml
 
       - name: Replace minio-wasm package into minio
-        run: sed -i 's/rev *\= *\"1d097f0c9e587efecd0bb27cae4033ec33f510ce\"\,//g' ./Cargo.toml
+        run: sed -i 's/rev *\= *\"[0-9a-f]\+\"\,//g' ./Cargo.toml
 
       - name: Replace reqwest-wasm package into reqwest
         run: sed -i 's/git *\= *\"[a-z\.\:\/\-]\+\"\, *package *\= *\"reqwest\(\-[a-z]\+\)\?\-wasm\", *//g' ./Cargo.toml
