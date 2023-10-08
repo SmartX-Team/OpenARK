@@ -38,11 +38,7 @@ impl ::dash_pipe_provider::Function for Function {
                 ctx.disable_store_metadata();
                 ctx.clone()
             },
-            items: storage
-                .input
-                .get_default_metadata()
-                .list(&storage.input)
-                .await?,
+            items: storage.input.get_default_metadata().list_as_empty().await?,
         })
     }
 
