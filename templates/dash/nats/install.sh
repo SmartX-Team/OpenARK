@@ -20,22 +20,6 @@ NAMESPACE_DEFAULT="nats-io" # FIXED
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
-# Parse from CoreDNS
-export CLUSTER_NAME="$(
-    kubectl -n kube-system get configmap coredns -o yaml |
-        yq -r '.data.Corefile' |
-        grep -Po ' +kubernetes \K[\w\.\_\-]+'
-)"
-
-###########################################################
-#   Check Environment Variables                           #
-###########################################################
-
-if [ "x${CLUSTER_NAME}" == "x" ]; then
-    echo 'Skipping installation: "CLUSTER_NAME" not set'
-    exit 0
-fi
-
 ###########################################################
 #   Configure Helm Channel                                #
 ###########################################################
@@ -68,7 +52,6 @@ helm upgrade --install "nats" \
     "${NAMESPACE}-nats/nats-operator" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set config.cluster.routeURLs.k8sClusterDomain="${CLUSTER_NAME}" \
     --values "./values-operator.yaml"
 
 # Finished!
