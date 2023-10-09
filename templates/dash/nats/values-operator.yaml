@@ -1,0 +1,18 @@
+---
+## Specify if RBAC authorization is enabled.
+## ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+##
+rbacEnabled: true
+
+## Operator scope
+## NOTE: If true
+## * Make sure that no othe NATS operator is running in the cluster
+## * The Release namespace must be "nats-io"
+clusterScoped: false
+
+## Set default Replica Coint for the Operator
+replicaCount: 1
+
+cluster:
+  ## Create a NATS Cluster when installing the operator
+  create: false

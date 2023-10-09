@@ -14,13 +14,11 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://nats-io.github.io/k8s/helm/charts"
-NAMESPACE_DEFAULT="dash"
-NATS_ENABLE_PVC_DEFAULT="true"
+NAMESPACE_DEFAULT="nats-io" # FIXED
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
-NATS_ENABLE_PVC="${NATS_ENABLE_PVC:-$NATS_ENABLE_PVC_DEFAULT}"
 
 # Parse from CoreDNS
 export CLUSTER_NAME="$(
@@ -67,12 +65,11 @@ fi
 echo "- Installing Chart ... "
 
 helm upgrade --install "nats" \
-    "${NAMESPACE}-nats/nats" \
+    "${NAMESPACE}-nats/nats-operator" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
     --set config.cluster.routeURLs.k8sClusterDomain="${CLUSTER_NAME}" \
-    --set config.jetstream.fileStore.pvc.enabled="${NATS_ENABLE_PVC}" \
-    --values "./values.yaml"
+    --values "./values-operator.yaml"
 
 # Finished!
 echo "Installed!"
