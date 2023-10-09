@@ -1,6 +1,7 @@
 [workspace]
 default-members = ["ark/cli"]
 members = [
+    "my-lakehouse",
     "ark/api",
     "ark/cli",
     "ark/core",
@@ -132,7 +133,6 @@ ort = { version = "=1.16", default-features = false, features = [
     "half",
     # "load-dynamic",
     # NOTE: external providers are supported by python packages in a container
-    "acl",      # include(aarch64)
     "cuda",     # include(x86_64)
     "tensorrt", # include(x86_64)
 ] }
