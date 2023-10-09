@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::PathBuf,
     process::exit,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -11,7 +12,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
 use futures::{Future, StreamExt};
-use nats::{Client, ServerAddr, Subscriber, ToServerAddrs};
+use nats::{ServerAddr, Subscriber, ToServerAddrs};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::{
@@ -34,8 +35,8 @@ pub struct PipeArgs<F>
 where
     F: Function,
 {
-    #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
-    addrs: Vec<String>,
+    #[command(flatten)]
+    nats: NatsArgs,
 
     #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "BATCH_SIZE")]
     #[serde(default)]
@@ -123,27 +124,51 @@ impl<F> PipeArgs<F>
 where
     F: Function,
 {
-    fn parse_addrs(&self) -> Result<Vec<ServerAddr>> {
-        let addrs = self
-            .addrs
-            .iter()
-            .flat_map(|addr| {
-                addr.to_server_addrs()
-                    .map_err(|error| anyhow!("failed to parse NATS address: {error}"))
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-        if addrs.is_empty() {
-            bail!("failed to parse NATS address: no available addresses");
-        } else {
-            Ok(addrs)
+    async fn init_nats_client(&self) -> Result<::nats::Client> {
+        fn parse_addrs(args: &NatsArgs) -> Result<Vec<ServerAddr>> {
+            let addrs = args
+                .nats_addrs
+                .iter()
+                .flat_map(|addr| {
+                    addr.to_server_addrs()
+                        .map_err(|error| anyhow!("failed to parse NATS address: {error}"))
+                })
+                .flatten()
+                .collect::<Vec<_>>();
+            if addrs.is_empty() {
+                bail!("failed to parse NATS address: no available addresses");
+            } else {
+                Ok(addrs)
+            }
         }
+
+        async fn parse_token(args: &NatsArgs) -> Result<Option<String>> {
+            match args.nats_token_path.as_ref() {
+                Some(path) => ::tokio::fs::read_to_string(path)
+                    .await
+                    .map(Some)
+                    .map_err(|error| anyhow!("failed to get NATS token: {error}")),
+                None => Ok(None),
+            }
+        }
+
+        let args = &self.nats;
+
+        let mut config = ::nats::ConnectOptions::default().require_tls(args.nats_tls_required);
+        if let Some(name) = args.nats_account.as_ref() {
+            config = config.name(name);
+        }
+        if let Some(token) = parse_token(args).await? {
+            config = config.token(token);
+        }
+        config
+            .connect(parse_addrs(args)?)
+            .await
+            .map_err(|error| anyhow!("failed to init NATS client: {error}"))
     }
 
     async fn init_context(&self) -> Result<Context<F>> {
-        let client = ::nats::connect(self.parse_addrs()?)
-            .await
-            .map_err(|error| anyhow!("failed to init NATS client: {error}"))?;
+        let client = self.init_nats_client().await?;
 
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
         let storage = Arc::new({
@@ -326,6 +351,21 @@ where
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+struct NatsArgs {
+    #[arg(long, env = "NATS_ACCOUNT", value_name = "NAME")]
+    nats_account: Option<String>,
+
+    #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
+    nats_addrs: Vec<String>,
+
+    #[arg(long, env = "NATS_TLS_REQUIRED", action = ArgAction::SetTrue)]
+    nats_tls_required: bool,
+
+    #[arg(long, env = "NATS_TOKEN_PATH", value_name = "PATH")]
+    nats_token_path: Option<PathBuf>,
+}
+
 struct Timer {
     timeout: Duration,
     timestamp: Instant,
@@ -440,7 +480,7 @@ where
 #[derive(Clone)]
 struct WriteContext {
     atomic_session: AtomicSession,
-    client: Client,
+    client: ::nats::Client,
     function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Option<String>,
