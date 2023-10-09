@@ -1,7 +1,6 @@
 [workspace]
 default-members = ["ark/cli"]
 members = [
-    "my-lakehouse",
     "ark/api",
     "ark/cli",
     "ark/core",
