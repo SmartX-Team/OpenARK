@@ -142,8 +142,8 @@ where
             }
         }
 
-        async fn parse_token(args: &NatsArgs) -> Result<Option<String>> {
-            match args.nats_token_path.as_ref() {
+        async fn parse_password(args: &NatsArgs) -> Result<Option<String>> {
+            match args.nats_password_path.as_ref() {
                 Some(path) => ::tokio::fs::read_to_string(path)
                     .await
                     .map(Some)
@@ -155,11 +155,10 @@ where
         let args = &self.nats;
 
         let mut config = ::nats::ConnectOptions::default().require_tls(args.nats_tls_required);
-        if let Some(name) = args.nats_account.as_ref() {
-            config = config.name(name);
-        }
-        if let Some(token) = parse_token(args).await? {
-            config = config.token(token);
+        if let Some(user) = args.nats_account.as_ref() {
+            if let Some(pass) = parse_password(args).await? {
+                config = config.user_and_password(user.clone(), pass);
+            }
         }
         config
             .connect(parse_addrs(args)?)
@@ -207,7 +206,7 @@ where
             .map(Into::into)
             .map_err(|error| anyhow!("failed to init function: {error}"))?,
             function_context: function_context.clone(),
-            reader: match &self.stream_in {
+            reader: match self.stream_in.as_ref() {
                 Some(stream) => {
                     let (tx, rx) = mpsc::channel(max_tasks);
 
@@ -359,11 +358,11 @@ struct NatsArgs {
     #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
     nats_addrs: Vec<String>,
 
+    #[arg(long, env = "NATS_PASSWORD_PATH", value_name = "PATH")]
+    nats_password_path: Option<PathBuf>,
+
     #[arg(long, env = "NATS_TLS_REQUIRED", action = ArgAction::SetTrue)]
     nats_tls_required: bool,
-
-    #[arg(long, env = "NATS_TOKEN_PATH", value_name = "PATH")]
-    nats_token_path: Option<PathBuf>,
 }
 
 struct Timer {
