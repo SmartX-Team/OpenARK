@@ -8,7 +8,7 @@ rbacEnabled: true
 ## NOTE: If true
 ## * Make sure that no othe NATS operator is running in the cluster
 ## * The Release namespace must be "nats-io"
-clusterScoped: false
+clusterScoped: true
 
 ## Set default Replica Coint for the Operator
 replicaCount: 1
