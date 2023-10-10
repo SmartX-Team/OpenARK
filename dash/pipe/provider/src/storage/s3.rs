@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Error, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
+use chrono::{SecondsFormat, Utc};
 use futures::TryFutureExt;
 use minio::s3::{
     args::{GetObjectArgs, PutObjectApiArgs, RemoveObjectArgs},
@@ -17,6 +18,7 @@ pub struct Storage {
     base_url: BaseUrl,
     model: Option<Name>,
     pipe_name: Name,
+    pipe_timestamp: String,
     provider: StaticProvider,
 }
 
@@ -37,6 +39,9 @@ impl Storage {
                 .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?,
             model: model.cloned(),
             pipe_name: pipe_name.clone(),
+            pipe_timestamp: Utc::now()
+                .to_rfc3339_opts(SecondsFormat::Nanos, true)
+                .replace(':', "-"),
             provider: StaticProvider::new(access_key, secret_key, None),
         })
     }
@@ -83,9 +88,10 @@ impl super::Storage for Storage {
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
         let path = format!(
-            "{kind}/{prefix}/{path}",
+            "{kind}/{prefix}/{timestamp}/{path}",
             kind = super::name::KIND_STORAGE,
             prefix = &self.pipe_name,
+            timestamp = &self.pipe_timestamp,
         );
         let args = PutObjectApiArgs::new(bucket_name, &path, &bytes)?;
 

@@ -30,7 +30,7 @@ lakehouse = [
     "kube",
     "map-macro",
 ]
-s3 = ["minio"]
+s3 = ["chrono", "minio"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core" }
@@ -43,6 +43,7 @@ async-recursion = { workspace = true, optional = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
+chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
 datafusion = { workspace = true }
