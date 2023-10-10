@@ -119,7 +119,10 @@ impl StorageSession {
 
                 // get or create a table
                 let (table, has_writer) = match table.load().await {
-                    Ok(()) => (table, true),
+                    Ok(()) => {
+                        debug!("DeltaLake table schema: loaded");
+                        (table, true)
+                    }
                     Err(DeltaTableError::NotATable(_)) => {
                         let columns = ::schemars::schema_for!(PipeMessage<Value, ()>)
                             .to_data_columns()
@@ -128,8 +131,10 @@ impl StorageSession {
                             })?;
 
                         if columns.is_empty() {
+                            debug!("DeltaLake table schema: lazy-inferring dynamically");
                             (table, false)
                         } else {
+                            debug!("DeltaLake table schema: creating statically");
                             let table = create_table(table, columns).await?;
                             (table, true)
                         }
