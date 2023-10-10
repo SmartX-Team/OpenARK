@@ -42,7 +42,7 @@ bytes = { workspace = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
 datafusion = { workspace = true }
-deltalake = { workspace = true, features = [
+deltalake = { workspace = true, optional = true, features = [
     "arrow",
     "datafusion",
     "json",
@@ -55,9 +55,11 @@ map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 nats = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+regex = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+strum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }

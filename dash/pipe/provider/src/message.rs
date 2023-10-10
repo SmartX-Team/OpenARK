@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt, ops, str::FromStr};
 
 use anyhow::{bail, Error, Result};
 use bytes::Bytes;
 use futures::future::try_join_all;
+use regex::Regex;
 use schemars::JsonSchema;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 
 use crate::storage::{StorageSet, StorageType};
 
@@ -163,6 +164,7 @@ impl PyPipeMessage {
             .map(
                 |PipePayload {
                      key,
+                     model: _,
                      storage: _,
                      value,
                  }| { (key.as_str(), value as &[u8]) },
@@ -362,6 +364,8 @@ where
 {
     key: String,
     #[serde(default)]
+    model: Option<ModelRef>,
+    #[serde(default)]
     storage: Option<StorageType>,
     #[serde(default)]
     value: Value,
@@ -374,6 +378,7 @@ where
     pub fn new(key: String, value: Value) -> Self {
         Self {
             key,
+            model: None,
             storage: None,
             value,
         }
@@ -383,21 +388,37 @@ where
     where
         T: Default + JsonSchema,
     {
+        let Self {
+            key,
+            model,
+            storage,
+            value: _,
+        } = self;
+
         PipePayload {
-            key: self.key.clone(),
-            storage: self.storage,
+            key: key.clone(),
+            model: model.clone(),
+            storage: *storage,
             value: Default::default(),
         }
     }
 
     async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
+        let Self {
+            key,
+            model,
+            storage: storage_type,
+            value: _,
+        } = self;
+
         Ok(PipePayload {
-            value: match self.storage {
-                Some(type_) => storage.get(type_).get_with_str(&self.key).await?,
+            value: match model.as_ref().zip(storage_type) {
+                Some((model, storage_type)) => storage.get(storage_type).get(model, &key).await?,
                 None => bail!("storage type not defined"),
             },
-            key: self.key,
-            storage: self.storage,
+            key,
+            model,
+            storage: storage_type,
         })
     }
 
@@ -405,9 +426,17 @@ where
     where
         T: Default + JsonSchema,
     {
+        let Self {
+            key,
+            model,
+            storage,
+            value: _,
+        } = self;
+
         PipePayload {
-            key: self.key,
-            storage: self.storage,
+            key,
+            model,
+            storage,
             value: Default::default(),
         }
     }
@@ -425,6 +454,7 @@ impl PipePayload {
     ) -> Result<PipePayload<()>> {
         let Self {
             key,
+            model,
             storage: last_storage,
             value,
         } = self;
@@ -434,17 +464,78 @@ impl PipePayload {
             .and_then(|payload| payload.storage)
             .or(last_storage);
         let next_storage = storage.get_default().storage_type();
-        Ok(PipePayload {
-            value: if last_storage
+
+        let model = if model.is_some()
+            || last_storage
                 .map(|last_storage| last_storage == next_storage)
                 .unwrap_or_default()
-            {
-                // do not restore the payloads to the same storage
-            } else {
-                storage.get_default().put_with_str(&key, value).await?
-            },
+        {
+            // do not restore the payloads to the same storage
+            model
+        } else if let Some(model) = storage.get_default().model().cloned() {
+            storage.get_default().put(&key, value).await?;
+            Some(model)
+        } else {
+            None
+        };
+
+        Ok(PipePayload {
             key,
+            model,
             storage: Some(next_storage),
+            value: (),
         })
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct ModelRef(String);
+
+impl FromStr for ModelRef {
+    type Err = Error;
+
+    fn from_str(name: &str) -> Result<Self, <Self as FromStr>::Err> {
+        let re = Regex::new(r"^[a-z][a-z0-9_-]*[a-z0-9]?$")?;
+        if re.is_match(name) {
+            Ok(Self(name.into()))
+        } else {
+            bail!("model name is invalid: {name:?}")
+        }
+    }
+}
+
+impl From<ModelRef> for String {
+    fn from(value: ModelRef) -> Self {
+        value.0
+    }
+}
+
+impl ops::Deref for ModelRef {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Debug for ModelRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <String as fmt::Debug>::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Display for ModelRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <String as fmt::Display>::fmt(&self.0, f)
+    }
+}
+impl<'de> Deserialize<'de> for ModelRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        <&'de str as Deserialize<'de>>::deserialize(deserializer)
+            .and_then(|name| Self::from_str(name).map_err(::serde::de::Error::custom))
     }
 }

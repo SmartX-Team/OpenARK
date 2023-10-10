@@ -10,7 +10,9 @@ use dash_api::model::{
     ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
     ModelFieldsSpec, ModelSpec,
 };
-use dash_provider::{imp::assert_contains, name, storage::KubernetesStorageClient};
+use dash_provider::{imp::assert_contains, storage::KubernetesStorageClient};
+};
+use dash_provider_api::name;
 use inflector::Inflector;
 use itertools::Itertools;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{

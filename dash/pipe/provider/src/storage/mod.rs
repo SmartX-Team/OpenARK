@@ -5,18 +5,21 @@ mod s3;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use clap::Parser;
-use deltalake::Path;
 use futures::{StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use strum::{Display, EnumString};
 use url::Url;
 
-use crate::{function::FunctionContext, message::PipeMessage};
+use crate::{
+    function::FunctionContext,
+    message::{ModelRef, PipeMessage},
+};
 
 pub struct StorageIO {
     pub input: Arc<StorageSet>,
@@ -45,6 +48,7 @@ pub struct StorageSet {
 impl StorageSet {
     pub async fn try_new<Value>(
         args: &StorageArgs,
+        bind: Option<&ModelRef>,
         default: StorageType,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
@@ -55,17 +59,14 @@ impl StorageSet {
             default,
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "lakehouse")]
-            lakehouse: self::lakehouse::Storage::try_new::<Value>(&args.s3, &args.bucket_name)
-                .await?,
+            lakehouse: self::lakehouse::Storage::try_new::<Value>(&args.s3, bind).await?,
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, &args.bucket_name).await?,
+            s3: self::s3::Storage::try_new(&args.s3, bind).await?,
         })
     }
 
     pub const fn get(&self, storage_type: StorageType) -> &(dyn Send + Sync + Storage) {
         match storage_type {
-            #[cfg(feature = "lakehouse")]
-            StorageType::LakeHouse => &self.lakehouse,
             #[cfg(feature = "s3")]
             StorageType::S3 => &self.s3,
         }
@@ -117,6 +118,8 @@ impl<T> MetadataStorageArgs<T> {
     Copy,
     Clone,
     Debug,
+    Display,
+    EnumString,
     Default,
     PartialEq,
     Eq,
@@ -179,10 +182,7 @@ where
 }
 
 #[async_trait]
-pub trait MetadataStorage<Value = ()>
-where
-    Self: Storage,
-{
+pub trait MetadataStorage<Value = ()> {
     async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned;
@@ -197,11 +197,21 @@ where
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 pub enum StorageType {
-    #[cfg(feature = "lakehouse")]
-    LakeHouse,
     #[cfg(feature = "s3")]
     S3,
 }
@@ -209,39 +219,26 @@ pub enum StorageType {
 impl StorageType {
     #[cfg(feature = "s3")]
     pub const TEMPORARY: Self = Self::S3;
-    #[cfg(all(not(feature = "s3"), feature = "lakehouse"))]
-    pub const TEMPORARY: Self = Self::LakeHouse;
 
-    #[cfg(feature = "lakehouse")]
-    pub const PERSISTENT: Self = Self::LakeHouse;
-    #[cfg(all(not(feature = "lakehouse"), feature = "s3"))]
+    #[cfg(feature = "s3")]
     pub const PERSISTENT: Self = Self::S3;
 }
 
 #[async_trait]
 pub trait Storage {
+    fn model(&self) -> Option<&ModelRef>;
+
     fn storage_type(&self) -> StorageType;
 
-    async fn get(&self, path: &Path) -> Result<Bytes>;
+    async fn get(&self, bind: &ModelRef, path: &str) -> Result<Bytes>;
 
-    async fn get_with_str(&self, path: &str) -> Result<Bytes> {
-        self.get(&parse_path(path)?).await
-    }
+    async fn put(&self, path: &str, bytes: Bytes) -> Result<()>;
 
-    async fn put(&self, path: &Path, bytes: Bytes) -> Result<()>;
-
-    async fn put_with_str(&self, path: &str, bytes: Bytes) -> Result<()> {
-        self.put(&parse_path(path)?, bytes).await
-    }
-
-    async fn delete(&self, path: &Path) -> Result<()>;
+    async fn delete(&self, path: &str) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageArgs {
-    #[arg(long, env = "BUCKET", value_name = "NAME")]
-    bucket_name: String,
-
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
     s3: StorageS3Args,
@@ -269,7 +266,3 @@ pub struct StorageS3Args {
 }
 
 pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;
-
-fn parse_path(path: impl AsRef<str>) -> Result<Path> {
-    Path::parse(path).map_err(|error| anyhow!("failed to parse storage path: {error}"))
-}

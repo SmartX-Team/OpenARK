@@ -4,14 +4,17 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
-    FunctionContext, MetadataStorageExt, PipeArgs, PipeMessage, PipeMessages, StorageIO, Stream,
+    DefaultModelIn, FunctionContext, MetadataStorageExt, PipeArgs, PipeMessage, PipeMessages,
+    StorageIO, Stream,
 };
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 fn main() {
-    PipeArgs::<Function>::from_env().loop_forever()
+    PipeArgs::<Function>::from_env()
+        .with_default_model_in(DefaultModelIn::ModelOut)
+        .loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]

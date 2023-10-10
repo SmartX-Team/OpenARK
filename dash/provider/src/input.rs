@@ -1079,7 +1079,7 @@ impl FromStr for InputFieldString {
     type Err = Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let re = Regex::new(crate::name::RE_SET)?;
+        let re = Regex::new(::dash_provider_api::name::RE_SET)?;
         re.captures(s)
             .and_then(|captures| captures.iter().flatten().last())
             .map(|m| Self {
@@ -1150,7 +1150,7 @@ impl FromStr for Name {
     type Err = Error;
 
     fn from_str(name: &str) -> std::result::Result<Self, Self::Err> {
-        let re = Regex::new(crate::name::RE_CHILD)?;
+        let re = Regex::new(::dash_provider_api::name::RE_CHILD)?;
         if re.is_match(name) {
             Ok(Self(name.to_string()))
         } else {

@@ -15,6 +15,7 @@ use futures::{Future, StreamExt};
 use nats::{ServerAddr, Subscriber, ToServerAddrs};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use strum::{Display, EnumString};
 use tokio::{
     select, spawn,
     sync::mpsc::{self, Receiver, Sender},
@@ -25,7 +26,7 @@ use tracing::{error, warn};
 
 use crate::{
     function::{Function, FunctionContext},
-    message::PipeMessages,
+    message::{ModelRef, PipeMessages},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet, StorageType},
     PipeMessage, PipePayload,
 };
@@ -46,6 +47,18 @@ where
     #[serde(default)]
     batch_timeout_ms: Option<u64>,
 
+    #[arg(long, env = "PIPE_DEFAULT_MODEL_IN", value_name = "POLICY")]
+    #[serde(default)]
+    default_model_in: Option<DefaultModelIn>,
+
+    #[arg(long, env = "PIPE_MODEL_IN", value_name = "NAME")]
+    #[serde(default)]
+    model_in: Option<ModelRef>,
+
+    #[arg(long, env = "PIPE_MODEL_OUT", value_name = "NAME")]
+    #[serde(default)]
+    model_out: Option<ModelRef>,
+
     #[command(flatten)]
     function_args: <F as Function>::Args,
 
@@ -57,9 +70,9 @@ where
     #[serde(default)]
     persistence: Option<bool>,
 
-    #[arg(long, env = "PIPE_QUEUE_GROUP", value_name = "NAME")]
+    #[arg(long, env = "PIPE_QUEUE_GROUP", action = ArgAction::SetTrue)]
     #[serde(default)]
-    queue_group: Option<String>,
+    queue_group: bool,
 
     #[arg(long, env = "PIPE_REPLY", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -67,14 +80,6 @@ where
 
     #[command(flatten)]
     storage: crate::storage::StorageArgs,
-
-    #[arg(long, env = "PIPE_STREAM_IN", value_name = "NAME")]
-    #[serde(default)]
-    stream_in: Option<String>,
-
-    #[arg(long, env = "PIPE_STREAM_OUT", value_name = "NAME")]
-    #[serde(default)]
-    stream_out: Option<String>,
 }
 
 impl<F> PipeArgs<F>
@@ -94,8 +99,23 @@ where
         self
     }
 
+    pub fn with_default_model_in(mut self, default_model_in: DefaultModelIn) -> Self {
+        self.default_model_in = Some(default_model_in);
+        self
+    }
+
     pub fn with_function_args(mut self, function_args: <F as Function>::Args) -> Self {
         self.function_args = function_args;
+        self
+    }
+
+    pub fn with_model_in(mut self, model_in: ModelRef) -> Self {
+        self.model_in = Some(model_in);
+        self
+    }
+
+    pub fn with_model_out(mut self, model_out: ModelRef) -> Self {
+        self.model_out = Some(model_out);
         self
     }
 
@@ -106,16 +126,6 @@ where
 
     pub fn with_reply(mut self, reply: bool) -> Self {
         self.reply = Some(reply);
-        self
-    }
-
-    pub fn with_stream_in(mut self, stream_in: String) -> Self {
-        self.stream_in = Some(stream_in);
-        self
-    }
-
-    pub fn with_stream_out(mut self, stream_out: String) -> Self {
-        self.stream_out = Some(stream_out);
         self
     }
 }
@@ -181,12 +191,20 @@ where
                 input: Arc::new({
                     let default_metadata =
                         MetadataStorageArgs::<<F as Function>::Input>::new(default_metadata_type);
-                    StorageSet::try_new(&self.storage, default, default_metadata).await?
+                    let model = self.model_in.as_ref().or_else(|| {
+                        match self.default_model_in.unwrap_or_default() {
+                            DefaultModelIn::ModelOut => self.model_out.as_ref(),
+                            DefaultModelIn::Skip => None,
+                        }
+                    });
+                    StorageSet::try_new(&self.storage, model, default, default_metadata).await?
                 }),
                 output: Arc::new({
                     let default_metadata =
                         MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
-                    StorageSet::try_new(&self.storage, default, default_metadata).await?
+                    let model = self.model_out.as_ref();
+
+                    StorageSet::try_new(&self.storage, model, default, default_metadata).await?
                 }),
             }
         });
@@ -194,33 +212,31 @@ where
         let mut function_context = FunctionContext::default();
         function_context.clone().trap_on_sigint()?;
 
+        let function =
+            <F as Function>::try_new(&self.function_args, &mut function_context, &storage)
+                .await
+                .map(Into::into)
+                .map_err(|error| anyhow!("failed to init function: {error}"))?;
+
         Ok(Context {
             batch_size: self.batch_size,
             batch_timeout: self.batch_timeout_ms.map(Duration::from_millis),
-            function: <F as Function>::try_new(
-                &self.function_args,
-                &mut function_context,
-                &storage,
-            )
-            .await
-            .map(Into::into)
-            .map_err(|error| anyhow!("failed to init function: {error}"))?,
+            function,
             function_context: function_context.clone(),
-            reader: match self.stream_in.as_ref() {
-                Some(stream) => {
+            reader: match self.model_in.as_ref() {
+                Some(model) => {
                     let (tx, rx) = mpsc::channel(max_tasks);
 
                     Some(ReadContext {
                         _job: ReadSession {
                             function_context: function_context.clone(),
                             storage: storage.input.clone(),
-                            stream: match &self.queue_group {
-                                Some(queue_group) => {
-                                    client
-                                        .queue_subscribe(stream.clone(), queue_group.clone())
-                                        .await
-                                }
-                                None => client.subscribe(stream.clone()).await,
+                            stream: if self.queue_group {
+                                client
+                                    .queue_subscribe(model.clone().into(), model.to_string())
+                                    .await
+                            } else {
+                                client.subscribe(model.clone().into()).await
                             }
                             .map_err(|error| {
                                 anyhow!("failed to init NATS input stream: {error}")
@@ -239,7 +255,7 @@ where
                 client,
                 function_context,
                 storage: storage.output.clone(),
-                stream: self.stream_out.clone(),
+                stream: self.model_out.clone().map(Into::into),
             },
             storage,
         })
@@ -363,6 +379,13 @@ struct NatsArgs {
 
     #[arg(long, env = "NATS_TLS_REQUIRED", action = ArgAction::SetTrue)]
     nats_tls_required: bool,
+}
+
+#[derive(Copy, Clone, Debug, Display, EnumString, Default, Serialize, Deserialize)]
+pub enum DefaultModelIn {
+    ModelOut,
+    #[default]
+    Skip,
 }
 
 struct Timer {
