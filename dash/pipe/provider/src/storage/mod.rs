@@ -5,7 +5,7 @@ mod s3;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -19,7 +19,7 @@ use url::Url;
 
 use crate::{
     function::FunctionContext,
-    message::{ModelRef, PipeMessage},
+    message::{Name, PipeMessage},
 };
 
 pub struct StorageIO {
@@ -49,21 +49,32 @@ pub struct StorageSet {
 impl StorageSet {
     pub async fn try_new<Value>(
         args: &StorageArgs,
-        bind: Option<&ModelRef>,
+        model: Option<&Name>,
         default: StorageType,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        debug!("Initializing Storage Set ({bind:?})");
+        debug!("Initializing Storage Set ({model:?})");
+
+        let pipe_name = args
+            .pipe_name
+            .clone()
+            .or_else(|| {
+                ::gethostname::gethostname()
+                    .to_str()
+                    .and_then(|hostname| hostname.parse().ok())
+            })
+            .ok_or_else(|| anyhow!("failed to get/parse pipe name; you may set environment variable \"PIPE_NAME\" manually"))?;
+
         Ok(Self {
             default,
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "lakehouse")]
-            lakehouse: self::lakehouse::Storage::try_new::<Value>(&args.s3, bind).await?,
+            lakehouse: self::lakehouse::Storage::try_new::<Value>(&args.s3, model).await?,
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, bind).await?,
+            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name).await?,
         })
     }
 
@@ -228,19 +239,22 @@ impl StorageType {
 
 #[async_trait]
 pub trait Storage {
-    fn model(&self) -> Option<&ModelRef>;
+    fn model(&self) -> Option<&Name>;
 
     fn storage_type(&self) -> StorageType;
 
-    async fn get(&self, bind: &ModelRef, path: &str) -> Result<Bytes>;
+    async fn get(&self, model: &Name, path: &str) -> Result<Bytes>;
 
-    async fn put(&self, path: &str, bytes: Bytes) -> Result<()>;
+    async fn put(&self, path: &str, bytes: Bytes) -> Result<String>;
 
     async fn delete(&self, path: &str) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageArgs {
+    #[arg(long, env = "PIPE_NAME", value_name = "NAME")]
+    pipe_name: Option<Name>,
+
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
     s3: StorageS3Args,

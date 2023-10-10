@@ -10,12 +10,13 @@ use minio::s3::{
 };
 use tracing::debug;
 
-use crate::message::ModelRef;
+use crate::message::Name;
 
 #[derive(Clone)]
 pub struct Storage {
     base_url: BaseUrl,
-    bind: Option<ModelRef>,
+    model: Option<Name>,
+    pipe_name: Name,
     provider: StaticProvider,
 }
 
@@ -27,13 +28,15 @@ impl Storage {
             s3_endpoint,
             secret_key,
         }: &super::StorageS3Args,
-        bind: Option<&ModelRef>,
+        model: Option<&Name>,
+        pipe_name: &Name,
     ) -> Result<Self> {
-        debug!("Initializing Storage Set ({bind:?}) - S3");
+        debug!("Initializing Storage Set ({model:?}) - S3");
         Ok(Self {
             base_url: BaseUrl::from_string(s3_endpoint.as_str().into())
                 .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?,
-            bind: bind.cloned(),
+            model: model.cloned(),
+            pipe_name: pipe_name.clone(),
             provider: StaticProvider::new(access_key, secret_key, None),
         })
     }
@@ -41,8 +44,8 @@ impl Storage {
 
 impl Storage {
     fn bucket_name(&self) -> Result<&str> {
-        match self.bind.as_deref() {
-            Some(bind) => Ok(bind),
+        match self.model.as_deref() {
+            Some(model) => Ok(model),
             None => bail!("s3 storage is not inited"),
         }
     }
@@ -50,16 +53,16 @@ impl Storage {
 
 #[async_trait]
 impl super::Storage for Storage {
-    fn model(&self) -> Option<&ModelRef> {
-        self.bind.as_ref()
+    fn model(&self) -> Option<&Name> {
+        self.model.as_ref()
     }
 
     fn storage_type(&self) -> super::StorageType {
         super::StorageType::S3
     }
 
-    async fn get(&self, bind: &ModelRef, path: &str) -> Result<Bytes> {
-        let bucket_name = bind.as_str();
+    async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
+        let bucket_name = model.as_str();
         let args = GetObjectArgs::new(bucket_name, path)?;
 
         Client::new(self.base_url.clone(), Some(&self.provider))
@@ -77,14 +80,15 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to get object from S3 object store: {error}"))
     }
 
-    async fn put(&self, path: &str, bytes: Bytes) -> Result<()> {
+    async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
-        let args = PutObjectApiArgs::new(bucket_name, path, &bytes)?;
+        let path = format!("payloads/{prefix}/{path}", prefix = &self.pipe_name);
+        let args = PutObjectApiArgs::new(bucket_name, &path, &bytes)?;
 
         Client::new(self.base_url.clone(), Some(&self.provider))
             .put_object_api(&args)
             .await
-            .map(|_| ())
+            .map(|_| path)
             .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
 

@@ -54,6 +54,7 @@ deltalake = { workspace = true, optional = true, features = [
     "s3",
 ] }
 futures = { workspace = true }
+gethostname = { workspace = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }

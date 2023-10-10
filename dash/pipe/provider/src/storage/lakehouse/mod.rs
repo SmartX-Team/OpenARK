@@ -19,7 +19,7 @@ use serde_json::json;
 use tokio::sync::Mutex;
 use tracing::debug;
 
-use crate::message::{ModelRef, PipeMessage};
+use crate::message::{Name, PipeMessage};
 
 use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
@@ -29,15 +29,12 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub async fn try_new<Value>(
-        args: &super::StorageS3Args,
-        bind: Option<&ModelRef>,
-    ) -> Result<Self>
+    pub async fn try_new<Value>(args: &super::StorageS3Args, model: Option<&Name>) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        debug!("Initializing Storage Set ({bind:?}) - DeltaLake");
-        StorageSession::try_new::<Value>(args, bind)
+        debug!("Initializing Storage Set ({model:?}) - DeltaLake");
+        StorageSession::try_new::<Value>(args, model)
             .await
             .map(|session| Self {
                 session: Arc::new(Mutex::new(session)),
@@ -86,16 +83,16 @@ impl StorageSession {
             region,
             secret_key,
         }: &super::StorageS3Args,
-        bind: Option<&ModelRef>,
+        model: Option<&Name>,
     ) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        match bind {
-            Some(bind) => {
+        match model {
+            Some(model) => {
                 let mut table = {
                     let allow_http = s3_endpoint.scheme() == "http";
-                    let table_uri = format!("s3a://{bucket_name}/", bucket_name = bind);
+                    let table_uri = format!("s3a://{bucket_name}/metadata/", bucket_name = model);
 
                     let mut backend_config: HashMap<String, String> = HashMap::new();
                     backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());

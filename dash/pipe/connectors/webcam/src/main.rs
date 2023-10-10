@@ -182,7 +182,7 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(PipeMessages::Single(PipeMessage {
             payloads: vec![PipePayload::new(
                 format!(
-                    "image/{frame_idx:06}{ext}",
+                    "images/{frame_idx:06}{ext}",
                     ext = self.camera_encoder.as_extension(),
                 ),
                 frame,

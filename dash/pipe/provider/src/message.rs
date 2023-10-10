@@ -364,7 +364,7 @@ where
 {
     key: String,
     #[serde(default)]
-    model: Option<ModelRef>,
+    model: Option<Name>,
     #[serde(default)]
     storage: Option<StorageType>,
     #[serde(default)]
@@ -470,14 +470,14 @@ impl PipePayload {
             .map(|last_storage| last_storage == next_storage)
             .unwrap_or_default();
 
-        let model = if last_model.is_some() && is_storage_same {
+        let (key, model) = if last_model.is_some() && is_storage_same {
             // do not restore the payloads to the same storage
-            last_model
+            (key, last_model)
         } else if let Some(next_model) = storage.get_default().model().cloned() {
-            storage.get_default().put(&key, value).await?;
-            Some(next_model)
+            let key = storage.get_default().put(&key, value).await?;
+            (key, Some(next_model))
         } else {
-            None
+            (key, None)
         };
 
         Ok(PipePayload {
@@ -491,9 +491,9 @@ impl PipePayload {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, JsonSchema)]
 #[serde(transparent)]
-pub struct ModelRef(String);
+pub struct Name(String);
 
-impl FromStr for ModelRef {
+impl FromStr for Name {
     type Err = Error;
 
     fn from_str(name: &str) -> Result<Self, <Self as FromStr>::Err> {
@@ -501,18 +501,18 @@ impl FromStr for ModelRef {
         if re.is_match(name) {
             Ok(Self(name.into()))
         } else {
-            bail!("model name is invalid: {name:?}")
+            bail!("invalid name: {name:?}")
         }
     }
 }
 
-impl From<ModelRef> for String {
-    fn from(value: ModelRef) -> Self {
+impl From<Name> for String {
+    fn from(value: Name) -> Self {
         value.0
     }
 }
 
-impl ops::Deref for ModelRef {
+impl ops::Deref for Name {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
@@ -520,18 +520,18 @@ impl ops::Deref for ModelRef {
     }
 }
 
-impl fmt::Debug for ModelRef {
+impl fmt::Debug for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <String as fmt::Debug>::fmt(&self.0, f)
     }
 }
 
-impl fmt::Display for ModelRef {
+impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <String as fmt::Display>::fmt(&self.0, f)
     }
 }
-impl<'de> Deserialize<'de> for ModelRef {
+impl<'de> Deserialize<'de> for Name {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,

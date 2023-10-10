@@ -26,7 +26,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     function::{Function, FunctionContext},
-    message::{ModelRef, PipeMessages},
+    message::{Name, PipeMessages},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet, StorageType},
     PipeMessage, PipePayload,
 };
@@ -53,11 +53,11 @@ where
 
     #[arg(long, env = "PIPE_MODEL_IN", value_name = "NAME")]
     #[serde(default)]
-    model_in: Option<ModelRef>,
+    model_in: Option<Name>,
 
     #[arg(long, env = "PIPE_MODEL_OUT", value_name = "NAME")]
     #[serde(default)]
-    model_out: Option<ModelRef>,
+    model_out: Option<Name>,
 
     #[command(flatten)]
     function_args: <F as Function>::Args,
@@ -109,12 +109,12 @@ where
         self
     }
 
-    pub fn with_model_in(mut self, model_in: ModelRef) -> Self {
+    pub fn with_model_in(mut self, model_in: Name) -> Self {
         self.model_in = Some(model_in);
         self
     }
 
-    pub fn with_model_out(mut self, model_out: ModelRef) -> Self {
+    pub fn with_model_out(mut self, model_out: Name) -> Self {
         self.model_out = Some(model_out);
         self
     }
