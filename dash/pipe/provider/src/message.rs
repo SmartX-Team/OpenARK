@@ -535,7 +535,7 @@ impl<'de> Deserialize<'de> for ModelRef {
     where
         D: Deserializer<'de>,
     {
-        <&'de str as Deserialize<'de>>::deserialize(deserializer)
-            .and_then(|name| Self::from_str(name).map_err(::serde::de::Error::custom))
+        <String as Deserialize<'de>>::deserialize(deserializer)
+            .and_then(|name| Self::from_str(&name).map_err(::serde::de::Error::custom))
     }
 }
