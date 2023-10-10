@@ -454,27 +454,28 @@ impl PipePayload {
     ) -> Result<PipePayload<()>> {
         let Self {
             key,
-            model,
+            model: last_model,
             storage: last_storage,
             value,
         } = self;
 
-        let last_storage = input_payloads
-            .get(&key)
-            .and_then(|payload| payload.storage)
-            .or(last_storage);
-        let next_storage = storage.get_default().storage_type();
+        let last = input_payloads.get(&key);
+        let last_model = last
+            .and_then(|payload| payload.model.clone())
+            .or(last_model);
 
-        let model = if model.is_some()
-            && last_storage
-                .map(|last_storage| last_storage == next_storage)
-                .unwrap_or_default()
-        {
+        let last_storage = last.and_then(|payload| payload.storage).or(last_storage);
+        let next_storage = storage.get_default().storage_type();
+        let is_storage_same = last_storage
+            .map(|last_storage| last_storage == next_storage)
+            .unwrap_or_default();
+
+        let model = if last_model.is_some() && is_storage_same {
             // do not restore the payloads to the same storage
-            model
-        } else if let Some(model) = storage.get_default().model().cloned() {
+            last_model
+        } else if let Some(next_model) = storage.get_default().model().cloned() {
             storage.get_default().put(&key, value).await?;
-            Some(model)
+            Some(next_model)
         } else {
             None
         };
