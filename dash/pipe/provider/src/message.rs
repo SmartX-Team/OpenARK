@@ -466,7 +466,7 @@ impl PipePayload {
         let next_storage = storage.get_default().storage_type();
 
         let model = if model.is_some()
-            || last_storage
+            && last_storage
                 .map(|last_storage| last_storage == next_storage)
                 .unwrap_or_default()
         {
