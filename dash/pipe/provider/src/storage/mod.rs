@@ -282,3 +282,8 @@ pub struct StorageS3Args {
 }
 
 pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;
+
+mod name {
+    pub const KIND_METADATA: &str = "metadata";
+    pub const KIND_STORAGE: &str = "payloads";
+}

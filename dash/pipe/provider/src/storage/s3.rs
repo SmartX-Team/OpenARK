@@ -82,7 +82,11 @@ impl super::Storage for Storage {
 
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
-        let path = format!("payloads/{prefix}/{path}", prefix = &self.pipe_name);
+        let path = format!(
+            "{kind}/{prefix}/{path}",
+            kind = super::name::KIND_STORAGE,
+            prefix = &self.pipe_name,
+        );
         let args = PutObjectApiArgs::new(bucket_name, &path, &bytes)?;
 
         Client::new(self.base_url.clone(), Some(&self.provider))

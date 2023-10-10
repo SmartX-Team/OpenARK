@@ -92,7 +92,11 @@ impl StorageSession {
             Some(model) => {
                 let mut table = {
                     let allow_http = s3_endpoint.scheme() == "http";
-                    let table_uri = format!("s3a://{bucket_name}/metadata/", bucket_name = model);
+                    let table_uri = format!(
+                        "s3a://{bucket_name}/{kind}/",
+                        bucket_name = model,
+                        kind = super::name::KIND_METADATA,
+                    );
 
                     let mut backend_config: HashMap<String, String> = HashMap::new();
                     backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());
