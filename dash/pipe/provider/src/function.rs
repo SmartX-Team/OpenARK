@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use clap::Args;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
+use tracing::info;
 
 use crate::{PipeMessages, StorageIO};
 
@@ -66,6 +67,7 @@ impl FunctionContext {
     }
 
     pub(crate) fn terminate(&self) {
+        info!("Gracefully shutting down...");
         self.is_terminating.store(true, Ordering::SeqCst)
     }
 

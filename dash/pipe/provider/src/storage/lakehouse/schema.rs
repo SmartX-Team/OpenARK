@@ -15,11 +15,18 @@ use schemars::schema::{
 use serde_json::{json, Value};
 
 pub trait FieldColumns {
-    fn to_data_types(&self) -> Result<Vec<SchemaField>>;
+    fn to_data_columns(&self) -> Result<Vec<SchemaField>>;
+}
+
+impl FieldColumns for ::arrow_schema::Schema {
+    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+        let api_version = json!("http://arrow.apache.org/");
+        self.fields().to_data_columns(&api_version)
+    }
 }
 
 impl FieldColumns for RootSchema {
-    fn to_data_types(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
         type Definitions = ::schemars::Map<String, Schema>;
 
         fn find_schema_definition<'a>(
@@ -83,7 +90,7 @@ impl FieldColumns for RootSchema {
         }
 
         trait JsonFieldColumn {
-            fn to_data_type(
+            fn to_data_column(
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
@@ -93,7 +100,7 @@ impl FieldColumns for RootSchema {
         }
 
         impl JsonFieldColumn for Schema {
-            fn to_data_type(
+            fn to_data_column(
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
@@ -151,7 +158,7 @@ impl FieldColumns for RootSchema {
                         InstanceType::Object => Some(SchemaField::new(
                             name.into(),
                             SchemaDataType::r#struct(SchemaTypeStruct::new(
-                                value.object.to_data_types(api_version, definitions)?,
+                                value.object.to_data_columns(api_version, definitions)?,
                             )),
                             nullable,
                             metadata("Object".into()),
@@ -181,7 +188,7 @@ impl FieldColumns for RootSchema {
                         let instance_type = match find_schema_object_definition(definitions, value)?
                         {
                             Some(schema) => {
-                                return schema.to_data_type(
+                                return schema.to_data_column(
                                     api_version,
                                     definitions,
                                     name,
@@ -217,9 +224,9 @@ impl FieldColumns for RootSchema {
                                         metadata,
                                         true,
                                     )?,
-                                    None => bail!("union object is not supported yet"),
+                                    None => bail!("union object is not supported"),
                                 },
-                                _ => bail!("union object is not supported yet"),
+                                _ => bail!("union object is not supported"),
                             },
                             None => {
                                 if let Some(subschemas) = value.subschemas.as_ref() {
@@ -258,9 +265,9 @@ impl FieldColumns for RootSchema {
                                 find_schema_definition(ctx.definitions, &schemas[1 - index])?
                                     .to_enum_data_type(ctx, nullable)
                             }
-                            None => bail!("union enum is not supported yet"),
+                            None => bail!("union enum is not supported"),
                         },
-                        _ => bail!("union enum is not supported yet"),
+                        _ => bail!("union enum is not supported"),
                     }
                 } else {
                     Ok(None)
@@ -278,7 +285,7 @@ impl FieldColumns for RootSchema {
                 }: Context,
                 nullable: bool,
             ) -> Result<Option<SchemaField>> {
-                self.to_data_type(api_version, definitions, name, nullable)
+                self.to_data_column(api_version, definitions, name, nullable)
             }
         }
 
@@ -327,7 +334,7 @@ impl FieldColumns for RootSchema {
                             }),
                         InstanceType::Object => Some(SchemaTypeArray::new(
                             SchemaDataType::r#struct(SchemaTypeStruct::new(
-                                value.object.to_data_types(api_version, definitions)?,
+                                value.object.to_data_columns(api_version, definitions)?,
                             ))
                             .into(),
                             nullable,
@@ -370,9 +377,9 @@ impl FieldColumns for RootSchema {
                                                 true,
                                                 value,
                                             ),
-                                            None => bail!("union array is not supported yet"),
+                                            None => bail!("union array is not supported"),
                                         },
-                                        _ => bail!("union array is not supported yet"),
+                                        _ => bail!("union array is not supported"),
                                     }
                                 }
                                 None => Ok(None),
@@ -394,7 +401,7 @@ impl FieldColumns for RootSchema {
                         value.to_array_data_type(api_version, definitions)
                     }
                     Some(SingleOrVec::Vec(_)) => {
-                        bail!("union array is not supported yet")
+                        bail!("union array is not supported")
                     }
                     None => Ok(None),
                 }
@@ -414,7 +421,7 @@ impl FieldColumns for RootSchema {
         }
 
         trait JsonFieldColumns {
-            fn to_data_types(
+            fn to_data_columns(
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
@@ -422,7 +429,7 @@ impl FieldColumns for RootSchema {
         }
 
         impl JsonFieldColumns for Box<ObjectValidation> {
-            fn to_data_types(
+            fn to_data_columns(
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
@@ -432,7 +439,7 @@ impl FieldColumns for RootSchema {
                     .filter_map(|(child_name, child)| {
                         let nullable = !self.required.contains(child_name);
                         child
-                            .to_data_type(api_version, definitions, child_name, nullable)
+                            .to_data_column(api_version, definitions, child_name, nullable)
                             .transpose()
                     })
                     .collect()
@@ -440,13 +447,13 @@ impl FieldColumns for RootSchema {
         }
 
         impl JsonFieldColumns for Option<Box<ObjectValidation>> {
-            fn to_data_types(
+            fn to_data_columns(
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
             ) -> Result<Vec<SchemaField>> {
                 match self {
-                    Some(value) => value.to_data_types(api_version, definitions),
+                    Some(value) => value.to_data_columns(api_version, definitions),
                     None => Ok(Default::default()),
                 }
             }
@@ -458,12 +465,26 @@ impl FieldColumns for RootSchema {
             .unwrap_or("http://json-schema.org/"));
         let definitions = &self.definitions;
 
-        self.schema.object.to_data_types(&api_version, definitions)
+        // is metadta value dynamic?
+        if self
+            .schema
+            .object
+            .as_ref()
+            .and_then(|object| object.properties.get("value"))
+            .map(|value| matches!(value, Schema::Bool(true)))
+            .unwrap_or_default()
+        {
+            Ok(Default::default())
+        } else {
+            self.schema
+                .object
+                .to_data_columns(&api_version, definitions)
+        }
     }
 }
 
 impl FieldColumns for [ModelFieldNativeSpec] {
-    fn to_data_types(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
         struct FieldBuilder {
             name: String,
             type_: FieldBuilderType,
@@ -888,48 +909,99 @@ impl FieldColumns for [ModelFieldNativeSpec] {
 }
 
 impl FieldColumns for Vec<ModelFieldNativeSpec> {
-    fn to_data_types(&self) -> Result<Vec<SchemaField>> {
-        self.as_slice().to_data_types()
+    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+        self.as_slice().to_data_columns()
     }
 }
 
-pub trait FieldSchema {
-    fn to_data_type(&self) -> Result<Option<SchemaDataType>>;
+trait FieldChildren {
+    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>>;
+}
+
+impl FieldChildren for ::arrow_schema::Fields {
+    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>> {
+        self.iter()
+            .filter_map(|field| field.to_data_column(api_version).transpose())
+            .collect()
+    }
+}
+
+trait FieldChild {
+    fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>>;
+}
+
+impl FieldChild for ::arrow_schema::Field {
+    fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>> {
+        self.data_type().to_data_type(api_version).map(|type_| {
+            type_.map(|type_| {
+                SchemaField::new(
+                    self.name().clone(),
+                    type_,
+                    self.is_nullable(),
+                    self.metadata()
+                        .iter()
+                        .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                        .chain([("apiVersion".into(), api_version.clone())])
+                        .collect(),
+                )
+            })
+        })
+    }
+}
+
+trait FieldSchema {
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>>;
+}
+
+impl FieldSchema for ::arrow_schema::Field {
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>> {
+        self.data_type().to_data_type(api_version)
+    }
 }
 
 impl FieldSchema for DataType {
-    fn to_data_type(&self) -> Result<Option<SchemaDataType>> {
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>> {
         Ok(match self {
+            // BEGIN primitive types
             DataType::Null => None,
             DataType::Boolean => Some(self::types::boolean()),
             DataType::Int8 | DataType::UInt8 => Some(SchemaDataType::primitive("byte".into())),
             DataType::Int16 | DataType::UInt16 => Some(SchemaDataType::primitive("short".into())),
             DataType::Int32 | DataType::UInt32 => Some(SchemaDataType::primitive("integer".into())),
             DataType::Int64 | DataType::UInt64 => Some(SchemaDataType::primitive("long".into())),
+            // DataType::Float16 => todo!(),
             DataType::Float32 => Some(SchemaDataType::primitive("float".into())),
             DataType::Float64 => Some(SchemaDataType::primitive("double".into())),
             DataType::Decimal128(_, _) | DataType::Decimal256(_, _) => {
                 Some(SchemaDataType::primitive("decimal".into()))
             }
-            DataType::Date32 | DataType::Date64 => Some(SchemaDataType::primitive("date".into())),
-            DataType::Timestamp(_, _) => Some(self::types::date_time()),
+            // BEGIN binary formats
             DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => {
                 Some(SchemaDataType::primitive("binary".into()))
             }
+            // BEGIN string formats
             DataType::Utf8 | DataType::LargeUtf8 => Some(self::types::string()),
-            type_ => bail!("unsupportd data type: {type_:?}"),
-            // DataType::Float16 => todo!(),
-            // DataType::Time32(_) => todo!(),
-            // DataType::Time64(_) => todo!(),
+            DataType::Date32 | DataType::Date64 => Some(SchemaDataType::primitive("date".into())),
             // DataType::Duration(_) => todo!(),
             // DataType::Interval(_) => todo!(),
-            // DataType::List(_) => todo!(),
-            // DataType::FixedSizeList(_, _) => todo!(),
-            // DataType::LargeList(_) => todo!(),
-            // DataType::Struct(_) => todo!(),
-            // DataType::Union(_, _) => todo!(),
+            // DataType::Time32(_) => todo!(),
+            // DataType::Time64(_) => todo!(),
+            DataType::Timestamp(_, _) => Some(self::types::date_time()),
+            // BEGIN aggregation types
+            DataType::Union(_, _) => bail!("union data type is not supported"),
+            DataType::FixedSizeList(field, _)
+            | DataType::List(field)
+            | DataType::LargeList(field) => field
+                .to_data_type(api_version)?
+                .map(Into::into)
+                .map(|type_| SchemaTypeArray::new(type_, field.is_nullable()))
+                .map(SchemaDataType::array),
+            DataType::Struct(fields) => Some(SchemaDataType::r#struct(SchemaTypeStruct::new(
+                fields.to_data_columns(api_version)?,
+            ))),
             // DataType::Dictionary(_, _) => todo!(),
             // DataType::Map(_, _) => todo!(),
+            type_ => bail!("unsupported data type: {type_:?}"),
             // DataType::RunEndEncoded(_, _) => todo!(),
         })
     }

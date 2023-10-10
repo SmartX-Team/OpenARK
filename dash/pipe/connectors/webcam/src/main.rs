@@ -12,7 +12,6 @@ use opencv::{
     imgcodecs,
     videoio::{self, VideoCapture, VideoCaptureTrait, VideoCaptureTraitConst},
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 fn main() {
@@ -77,30 +76,12 @@ pub struct Function {
     params: Vector<i32>,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    JsonSchema,
-)]
-pub struct FunctionOutput {
-    index: usize,
-    width: u32,
-    height: u32,
-}
+pub type FunctionOutput = ::dash_openapi::image::Image;
 
 #[async_trait(?Send)]
 impl ::dash_pipe_provider::Function for Function {
     type Args = FunctionArgs;
-    type Input = FunctionOutput;
+    type Input = ();
     type Output = FunctionOutput;
 
     async fn try_new(

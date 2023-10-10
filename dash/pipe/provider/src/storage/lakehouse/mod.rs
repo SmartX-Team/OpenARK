@@ -1,20 +1,23 @@
 mod decoder;
 mod schema;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
+use arrow_json::reader::infer_json_schema_from_seekable;
+use async_recursion::async_recursion;
 use async_trait::async_trait;
 use datafusion::prelude::SessionContext;
 use deltalake::{
     protocol::SaveMode,
     writer::{DeltaWriter, JsonWriter},
-    DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError,
+    DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError, SchemaField,
 };
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
+use tracing::debug;
 
 use crate::message::{ModelRef, PipeMessage};
 
@@ -22,12 +25,61 @@ use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
 #[derive(Clone)]
 pub struct Storage {
-    table: Option<Arc<DeltaTable>>,
-    writer: Option<Arc<Mutex<JsonWriter>>>,
+    session: Arc<Mutex<StorageSession>>,
 }
 
 impl Storage {
     pub async fn try_new<Value>(
+        args: &super::StorageS3Args,
+        bind: Option<&ModelRef>,
+    ) -> Result<Self>
+    where
+        Value: Default + JsonSchema,
+    {
+        debug!("Initializing Storage Set ({bind:?}) - DeltaLake");
+        StorageSession::try_new::<Value>(args, bind)
+            .await
+            .map(|session| Self {
+                session: Arc::new(Mutex::new(session)),
+            })
+    }
+}
+
+#[async_trait]
+impl<Value> super::MetadataStorage<Value> for Storage {
+    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+    where
+        Value: 'static + Send + Default + DeserializeOwned,
+    {
+        self.session.lock().await.list_metadata().await
+    }
+
+    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    where
+        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
+    {
+        if values.is_empty() {
+            return Ok(());
+        }
+
+        self.session.lock().await.put_metadata(values).await
+    }
+
+    async fn flush(&self) -> Result<()> {
+        self.session.lock().await.flush().await
+    }
+}
+
+struct StorageSession {
+    table: Option<Arc<DeltaTable>>,
+    writer: Option<JsonWriter>,
+}
+
+unsafe impl Send for StorageSession {}
+unsafe impl Sync for StorageSession {}
+
+impl StorageSession {
+    async fn try_new<Value>(
         super::StorageS3Args {
             access_key,
             s3_endpoint,
@@ -70,7 +122,7 @@ impl Storage {
                     Ok(()) => (table, true),
                     Err(DeltaTableError::NotATable(_)) => {
                         let columns = ::schemars::schema_for!(PipeMessage<Value, ()>)
-                            .to_data_types()
+                            .to_data_columns()
                             .map_err(|error| {
                                 anyhow!("failed to convert metadata columns into parquet: {error}")
                             })?;
@@ -78,16 +130,7 @@ impl Storage {
                         if columns.is_empty() {
                             (table, false)
                         } else {
-                            let table = DeltaOps::from(table)
-                                .create()
-                                .with_columns(columns)
-                                .with_save_mode(SaveMode::Append)
-                                .await
-                                .map_err(|error| {
-                                    anyhow!(
-                                "failed to create a metadata table on DeltaLake object store: {error}"
-                            )
-                                })?;
+                            let table = create_table(table, columns).await?;
                             (table, true)
                         }
                     }
@@ -97,13 +140,7 @@ impl Storage {
                 };
 
                 let writer = if has_writer {
-                    Some(Arc::new(Mutex::new(
-                        JsonWriter::for_table(&table).map_err(|error| {
-                            anyhow!(
-                                "failed to init json writer from DeltaLake object store: {error}"
-                            )
-                        })?,
-                    )))
+                    Some(init_writer(&table)?)
                 } else {
                     None
                 };
@@ -121,9 +158,8 @@ impl Storage {
     }
 }
 
-#[async_trait]
-impl<Value> super::MetadataStorage<Value> for Storage {
-    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+impl StorageSession {
+    async fn list_metadata<Value>(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
     {
@@ -149,25 +185,50 @@ impl<Value> super::MetadataStorage<Value> for Storage {
         }
     }
 
-    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    #[async_recursion]
+    async fn put_metadata<Value>(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
+        Value: Send + Sync + Default + Serialize + JsonSchema,
     {
-        match self.writer.as_ref() {
+        const MAX_READ_RECORDS: usize = 1_000;
+
+        match self.writer.as_mut() {
             Some(writer) => writer
-                .lock()
-                .await
                 .write(values.iter().map(|value| json!(value)).collect())
                 .await
                 .map_err(|error| {
                     anyhow!("failed to put object metadata into DeltaLake object store: {error}")
                 }),
-            None => bail!("cannot put object metadata into empty DeltaLake table"),
+            // dynamic table schema inferring
+            None => match self.table.as_mut() {
+                Some(table) => {
+                    let reader = Cursor::new(
+                        values
+                            .iter()
+                            .filter_map(|value| ::serde_json::to_vec(value).ok())
+                            .flatten()
+                            .collect::<Vec<_>>(),
+                    );
+                    let schema = infer_json_schema_from_seekable(reader, Some(MAX_READ_RECORDS))
+                        .map_err(|error| {
+                            anyhow!("failed to infer object metadata schema: {error}")
+                        })?;
+                    let columns = schema.to_data_columns().map_err(|error| {
+                        anyhow!("failed to convert inferred object metadata schema into parquet: {error}")
+                    })?;
+
+                    *table = Arc::new(create_table(clone_table(table), columns).await?);
+                    self.writer = Some(init_writer(table)?);
+
+                    self.put_metadata(values).await
+                }
+                None => Ok(()),
+            },
         }
     }
 
-    async fn flush(&self) -> Result<()> {
-        match self.table.as_ref().zip(self.writer.as_ref()) {
+    async fn flush(&mut self) -> Result<()> {
+        match self.table.as_ref().zip(self.writer.as_mut()) {
             Some((table, writer)) => {
                 let mut table =
                     DeltaTable::new(table.object_store(), DeltaTableConfig { ..table.config });
@@ -176,8 +237,6 @@ impl<Value> super::MetadataStorage<Value> for Storage {
                 })?;
 
                 writer
-                    .lock()
-                    .await
                     .flush_and_commit(&mut table)
                     .await
                     .map(|_| ())
@@ -190,4 +249,27 @@ impl<Value> super::MetadataStorage<Value> for Storage {
             None => Ok(()),
         }
     }
+}
+
+fn clone_table(table: &DeltaTable) -> DeltaTable {
+    DeltaTable::new(table.object_store(), DeltaTableConfig { ..table.config })
+}
+
+async fn create_table(
+    table: DeltaTable,
+    columns: impl IntoIterator<Item = impl Into<SchemaField>>,
+) -> Result<DeltaTable> {
+    DeltaOps::from(table)
+        .create()
+        .with_columns(columns)
+        .with_save_mode(SaveMode::Append)
+        .await
+        .map_err(|error| {
+            anyhow!("failed to create a metadata table on DeltaLake object store: {error}")
+        })
+}
+
+fn init_writer(table: &DeltaTable) -> Result<JsonWriter> {
+    JsonWriter::for_table(table)
+        .map_err(|error| anyhow!("failed to init json writer from DeltaLake object store: {error}"))
 }

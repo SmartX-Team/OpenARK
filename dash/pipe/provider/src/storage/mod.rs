@@ -14,6 +14,7 @@ use futures::{StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
+use tracing::debug;
 use url::Url;
 
 use crate::{
@@ -55,6 +56,7 @@ impl StorageSet {
     where
         Value: Default + JsonSchema,
     {
+        debug!("Initializing Storage Set ({bind:?})");
         Ok(Self {
             default,
             default_metadata: default_metadata.default_storage,

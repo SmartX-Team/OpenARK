@@ -22,7 +22,7 @@ use tokio::{
     task::{yield_now, JoinHandle},
     time::sleep,
 };
-use tracing::{error, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     function::{Function, FunctionContext},
@@ -177,8 +177,10 @@ where
     }
 
     async fn init_context(&self) -> Result<Context<F>> {
+        debug!("Initializing NATS Client");
         let client = self.init_nats_client().await?;
 
+        debug!("Initializing Storage IO");
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
         let storage = Arc::new({
             let default = match self.persistence {
@@ -209,54 +211,60 @@ where
             }
         });
 
+        debug!("Initializing Function Context");
         let mut function_context = FunctionContext::default();
         function_context.clone().trap_on_sigint()?;
 
+        debug!("Initializing Function");
         let function =
             <F as Function>::try_new(&self.function_args, &mut function_context, &storage)
                 .await
                 .map(Into::into)
                 .map_err(|error| anyhow!("failed to init function: {error}"))?;
 
+        debug!("Initializing Reader");
+        let reader = match self.model_in.as_ref() {
+            Some(model) => {
+                let (tx, rx) = mpsc::channel(max_tasks);
+
+                Some(ReadContext {
+                    _job: ReadSession {
+                        function_context: function_context.clone(),
+                        storage: storage.input.clone(),
+                        stream: if self.queue_group {
+                            client
+                                .queue_subscribe(model.clone().into(), model.to_string())
+                                .await
+                        } else {
+                            client.subscribe(model.clone().into()).await
+                        }
+                        .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
+                        tx: tx.into(),
+                    }
+                    .loop_forever()
+                    .await,
+                    rx,
+                })
+            }
+            None => None,
+        };
+
+        debug!("Initializing Writer");
+        let writer = WriteContext {
+            atomic_session: AtomicSession::new(max_tasks),
+            client,
+            function_context: function_context.clone(),
+            storage: storage.output.clone(),
+            stream: self.model_out.clone().map(Into::into),
+        };
+
         Ok(Context {
             batch_size: self.batch_size,
             batch_timeout: self.batch_timeout_ms.map(Duration::from_millis),
             function,
-            function_context: function_context.clone(),
-            reader: match self.model_in.as_ref() {
-                Some(model) => {
-                    let (tx, rx) = mpsc::channel(max_tasks);
-
-                    Some(ReadContext {
-                        _job: ReadSession {
-                            function_context: function_context.clone(),
-                            storage: storage.input.clone(),
-                            stream: if self.queue_group {
-                                client
-                                    .queue_subscribe(model.clone().into(), model.to_string())
-                                    .await
-                            } else {
-                                client.subscribe(model.clone().into()).await
-                            }
-                            .map_err(|error| {
-                                anyhow!("failed to init NATS input stream: {error}")
-                            })?,
-                            tx: tx.into(),
-                        }
-                        .loop_forever()
-                        .await,
-                        rx,
-                    })
-                }
-                None => None,
-            },
-            writer: WriteContext {
-                atomic_session: AtomicSession::new(max_tasks),
-                client,
-                function_context,
-                storage: storage.output.clone(),
-                stream: self.model_out.clone().map(Into::into),
-            },
+            function_context,
+            reader,
+            writer,
             storage,
         })
     }
@@ -264,19 +272,25 @@ where
     pub fn loop_forever(&self) {
         ::ark_core::tracer::init_once();
 
-        if let Err(error) = ::tokio::runtime::Builder::new_multi_thread()
+        match ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .expect("failed to init tokio runtime")
             .block_on(self.loop_forever_async())
         {
-            error!("{error}");
-            exit(1)
+            Ok(()) => {
+                info!("Terminated.");
+            }
+            Err(error) => {
+                error!("{error}");
+                exit(1)
+            }
         }
     }
 
     async fn loop_forever_async(&self) -> Result<()> {
         let mut ctx = self.init_context().await?;
+        info!("Initialized!");
 
         loop {
             // yield per every loop

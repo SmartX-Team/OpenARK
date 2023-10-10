@@ -8,6 +8,7 @@ use minio::s3::{
     creds::StaticProvider,
     http::BaseUrl,
 };
+use tracing::debug;
 
 use crate::message::ModelRef;
 
@@ -28,6 +29,7 @@ impl Storage {
         }: &super::StorageS3Args,
         bind: Option<&ModelRef>,
     ) -> Result<Self> {
+        debug!("Initializing Storage Set ({bind:?}) - S3");
         Ok(Self {
             base_url: BaseUrl::from_string(s3_endpoint.as_str().into())
                 .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?,

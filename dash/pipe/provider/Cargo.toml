@@ -22,6 +22,8 @@ default = ["lakehouse", "s3"]
 # storages
 lakehouse = [
     "arrow-json",
+    "arrow-schema",
+    "async-recursion",
     "dash-api",
     "deltalake/parquet",
     "deltalake/s3",
@@ -36,6 +38,8 @@ dash-api = { path = "../../api", optional = true }
 
 anyhow = { workspace = true }
 arrow-json = { workspace = true, optional = true }
+arrow-schema = { workspace = true, optional = true }
+async-recursion = { workspace = true, optional = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
