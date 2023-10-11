@@ -1,3 +1,10 @@
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Load environment variables
+set dotenv-load
+
 # Configure environment variables
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
@@ -36,6 +43,8 @@ oci-build:
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     --platform "${OCI_PLATFORMS}" \
+    --pull \
+    --push \
     .
 
 oci-build-devel:
@@ -51,16 +60,16 @@ oci-build-full:
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     --platform "${OCI_PLATFORMS}" \
+    --pull \
+    --push \
     .
 
 oci-push: oci-build
-  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}"
 
 oci-push-devel: oci-build-devel
   docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel"
 
 oci-push-full: oci-build-full
-  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full"
 
 oci-push-and-update-dash: oci-push
   kubectl -n dash delete pods --selector name=controller

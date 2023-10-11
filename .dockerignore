@@ -23,6 +23,9 @@ Cargo.lock
 # Dashboard
 /dash/board/
 
+# Dev
+/**/.env
+
 # Documentation
 **/*.md
 
