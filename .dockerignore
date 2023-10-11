@@ -39,12 +39,14 @@ Cargo.lock
 /.cargo/
 
 # Editor
-/.github/
 /.hypothesis/
 /.vscode/
 /backup/
 /docs/
 **/tmp/
+
+# Git
+/.git/
 
 # Templates
 /templates/
