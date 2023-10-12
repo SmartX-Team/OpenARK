@@ -27,7 +27,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     function::{Function, FunctionContext},
     message::{Name, PipeMessages},
-    storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet, StorageType},
+    storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,
 };
 
@@ -36,9 +36,6 @@ pub struct PipeArgs<F>
 where
     F: Function,
 {
-    #[command(flatten)]
-    nats: NatsArgs,
-
     #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "BATCH_SIZE")]
     #[serde(default)]
     batch_size: Option<usize>,
@@ -51,6 +48,13 @@ where
     #[serde(default)]
     default_model_in: Option<DefaultModelIn>,
 
+    #[command(flatten)]
+    function_args: <F as Function>::Args,
+
+    #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
+    #[serde(default)]
+    max_tasks: Option<usize>,
+
     #[arg(long, env = "PIPE_MODEL_IN", value_name = "NAME")]
     #[serde(default)]
     model_in: Option<Name>,
@@ -60,15 +64,7 @@ where
     model_out: Option<Name>,
 
     #[command(flatten)]
-    function_args: <F as Function>::Args,
-
-    #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
-    #[serde(default)]
-    max_tasks: Option<usize>,
-
-    #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
-    #[serde(default)]
-    persistence: Option<bool>,
+    nats: NatsArgs,
 
     #[arg(long, env = "PIPE_QUEUE_GROUP", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -116,11 +112,6 @@ where
 
     pub fn with_model_out(mut self, model_out: Name) -> Self {
         self.model_out = Some(model_out);
-        self
-    }
-
-    pub fn with_persistence(mut self, persistence: bool) -> Self {
-        self.persistence = Some(persistence);
         self
     }
 
@@ -183,10 +174,6 @@ where
         debug!("Initializing Storage IO");
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
         let storage = Arc::new({
-            let default = match self.persistence {
-                Some(true) => StorageType::PERSISTENT,
-                Some(false) | None => StorageType::TEMPORARY,
-            };
             let default_metadata_type = MetadataStorageType::default();
 
             StorageIO {
@@ -199,14 +186,14 @@ where
                             DefaultModelIn::Skip => None,
                         }
                     });
-                    StorageSet::try_new(&self.storage, model, default, default_metadata).await?
+                    StorageSet::try_new(&self.storage, model, default_metadata).await?
                 }),
                 output: Arc::new({
                     let default_metadata =
                         MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
                     let model = self.model_out.as_ref();
 
-                    StorageSet::try_new(&self.storage, model, default, default_metadata).await?
+                    StorageSet::try_new(&self.storage, model, default_metadata).await?
                 }),
             }
         });

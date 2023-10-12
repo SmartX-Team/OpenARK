@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::info;
 
-use crate::{PipeMessages, StorageIO};
+use crate::{storage::StorageIO, PipeMessages};
 
 #[async_trait(?Send)]
 pub trait Function {

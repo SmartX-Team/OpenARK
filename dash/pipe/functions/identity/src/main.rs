@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
-    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageIO,
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

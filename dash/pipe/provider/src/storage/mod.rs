@@ -1,7 +1,7 @@
 #[cfg(feature = "lakehouse")]
-mod lakehouse;
+pub mod lakehouse;
 #[cfg(feature = "s3")]
-mod s3;
+pub mod s3;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use futures::{StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -50,7 +50,6 @@ impl StorageSet {
     pub async fn try_new<Value>(
         args: &StorageArgs,
         model: Option<&Name>,
-        default: StorageType,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
     where
@@ -58,6 +57,10 @@ impl StorageSet {
     {
         debug!("Initializing Storage Set ({model:?})");
 
+        let default = match args.persistence {
+            Some(true) => StorageType::PERSISTENT,
+            Some(false) | None => StorageType::TEMPORARY,
+        };
         let pipe_name = args
             .pipe_name
             .clone()
@@ -196,6 +199,8 @@ where
 
 #[async_trait]
 pub trait MetadataStorage<Value = ()> {
+    fn table_name(&self) -> &str;
+
     async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned;
@@ -204,9 +209,22 @@ pub trait MetadataStorage<Value = ()> {
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
 
-    async fn flush(&self) -> Result<()> {
-        Ok(())
-    }
+    async fn flush(&self) -> Result<()>;
+}
+
+#[async_trait]
+pub trait MetadataStorageMut<Value = ()> {
+    fn table_name(&self) -> &str;
+
+    async fn list_metadata(&mut self) -> Result<Stream<PipeMessage<Value, ()>>>
+    where
+        Value: 'static + Send + Default + DeserializeOwned;
+
+    async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    where
+        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
+
+    async fn flush(&mut self) -> Result<()>;
 }
 
 #[derive(
@@ -252,6 +270,10 @@ pub trait Storage {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageArgs {
+    #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    persistence: Option<bool>,
+
     #[arg(long, env = "PIPE_NAME", value_name = "NAME")]
     pipe_name: Option<Name>,
 

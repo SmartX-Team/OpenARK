@@ -25,6 +25,7 @@ lakehouse = [
     "arrow-schema",
     "async-recursion",
     "dash-api",
+    "datafusion",
     "deltalake/parquet",
     "deltalake/s3",
     "kube",
@@ -46,7 +47,7 @@ bytes = { workspace = true }
 chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
-datafusion = { workspace = true }
+datafusion = { workspace = true, optional = true }
 deltalake = { workspace = true, optional = true, features = [
     "arrow",
     "datafusion",

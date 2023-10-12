@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{
-    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload, StorageIO,
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use image::{codecs, RgbImage};
 use opencv::{
@@ -179,20 +179,20 @@ impl ::dash_pipe_provider::Function for Function {
         };
 
         let frame_idx = self.frame_counter.next();
-        Ok(PipeMessages::Single(PipeMessage {
-            payloads: vec![PipePayload::new(
-                format!(
-                    "images/{frame_idx:06}{ext}",
-                    ext = self.camera_encoder.as_extension(),
-                ),
-                frame,
-            )],
-            value: FunctionOutput {
-                width,
-                height,
-                index: frame_idx,
-            },
-        }))
+        let payloads = vec![PipePayload::new(
+            format!(
+                "images/{frame_idx:06}{ext}",
+                ext = self.camera_encoder.as_extension(),
+            ),
+            frame,
+        )];
+        let value = FunctionOutput {
+            width,
+            height,
+            index: frame_idx,
+        };
+
+        Ok(PipeMessages::Single(PipeMessage::new(payloads, value)))
     }
 }
 

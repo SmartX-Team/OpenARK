@@ -3,7 +3,9 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use dash_pipe_provider::{FunctionContext, PipeArgs, PipeMessages, PyPipeMessage, StorageIO};
+use dash_pipe_provider::{
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
+};
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

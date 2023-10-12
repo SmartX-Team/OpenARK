@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt, ops, str::FromStr};
 
 use anyhow::{bail, Error, Result};
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use futures::future::try_join_all;
 use regex::Regex;
 use schemars::JsonSchema;
@@ -34,6 +35,31 @@ impl From<PipeMessages> for Vec<PyPipeMessage> {
     }
 }
 
+impl<Value, Payload> PipeMessages<Value, Payload>
+where
+    Payload: Default + JsonSchema,
+    Value: Default,
+{
+    pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
+        match self {
+            PipeMessages::None => Default::default(),
+            PipeMessages::Single(value) => value.get_payloads_ref().collect(),
+            PipeMessages::Batch(values) => values
+                .iter()
+                .flat_map(|value| value.get_payloads_ref())
+                .collect(),
+        }
+    }
+
+    pub fn into_vec(self) -> Vec<PipeMessage<Value, Payload>> {
+        match self {
+            Self::None => Default::default(),
+            Self::Single(value) => vec![value],
+            Self::Batch(values) => values,
+        }
+    }
+}
+
 impl<Value> PipeMessages<Value>
 where
     Value: Default,
@@ -60,50 +86,46 @@ where
     }
 }
 
-impl<Value, Payload> PipeMessages<Value, Payload>
-where
-    Payload: Default + JsonSchema,
-    Value: Default,
-{
-    pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
-        match self {
-            PipeMessages::None => Default::default(),
-            PipeMessages::Single(value) => value.get_payloads_ref().collect(),
-            PipeMessages::Batch(values) => values
-                .iter()
-                .flat_map(|value| value.get_payloads_ref())
-                .collect(),
-        }
-    }
-
-    pub fn into_vec(self) -> Vec<PipeMessage<Value, Payload>> {
-        match self {
-            Self::None => Default::default(),
-            Self::Single(value) => vec![value],
-            Self::Batch(values) => values,
-        }
-    }
-}
-
 #[cfg(feature = "pyo3")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[::pyo3::pyclass]
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
+    timestamp: DateTime<Utc>,
     value: ::serde_json::Value,
 }
 
 #[cfg(feature = "pyo3")]
 impl From<PipeMessage> for PyPipeMessage {
-    fn from(PipeMessage { payloads, value }: PipeMessage) -> Self {
-        Self { payloads, value }
+    fn from(
+        PipeMessage {
+            payloads,
+            timestamp,
+            value,
+        }: PipeMessage,
+    ) -> Self {
+        Self {
+            payloads,
+            timestamp,
+            value,
+        }
     }
 }
 
 #[cfg(feature = "pyo3")]
 impl From<PyPipeMessage> for PipeMessage {
-    fn from(PyPipeMessage { payloads, value }: PyPipeMessage) -> Self {
-        Self { payloads, value }
+    fn from(
+        PyPipeMessage {
+            payloads,
+            timestamp,
+            value,
+        }: PyPipeMessage,
+    ) -> Self {
+        Self {
+            payloads,
+            timestamp,
+            value,
+        }
     }
 }
 
@@ -153,6 +175,7 @@ impl PyPipeMessage {
                     PipePayload::new(key, value.map(Into::into).unwrap_or_default())
                 })
                 .collect(),
+            timestamp: Utc::now(),
             value: value_to_native(value),
         }
     }
@@ -209,6 +232,12 @@ impl PyPipeMessage {
         value_to_py(py, &self.value)
     }
 
+    #[getter]
+    fn timestamp(&self) -> String {
+        self.timestamp
+            .to_rfc3339_opts(::chrono::SecondsFormat::Nanos, true)
+    }
+
     #[classmethod]
     fn from_json(_cls: &pyo3::types::PyType, data: &str) -> ::pyo3::PyResult<String> {
         ::serde_json::from_str(data)
@@ -233,6 +262,7 @@ where
 {
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
+    timestamp: DateTime<Utc>,
     #[serde(default)]
     pub value: Value,
 }
@@ -285,32 +315,19 @@ where
     }
 }
 
-impl<Value> PipeMessage<Value>
-where
-    Value: Default,
-{
-    async fn dump_payloads(
-        self,
-        storage: &StorageSet,
-        input_payloads: &HashMap<String, PipePayload<()>>,
-    ) -> Result<PipeMessage<Value, ()>> {
-        Ok(PipeMessage {
-            payloads: try_join_all(
-                self.payloads
-                    .into_iter()
-                    .map(|payload| payload.dump(storage, input_payloads)),
-            )
-            .await?,
-            value: self.value,
-        })
-    }
-}
-
 impl<Value, Payload> PipeMessage<Value, Payload>
 where
     Payload: Default + JsonSchema,
     Value: Default,
 {
+    pub fn new(payloads: Vec<PipePayload<Payload>>, value: Value) -> Self {
+        Self {
+            payloads,
+            timestamp: Utc::now(),
+            value,
+        }
+    }
+
     fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
         self.payloads
             .iter()
@@ -325,6 +342,7 @@ where
                     .map(|payload| payload.load(storage)),
             )
             .await?,
+            timestamp: self.timestamp,
             value: self.value,
         })
     }
@@ -336,8 +354,13 @@ where
                 .into_iter()
                 .map(|payload| payload.load_as_empty())
                 .collect(),
+            timestamp: self.timestamp,
             value: self.value,
         }
+    }
+
+    pub const fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
     }
 
     pub fn to_json(&self) -> Result<::serde_json::Value>
@@ -354,6 +377,28 @@ where
         Value: Serialize,
     {
         self.try_into()
+    }
+}
+
+impl<Value> PipeMessage<Value>
+where
+    Value: Default,
+{
+    async fn dump_payloads(
+        self,
+        storage: &StorageSet,
+        input_payloads: &HashMap<String, PipePayload<()>>,
+    ) -> Result<PipeMessage<Value, ()>> {
+        Ok(PipeMessage {
+            payloads: try_join_all(
+                self.payloads
+                    .into_iter()
+                    .map(|payload| payload.dump(storage, input_payloads)),
+            )
+            .await?,
+            timestamp: self.timestamp,
+            value: self.value,
+        })
     }
 }
 

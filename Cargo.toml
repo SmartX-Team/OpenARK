@@ -19,6 +19,8 @@ members = [
     "dash/provider",
     "dash/provider/api",
     "dash/provider/client",
+    "dash/query/cli",
+    "dash/query/provider",
     "dash/router",
     "kiss/ansible",
     "kiss/api",

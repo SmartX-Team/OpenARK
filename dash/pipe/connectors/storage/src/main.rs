@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
-    DefaultModelIn, FunctionContext, MetadataStorageExt, PipeArgs, PipeMessage, PipeMessages,
-    StorageIO, Stream,
+    storage::{MetadataStorageExt, StorageIO, Stream},
+    DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
 };
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
