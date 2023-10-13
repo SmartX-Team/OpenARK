@@ -25,7 +25,8 @@ frame_cursor = FrameCursor()
 
 
 # show window
-cv2.namedWindow('Object Detection', cv2.WND_PROP_FULLSCREEN)
+WINDOW_NAME='Object Detection'
+cv2.namedWindow(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN)
 
 
 def tick(inputs: list[Any]) -> list[Any]:
@@ -72,7 +73,7 @@ def tick(inputs: list[Any]) -> list[Any]:
             input_image, pt_min, pt_max, input_object_color, 1)
         input_image = cv2.putText(input_image, input_object_name,
                                   pt_min, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-    cv2.imshow('Object Detection', input_image)
+    cv2.imshow(WINDOW_NAME, input_image)
     cv2.waitKey(1)
 
     return []
