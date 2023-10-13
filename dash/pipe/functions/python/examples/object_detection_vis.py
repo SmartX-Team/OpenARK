@@ -24,6 +24,10 @@ class FrameCursor:
 frame_cursor = FrameCursor()
 
 
+# show window
+cv2.namedWindow('Object Detection', cv2.WND_PROP_FULLSCREEN)
+
+
 def tick(inputs: list[Any]) -> list[Any]:
     # skip if empty inputs
     if not inputs:
