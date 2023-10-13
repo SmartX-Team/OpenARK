@@ -48,6 +48,8 @@ RUN apt-get update && apt-get install -y \
 # Install python dependencies
 ADD ./netai/solver/requirements.txt /requirements.txt
 RUN python3 -m pip install --no-cache-dir --requirement /requirements.txt \
+    # Update ldconfig
+    && ldconfig \
     # Cleanup
     && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
     && rm /requirements.txt

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::RangeInclusive, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -10,6 +10,7 @@ use dash_pipe_provider::{
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::time::{sleep, Instant};
 
 fn main() {
     PipeArgs::<Function>::from_env()
@@ -18,11 +19,18 @@ fn main() {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct FunctionArgs {}
+pub struct FunctionArgs {
+    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS")]
+    #[serde(default)]
+    interval_ms: Option<u64>,
+}
 
 pub struct Function {
+    args: FunctionArgs,
     ctx: FunctionContext,
+    instant: Instant,
     items: Stream<PipeMessage<Value>>,
+    iteration: RangeInclusive<u64>,
 }
 
 #[async_trait(?Send)]
@@ -32,16 +40,19 @@ impl ::dash_pipe_provider::Function for Function {
     type Output = Value;
 
     async fn try_new(
-        FunctionArgs {}: &<Self as ::dash_pipe_provider::Function>::Args,
+        args: &<Self as ::dash_pipe_provider::Function>::Args,
         ctx: &mut FunctionContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self {
+            args: args.clone(),
             ctx: {
                 ctx.disable_store_metadata();
                 ctx.clone()
             },
+            instant: Instant::now(),
             items: storage.input.get_default_metadata().list_as_empty().await?,
+            iteration: 0..=u64::MAX,
         })
     }
 
@@ -49,6 +60,19 @@ impl ::dash_pipe_provider::Function for Function {
         &mut self,
         _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
     ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        // wait for fit interval
+        if let Some(delay) = self.args.interval_ms.and_then(|interval_ms| {
+            self.iteration
+                .next()
+                .and_then(|iteration| iteration.checked_mul(interval_ms))
+                .map(Duration::from_millis)
+        }) {
+            let elapsed = self.instant.elapsed();
+            if delay > elapsed {
+                sleep(delay - elapsed).await;
+            }
+        }
+
         match self
             .items
             .try_next()

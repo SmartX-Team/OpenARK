@@ -187,12 +187,9 @@ impl<Value> super::MetadataStorageMut<Value> for StorageBackend {
     {
         let ctx = self.get_session_context()?;
 
-        let df = ctx
-            .sql(&format!("SELECT * FROM {table}", table = Self::TABLE_NAME))
-            .await
-            .map_err(|error| {
-                anyhow!("failed to get object metadata list from DeltaLake object store: {error}")
-            })?;
+        let df = ctx.table(Self::TABLE_NAME).await.map_err(|error| {
+            anyhow!("failed to get object metadata list from DeltaLake object store: {error}")
+        })?;
 
         df.try_into_decoder().await.map_err(|error| {
             anyhow!("failed to get object metadata from DeltaLake object store: {error}")
