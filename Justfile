@@ -11,12 +11,12 @@ export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
 
-export AWS_UNSAFE_ALLOW_HTTP := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'true' } else { 'false' }
 export AWS_REGION := env_var_or_default('AWS_REGION', 'us-east-1')
+export AWS_SECURE_TLS := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'false' } else { 'true' }
 export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
 export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
 
-DOCKER_BUILDKIT_CACHE := "type=s3,bucket=${PIPE_MODEL},region=${AWS_REGION},secure=${AWS_UNSAFE_ALLOW_HTTP}"
+DOCKER_BUILDKIT_CACHE := "type=s3,access_key_id=${AWS_ACCESS_KEY_ID},bucket=${PIPE_MODEL},encrypt=false,endpoint_url=${AWS_ENDPOINT_URL},region=${AWS_REGION},secret_access_key=${AWS_SECRET_ACCESS_KEY},secure=${AWS_SECURE_TLS},use_path_style=true"
 
 default:
   @just run
