@@ -11,7 +11,9 @@ export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
 
+export AWS_REGION := env_var_or_default('AWS_REGION', 'us-east-1')
 export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
+export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
 
 default:
   @just run
@@ -42,6 +44,8 @@ oci-build:
     --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --cache-from "type=s3,bucket=${PIPE_MODEL},region=${AWS_REGION}" \
+    --cache-to "type=s3,bucket=${PIPE_MODEL},region=${AWS_REGION}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \
@@ -59,6 +63,8 @@ oci-build-full:
     --file './Dockerfile.full' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --cache-from "type=s3,bucket=${PIPE_MODEL},region=${AWS_REGION}" \
+    --cache-to "type=s3,bucket=${PIPE_MODEL},region=${AWS_REGION}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \
