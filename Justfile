@@ -11,7 +11,7 @@ export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
 
-export AWS_UNSAFE_ALLOW_HTTP := if "${AWS_ENDPOINT_URL}" == 'http' { 'true' } else { 'false' }
+export AWS_UNSAFE_ALLOW_HTTP := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'true' } else { 'false' }
 export AWS_REGION := env_var_or_default('AWS_REGION', 'us-east-1')
 export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
 export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
@@ -22,10 +22,11 @@ default:
   @just run
 
 init-conda:
-  conda create -n dash \
+  conda install --yes \
     -c pytorch -c nvidia \
     autopep8 pip python \
     pytorch torchvision torchaudio pytorch-cuda=11.8
+  pip install -r ./netai/solver/requirements.txt
 
 fmt:
   cargo fmt --all
