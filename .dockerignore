@@ -28,6 +28,7 @@ Cargo.lock
 
 # Documentation
 **/*.md
+/docs/
 
 # Dockerfile
 /.containerignore
@@ -42,11 +43,14 @@ Cargo.lock
 /.hypothesis/
 /.vscode/
 /backup/
-/docs/
 **/tmp/
 
 # Git
 /.git/
+
+# Makefile/Justfile
+/Justfile
+/Makefile
 
 # Templates
 /templates/
