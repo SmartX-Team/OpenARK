@@ -147,6 +147,7 @@ where
             match args.nats_password_path.as_ref() {
                 Some(path) => ::tokio::fs::read_to_string(path)
                     .await
+                    .map(|password| password.split('\n').next().unwrap().trim().to_string())
                     .map(Some)
                     .map_err(|error| anyhow!("failed to get NATS token: {error}")),
                 None => Ok(None),
