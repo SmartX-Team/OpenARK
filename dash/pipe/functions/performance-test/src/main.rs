@@ -35,9 +35,9 @@ pub struct FunctionArgs {
         long,
         env = "PIPE_PERFORMANCE_TEST_TOTAL_MESSAGES",
         value_name = "COUNT",
-        default_value_t = 100_000
+        default_value = "100K"
     )]
-    total_messages: u128,
+    total_messages: Byte,
 }
 
 pub struct Function {
@@ -79,9 +79,10 @@ impl ::dash_pipe_provider::Function for Function {
                         .try_into()
                         .map_err(|error| anyhow!("too large data size: {error}"))
                 })
-                .transpose()?,
+                .transpose()?
+                .filter(|&size| size > 0),
             sum_latency: Default::default(),
-            total: *total_messages,
+            total: total_messages.get_bytes(),
             total_sent: 0,
             total_sent_bytes: 0,
             total_sent_payload_bytes: 0,
