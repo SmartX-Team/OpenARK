@@ -28,7 +28,7 @@ pub struct FunctionArgs {
     #[arg(long, env = "PIPE_PERFORMANCE_TEST_PAYLOAD_SIZE", value_name = "SIZE")]
     payload_size: Option<Byte>,
 
-    #[arg(long, env = "PIPE_PERFORMANCE_QUIET", action = ArgAction::SetTrue)]
+    #[arg(long, env = "PIPE_PERFORMANCE_TEST_QUIET", action = ArgAction::SetTrue)]
     quiet: bool,
 
     #[arg(
