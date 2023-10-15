@@ -1,5 +1,6 @@
 mod function;
 mod message;
+pub mod messengers;
 mod pipe;
 pub mod storage;
 

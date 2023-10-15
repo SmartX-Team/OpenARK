@@ -12,9 +12,10 @@ members = [
     "dash/gateway",
     "dash/openapi",
     "dash/pipe/connectors/storage",
-    "dash/pipe/connectors/webcam",  # exclude(alpine)
+    "dash/pipe/connectors/webcam",          # exclude(alpine)
     "dash/pipe/functions/identity",
-    "dash/pipe/functions/python",   # exclude(alpine)
+    "dash/pipe/functions/performance-test",
+    "dash/pipe/functions/python",           # exclude(alpine)
     "dash/pipe/provider",
     "dash/provider",
     "dash/provider/api",
@@ -74,6 +75,7 @@ anyhow = { version = "=1.0", features = ["backtrace"] }
 argon2 = { version = "=0.5" }
 arrow-json = { version = "=46.0" } # should be synced with deltalake
 arrow-schema = { version = "=46.0" } # should be synced with deltalake
+async-nats = { version = "0.32" }
 async-recursion = { version = "=1.0" }
 async-stream = { version = "=0.3" }
 async-trait = { version = "=0.1" }
@@ -115,7 +117,6 @@ minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = 
     "rustls-tls",
 ] } # not deployed to crates.io
 map-macro = { version = "0.2" }
-nats = { package = "async-nats", version = "0.32" }
 ndarray = { version = "=0.15", features = ["serde"] }
 num-traits = { version = "=0.2" }
 octocrab = { git = "https://github.com/ulagbulag/octocrab.git", default-features = false, features = [

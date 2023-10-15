@@ -274,6 +274,10 @@ pub struct StorageArgs {
     #[serde(default)]
     persistence: Option<bool>,
 
+    #[arg(long, env = "PIPE_PERSISTENCE_METADATA", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    persistence_metadata: Option<bool>,
+
     #[arg(long, env = "PIPE_NAME", value_name = "NAME")]
     pipe_name: Option<Name>,
 

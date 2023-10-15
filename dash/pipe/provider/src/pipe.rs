@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    path::PathBuf,
     process::exit,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -9,10 +8,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use clap::{ArgAction, Parser};
-use futures::{Future, StreamExt};
-use nats::{ServerAddr, Subscriber, ToServerAddrs};
+use futures::Future;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -27,6 +25,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     function::{Function, FunctionContext},
     message::{Name, PipeMessages},
+    messengers::{MessengerArgs, MessengerIO, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,
 };
@@ -55,6 +54,9 @@ where
     #[serde(default)]
     max_tasks: Option<usize>,
 
+    #[command(flatten)]
+    messenger_args: MessengerArgs,
+
     #[arg(long, env = "PIPE_MODEL_IN", value_name = "NAME")]
     #[serde(default)]
     model_in: Option<Name>,
@@ -62,9 +64,6 @@ where
     #[arg(long, env = "PIPE_MODEL_OUT", value_name = "NAME")]
     #[serde(default)]
     model_out: Option<Name>,
-
-    #[command(flatten)]
-    nats: NatsArgs,
 
     #[arg(long, env = "PIPE_QUEUE_GROUP", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -125,52 +124,9 @@ impl<F> PipeArgs<F>
 where
     F: Function,
 {
-    async fn init_nats_client(&self) -> Result<::nats::Client> {
-        fn parse_addrs(args: &NatsArgs) -> Result<Vec<ServerAddr>> {
-            let addrs = args
-                .nats_addrs
-                .iter()
-                .flat_map(|addr| {
-                    addr.to_server_addrs()
-                        .map_err(|error| anyhow!("failed to parse NATS address: {error}"))
-                })
-                .flatten()
-                .collect::<Vec<_>>();
-            if addrs.is_empty() {
-                bail!("failed to parse NATS address: no available addresses");
-            } else {
-                Ok(addrs)
-            }
-        }
-
-        async fn parse_password(args: &NatsArgs) -> Result<Option<String>> {
-            match args.nats_password_path.as_ref() {
-                Some(path) => ::tokio::fs::read_to_string(path)
-                    .await
-                    .map(|password| password.split('\n').next().unwrap().trim().to_string())
-                    .map(Some)
-                    .map_err(|error| anyhow!("failed to get NATS token: {error}")),
-                None => Ok(None),
-            }
-        }
-
-        let args = &self.nats;
-
-        let mut config = ::nats::ConnectOptions::default().require_tls(args.nats_tls_required);
-        if let Some(user) = args.nats_account.as_ref() {
-            if let Some(pass) = parse_password(args).await? {
-                config = config.user_and_password(user.clone(), pass);
-            }
-        }
-        config
-            .connect(parse_addrs(args)?)
-            .await
-            .map_err(|error| anyhow!("failed to init NATS client: {error}"))
-    }
-
     async fn init_context(&self) -> Result<Context<F>> {
-        debug!("Initializing NATS Client");
-        let client = self.init_nats_client().await?;
+        let mut messenger = MessengerIO::try_new(&self.messenger_args).await?;
+        let messenger = messenger.get_default();
 
         debug!("Initializing Storage IO");
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
@@ -220,11 +176,11 @@ where
                         function_context: function_context.clone(),
                         storage: storage.input.clone(),
                         stream: if self.queue_group {
-                            client
-                                .queue_subscribe(model.clone().into(), model.to_string())
+                            messenger
+                                .subscribe_queued(model.clone(), model.clone())
                                 .await
                         } else {
-                            client.subscribe(model.clone().into()).await
+                            messenger.subscribe(model.clone()).await
                         }
                         .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
                         tx: tx.into(),
@@ -240,10 +196,12 @@ where
         debug!("Initializing Writer");
         let writer = WriteContext {
             atomic_session: AtomicSession::new(max_tasks),
-            client,
             function_context: function_context.clone(),
             storage: storage.output.clone(),
-            stream: self.model_out.clone().map(Into::into),
+            stream: match self.model_out.as_ref() {
+                Some(model) => Some(messenger.publish(model.clone()).await?),
+                None => None,
+            },
         };
 
         Ok(Context {
@@ -368,21 +326,6 @@ where
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-struct NatsArgs {
-    #[arg(long, env = "NATS_ACCOUNT", value_name = "NAME")]
-    nats_account: Option<String>,
-
-    #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
-    nats_addrs: Vec<String>,
-
-    #[arg(long, env = "NATS_PASSWORD_PATH", value_name = "PATH")]
-    nats_password_path: Option<PathBuf>,
-
-    #[arg(long, env = "NATS_TLS_REQUIRED", action = ArgAction::SetTrue)]
-    nats_tls_required: bool,
-}
-
 #[derive(Copy, Clone, Debug, Display, EnumString, Default, Serialize, Deserialize)]
 pub enum DefaultModelIn {
     ModelOut,
@@ -435,7 +378,7 @@ where
 {
     function_context: FunctionContext,
     storage: Arc<StorageSet>,
-    stream: Subscriber,
+    stream: Box<dyn Subscriber<Value>>,
     tx: Arc<Sender<PipeMessage<Value>>>,
 }
 
@@ -470,7 +413,7 @@ where
                 .map_err(|error| anyhow!("failed to send NATS input: {error}"))
         }
 
-        match self.read_message_one().await? {
+        match self.stream.read_one().await? {
             Some(input) => {
                 if self.function_context.is_disabled_load() || input.payloads.is_empty() {
                     send_one(&self.tx, input.load_payloads_as_empty()).await
@@ -490,24 +433,14 @@ where
             None => Ok(()),
         }
     }
-
-    async fn read_message_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
-        self.stream
-            .next()
-            .await
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(|error| anyhow!("failed to subscribe NATS input: {error}"))
-    }
 }
 
 #[derive(Clone)]
 struct WriteContext {
     atomic_session: AtomicSession,
-    client: ::nats::Client,
     function_context: FunctionContext,
     storage: Arc<StorageSet>,
-    stream: Option<String>,
+    stream: Option<Arc<dyn Publisher>>,
 }
 
 impl WriteContext {
@@ -531,7 +464,7 @@ impl WriteContext {
     where
         Value: Send + Sync + Default + Serialize + JsonSchema,
     {
-        match &self.stream {
+        match self.stream.as_ref() {
             Some(stream) => {
                 self.atomic_session
                     .alloc(async {
@@ -555,12 +488,9 @@ impl WriteContext {
                             let output = output
                                 .to_json_bytes()
                                 .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;
-                            self.client
-                                .publish(stream.clone(), output)
-                                .await
-                                .map_err(|error| {
-                                    anyhow!("failed to publish NATS output: {error}")
-                                })?;
+                            stream.send_one(output).await.map_err(|error| {
+                                anyhow!("failed to publish NATS output: {error}")
+                            })?;
                         }
                         Ok(())
                     })

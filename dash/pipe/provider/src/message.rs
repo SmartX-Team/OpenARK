@@ -278,17 +278,6 @@ where
     }
 }
 
-impl<Value> TryFrom<::nats::Message> for PipeMessage<Value, ()>
-where
-    Value: Default + DeserializeOwned,
-{
-    type Error = Error;
-
-    fn try_from(message: ::nats::Message) -> Result<Self> {
-        message.payload.try_into()
-    }
-}
-
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
     Payload: Default + Serialize + JsonSchema,
