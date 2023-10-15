@@ -267,6 +267,8 @@ pub trait Storage {
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes>;
 
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String>;
+
+    async fn delete(&self, path: &str) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]

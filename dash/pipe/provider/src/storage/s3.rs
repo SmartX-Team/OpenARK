@@ -1,51 +1,58 @@
-use std::sync::Arc;
-
 use anyhow::{anyhow, bail, Error, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::{SecondsFormat, Utc};
-use deltalake::{storage::DeltaObjectStore, ObjectStore, Path};
 use futures::TryFutureExt;
+use minio::s3::{
+    args::{GetObjectArgs, PutObjectApiArgs, RemoveObjectArgs},
+    client::Client,
+    creds::StaticProvider,
+    http::BaseUrl,
+};
 use tracing::debug;
 
 use crate::message::Name;
 
-use super::lakehouse::{parse_table_uri, StorageBackend};
-
 #[derive(Clone)]
 pub struct Storage {
-    backend: Arc<DeltaObjectStore>,
+    base_url: BaseUrl,
     model: Option<Name>,
     pipe_name: Name,
     pipe_timestamp: String,
+    provider: StaticProvider,
 }
 
 impl Storage {
     pub async fn try_new(
-        args: &super::StorageS3Args,
+        super::StorageS3Args {
+            access_key,
+            region: _,
+            s3_endpoint,
+            secret_key,
+        }: &super::StorageS3Args,
         model: Option<&Name>,
         pipe_name: &Name,
     ) -> Result<Self> {
         debug!("Initializing Storage Set ({model:?}) - S3");
-
         Ok(Self {
-            backend: StorageBackend::try_new_table(
-                args,
-                Some(
-                    &model
-                        .cloned()
-                        .unwrap_or_else(|| "placeholder".parse().unwrap()),
-                ),
-            )
-            .await?
-            .unwrap()
-            .object_store(),
+            base_url: BaseUrl::from_string(s3_endpoint.as_str().into())
+                .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?,
             model: model.cloned(),
             pipe_name: pipe_name.clone(),
             pipe_timestamp: Utc::now()
                 .to_rfc3339_opts(SecondsFormat::Nanos, true)
                 .replace(':', "-"),
+            provider: StaticProvider::new(access_key, secret_key, None),
         })
+    }
+}
+
+impl Storage {
+    fn bucket_name(&self) -> Result<&str> {
+        match self.model.as_deref() {
+            Some(model) => Ok(model),
+            None => bail!("s3 storage is not inited"),
+        }
     }
 }
 
@@ -60,12 +67,11 @@ impl super::Storage for Storage {
     }
 
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
-        let path = parse_path(path)?;
-        let table_uri = parse_table_uri(model, super::name::KIND_STORAGE)?;
+        let bucket_name = model.as_str();
+        let args = GetObjectArgs::new(bucket_name, path)?;
 
-        let backend = DeltaObjectStore::new(self.backend.storage_backend(), table_uri);
-        backend
-            .get(&path)
+        Client::new(self.base_url.clone(), Some(&self.provider))
+            .get_object(&args)
             .map_err(Error::from)
             .and_then(|object| async move {
                 match object.bytes().await {
@@ -80,21 +86,30 @@ impl super::Storage for Storage {
     }
 
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
+        let bucket_name = self.bucket_name()?;
         let path = format!(
             "{kind}/{prefix}/{timestamp}/{path}",
             kind = super::name::KIND_STORAGE,
             prefix = &self.pipe_name,
             timestamp = &self.pipe_timestamp,
         );
+        let args = PutObjectApiArgs::new(bucket_name, &path, &bytes)?;
 
-        self.backend
-            .put(&parse_path(&path)?, bytes)
+        Client::new(self.base_url.clone(), Some(&self.provider))
+            .put_object_api(&args)
             .await
             .map(|_| path)
             .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
-}
 
-fn parse_path(path: impl AsRef<str>) -> Result<Path> {
-    Path::parse(path).map_err(|error| anyhow!("failed to parse path as S3 style: {error}"))
+    async fn delete(&self, path: &str) -> Result<()> {
+        let bucket_name = self.bucket_name()?;
+        let args = RemoveObjectArgs::new(bucket_name, path)?;
+
+        Client::new(self.base_url.clone(), Some(&self.provider))
+            .remove_object(&args)
+            .await
+            .map(|_| ())
+            .map_err(|error| anyhow!("failed to delete object from S3 object store: {error}"))
+    }
 }

@@ -18,7 +18,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use tracing::debug;
-use url::Url;
 
 use crate::message::{Name, PipeMessage};
 
@@ -86,12 +85,48 @@ unsafe impl Sync for StorageBackend {}
 impl StorageBackend {
     pub const TABLE_NAME: &'static str = "model";
 
-    pub async fn try_new<Value>(args: &super::StorageS3Args, model: Option<&Name>) -> Result<Self>
+    pub async fn try_new<Value>(
+        super::StorageS3Args {
+            access_key,
+            s3_endpoint,
+            region,
+            secret_key,
+        }: &super::StorageS3Args,
+        model: Option<&Name>,
+    ) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        match Self::try_new_table(args, model).await? {
-            Some(mut table) => {
+        match model {
+            Some(model) => {
+                let mut table = {
+                    let allow_http = s3_endpoint.scheme() == "http";
+                    let table_uri = format!(
+                        "s3a://{bucket_name}/{kind}/",
+                        bucket_name = model,
+                        kind = super::name::KIND_METADATA,
+                    );
+
+                    let mut backend_config: HashMap<String, String> = HashMap::new();
+                    backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());
+                    backend_config.insert("AWS_ENDPOINT_URL".to_string(), {
+                        let mut endpoint = s3_endpoint.to_string();
+                        if endpoint.ends_with('/') {
+                            endpoint.pop();
+                        }
+                        endpoint
+                    });
+                    backend_config.insert("AWS_REGION".to_string(), region.clone());
+                    backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key.clone());
+                    backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
+
+                    DeltaTableBuilder::from_uri(table_uri)
+                        .with_allow_http(allow_http)
+                        .with_storage_options(backend_config)
+                        .build()
+                        .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))?
+                };
+
                 // get or create a table
                 let (table, has_writer) = match table.load().await {
                     Ok(()) => {
@@ -136,44 +171,6 @@ impl StorageBackend {
                 table: None,
                 writer: None,
             }),
-        }
-    }
-
-    pub(super) async fn try_new_table(
-        super::StorageS3Args {
-            access_key,
-            s3_endpoint,
-            region,
-            secret_key,
-        }: &super::StorageS3Args,
-        model: Option<&Name>,
-    ) -> Result<Option<DeltaTable>> {
-        match model {
-            Some(model) => {
-                let allow_http = s3_endpoint.scheme() == "http";
-                let table_uri = get_table_uri(model, super::name::KIND_METADATA);
-
-                let mut backend_config: HashMap<String, String> = HashMap::new();
-                backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());
-                backend_config.insert("AWS_ENDPOINT_URL".to_string(), {
-                    let mut endpoint = s3_endpoint.to_string();
-                    if endpoint.ends_with('/') {
-                        endpoint.pop();
-                    }
-                    endpoint
-                });
-                backend_config.insert("AWS_REGION".to_string(), region.clone());
-                backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key.clone());
-                backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
-
-                DeltaTableBuilder::from_uri(table_uri)
-                    .with_allow_http(allow_http)
-                    .with_storage_options(backend_config)
-                    .build()
-                    .map(Some)
-                    .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))
-            }
-            None => Ok(None),
         }
     }
 }
@@ -312,14 +309,4 @@ async fn create_table(
 fn init_writer(table: &DeltaTable) -> Result<JsonWriter> {
     JsonWriter::for_table(table)
         .map_err(|error| anyhow!("failed to init json writer from DeltaLake object store: {error}"))
-}
-
-fn get_table_uri(model: &str, kind: &str) -> String {
-    format!("s3a://{bucket_name}/{kind}/", bucket_name = model)
-}
-
-pub(super) fn parse_table_uri(model: &str, kind: &str) -> Result<Url> {
-    get_table_uri(model, kind)
-        .parse()
-        .map_err(|error| anyhow!("failed to parse Deltalake table uri: {error}"))
 }

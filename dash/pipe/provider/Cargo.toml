@@ -35,7 +35,7 @@ lakehouse = [
     "kube",
     "map-macro",
 ]
-s3 = ["chrono", "lakehouse"]
+s3 = ["chrono", "minio"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core" }
@@ -64,6 +64,7 @@ futures = { workspace = true }
 gethostname = { workspace = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
+minio = { workspace = true, optional = true }
 postcard = { workspace = true, features = ["use-std"] }
 pyo3 = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
