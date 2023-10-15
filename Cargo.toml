@@ -29,7 +29,6 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
-    "kiss/plugin",
     "netai/api",
     "netai/client",
     "netai/endpoint",          # exclude(alpine)

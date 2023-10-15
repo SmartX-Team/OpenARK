@@ -24,7 +24,6 @@ dash-provider-api = { path = "../provider/api" }
 dash-provider-client = { path = "../provider/client", features = [
     "dash-provider",
 ] }
-kiss-plugin = { path = "../../kiss/plugin" }
 vine-api = { path = "../../vine/api" }
 vine-plugin = { path = "../../vine/plugin" }
 vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }

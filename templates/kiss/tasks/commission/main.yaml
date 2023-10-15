@@ -12,5 +12,10 @@
     # Step 5 - Configure devices
     - include: power.yaml
     - include: network.yaml
-    # Step 6. Submit
+    # Step 6 - Configure devices
+    - include: "domain/{{ kiss_group_role | lower }}.yaml"
+      when:
+        - kiss_group_role_is_domain_specific is defined
+        - kiss_group_role_is_domain_specific
+    # Step 7. Submit
     - include: submit.yaml

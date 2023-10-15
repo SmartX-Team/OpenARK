@@ -52,7 +52,6 @@ async fn main() {
                 .service(crate::routes::model::get_item)
                 .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list);
-            let app = ::kiss_plugin::register(app);
             let app = ::vine_plugin::register(app);
             app.wrap(cors)
         })

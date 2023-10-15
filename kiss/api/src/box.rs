@@ -286,6 +286,10 @@ pub enum BoxGroupRole {
     Gateway,
     Storage,
     /*
+        Domain-specific Worker
+    */
+    Robot,
+    /*
         General Worker
     */
     GenericWorker,
@@ -298,6 +302,10 @@ impl Default for BoxGroupRole {
 }
 
 impl BoxGroupRole {
+    pub const fn is_domain_specific(&self) -> bool {
+        matches!(self, Self::Robot,)
+    }
+
     pub fn to_playbook(&self) -> String {
         format!(
             "playbook-{}.yaml",
@@ -335,16 +343,6 @@ pub struct BoxPowerSpec {
 pub enum BoxPowerType {
     IntelAMT,
     Ipmi,
-}
-
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub enum BoxPowerAction {
-    // Off,
-    // On,
-    // Reset,
 }
 
 pub mod request {
