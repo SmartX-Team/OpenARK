@@ -21,7 +21,9 @@ dash-pipe-provider = { path = "../../provider", features = ["pyo3"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bytes = { workspace = true }
 byte-unit = { workspace = true }
 clap = { workspace = true }
+schemars = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }

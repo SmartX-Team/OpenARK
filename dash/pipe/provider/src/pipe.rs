@@ -25,7 +25,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     function::{Function, FunctionContext},
     message::{Name, PipeMessages},
-    messengers::{MessengerArgs, MessengerIO, Publisher, Subscriber},
+    messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,
 };
@@ -125,8 +125,11 @@ where
     F: Function,
 {
     async fn init_context(&self) -> Result<Context<F>> {
-        let mut messenger = MessengerIO::try_new(&self.messenger_args).await?;
-        let messenger = messenger.get_default();
+        let messenger = init_messenger(&self.messenger_args).await?;
+
+        debug!("Initializing Function Context");
+        let mut function_context = FunctionContext::default();
+        function_context.clone().trap_on_sigint()?;
 
         debug!("Initializing Storage IO");
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
@@ -143,21 +146,29 @@ where
                             DefaultModelIn::Skip => None,
                         }
                     });
-                    StorageSet::try_new(&self.storage, model, default_metadata).await?
+                    StorageSet::try_new(
+                        &self.storage,
+                        &mut function_context,
+                        model,
+                        default_metadata,
+                    )
+                    .await?
                 }),
                 output: Arc::new({
                     let default_metadata =
                         MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
                     let model = self.model_out.as_ref();
 
-                    StorageSet::try_new(&self.storage, model, default_metadata).await?
+                    StorageSet::try_new(
+                        &self.storage,
+                        &mut function_context,
+                        model,
+                        default_metadata,
+                    )
+                    .await?
                 }),
             }
         });
-
-        debug!("Initializing Function Context");
-        let mut function_context = FunctionContext::default();
-        function_context.clone().trap_on_sigint()?;
 
         debug!("Initializing Function");
         let function =
@@ -243,12 +254,12 @@ where
             yield_now().await;
 
             if ctx.function_context.is_terminating() {
-                break ctx.storage.flush(&ctx.function_context).await;
+                break ctx.storage.flush().await;
             }
 
             let response = tick_async(&mut ctx).await;
             if ctx.function_context.is_terminating() {
-                let flush_response = ctx.storage.flush(&ctx.function_context).await;
+                let flush_response = ctx.storage.flush().await;
                 break response.and(flush_response);
             } else if let Err(error) = response {
                 warn!("{error}");

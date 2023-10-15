@@ -17,10 +17,11 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["lakehouse", "nats", "s3"]
+default = ["kafka", "lakehouse", "nats", "s3"]
 
 # messengers
-nats = ["async-nats"]
+nats = ["dep:async-nats"]
+kafka = ["dep:rdkafka"]
 
 # storage
 lakehouse = [
@@ -64,7 +65,9 @@ gethostname = { workspace = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
+postcard = { workspace = true, features = ["use-std"] }
 pyo3 = { workspace = true, optional = true }
+rdkafka = { workspace = true, optional = true }
 regex = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }

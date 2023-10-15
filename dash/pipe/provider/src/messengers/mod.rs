@@ -1,3 +1,5 @@
+#[cfg(feature = "kafka")]
+mod kafka;
 #[cfg(feature = "nats")]
 mod nats;
 
@@ -14,34 +16,17 @@ use tracing::debug;
 
 use crate::message::{Name, PipeMessage};
 
-pub struct MessengerIO {
-    default: MessengerType,
-    #[cfg(feature = "nats")]
-    nats: self::nats::Messenger,
-}
+pub async fn init_messenger<Value>(
+    args: &MessengerArgs,
+) -> Result<Box<dyn Send + Sync + Messenger<Value>>> {
+    debug!("Initializing Messenger IO");
 
-impl MessengerIO {
-    pub async fn try_new(args: &MessengerArgs) -> Result<Self> {
-        debug!("Initializing Messenger IO");
-        Ok(Self {
-            default: args.default_messenger,
-            nats: self::nats::Messenger::try_new(&args.nats).await?,
-        })
-    }
-
-    pub fn get<Value>(
-        &mut self,
-        messenger_type: MessengerType,
-    ) -> &mut (dyn Send + Sync + Messenger<Value>) {
-        match messenger_type {
-            #[cfg(feature = "nats")]
-            MessengerType::Nats => &mut self.nats,
-        }
-    }
-
-    pub fn get_default<Value>(&mut self) -> &mut (dyn Send + Sync + Messenger<Value>) {
-        self.get(self.default)
-    }
+    Ok(match args.default_messenger {
+        #[cfg(feature = "kafka")]
+        MessengerType::Kafka => Box::new(self::kafka::Messenger::try_new(&args.kafka).await?),
+        #[cfg(feature = "nats")]
+        MessengerType::Nats => Box::new(self::nats::Messenger::try_new(&args.nats).await?),
+    })
 }
 
 #[async_trait]
@@ -57,10 +42,13 @@ pub trait Messenger<Value> {
     async fn subscribe_queued(
         &self,
         topic: Name,
-        queue_group: Name,
+        _queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned;
+        Value: Send + Default + DeserializeOwned,
+    {
+        self.subscribe(topic).await
+    }
 }
 
 #[async_trait]
@@ -74,7 +62,7 @@ where
 #[async_trait]
 pub trait Subscriber<Value>
 where
-    Self: Send + Sync,
+    Self: Send,
     Value: Send + Default + DeserializeOwned,
 {
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>>;
@@ -96,11 +84,15 @@ where
     JsonSchema,
 )]
 pub enum MessengerType {
+    #[cfg(feature = "kafka")]
+    Kafka,
     #[cfg(feature = "nats")]
     Nats,
 }
 
 impl MessengerType {
+    #[cfg(all(not(feature = "nats"), feature = "kafka"))]
+    pub const DEFAULT: Self = Self::Kafka;
     #[cfg(feature = "nats")]
     pub const DEFAULT: Self = Self::Nats;
 }
@@ -109,6 +101,10 @@ impl MessengerType {
 pub struct MessengerArgs {
     #[arg(long, env = "PIPE_DEFAULT_MESSENGER", value_name = "TYPE", default_value_t = MessengerType::DEFAULT)]
     default_messenger: MessengerType,
+
+    #[cfg(feature = "kafka")]
+    #[command(flatten)]
+    kafka: self::kafka::MessengerNatsArgs,
 
     #[cfg(feature = "nats")]
     #[command(flatten)]

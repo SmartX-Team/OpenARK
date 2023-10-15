@@ -28,11 +28,9 @@ pub struct StorageIO {
 }
 
 impl StorageIO {
-    pub(crate) async fn flush(&self, function_context: &FunctionContext) -> Result<()> {
-        if !function_context.is_disabled_store_metadata() {
-            self.input.flush().await?;
-            self.output.flush().await?;
-        }
+    pub(crate) async fn flush(&self) -> Result<()> {
+        self.input.flush().await?;
+        self.output.flush().await?;
         Ok(())
     }
 }
@@ -49,6 +47,7 @@ pub struct StorageSet {
 impl StorageSet {
     pub async fn try_new<Value>(
         args: &StorageArgs,
+        ctx: &mut FunctionContext,
         model: Option<&Name>,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
@@ -56,6 +55,10 @@ impl StorageSet {
         Value: Default + JsonSchema,
     {
         debug!("Initializing Storage Set ({model:?})");
+
+        if !args.persistence_metadata.unwrap_or_default() {
+            ctx.disable_store_metadata();
+        }
 
         let default = match args.persistence {
             Some(true) => StorageType::PERSISTENT,

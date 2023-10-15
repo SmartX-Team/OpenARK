@@ -267,6 +267,17 @@ where
     pub value: Value,
 }
 
+impl<Value> TryFrom<&[u8]> for PipeMessage<Value, ()>
+where
+    Value: Default + DeserializeOwned,
+{
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self> {
+        ::postcard::from_bytes(value).map_err(Into::into)
+    }
+}
+
 impl<Value> TryFrom<Bytes> for PipeMessage<Value, ()>
 where
     Value: Default + DeserializeOwned,
@@ -274,7 +285,7 @@ where
     type Error = Error;
 
     fn try_from(value: Bytes) -> Result<Self> {
-        ::serde_json::from_reader(&*value).map_err(Into::into)
+        <&[u8]>::try_into(&value)
     }
 }
 
@@ -286,7 +297,7 @@ where
     type Error = Error;
 
     fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
-        ::serde_json::to_vec(value)
+        ::postcard::to_stdvec(value)
             .map(Into::into)
             .map_err(Into::into)
     }
