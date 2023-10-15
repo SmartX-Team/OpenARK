@@ -228,7 +228,7 @@ impl<'model> ObjectStorageRef {
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<ModelStorageObjectRefSpec> {
         async fn get_latest_minio_image() -> Result<String> {
-            Ok("docker.io/minio/minio:latest".into())
+            Ok("docker.io/minio/minio:RELEASE.2023-06-09T07-32-12Z".into())
         }
 
         let tenant_name = "object-storage";
