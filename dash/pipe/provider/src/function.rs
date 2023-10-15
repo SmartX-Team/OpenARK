@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::info;
 
-use crate::{storage::StorageIO, PipeMessages};
+use crate::{message::PipeMessages, messengers::MessengerType, storage::StorageIO};
 
 #[async_trait(?Send)]
 pub trait Function {
@@ -35,14 +35,24 @@ pub trait Function {
     ) -> Result<PipeMessages<<Self as Function>::Output>>;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct FunctionContext {
     is_disabled_load: bool,
     is_disabled_write_metadata: bool,
     is_terminating: Arc<AtomicBool>,
+    messenger_type: MessengerType,
 }
 
 impl FunctionContext {
+    pub(crate) fn new(messenger_type: MessengerType) -> Self {
+        Self {
+            is_disabled_load: Default::default(),
+            is_disabled_write_metadata: Default::default(),
+            is_terminating: Default::default(),
+            messenger_type,
+        }
+    }
+
     pub fn disable_load(&mut self) {
         self.is_disabled_load = true;
     }
@@ -57,6 +67,10 @@ impl FunctionContext {
 
     pub(crate) const fn is_disabled_store_metadata(&self) -> bool {
         self.is_disabled_write_metadata
+    }
+
+    pub const fn messenger_type(&self) -> MessengerType {
+        self.messenger_type
     }
 }
 

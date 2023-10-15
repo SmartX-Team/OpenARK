@@ -9,7 +9,7 @@ use byte_unit::Byte;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
-    FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
+    FunctionContext, MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -70,6 +70,7 @@ impl ::dash_pipe_provider::Function for Function {
                 .get_bytes()
                 .try_into()
                 .map_err(|error| anyhow!("too large data size: {error}"))?,
+            messenger_type: ctx.messenger_type(),
             num_sent: 0,
             num_sent_bytes: 0,
             num_sent_payload_bytes: 0,
@@ -182,6 +183,7 @@ pub struct Metric {
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct MetricData {
     data_size: usize,
+    messenger_type: MessengerType,
     num_sent: u128,
     num_sent_bytes: u128,
     num_sent_payload_bytes: u128,
@@ -206,6 +208,7 @@ impl MetricData {
 
         let Self {
             data_size,
+            messenger_type,
             num_sent: _,
             num_sent_bytes: _,
             num_sent_payload_bytes: _,
@@ -218,6 +221,7 @@ impl MetricData {
         } = self;
 
         info!("data_size: {data_size}");
+        info!("messenger_type: {messenger_type}");
         info!(
             "payload_size: {payload_size}",
             payload_size = describe_option(payload_size.as_ref()),

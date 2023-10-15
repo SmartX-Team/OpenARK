@@ -128,7 +128,7 @@ where
         let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Function Context");
-        let mut function_context = FunctionContext::default();
+        let mut function_context = FunctionContext::new(messenger.messenger_type());
         function_context.clone().trap_on_sigint()?;
 
         debug!("Initializing Storage IO");

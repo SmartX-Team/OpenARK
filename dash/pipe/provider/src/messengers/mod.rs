@@ -74,6 +74,7 @@ where
     Debug,
     Display,
     EnumString,
+    Default,
     PartialEq,
     Eq,
     PartialOrd,
@@ -85,21 +86,16 @@ where
 )]
 pub enum MessengerType {
     #[cfg(feature = "kafka")]
+    #[cfg_attr(all(not(feature = "nats"), feature = "kafka"), default)]
     Kafka,
     #[cfg(feature = "nats")]
+    #[cfg_attr(feature = "nats", default)]
     Nats,
-}
-
-impl MessengerType {
-    #[cfg(all(not(feature = "nats"), feature = "kafka"))]
-    pub const DEFAULT: Self = Self::Kafka;
-    #[cfg(feature = "nats")]
-    pub const DEFAULT: Self = Self::Nats;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct MessengerArgs {
-    #[arg(long, env = "PIPE_DEFAULT_MESSENGER", value_name = "TYPE", default_value_t = MessengerType::DEFAULT)]
+    #[arg(long, env = "PIPE_DEFAULT_MESSENGER", value_name = "TYPE", default_value_t = Default::default())]
     default_messenger: MessengerType,
 
     #[cfg(feature = "kafka")]
