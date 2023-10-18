@@ -95,7 +95,10 @@ impl ::dash_pipe_provider::Function for Function {
         }
 
         Ok(Self {
-            ctx: ctx.clone(),
+            ctx: {
+                ctx.disable_load();
+                ctx.clone()
+            },
             metric,
             next_stdout: Self::TICK,
             storage: storage.output.clone(),
