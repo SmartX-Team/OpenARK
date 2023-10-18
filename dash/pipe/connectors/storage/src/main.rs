@@ -47,6 +47,7 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(Self {
             args: args.clone(),
             ctx: {
+                ctx.disable_load();
                 ctx.disable_store_metadata();
                 ctx.clone()
             },

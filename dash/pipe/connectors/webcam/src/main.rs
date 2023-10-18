@@ -103,7 +103,10 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(Self {
             camera_encoder,
             capture,
-            ctx: ctx.clone(),
+            ctx: {
+                ctx.disable_load();
+                ctx.clone()
+            },
             frame: Default::default(),
             frame_counter: Default::default(),
             frame_size: Default::default(),

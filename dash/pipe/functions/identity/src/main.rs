@@ -32,9 +32,11 @@ impl ::dash_pipe_provider::Function for Function {
 
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::Function>::Args,
-        _ctx: &mut FunctionContext,
+        ctx: &mut FunctionContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
+        ctx.disable_load();
+
         Ok(Self { args: args.clone() })
     }
 
