@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use bytes::Bytes;
 use clap::Parser;
@@ -63,6 +63,10 @@ pub struct Publisher {
 
 #[async_trait]
 impl super::Publisher for Publisher {
+    async fn reply_one(&self, _data: Bytes, _reply: String) -> Result<()> {
+        bail!("cannot reply with Kafka")
+    }
+
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .send(

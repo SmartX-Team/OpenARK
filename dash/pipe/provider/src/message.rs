@@ -7,12 +7,13 @@ use futures::future::try_join_all;
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
+use serde_json::{Number, Value as DynValue};
 
 use crate::storage::{StorageSet, StorageType};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PipeMessages<Value = ::serde_json::Value, Payload = Bytes>
+pub enum PipeMessages<Value = DynValue, Payload = Bytes>
 where
     Payload: Default + JsonSchema,
     Value: Default,
@@ -92,7 +93,8 @@ where
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
     timestamp: DateTime<Utc>,
-    value: ::serde_json::Value,
+    reply: Option<String>,
+    value: DynValue,
 }
 
 #[cfg(feature = "pyo3")]
@@ -101,12 +103,14 @@ impl From<PipeMessage> for PyPipeMessage {
         PipeMessage {
             payloads,
             timestamp,
+            reply,
             value,
         }: PipeMessage,
     ) -> Self {
         Self {
             payloads,
             timestamp,
+            reply,
             value,
         }
     }
@@ -118,12 +122,14 @@ impl From<PyPipeMessage> for PipeMessage {
         PyPipeMessage {
             payloads,
             timestamp,
+            reply,
             value,
         }: PyPipeMessage,
     ) -> Self {
         Self {
             payloads,
             timestamp,
+            reply,
             value,
         }
     }
@@ -134,27 +140,23 @@ impl From<PyPipeMessage> for PipeMessage {
 impl PyPipeMessage {
     #[new]
     fn new(payloads: Vec<(String, Option<Vec<u8>>)>, value: &::pyo3::PyAny) -> Self {
-        fn value_to_native(value: &::pyo3::PyAny) -> ::serde_json::Value {
+        fn value_to_native(value: &::pyo3::PyAny) -> DynValue {
             if value.is_none() {
-                ::serde_json::Value::Null
+                DynValue::Null
             } else if let Ok(value) = value.extract::<bool>() {
-                ::serde_json::Value::Bool(value)
+                DynValue::Bool(value)
             } else if let Ok(value) = value.extract::<u64>() {
-                ::serde_json::Value::Number(value.into())
+                DynValue::Number(value.into())
             } else if let Ok(value) = value.extract::<i64>() {
-                ::serde_json::Value::Number(value.into())
-            } else if let Some(value) = value
-                .extract::<f64>()
-                .ok()
-                .and_then(::serde_json::Number::from_f64)
-            {
-                ::serde_json::Value::Number(value)
+                DynValue::Number(value.into())
+            } else if let Some(value) = value.extract::<f64>().ok().and_then(Number::from_f64) {
+                DynValue::Number(value)
             } else if let Ok(value) = value.extract::<String>() {
-                ::serde_json::Value::String(value)
+                DynValue::String(value)
             } else if let Ok(values) = value.downcast::<::pyo3::types::PyList>() {
-                ::serde_json::Value::Array(values.iter().map(value_to_native).collect())
+                DynValue::Array(values.iter().map(value_to_native).collect())
             } else if let Ok(values) = value.downcast::<::pyo3::types::PyDict>() {
-                ::serde_json::Value::Object(
+                DynValue::Object(
                     values
                         .iter()
                         .filter_map(|(key, value)| {
@@ -164,7 +166,7 @@ impl PyPipeMessage {
                 )
             } else {
                 // do not save the value
-                ::serde_json::Value::Null
+                DynValue::Null
             }
         }
 
@@ -175,6 +177,7 @@ impl PyPipeMessage {
                     PipePayload::new(key, value.map(Into::into).unwrap_or_default())
                 })
                 .collect(),
+            reply: None,
             timestamp: Utc::now(),
             value: value_to_native(value),
         }
@@ -199,11 +202,11 @@ impl PyPipeMessage {
     fn get_value(&self, py: ::pyo3::Python) -> ::pyo3::PyObject {
         use pyo3::{types::IntoPyDict, IntoPy};
 
-        fn value_to_py(py: ::pyo3::Python, value: &::serde_json::Value) -> ::pyo3::PyObject {
+        fn value_to_py(py: ::pyo3::Python, value: &DynValue) -> ::pyo3::PyObject {
             match value {
-                ::serde_json::Value::Null => ().into_py(py),
-                ::serde_json::Value::Bool(value) => value.into_py(py),
-                ::serde_json::Value::Number(value) => match value.as_u64() {
+                DynValue::Null => ().into_py(py),
+                DynValue::Bool(value) => value.into_py(py),
+                DynValue::Number(value) => match value.as_u64() {
                     Some(value) => value.into_py(py),
                     None => match value.as_i64() {
                         Some(value) => value.into_py(py),
@@ -215,13 +218,13 @@ impl PyPipeMessage {
                         },
                     },
                 },
-                ::serde_json::Value::String(value) => value.into_py(py),
-                ::serde_json::Value::Array(values) => values
+                DynValue::String(value) => value.into_py(py),
+                DynValue::Array(values) => values
                     .iter()
                     .map(|value| value_to_py(py, value))
                     .collect::<Vec<_>>()
                     .into_py(py),
-                ::serde_json::Value::Object(values) => values
+                DynValue::Object(values) => values
                     .iter()
                     .map(|(key, value)| (key, value_to_py(py, value)))
                     .into_py_dict(py)
@@ -255,13 +258,15 @@ impl PyPipeMessage {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct PipeMessage<Value = ::serde_json::Value, Payload = Bytes>
+pub struct PipeMessage<Value = DynValue, Payload = Bytes>
 where
     Payload: Default + JsonSchema,
     Value: Default,
 {
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
+    #[serde(skip)]
+    pub reply: Option<String>,
     timestamp: DateTime<Utc>,
     #[serde(default)]
     pub value: Value,
@@ -274,7 +279,7 @@ where
     type Error = Error;
 
     fn try_from(value: &[u8]) -> Result<Self> {
-        ::postcard::from_bytes(value).map_err(Into::into)
+        ::rmp_serde::from_slice(value).map_err(Into::into)
     }
 }
 
@@ -297,13 +302,13 @@ where
     type Error = Error;
 
     fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
-        ::postcard::to_stdvec(value)
+        ::rmp_serde::to_vec(value)
             .map(Into::into)
             .map_err(Into::into)
     }
 }
 
-impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for ::serde_json::Value
+impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for DynValue
 where
     Payload: Default + Serialize + JsonSchema,
     Value: Default + Serialize,
@@ -324,8 +329,14 @@ where
         Self {
             payloads,
             timestamp: Utc::now(),
+            reply: None,
             value,
         }
+    }
+
+    pub(crate) fn with_reply(mut self, reply: Option<String>) -> Self {
+        self.reply = reply;
+        self
     }
 
     fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
@@ -342,6 +353,7 @@ where
                     .map(|payload| payload.load(storage)),
             )
             .await?,
+            reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,
         })
@@ -354,6 +366,7 @@ where
                 .into_iter()
                 .map(|payload| payload.load_as_empty())
                 .collect(),
+            reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,
         }
@@ -363,7 +376,7 @@ where
         self.timestamp
     }
 
-    pub fn to_json(&self) -> Result<::serde_json::Value>
+    pub fn to_bytes(&self) -> Result<Bytes>
     where
         Payload: Serialize,
         Value: Serialize,
@@ -371,7 +384,7 @@ where
         self.try_into()
     }
 
-    pub fn to_json_bytes(&self) -> Result<Bytes>
+    pub fn to_json(&self) -> Result<DynValue>
     where
         Payload: Serialize,
         Value: Serialize,
@@ -396,6 +409,7 @@ where
                     .map(|payload| payload.dump(storage, input_payloads)),
             )
             .await?,
+            reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,
         })

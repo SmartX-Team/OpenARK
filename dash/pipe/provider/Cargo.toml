@@ -65,10 +65,10 @@ gethostname = { workspace = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
-postcard = { workspace = true, features = ["use-std"] }
 pyo3 = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
 regex = { workspace = true }
+rmp-serde = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

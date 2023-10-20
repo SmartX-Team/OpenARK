@@ -69,10 +69,6 @@ where
     #[serde(default)]
     queue_group: bool,
 
-    #[arg(long, env = "PIPE_REPLY", action = ArgAction::SetTrue)]
-    #[serde(default)]
-    reply: Option<bool>,
-
     #[command(flatten)]
     storage: crate::storage::StorageArgs,
 }
@@ -111,11 +107,6 @@ where
 
     pub fn with_model_out(mut self, model_out: Name) -> Self {
         self.model_out = Some(model_out);
-        self
-    }
-
-    pub fn with_reply(mut self, reply: bool) -> Self {
-        self.reply = Some(reply);
         self
     }
 }
@@ -193,7 +184,7 @@ where
                         } else {
                             messenger.subscribe(model.clone()).await
                         }
-                        .map_err(|error| anyhow!("failed to init NATS input stream: {error}"))?,
+                        .map_err(|error| anyhow!("failed to init input stream: {error}"))?,
                         tx: tx.into(),
                     }
                     .loop_forever()
@@ -421,7 +412,7 @@ where
         {
             tx.send(input)
                 .await
-                .map_err(|error| anyhow!("failed to send NATS input: {error}"))
+                .map_err(|error| anyhow!("failed to send input: {error}"))
         }
 
         match self.stream.read_one().await? {
@@ -435,7 +426,7 @@ where
                         let input = input
                             .load_payloads(&storage)
                             .await
-                            .map_err(|error| anyhow!("failed to read NATS input: {error}"))?;
+                            .map_err(|error| anyhow!("failed to read input: {error}"))?;
                         send_one(&tx, input).await
                     });
                     Ok(())
@@ -496,12 +487,19 @@ impl WriteContext {
                                 }
                             }
 
-                            let output = output
-                                .to_json_bytes()
-                                .map_err(|error| anyhow!("failed to parse NATS output: {error}"))?;
-                            stream.send_one(output).await.map_err(|error| {
-                                anyhow!("failed to publish NATS output: {error}")
-                            })?;
+                            let data = output
+                                .to_bytes()
+                                .map_err(|error| anyhow!("failed to parse output: {error}"))?;
+                            match output.reply {
+                                Some(reply) => stream
+                                    .reply_one(data, reply)
+                                    .await
+                                    .map_err(|error| anyhow!("failed to reply output: {error}"))?,
+                                None => stream
+                                    .send_one(data)
+                                    .await
+                                    .map_err(|error| anyhow!("failed to send output: {error}"))?,
+                            }
                         }
                         Ok(())
                     })
