@@ -283,7 +283,11 @@ where
     type Error = Error;
 
     fn try_from(value: &[u8]) -> Result<Self> {
-        ::rmp_serde::from_slice(value).map_err(Into::into)
+        match value.first().copied().map(Into::into) {
+            None | Some(OpCode::AsciiEnd) => ::serde_json::from_slice(value).map_err(Into::into),
+            Some(OpCode::MessagePack) => ::rmp_serde::from_slice(&value[1..]).map_err(Into::into),
+            Some(OpCode::Unsupported) => bail!("cannot infer serde opcode"),
+        }
     }
 }
 
@@ -306,8 +310,11 @@ where
     type Error = Error;
 
     fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
-        ::rmp_serde::to_vec(value)
-            .map(Into::into)
+        // opcode
+        let mut buf = vec![OpCode::MessagePack as u8];
+
+        ::rmp_serde::encode::write(&mut buf, value)
+            .map(|()| buf.into())
             .map_err(Into::into)
     }
 }
@@ -601,5 +608,27 @@ impl<'de> Deserialize<'de> for Name {
     {
         <String as Deserialize<'de>>::deserialize(deserializer)
             .and_then(|name| Self::from_str(&name).map_err(::serde::de::Error::custom))
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum OpCode {
+    // Special opcodes
+    Unsupported = 0x00,
+
+    // NOTE: The opcode for text serde should be in ASCII
+    AsciiEnd = 0x7F,
+
+    // NOTE: The opcodes for binary serde should be in extended ASCII
+    MessagePack = 0x80,
+}
+
+impl From<u8> for OpCode {
+    fn from(value: u8) -> Self {
+        match value {
+            value if value <= Self::AsciiEnd as u8 => Self::AsciiEnd,
+            value if value == Self::MessagePack as u8 => Self::MessagePack,
+            _ => Self::Unsupported,
+        }
     }
 }
