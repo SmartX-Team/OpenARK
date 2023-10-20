@@ -7,7 +7,7 @@ use futures::future::try_join_all;
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value as DynValue};
+use serde_json::Value as DynValue;
 
 use crate::storage::{StorageSet, StorageType};
 
@@ -149,7 +149,11 @@ impl PyPipeMessage {
                 DynValue::Number(value.into())
             } else if let Ok(value) = value.extract::<i64>() {
                 DynValue::Number(value.into())
-            } else if let Some(value) = value.extract::<f64>().ok().and_then(Number::from_f64) {
+            } else if let Some(value) = value
+                .extract::<f64>()
+                .ok()
+                .and_then(::serde_json::Number::from_f64)
+            {
                 DynValue::Number(value)
             } else if let Ok(value) = value.extract::<String>() {
                 DynValue::String(value)
