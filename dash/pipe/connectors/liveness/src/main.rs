@@ -77,7 +77,7 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(PipeMessages::Single(PipeMessage::new(
             Default::default(),
             Ping {
-                index: self.iteration.next(),
+                index,
                 timestamp: Some(Utc::now()),
             },
         )))
