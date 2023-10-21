@@ -17,7 +17,7 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::message::{Name, PipeMessage};
 
@@ -215,7 +215,7 @@ impl<Value> super::MetadataStorageMut<Value> for StorageBackend {
                 writer
                     .flush_and_commit(&mut table)
                     .await
-                    .map(|_| ())
+                    .map(|_| info!("commited object metadata"))
                     .map_err(|error| {
                         anyhow!(
                             "failed to flush object metadata into DeltaLake object store: {error}"

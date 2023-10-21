@@ -5,16 +5,14 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use dash_pipe_provider::{
-    storage::StorageIO, DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
 
 fn main() {
-    PipeArgs::<Function>::from_env()
-        .with_default_model_in(DefaultModelIn::ModelOut)
-        .loop_forever()
+    PipeArgs::<Function>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
