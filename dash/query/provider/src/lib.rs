@@ -4,13 +4,11 @@ use dash_api::{
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
     storage::ModelStorageKindSpec,
 };
-use dash_pipe_provider::{
-    storage::{
-        lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
-        StorageS3Args, Stream,
-    },
-    Name,
+use dash_pipe_provider::storage::{
+    lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
+    StorageS3Args, Stream,
 };
+pub use dash_pipe_provider::Name;
 use dash_provider::storage::ObjectStorageRef;
 use datafusion::prelude::DataFrame;
 use futures::future::try_join_all;
@@ -28,23 +26,28 @@ pub struct QueryClientArgs {
 
 pub struct QueryClient {
     ctx: StorageContext,
+    tables: Vec<Name>,
 }
 
 impl QueryClient {
     pub async fn try_new(args: &QueryClientArgs) -> Result<Self> {
-        Ok(Self {
-            ctx: {
-                let ctx = StorageContext::default();
-                for (model, args) in load_models(args.namespace.as_deref()).await? {
-                    let (_, _, has_inited) =
-                        ctx.register_table_with_name(args, &model, None).await?;
-                    if !has_inited {
-                        warn!("Model {model:?} is not inited yet; skipping...");
-                    }
-                }
-                ctx
-            },
-        })
+        let ctx = StorageContext::default();
+        let mut tables = vec![];
+
+        for (model, args) in load_models(args.namespace.as_deref()).await? {
+            let (table, _, has_inited) = ctx.register_table_with_name(args, &model, None).await?;
+            if has_inited {
+                tables.push(table);
+            } else {
+                warn!("Model {model:?} is not inited yet; skipping...");
+            }
+        }
+
+        Ok(Self { ctx, tables })
+    }
+
+    pub fn list_table_names(&self) -> &[Name] {
+        &self.tables
     }
 
     pub async fn sql(&self, sql: &str) -> Result<DataFrame> {

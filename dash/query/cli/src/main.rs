@@ -1,8 +1,8 @@
 use std::{cell::RefCell, process::exit};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
-use dash_query_provider::{QueryClient, QueryClientArgs};
+use dash_query_provider::{Name, QueryClient, QueryClientArgs};
 use futures::TryStreamExt;
 use inquire::{autocompletion::Replacement, Autocomplete, CustomUserError, Text};
 use serde_json::Value;
@@ -34,16 +34,22 @@ async fn try_main() -> Result<()> {
     let QueryArgs { client, sql } = QueryArgs::parse();
     let client = QueryClient::try_new(&client).await?;
 
+    let tables = client.list_table_names();
+    let table_sample = match tables.first() {
+        Some(table) => table.clone(),
+        None => bail!("None of the tables are detected!"),
+    };
+
     match sql {
         Some(sql) => run_query(&client, &sql).await,
         None => {
-            try_main_interactive(client).await;
+            try_main_interactive(client, table_sample).await;
             Ok(())
         }
     }
 }
 
-async fn try_main_interactive(client: QueryClient) {
+async fn try_main_interactive(client: QueryClient, table_sample: Name) {
     #[derive(Clone, Default)]
     struct History(RefCell<Vec<String>>);
 
@@ -67,11 +73,13 @@ async fn try_main_interactive(client: QueryClient) {
         }
     }
 
+    let placeholder = format!("SELECT * FROM {table_sample};");
+
     let history = History::default();
     loop {
         let sql = match Text::new("sql> ")
             .with_autocomplete(history.clone())
-            .with_placeholder("SELECT * FROM model;")
+            .with_placeholder(&placeholder)
             .prompt()
         {
             Ok(sql) => {
