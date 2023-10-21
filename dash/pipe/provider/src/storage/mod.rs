@@ -202,8 +202,6 @@ where
 
 #[async_trait]
 pub trait MetadataStorage<Value = ()> {
-    fn table_name(&self) -> &str;
-
     async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned;
@@ -217,8 +215,6 @@ pub trait MetadataStorage<Value = ()> {
 
 #[async_trait]
 pub trait MetadataStorageMut<Value = ()> {
-    fn table_name(&self) -> &str;
-
     async fn list_metadata(&mut self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned;
@@ -293,21 +289,27 @@ pub struct StorageArgs {
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageS3Args {
     #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
-    pub(super) access_key: String,
+    pub access_key: String,
 
     #[arg(
         long,
         env = "AWS_REGION",
         value_name = "REGION",
-        default_value = "us-east-1"
+        default_value_t = Self::default_region().into(),
     )]
-    pub(super) region: String,
+    pub region: String,
 
     #[arg(long, env = "AWS_ENDPOINT_URL", value_name = "URL")]
-    pub(super) s3_endpoint: Url,
+    pub s3_endpoint: Url,
 
     #[arg(long, env = "AWS_SECRET_ACCESS_KEY", value_name = "VALUE")]
-    pub(super) secret_key: String,
+    pub secret_key: String,
+}
+
+impl StorageS3Args {
+    pub const fn default_region() -> &'static str {
+        "us-east-1"
+    }
 }
 
 pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;

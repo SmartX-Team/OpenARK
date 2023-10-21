@@ -17,9 +17,20 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dash-api = { path = "../../api" }
 dash-pipe-provider = { path = "../../pipe/provider", features = ["lakehouse"] }
+dash-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
+clap = { workspace = true }
 datafusion = { workspace = true }
-schemars = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 serde = { workspace = true }
+tracing = { workspace = true }

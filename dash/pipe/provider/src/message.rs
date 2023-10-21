@@ -601,6 +601,7 @@ impl fmt::Display for Name {
         <String as fmt::Display>::fmt(&self.0, f)
     }
 }
+
 impl<'de> Deserialize<'de> for Name {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
@@ -608,6 +609,12 @@ impl<'de> Deserialize<'de> for Name {
     {
         <String as Deserialize<'de>>::deserialize(deserializer)
             .and_then(|name| Self::from_str(&name).map_err(::serde::de::Error::custom))
+    }
+}
+
+impl Name {
+    pub(crate) fn new(name: String) -> Self {
+        Self(name)
     }
 }
 

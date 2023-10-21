@@ -21,7 +21,9 @@ use kube::{core::object::HasStatus, Client};
 use serde_json::Value;
 
 pub use self::{
-    db::DatabaseStorageClient, kubernetes::KubernetesStorageClient, object::ObjectStorageClient,
+    db::DatabaseStorageClient,
+    kubernetes::KubernetesStorageClient,
+    object::{ObjectStorageClient, ObjectStorageRef},
 };
 
 #[async_trait]

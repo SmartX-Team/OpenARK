@@ -59,13 +59,6 @@ pub struct ObjectStorageClient {
     target: ObjectStorageRef,
 }
 
-struct ObjectStorageRef {
-    base_url: BaseUrl,
-    endpoint: Url,
-    name: String,
-    provider: StaticProvider,
-}
-
 impl ObjectStorageClient {
     pub async fn try_new<'source>(
         kube: &Client,
@@ -117,8 +110,15 @@ impl ObjectStorageClient {
     }
 }
 
+pub struct ObjectStorageRef {
+    pub base_url: BaseUrl,
+    pub endpoint: Url,
+    pub name: String,
+    pub provider: StaticProvider,
+}
+
 impl<'model> ObjectStorageRef {
-    async fn load_storage_provider(
+    pub async fn load_storage_provider(
         kube: &Client,
         namespace: &str,
         name: &str,
@@ -297,6 +297,10 @@ impl<'model> ObjectStorageRef {
                 name: secret_user_0.name_any(),
             },
         })
+    }
+
+    pub fn fetch_provider(&self) -> Credentials {
+        self.provider.fetch()
     }
 }
 

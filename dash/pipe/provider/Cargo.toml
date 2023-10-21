@@ -32,6 +32,7 @@ lakehouse = [
     "datafusion",
     "deltalake/parquet",
     "deltalake/s3",
+    "inflector",
     "kube",
     "map-macro",
 ]
@@ -62,6 +63,7 @@ deltalake = { workspace = true, optional = true, features = [
 ] }
 futures = { workspace = true }
 gethostname = { workspace = true }
+inflector = { workspace = true, optional = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
