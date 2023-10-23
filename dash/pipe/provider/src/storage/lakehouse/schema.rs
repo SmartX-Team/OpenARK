@@ -5,7 +5,7 @@ use dash_api::model::{
     ModelFieldAttributeSpec, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
     ModelFieldNativeSpec,
 };
-use datafusion::arrow::datatypes::DataType;
+use datafusion::arrow::datatypes::{DataType, Field};
 use deltalake::{SchemaDataType, SchemaField, SchemaTypeArray, SchemaTypeStruct};
 use map_macro::hash_map;
 use schemars::schema::{
@@ -953,7 +953,7 @@ trait FieldSchema {
     fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>>;
 }
 
-impl FieldSchema for ::arrow_schema::Field {
+impl FieldSchema for Field {
     fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>> {
         self.data_type().to_data_type(api_version)
     }
