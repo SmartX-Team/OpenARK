@@ -17,11 +17,11 @@ use kube::{api::ListParams, Api, Client};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::warn;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Parser)]
 pub struct QueryClientArgs {
     /// Set a target namespace
     #[arg(long, env = "DASH_NAMESPACE", value_name = "NAMESPACE")]
-    namespace: Option<String>,
+    pub namespace: Option<String>,
 }
 
 pub struct QueryClient {
