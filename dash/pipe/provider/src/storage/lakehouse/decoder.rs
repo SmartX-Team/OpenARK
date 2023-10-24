@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use arrow_json::ArrayWriter;
+use arrow::json::ArrayWriter;
 use async_stream::try_stream;
 use async_trait::async_trait;
 use datafusion::{physical_plan::execute_stream_partitioned, prelude::DataFrame};

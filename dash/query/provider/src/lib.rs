@@ -1,3 +1,6 @@
+// Re-export arrow crate
+pub extern crate arrow;
+
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use dash_api::{

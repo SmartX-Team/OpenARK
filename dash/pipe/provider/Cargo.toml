@@ -25,8 +25,7 @@ kafka = ["dep:rdkafka"]
 
 # storage
 lakehouse = [
-    "arrow-json",
-    "arrow-schema",
+    "arrow",
     "async-recursion",
     "dash-api",
     "datafusion",
@@ -43,8 +42,7 @@ ark-core = { path = "../../../ark/core" }
 dash-api = { path = "../../api", optional = true }
 
 anyhow = { workspace = true }
-arrow-json = { workspace = true, optional = true }
-arrow-schema = { workspace = true, optional = true }
+arrow = { workspace = true, optional = true }
 async-nats = { workspace = true, optional = true }
 async-recursion = { workspace = true, optional = true }
 async-stream = { workspace = true }

@@ -4,7 +4,7 @@ mod schema;
 use std::{collections::HashMap, io::Cursor, ops, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
-use arrow_json::reader::infer_json_schema_from_seekable;
+use arrow::json::reader::infer_json_schema_from_seekable;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use datafusion::prelude::SessionContext;

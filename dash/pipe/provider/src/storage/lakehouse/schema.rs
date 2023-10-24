@@ -18,7 +18,7 @@ pub trait FieldColumns {
     fn to_data_columns(&self) -> Result<Vec<SchemaField>>;
 }
 
-impl FieldColumns for ::arrow_schema::Schema {
+impl FieldColumns for ::arrow::datatypes::Schema {
     fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
         let api_version = json!("http://arrow.apache.org/");
         self.fields().to_data_columns(&api_version)
@@ -918,7 +918,7 @@ trait FieldChildren {
     fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>>;
 }
 
-impl FieldChildren for ::arrow_schema::Fields {
+impl FieldChildren for ::arrow::datatypes::Fields {
     fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>> {
         self.iter()
             .filter_map(|field| field.to_data_column(api_version).transpose())
@@ -930,7 +930,7 @@ trait FieldChild {
     fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>>;
 }
 
-impl FieldChild for ::arrow_schema::Field {
+impl FieldChild for ::arrow::datatypes::Field {
     fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>> {
         self.data_type().to_data_type(api_version).map(|type_| {
             type_.map(|type_| {
