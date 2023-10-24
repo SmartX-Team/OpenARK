@@ -118,7 +118,7 @@ jobs:
   build-and-push-image-bootstrap-node:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -162,7 +162,7 @@ jobs:
   build-and-push-image-ipmitool:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -212,7 +212,7 @@ jobs:
   build-and-push-image-ipxe:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -260,7 +260,7 @@ jobs:
   build-and-push-image-kiss-optimizer-wifi:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -304,7 +304,7 @@ jobs:
   build-and-push-image-snapshot-git:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -348,7 +348,7 @@ jobs:
   build-and-push-image-upgrade-csi-rook-ceph:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -392,7 +392,7 @@ jobs:
   build-and-push-image-upgrade-csi-s3:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -436,7 +436,7 @@ jobs:
   build-and-push-image-upgrade-gpu-nvidia:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -480,7 +480,7 @@ jobs:
   build-and-push-image-upgrade-kiss:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -524,7 +524,7 @@ jobs:
   build-and-push-image-upgrade-fabric-mellanox:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -568,7 +568,7 @@ jobs:
   build-and-push-image-vine-desktop-alpine:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -612,7 +612,7 @@ jobs:
   build-and-push-image-vine-dex:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -656,7 +656,7 @@ jobs:
   build-and-push-image-vine-novnc:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -700,7 +700,7 @@ jobs:
   build-and-push-image-vine-x11vnc:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -744,7 +744,7 @@ jobs:
   build-and-push-image-wsmancli:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -788,7 +788,6 @@ jobs:
   release:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - lint-yaml
       - build-rust
       - build-and-push-image
       - build-and-push-image-bootstrap-node
