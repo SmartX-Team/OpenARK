@@ -25,12 +25,9 @@ kafka = ["dep:rdkafka"]
 
 # storage
 lakehouse = [
-    "arrow",
     "async-recursion",
     "dash-api",
-    "datafusion",
-    "deltalake/parquet",
-    "deltalake/s3",
+    "deltalake",
     "inflector",
     "kube",
     "map-macro",
@@ -42,7 +39,6 @@ ark-core = { path = "../../../ark/core" }
 dash-api = { path = "../../api", optional = true }
 
 anyhow = { workspace = true }
-arrow = { workspace = true, optional = true }
 async-nats = { workspace = true, optional = true }
 async-recursion = { workspace = true, optional = true }
 async-stream = { workspace = true }
@@ -51,7 +47,6 @@ bytes = { workspace = true }
 chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
-datafusion = { workspace = true, optional = true }
 deltalake = { workspace = true, optional = true, features = [
     "arrow",
     "datafusion",

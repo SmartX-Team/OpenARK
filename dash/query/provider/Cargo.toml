@@ -22,9 +22,7 @@ dash-pipe-provider = { path = "../../pipe/provider", features = ["lakehouse"] }
 dash-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
-arrow = { workspace = true }
 clap = { workspace = true }
-datafusion = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 kube = { workspace = true, features = [

@@ -1,5 +1,4 @@
-// Re-export arrow crate
-pub extern crate arrow;
+mod arrow;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -7,13 +6,16 @@ use dash_api::{
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
     storage::ModelStorageKindSpec,
 };
-use dash_pipe_provider::storage::{
-    lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
-    StorageS3Args, Stream,
+pub use dash_pipe_provider::{deltalake, Name};
+use dash_pipe_provider::{
+    deltalake::arrow::{compute::concat_batches, record_batch::RecordBatch},
+    storage::{
+        lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
+        StorageS3Args, Stream,
+    },
 };
-pub use dash_pipe_provider::Name;
 use dash_provider::storage::ObjectStorageRef;
-use datafusion::prelude::DataFrame;
+use deltalake::datafusion::prelude::DataFrame;
 use futures::future::try_join_all;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, Client};
@@ -69,6 +71,24 @@ impl QueryClient {
             .try_into_decoder()
             .await
             .map_err(|error| anyhow!("failed to decode object metadata: {error}"))
+    }
+
+    pub async fn sql_and_flatten(&self, sql: &str) -> Result<Option<RecordBatch>> {
+        self.sql(sql)
+            .await?
+            .collect()
+            .await
+            .map_err(|error| anyhow!("failed to collect object metadata: {error}"))
+            .and_then(|records| {
+                records
+                    .first()
+                    .map(|record_sample| {
+                        concat_batches(&record_sample.schema(), &records)
+                            .map(self::arrow::IntoFlattened::into_flattened)
+                            .map_err(|error| anyhow!("failed to concat object metadata: {error}"))
+                    })
+                    .transpose()
+            })
     }
 }
 

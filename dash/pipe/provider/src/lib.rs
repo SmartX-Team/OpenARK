@@ -1,3 +1,7 @@
+// Re-export deltalake crate
+#[cfg(feature = "deltalake")]
+pub extern crate deltalake;
+
 mod function;
 mod message;
 mod messengers;

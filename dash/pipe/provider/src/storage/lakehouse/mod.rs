@@ -4,11 +4,11 @@ mod schema;
 use std::{collections::HashMap, io::Cursor, ops, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
-use arrow::json::reader::infer_json_schema_from_seekable;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use datafusion::prelude::SessionContext;
 use deltalake::{
+    arrow::json::reader::infer_json_schema_from_seekable,
+    datafusion::prelude::SessionContext,
     protocol::SaveMode,
     writer::{DeltaWriter, JsonWriter},
     DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError, SchemaField,
