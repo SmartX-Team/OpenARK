@@ -21,8 +21,8 @@ RUN apk add --no-cache libgcc opencv
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
-RUN apk add --no-cache bzip2-dev clang-dev cmake g++ \
-    make musl-dev nasm opencv-dev xz-dev zlib-dev
+RUN apk add --no-cache bzip2-static clang-dev cmake g++ \
+    make mold musl-dev nasm xz-static zlib-static
 
 # Load source files
 ADD . /src
