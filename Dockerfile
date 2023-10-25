@@ -15,7 +15,7 @@ WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
 # Install dependencies
-RUN apk add --no-cache libgcc opencv
+RUN apk add --no-cache libgcc
 
 # Be ready for building
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
