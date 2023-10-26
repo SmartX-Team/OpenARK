@@ -13,13 +13,13 @@ use serde_json::Value;
 use vine_api::user_session::UserSessionRef;
 use vine_rbac::auth::AuthUserSession;
 
-#[delete("/function/{function_name}/job/{job_name}/")]
+#[delete("/task/{task_name}/job/{job_name}/")]
 pub async fn delete(
     request: HttpRequest,
     kube: Data<Client>,
     path: Path<(Name, Name)>,
 ) -> impl Responder {
-    let (function_name, job_name) = path.into_inner();
+    let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -27,17 +27,17 @@ pub async fn delete(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    let result = client.delete(&function_name.0, &job_name.0).await;
+    let result = client.delete(&task_name.0, &job_name.0).await;
     HttpResponse::from(Result::from(result))
 }
 
-#[get("/function/{function_name}/job/{job_name}/")]
+#[get("/task/{task_name}/job/{job_name}/")]
 pub async fn get(
     request: HttpRequest,
     kube: Data<Client>,
     path: Path<(Name, Name)>,
 ) -> impl Responder {
-    let (function_name, job_name) = path.into_inner();
+    let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -45,7 +45,7 @@ pub async fn get(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    let result = client.get(&function_name.0, &job_name.0).await;
+    let result = client.get(&task_name.0, &job_name.0).await;
     HttpResponse::from(Result::from(result))
 }
 
@@ -62,11 +62,11 @@ pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responde
     HttpResponse::from(Result::from(result))
 }
 
-#[get("/function/{function_name}/job/")]
-pub async fn get_list_with_function_name(
+#[get("/task/{task_name}/job/")]
+pub async fn get_list_with_task_name(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
+    task_name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
@@ -75,17 +75,17 @@ pub async fn get_list_with_function_name(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    let result = client.get_list_with_function_name(&function_name.0).await;
+    let result = client.get_list_with_task_name(&task_name.0).await;
     HttpResponse::from(Result::from(result))
 }
 
-#[get("/function/{function_name}/job/{job_name}/logs/")]
+#[get("/task/{task_name}/job/{job_name}/logs/")]
 pub async fn get_stream_logs(
     request: HttpRequest,
     kube: Data<Client>,
     path: Path<(Name, Name)>,
 ) -> impl Responder {
-    let (function_name, job_name) = path.into_inner();
+    let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -94,7 +94,7 @@ pub async fn get_stream_logs(
 
     let client = DashProviderClient::new(kube, &session);
     match client
-        .get_stream_logs_as_bytes(&function_name.0, &job_name.0)
+        .get_stream_logs_as_bytes(&task_name.0, &job_name.0)
         .await
     {
         Ok(stream) => HttpResponse::Ok().streaming(stream),
@@ -102,11 +102,11 @@ pub async fn get_stream_logs(
     }
 }
 
-#[post("/function/{function_name}/job/")]
+#[post("/task/{task_name}/job/")]
 pub async fn post(
     request: HttpRequest,
     kube: Data<Client>,
-    function_name: Path<Name>,
+    task_name: Path<Name>,
     value: Json<BTreeMap<String, Value>>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
@@ -116,17 +116,17 @@ pub async fn post(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    let result = client.create(&function_name.0, value.0).await;
+    let result = client.create(&task_name.0, value.0).await;
     HttpResponse::from(Result::from(result))
 }
 
-#[post("/function/{function_name}/job/{job_name}/restart/")]
+#[post("/task/{task_name}/job/{job_name}/restart/")]
 pub async fn post_restart(
     request: HttpRequest,
     kube: Data<Client>,
     path: Path<(Name, Name)>,
 ) -> impl Responder {
-    let (function_name, job_name) = path.into_inner();
+    let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
         Ok(session) => session,
@@ -134,6 +134,6 @@ pub async fn post_restart(
     };
 
     let client = DashProviderClient::new(kube, &session);
-    let result = client.restart(&function_name.0, &job_name.0).await;
+    let result = client.restart(&task_name.0, &job_name.0).await;
     HttpResponse::from(Result::from(result))
 }

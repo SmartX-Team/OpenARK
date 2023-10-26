@@ -8,7 +8,7 @@ mod messengers;
 mod pipe;
 pub mod storage;
 
-pub use self::function::{Function, FunctionContext};
+pub use self::function::{Task, TaskContext};
 #[cfg(feature = "pyo3")]
 pub use self::message::PyPipeMessage;
 pub use self::message::{Name, PipeMessage, PipeMessages, PipePayload};

@@ -74,6 +74,13 @@ impl<Storage> ModelStorageBindingStorageKind<Storage> {
             Self::Owned(spec) => &spec.target,
         }
     }
+
+    pub fn into_target(self) -> Storage {
+        match self {
+            Self::Cloned(spec) => spec.target,
+            Self::Owned(spec) => spec.target,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -147,6 +154,7 @@ pub struct ModelStorageBindingSyncPolicy {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -158,15 +166,10 @@ pub struct ModelStorageBindingSyncPolicy {
     JsonSchema,
 )]
 pub enum ModelStorageBindingSyncPolicyPull {
+    #[default]
     Always,
     OnCreate,
     Never,
-}
-
-impl Default for ModelStorageBindingSyncPolicyPull {
-    fn default() -> Self {
-        Self::Always
-    }
 }
 
 #[derive(
@@ -174,6 +177,7 @@ impl Default for ModelStorageBindingSyncPolicyPull {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -185,15 +189,10 @@ impl Default for ModelStorageBindingSyncPolicyPull {
     JsonSchema,
 )]
 pub enum ModelStorageBindingSyncPolicyPush {
+    #[default]
     Always,
     OnDelete,
     Never,
-}
-
-impl Default for ModelStorageBindingSyncPolicyPush {
-    fn default() -> Self {
-        Self::Never
-    }
 }
 
 #[derive(
@@ -201,6 +200,7 @@ impl Default for ModelStorageBindingSyncPolicyPush {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -213,13 +213,8 @@ impl Default for ModelStorageBindingSyncPolicyPush {
 )]
 pub enum ModelStorageBindingDeletionPolicy {
     Delete,
+    #[default]
     Retain,
-}
-
-impl Default for ModelStorageBindingDeletionPolicy {
-    fn default() -> Self {
-        Self::Retain
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -239,6 +234,7 @@ pub struct ModelStorageBindingStatus {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -250,13 +246,8 @@ pub struct ModelStorageBindingStatus {
     JsonSchema,
 )]
 pub enum ModelStorageBindingState {
+    #[default]
     Pending,
     Ready,
     Deleting,
-}
-
-impl Default for ModelStorageBindingState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }

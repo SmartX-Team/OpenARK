@@ -5,15 +5,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionChannel {
+pub struct TaskChannel {
     pub metadata: SessionContextMetadata,
-    pub actor: FunctionChannelKind,
+    pub actor: TaskChannelKind,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "spec")]
-pub enum FunctionChannelKind {
-    Job(self::job::FunctionChannelKindJob),
+pub enum TaskChannelKind {
+    Job(self::job::TaskChannelKindJob),
 }
 
 #[derive(Clone, Debug, Serialize)]

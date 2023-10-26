@@ -23,7 +23,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    function::{Function, FunctionContext},
+    function::{Task, TaskContext},
     message::{Name, PipeMessages},
     messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
@@ -33,7 +33,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct PipeArgs<F>
 where
-    F: Function,
+    F: Task,
 {
     #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "BATCH_SIZE")]
     #[serde(default)]
@@ -48,7 +48,7 @@ where
     default_model_in: Option<DefaultModelIn>,
 
     #[command(flatten)]
-    function_args: <F as Function>::Args,
+    function_args: <F as Task>::Args,
 
     #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
     #[serde(default)]
@@ -75,7 +75,7 @@ where
 
 impl<F> PipeArgs<F>
 where
-    F: Function,
+    F: Task,
 {
     pub fn from_env() -> Self {
         Self::parse()
@@ -95,7 +95,7 @@ where
         self
     }
 
-    pub fn with_function_args(mut self, function_args: <F as Function>::Args) -> Self {
+    pub fn with_function_args(mut self, function_args: <F as Task>::Args) -> Self {
         self.function_args = function_args;
         self
     }
@@ -113,13 +113,13 @@ where
 
 impl<F> PipeArgs<F>
 where
-    F: Function,
+    F: Task,
 {
     async fn init_context(&self) -> Result<Context<F>> {
         let messenger = init_messenger(&self.messenger_args).await?;
 
-        debug!("Initializing Function Context");
-        let mut function_context = FunctionContext::new(messenger.messenger_type());
+        debug!("Initializing Task Context");
+        let mut function_context = TaskContext::new(messenger.messenger_type());
         function_context.clone().trap_on_sigint()?;
 
         debug!("Initializing Storage IO");
@@ -130,7 +130,7 @@ where
             StorageIO {
                 input: Arc::new({
                     let default_metadata =
-                        MetadataStorageArgs::<<F as Function>::Input>::new(default_metadata_type);
+                        MetadataStorageArgs::<<F as Task>::Input>::new(default_metadata_type);
                     let model = self.model_in.as_ref().or_else(|| {
                         match self.default_model_in.unwrap_or_default() {
                             DefaultModelIn::ModelOut => self.model_out.as_ref(),
@@ -147,7 +147,7 @@ where
                 }),
                 output: Arc::new({
                     let default_metadata =
-                        MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
+                        MetadataStorageArgs::<<F as Task>::Output>::new(default_metadata_type);
                     let model = self.model_out.as_ref();
 
                     StorageSet::try_new(
@@ -161,12 +161,11 @@ where
             }
         });
 
-        debug!("Initializing Function");
-        let function =
-            <F as Function>::try_new(&self.function_args, &mut function_context, &storage)
-                .await
-                .map(Into::into)
-                .map_err(|error| anyhow!("failed to init function: {error}"))?;
+        debug!("Initializing Task");
+        let function = <F as Task>::try_new(&self.function_args, &mut function_context, &storage)
+            .await
+            .map(Into::into)
+            .map_err(|error| anyhow!("failed to init function: {error}"))?;
 
         debug!("Initializing Reader");
         let reader = match self.model_in.as_ref() {
@@ -261,10 +260,10 @@ where
 
 async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
-    F: Function,
+    F: Task,
 {
     async fn recv_one<Value>(
-        function_context: &FunctionContext,
+        function_context: &TaskContext,
         reader: &mut ReadContext<Value>,
     ) -> Result<Option<PipeMessage<Value>>>
     where
@@ -355,13 +354,13 @@ impl Timer {
 
 struct Context<F>
 where
-    F: Function,
+    F: Task,
 {
     batch_size: Option<usize>,
     batch_timeout: Option<Duration>,
     function: F,
-    function_context: FunctionContext,
-    reader: Option<ReadContext<<F as Function>::Input>>,
+    function_context: TaskContext,
+    reader: Option<ReadContext<<F as Task>::Input>>,
     storage: Arc<StorageIO>,
     writer: WriteContext,
 }
@@ -378,7 +377,7 @@ struct ReadSession<Value>
 where
     Value: Default,
 {
-    function_context: FunctionContext,
+    function_context: TaskContext,
     storage: Arc<StorageSet>,
     stream: Box<dyn Subscriber<Value>>,
     tx: Arc<Sender<PipeMessage<Value>>>,
@@ -440,7 +439,7 @@ where
 #[derive(Clone)]
 struct WriteContext {
     atomic_session: AtomicSession,
-    function_context: FunctionContext,
+    function_context: TaskContext,
     storage: Arc<StorageSet>,
     stream: Option<Arc<dyn Publisher>>,
 }

@@ -107,6 +107,7 @@ pub struct ModelStorageStatus {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -118,12 +119,7 @@ pub struct ModelStorageStatus {
     JsonSchema,
 )]
 pub enum ModelStorageState {
+    #[default]
     Pending,
     Ready,
-}
-
-impl Default for ModelStorageState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }

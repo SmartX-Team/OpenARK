@@ -24,6 +24,7 @@ dash-provider = { path = "../../provider" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
+inflector = { workspace = true }
 itertools = { workspace = true }
 kube = { workspace = true, features = [
     "client",

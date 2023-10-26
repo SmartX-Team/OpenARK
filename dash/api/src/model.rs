@@ -817,6 +817,7 @@ impl ModelCustomResourceDefinitionRefSpec {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -828,14 +829,9 @@ impl ModelCustomResourceDefinitionRefSpec {
     JsonSchema,
 )]
 pub enum ModelState {
+    #[default]
     Pending,
     Ready,
-}
-
-impl Default for ModelState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }
 
 pub type Integer = i64;

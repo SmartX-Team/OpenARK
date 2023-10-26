@@ -16,8 +16,6 @@ export AWS_SECURE_TLS := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'false' }
 export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
 export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
 
-DOCKER_BUILDKIT_CACHE := "type=s3,access_key_id=${AWS_ACCESS_KEY_ID},bucket=${PIPE_MODEL},encrypt=false,endpoint_url=${AWS_ENDPOINT_URL},region=${AWS_REGION},secret_access_key=${AWS_SECRET_ACCESS_KEY},secure=${AWS_SECURE_TLS},use_path_style=true"
-
 default:
   @just run
 
@@ -48,8 +46,6 @@ oci-build:
     --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
-    --cache-from "{{ DOCKER_BUILDKIT_CACHE }}" \
-    --cache-to "{{ DOCKER_BUILDKIT_CACHE }}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \
@@ -67,8 +63,6 @@ oci-build-full:
     --file './Dockerfile.full' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
-    --cache-from "{{ DOCKER_BUILDKIT_CACHE }}" \
-    --cache-to "{{ DOCKER_BUILDKIT_CACHE }}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \

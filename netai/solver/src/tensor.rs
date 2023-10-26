@@ -857,6 +857,7 @@ impl ImageKind {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -869,6 +870,7 @@ impl ImageKind {
 pub enum ImageChannel {
     L8,
     La8,
+    #[default]
     Rgb8,
     Rgba8,
 }
@@ -886,12 +888,6 @@ impl TryFrom<Option<u32>> for ImageChannel {
             Some(4) => Self::Rgba8,
             Some(c) => bail!("too high image channels: {c:?}"),
         })
-    }
-}
-
-impl Default for ImageChannel {
-    fn default() -> Self {
-        Self::Rgb8
     }
 }
 
@@ -919,6 +915,7 @@ pub enum TensorKindType {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -940,6 +937,7 @@ pub enum TensorType {
     Uint64,
     Bfloat16,
     Float16,
+    #[default]
     Float32,
     Float64,
     String,
@@ -984,12 +982,6 @@ impl From<TensorType> for TensorElementDataType {
             TensorType::Float64 => Self::Float64,
             TensorType::String => Self::String,
         }
-    }
-}
-
-impl Default for TensorType {
-    fn default() -> Self {
-        Self::Float32
     }
 }
 

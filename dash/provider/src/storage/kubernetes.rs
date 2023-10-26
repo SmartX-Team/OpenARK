@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
 use dash_api::{
-    function::{FunctionActorSourceConfigMapRefSpec, FunctionCrd, FunctionState},
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStorageKind,
     },
     storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
+    task::{TaskActorSourceConfigMapRefSpec, TaskCrd, TaskState},
 };
 use itertools::Itertools;
 use k8s_openapi::{
@@ -90,9 +90,9 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
 
     pub async fn load_config_map<'f>(
         &self,
-        spec: &'f FunctionActorSourceConfigMapRefSpec,
+        spec: &'f TaskActorSourceConfigMapRefSpec,
     ) -> Result<(&'f str, String)> {
-        let FunctionActorSourceConfigMapRefSpec { name, path } = spec;
+        let TaskActorSourceConfigMapRefSpec { name, path } = spec;
 
         let api = self.api_namespaced::<ConfigMap>();
         let config_map = api.get(name).await?;
@@ -256,59 +256,52 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
-    pub async fn load_function(&self, name: &str) -> Result<FunctionCrd> {
-        let api = self.api_namespaced::<FunctionCrd>();
-        let function = api.get(name).await?;
+    pub async fn load_task(&self, name: &str) -> Result<TaskCrd> {
+        let api = self.api_namespaced::<TaskCrd>();
+        let task = api.get(name).await?;
 
-        match &function.status {
-            Some(status) if status.state == FunctionState::Ready => match &status.spec {
-                Some(_) => Ok(function),
-                None => bail!("function has no spec status: {name:?}"),
+        match &task.status {
+            Some(status) if status.state == TaskState::Ready => match &status.spec {
+                Some(_) => Ok(task),
+                None => bail!("task has no spec status: {name:?}"),
             },
-            Some(_) | None => bail!("function is not ready: {name:?}"),
+            Some(_) | None => bail!("task is not ready: {name:?}"),
         }
     }
 
-    pub async fn load_function_all(&self) -> Result<Vec<ResourceRef>> {
-        let api = self.api_namespaced::<FunctionCrd>();
+    pub async fn load_task_all(&self) -> Result<Vec<ResourceRef>> {
+        let api = self.api_namespaced::<TaskCrd>();
         let lp = ListParams::default();
-        let functions = api.list(&lp).await?;
+        let tasks = api.list(&lp).await?;
 
-        Ok(functions
+        Ok(tasks
             .into_iter()
-            .filter(|function| {
-                function
-                    .status()
-                    .map(|status| {
-                        matches!(status.state, FunctionState::Ready) && status.spec.is_some()
-                    })
+            .filter(|task| {
+                task.status()
+                    .map(|status| matches!(status.state, TaskState::Ready) && status.spec.is_some())
                     .unwrap_or_default()
             })
-            .map(|function| ResourceRef {
-                name: function.name_any(),
-                namespace: function.namespace().unwrap(),
+            .map(|task| ResourceRef {
+                name: task.name_any(),
+                namespace: task.namespace().unwrap(),
             })
             .collect())
     }
 
-    pub async fn load_function_all_by_model(&self, model_name: &str) -> Result<Vec<FunctionCrd>> {
-        let api = self.api_namespaced::<FunctionCrd>();
+    pub async fn load_task_all_by_model(&self, model_name: &str) -> Result<Vec<TaskCrd>> {
+        let api = self.api_namespaced::<TaskCrd>();
         let lp = ListParams::default();
-        let functions = api.list(&lp).await?;
+        let tasks = api.list(&lp).await?;
 
-        Ok(functions
+        Ok(tasks
             .into_iter()
-            .filter(|function| {
-                function
-                    .status()
-                    .map(|status| {
-                        matches!(status.state, FunctionState::Ready) && status.spec.is_some()
-                    })
+            .filter(|task| {
+                task.status()
+                    .map(|status| matches!(status.state, TaskState::Ready) && status.spec.is_some())
                     .unwrap_or_default()
             })
-            .filter(|function| {
-                function
-                    .labels()
+            .filter(|task| {
+                task.labels()
                     .get(Self::LABEL_SUBJECT)
                     .map(|name| name == model_name)
                     .unwrap_or_default()

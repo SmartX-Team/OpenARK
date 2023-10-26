@@ -1,8 +1,8 @@
 use std::future::Future;
 
 use anyhow::{bail, Result};
-use dash_api::function::{FunctionActorJobSpec, FunctionActorSourceSpec};
-use dash_provider_api::job::{FunctionActorJobMetadata, FunctionChannelKindJob, TemplateRef};
+use dash_api::task::{TaskActorJobSpec, TaskActorSourceSpec};
+use dash_provider_api::job::{TaskActorJobMetadata, TaskChannelKindJob, TemplateRef};
 use kube::{
     api::{DeleteParams, Patch, PatchParams, PostParams},
     core::DynamicObject,
@@ -16,20 +16,20 @@ use crate::storage::KubernetesStorageClient;
 
 use super::SessionContext;
 
-pub struct FunctionActorJobClient {
+pub struct TaskActorJobClient {
     pub kube: Client,
-    metadata: FunctionActorJobMetadata,
+    metadata: TaskActorJobMetadata,
     name: String,
     namespace: String,
     tera: Tera,
     use_prefix: bool,
 }
 
-impl FunctionActorJobClient {
+impl TaskActorJobClient {
     pub async fn try_new(
         namespace: String,
         kube: &Client,
-        spec: &FunctionActorJobSpec,
+        spec: &TaskActorJobSpec,
         use_prefix: bool,
     ) -> Result<Self> {
         let client = KubernetesStorageClient {
@@ -37,7 +37,7 @@ impl FunctionActorJobClient {
             kube,
         };
         let (name, content) = match &spec.source {
-            FunctionActorSourceSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
+            TaskActorSourceSpec::ConfigMapRef(spec) => client.load_config_map(spec).await?,
         };
 
         Self::from_raw_content(
@@ -51,7 +51,7 @@ impl FunctionActorJobClient {
     }
 
     pub fn from_dir(
-        metadata: FunctionActorJobMetadata,
+        metadata: TaskActorJobMetadata,
         namespace: String,
         kube: Client,
         path: &str,
@@ -78,7 +78,7 @@ impl FunctionActorJobClient {
 
     fn from_raw_content(
         kube: Client,
-        metadata: FunctionActorJobMetadata,
+        metadata: TaskActorJobMetadata,
         namespace: String,
         name: &str,
         content: &str,
@@ -98,7 +98,7 @@ impl FunctionActorJobClient {
     }
 }
 
-impl FunctionActorJobClient {
+impl TaskActorJobClient {
     pub const fn kube(&self) -> &Client {
         &self.kube
     }
@@ -118,10 +118,16 @@ impl FunctionActorJobClient {
     where
         Spec: Serialize,
     {
-        self.execute_any_with(name, input).await
+        for template in self.load_template(name, input).await? {
+            // Find documents
+            if template.api.get_opt(&template.name).await?.is_none() {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
-    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannelKindJob>
+    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -132,14 +138,14 @@ impl FunctionActorJobClient {
         &self,
         name: &str,
         input: &SessionContext<Spec>,
-    ) -> Result<FunctionChannelKindJob>
+    ) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
     {
         self.execute_with(name, input, try_create).await
     }
 
-    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannelKindJob>
+    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -150,7 +156,7 @@ impl FunctionActorJobClient {
         &self,
         name: &str,
         input: &SessionContext<Spec>,
-    ) -> Result<FunctionChannelKindJob>
+    ) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
     {
@@ -162,14 +168,14 @@ impl FunctionActorJobClient {
         name: &str,
         input: &SessionContext<Spec>,
         f: F,
-    ) -> Result<FunctionChannelKindJob>
+    ) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
         F: Fn(Template, bool) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
         let templates = self.load_template(name, input).await?;
-        let result = FunctionChannelKindJob {
+        let result = TaskChannelKindJob {
             metadata: self.metadata.clone(),
             templates: templates.iter().map(Into::into).collect(),
         };
@@ -182,19 +188,6 @@ impl FunctionActorJobClient {
             }
         }
         Ok(result)
-    }
-
-    async fn execute_any_with<Spec>(&self, name: &str, input: &SessionContext<Spec>) -> Result<bool>
-    where
-        Spec: Serialize,
-    {
-        for template in self.load_template(name, input).await? {
-            // Find documents
-            if template.api.get_opt(&template.name).await?.is_none() {
-                return Ok(false);
-            }
-        }
-        Ok(true)
     }
 
     async fn load_template<Spec>(

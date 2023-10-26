@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Payload<Value> {
-    pub function_name: String,
+    pub task_name: String,
     #[serde(default)]
     pub namespace: Option<String>,
     pub value: Value,
@@ -13,15 +13,15 @@ pub struct Payload<Value> {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionChannelKindJob {
+pub struct TaskChannelKindJob {
     #[serde(default, flatten)]
-    pub metadata: FunctionActorJobMetadata,
+    pub metadata: TaskActorJobMetadata,
     pub templates: Vec<TemplateRef>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionActorJobMetadata {
+pub struct TaskActorJobMetadata {
     #[serde(default)]
     pub container: Option<String>,
     #[serde(default)]

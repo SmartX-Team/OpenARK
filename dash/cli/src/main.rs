@@ -3,7 +3,7 @@ use std::{env, future::Future};
 use anyhow::Result;
 use ark_core::{result::Result as SessionResult, tracer};
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use dash_provider::{client::FunctionSession, input::InputFieldString};
+use dash_provider::{client::TaskSession, input::InputFieldString};
 use dash_provider_api::SessionContextMetadata;
 use kube::Client;
 use serde::Serialize;
@@ -84,9 +84,9 @@ impl Commands {
 /// Create a resource from a file or from stdin.
 #[derive(Clone, Parser)]
 struct CommandSession {
-    /// Set a function name
-    #[arg(short, long, env = "DASH_FUNCTION", value_name = "NAME")]
-    function: String,
+    /// Set a task name
+    #[arg(short, long, env = "DASH_TASK", value_name = "NAME")]
+    task: String,
 
     /// Set values by manual
     #[arg(short = 'v', long = "value")]
@@ -105,7 +105,7 @@ impl CommandSession {
         R: Serialize,
     {
         let metadata = SessionContextMetadata {
-            name: self.function,
+            name: self.task,
             namespace: self
                 .namespace
                 .unwrap_or_else(|| kube.default_namespace().to_string()),
@@ -116,28 +116,28 @@ impl CommandSession {
     }
 
     async fn create(self, kube: Client) -> Result<Value> {
-        let function_name = self.function.clone();
+        let task_name = self.task.clone();
 
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::create(kube, &metadata, &function_name, inputs).await
+            TaskSession::create(kube, &metadata, &task_name, inputs).await
         })
         .await
     }
 
     async fn delete(self, kube: Client) -> Result<Value> {
-        let function_name = self.function.clone();
+        let task_name = self.task.clone();
 
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::delete(kube, &metadata, &function_name, inputs).await
+            TaskSession::delete(kube, &metadata, &task_name, inputs).await
         })
         .await
     }
 
     async fn exists(self, kube: Client) -> Result<Value> {
-        let function_name = self.function.clone();
+        let task_name = self.task.clone();
 
         self.run(kube, |kube, metadata, inputs| async move {
-            FunctionSession::exists(kube, &metadata, &function_name, inputs).await
+            TaskSession::exists(kube, &metadata, &task_name, inputs).await
         })
         .await
     }

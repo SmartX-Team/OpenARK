@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
     storage::{MetadataStorageExt, StorageIO, Stream},
-    DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
+    DefaultModelIn, PipeArgs, PipeMessage, PipeMessages, TaskContext,
 };
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -13,35 +13,35 @@ use serde_json::Value;
 use tokio::time::{sleep, Instant};
 
 fn main() {
-    PipeArgs::<Function>::from_env()
+    PipeArgs::<Task>::from_env()
         .with_default_model_in(DefaultModelIn::ModelOut)
         .loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct FunctionArgs {
+pub struct TaskArgs {
     #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS")]
     #[serde(default)]
     interval_ms: Option<u64>,
 }
 
-pub struct Function {
-    args: FunctionArgs,
-    ctx: FunctionContext,
+pub struct Task {
+    args: TaskArgs,
+    ctx: TaskContext,
     instant: Instant,
     items: Stream<PipeMessage<Value>>,
     iteration: RangeInclusive<u64>,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Function for Function {
-    type Args = FunctionArgs;
+impl ::dash_pipe_provider::Task for Task {
+    type Args = TaskArgs;
     type Input = Value;
     type Output = Value;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Function>::Args,
-        ctx: &mut FunctionContext,
+        args: &<Self as ::dash_pipe_provider::Task>::Args,
+        ctx: &mut TaskContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self {
@@ -59,8 +59,8 @@ impl ::dash_pipe_provider::Function for Function {
 
     async fn tick(
         &mut self,
-        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
         // wait for fit interval
         if let Some(delay) = self.args.interval_ms.and_then(|interval_ms| {
             self.iteration

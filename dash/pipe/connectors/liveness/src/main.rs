@@ -4,45 +4,43 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use dash_pipe_provider::{
-    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
-};
+use dash_pipe_provider::{storage::StorageIO, PipeArgs, PipeMessage, PipeMessages, TaskContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
 
 fn main() {
-    PipeArgs::<Function>::from_env().loop_forever()
+    PipeArgs::<Task>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct FunctionArgs {
-    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS", default_value_t = FunctionArgs::default_interval_ms(),)]
-    #[serde(default = "FunctionArgs::default_interval_ms")]
+pub struct TaskArgs {
+    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS", default_value_t = TaskArgs::default_interval_ms(),)]
+    #[serde(default = "TaskArgs::default_interval_ms")]
     interval_ms: u64,
 }
 
-impl FunctionArgs {
+impl TaskArgs {
     pub fn default_interval_ms() -> u64 {
         1_000 // 1 second
     }
 }
 
-pub struct Function {
-    args: FunctionArgs,
+pub struct Task {
+    args: TaskArgs,
     instant: Instant,
     iteration: RangeInclusive<u64>,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Function for Function {
-    type Args = FunctionArgs;
+impl ::dash_pipe_provider::Task for Task {
+    type Args = TaskArgs;
     type Input = ();
     type Output = Ping;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Function>::Args,
-        ctx: &mut FunctionContext,
+        args: &<Self as ::dash_pipe_provider::Task>::Args,
+        ctx: &mut TaskContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         ctx.disable_load();
@@ -56,8 +54,8 @@ impl ::dash_pipe_provider::Function for Function {
 
     async fn tick(
         &mut self,
-        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
         let index = self.iteration.next();
 
         // wait for fit interval

@@ -5,8 +5,8 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::{
-    function::{FunctionCrd, FunctionSpec, FunctionState, FunctionStatus},
-    model::ModelFieldKindNativeSpec,
+    model::ModelFieldsNativeSpec,
+    pipe::{PipeCrd, PipeSpec, PipeState, PipeStatus},
 };
 use kube::{
     api::{Patch, PatchParams},
@@ -16,14 +16,14 @@ use kube::{
 use serde_json::json;
 use tracing::{info, warn};
 
-use crate::validator::function::FunctionValidator;
+use crate::validator::pipe::PipeValidator;
 
 #[derive(Default)]
 pub struct Ctx {}
 
 #[async_trait]
 impl ::ark_core_k8s::manager::Ctx for Ctx {
-    type Data = FunctionCrd;
+    type Data = PipeCrd;
 
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
@@ -45,24 +45,24 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .map(|status| status.state)
             .unwrap_or_default()
         {
-            FunctionState::Pending => {
-                let validator = FunctionValidator {
+            PipeState::Pending => {
+                let validator = PipeValidator {
                     namespace: &namespace,
                     kube: &manager.kube,
                 };
-                match validator.validate_function(data.spec.clone()).await {
+                match validator.validate_pipe(data.spec.clone()).await {
                     Ok(spec) => {
                         Self::update_spec_or_requeue(&namespace, &manager.kube, &name, spec).await
                     }
                     Err(e) => {
-                        warn!("failed to validate function: {name:?}: {e}");
+                        warn!("failed to validate pipe: {name:?}: {e}");
                         Ok(Action::requeue(
                             <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                         ))
                     }
                 }
             }
-            FunctionState::Ready => {
+            PipeState::Ready => {
                 // TODO: implement to finding changes
                 Ok(Action::await_change())
             }
@@ -75,17 +75,17 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        spec: FunctionSpec<ModelFieldKindNativeSpec>,
+        spec: PipeSpec<ModelFieldsNativeSpec>,
     ) -> Result<Action, Error> {
         match Self::update_spec(namespace, kube, name, spec).await {
             Ok(()) => {
-                info!("function is ready: {namespace}/{name}");
+                info!("pipe is ready: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
             }
             Err(e) => {
-                warn!("failed to update function state ({namespace}/{name}): {e}");
+                warn!("failed to update pipe state ({namespace}/{name}): {e}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))
@@ -97,7 +97,7 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        spec: FunctionSpec<ModelFieldKindNativeSpec>,
+        spec: PipeSpec<ModelFieldsNativeSpec>,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -108,8 +108,8 @@ impl Ctx {
         let patch = Patch::Merge(json!({
             "apiVersion": crd.api_version,
             "kind": crd.kind,
-            "status": FunctionStatus {
-                state: FunctionState::Ready,
+            "status": PipeStatus {
+                state: PipeState::Ready,
                 spec: Some(spec),
                 last_updated: Utc::now(),
             },

@@ -1,20 +1,20 @@
 use anyhow::{bail, Result};
-use dash_api::{function::FunctionSpec, model::ModelFieldKindNativeSpec};
-use dash_provider::{client::FunctionActorClient, storage::KubernetesStorageClient};
+use dash_api::{model::ModelFieldKindNativeSpec, task::TaskSpec};
+use dash_provider::{client::TaskActorClient, storage::KubernetesStorageClient};
 use kube::Client;
 
 use super::model::ModelValidator;
 
-pub struct FunctionValidator<'namespace, 'kube> {
+pub struct TaskValidator<'namespace, 'kube> {
     pub namespace: &'namespace str,
     pub kube: &'kube Client,
 }
 
-impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
-    pub async fn validate_function(
+impl<'namespace, 'kube> TaskValidator<'namespace, 'kube> {
+    pub async fn validate_task(
         &self,
-        spec: FunctionSpec,
-    ) -> Result<FunctionSpec<ModelFieldKindNativeSpec>> {
+        spec: TaskSpec,
+    ) -> Result<TaskSpec<ModelFieldKindNativeSpec>> {
         let model_validator = ModelValidator {
             kubernetes_storage: KubernetesStorageClient {
                 namespace: self.namespace,
@@ -28,11 +28,11 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         };
 
         let actor = spec.actor;
-        if let Err(e) = FunctionActorClient::try_new(self.namespace, self.kube, &actor).await {
-            bail!("failed to validate function actor: {e}");
+        if let Err(e) = TaskActorClient::try_new(self.namespace, self.kube, &actor).await {
+            bail!("failed to validate task actor: {e}");
         }
 
-        Ok(FunctionSpec {
+        Ok(TaskSpec {
             input,
             output,
             actor,

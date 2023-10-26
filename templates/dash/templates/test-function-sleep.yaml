@@ -1,6 +1,6 @@
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
-kind: Function
+kind: Task
 metadata:
   name: sleep
   namespace: default

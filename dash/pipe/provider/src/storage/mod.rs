@@ -18,7 +18,7 @@ use tracing::debug;
 use url::Url;
 
 use crate::{
-    function::FunctionContext,
+    function::TaskContext,
     message::{Name, PipeMessage},
 };
 
@@ -47,7 +47,7 @@ pub struct StorageSet {
 impl StorageSet {
     pub async fn try_new<Value>(
         args: &StorageArgs,
-        ctx: &mut FunctionContext,
+        ctx: &mut TaskContext,
         model: Option<&Name>,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>

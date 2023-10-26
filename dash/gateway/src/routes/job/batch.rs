@@ -28,7 +28,7 @@ pub async fn post(
 
     let result = try_join_all(values.0.into_iter().map(
         |Payload {
-             function_name,
+             task_name,
              namespace,
              value,
          }| {
@@ -37,7 +37,7 @@ pub async fn post(
             async move {
                 let session = metadata.namespaced(namespace).await?;
                 let client = DashProviderClient::new(kube, &session);
-                client.create(&function_name, value).await
+                client.create(&task_name, value).await
             }
         },
     ))

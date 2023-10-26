@@ -340,6 +340,7 @@ impl UserBoxQuotaDesktopVolumesSpec {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -351,14 +352,9 @@ impl UserBoxQuotaDesktopVolumesSpec {
     JsonSchema,
 )]
 pub enum UserBoxQuotaDesktopVolumeKind {
+    #[default]
     LocalOwned,
     LocalShared,
     RemoteOwned,
     Temporary,
-}
-
-impl Default for UserBoxQuotaDesktopVolumeKind {
-    fn default() -> Self {
-        Self::LocalOwned
-    }
 }

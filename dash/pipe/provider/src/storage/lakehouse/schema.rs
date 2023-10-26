@@ -8,9 +8,9 @@ use dash_api::model::{
 use deltalake::{
     arrow::{
         self,
-        datatypes::{DataType, Field, Fields},
+        datatypes::{DataType, Field, Fields, TimeUnit},
     },
-    SchemaDataType, SchemaField, SchemaTypeArray, SchemaTypeStruct,
+    SchemaDataType, SchemaField, SchemaTypeArray, SchemaTypeMap, SchemaTypeStruct,
 };
 use map_macro::hash_map;
 use schemars::schema::{
@@ -18,6 +18,84 @@ use schemars::schema::{
     SubschemaValidation,
 };
 use serde_json::{json, Value};
+
+pub trait ToField {
+    fn to_field(&self) -> Result<Field>;
+}
+
+impl ToField for SchemaField {
+    fn to_field(&self) -> Result<Field> {
+        self.get_type()
+            .to_field(self.get_name(), self.is_nullable())
+    }
+}
+
+trait ToFieldByDataType {
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field>;
+}
+
+impl ToFieldByDataType for SchemaDataType {
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
+        match self {
+            SchemaDataType::primitive(type_) => type_.to_field(name, nullable),
+            SchemaDataType::r#struct(type_) => type_.to_field(name, nullable),
+            SchemaDataType::array(type_) => type_.to_field(name, nullable),
+            SchemaDataType::map(type_) => type_.to_field(name, nullable),
+        }
+    }
+}
+
+impl ToFieldByDataType for String {
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
+        let data_type = match self.as_str() {
+            "boolean" => DataType::Boolean,
+            "byte" => DataType::Int8,
+            "short" => DataType::Int16,
+            "integer" => DataType::Int32,
+            "long" => DataType::Int64,
+            "float" => DataType::Float32,
+            "double" => DataType::Float64,
+            "binary" => DataType::Binary,
+            "string" => DataType::Utf8,
+            "date" => DataType::Date32,
+            "timestamp" => DataType::Timestamp(TimeUnit::Microsecond, None),
+            // "decimal" => todo!(),
+            _ => bail!("unsupported schema data type: {self}"),
+        };
+
+        Ok(Field::new(name, data_type, nullable))
+    }
+}
+
+impl ToFieldByDataType for SchemaTypeStruct {
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
+        Ok(Field::new_struct(
+            name,
+            self.get_fields()
+                .iter()
+                .map(|field| field.to_field())
+                .collect::<Result<Fields>>()?,
+            nullable,
+        ))
+    }
+}
+
+impl ToFieldByDataType for SchemaTypeArray {
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
+        Ok(Field::new_list(
+            name,
+            self.get_element_type()
+                .to_field(name, self.contains_null())?,
+            nullable,
+        ))
+    }
+}
+
+impl ToFieldByDataType for SchemaTypeMap {
+    fn to_field(&self, _name: &str, _nullable: bool) -> Result<Field> {
+        bail!("unsupported schema data type: Map")
+    }
+}
 
 pub trait FieldColumns {
     fn to_data_columns(&self) -> Result<Vec<SchemaField>>;

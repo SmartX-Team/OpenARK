@@ -4,7 +4,7 @@ use anyhow::{bail, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
 use ark_core::env;
 use chrono::Utc;
-use dash_provider::client::job::FunctionActorJobClient;
+use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::{future::try_join_all, TryFutureExt};
 use k8s_openapi::{
@@ -26,7 +26,7 @@ pub(crate) mod consts {
 }
 
 pub struct SessionManager {
-    client: FunctionActorJobClient,
+    client: TaskActorJobClient,
 }
 
 impl SessionManager {
@@ -44,7 +44,7 @@ impl SessionManager {
                 let metadata = Default::default();
                 let templates_home = format!("{templates_home}/*.yaml.j2");
                 let use_prefix = false;
-                let client = FunctionActorJobClient::from_dir(metadata, namespace, kube, &templates_home, use_prefix)?;
+                let client = TaskActorJobClient::from_dir(metadata, namespace, kube, &templates_home, use_prefix)?;
                 Ok(Self { client })
             },
             None => bail!("failed to parse the environment variable: VINE_SESSION_TEMPLATES_HOME = {templates_home:?}"),

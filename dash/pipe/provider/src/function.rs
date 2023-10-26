@@ -16,14 +16,14 @@ use tracing::info;
 use crate::{message::PipeMessages, messengers::MessengerType, storage::StorageIO};
 
 #[async_trait(?Send)]
-pub trait Function {
+pub trait Task {
     type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
     type Input: 'static + Send + Sync + Default + DeserializeOwned + JsonSchema;
     type Output: 'static + Send + Sync + Default + Serialize + JsonSchema;
 
     async fn try_new(
-        args: &<Self as Function>::Args,
-        ctx: &mut FunctionContext,
+        args: &<Self as Task>::Args,
+        ctx: &mut TaskContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self>
     where
@@ -31,19 +31,19 @@ pub trait Function {
 
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as Function>::Input>,
-    ) -> Result<PipeMessages<<Self as Function>::Output>>;
+        inputs: PipeMessages<<Self as Task>::Input>,
+    ) -> Result<PipeMessages<<Self as Task>::Output>>;
 }
 
 #[derive(Clone, Debug)]
-pub struct FunctionContext {
+pub struct TaskContext {
     is_disabled_load: bool,
     is_disabled_write_metadata: bool,
     is_terminating: Arc<AtomicBool>,
     messenger_type: MessengerType,
 }
 
-impl FunctionContext {
+impl TaskContext {
     pub(crate) fn new(messenger_type: MessengerType) -> Self {
         Self {
             is_disabled_load: Default::default(),
@@ -74,7 +74,7 @@ impl FunctionContext {
     }
 }
 
-impl FunctionContext {
+impl TaskContext {
     pub(crate) fn trap_on_sigint(self) -> Result<()> {
         ::ctrlc::set_handler(move || self.terminate())
             .map_err(|error| anyhow!("failed to set SIGINT handler: {error}"))

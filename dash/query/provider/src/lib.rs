@@ -1,9 +1,11 @@
 mod arrow;
+mod function;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use dash_api::{
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
+    pipe::{PipeCrd, PipeSpec, PipeState},
     storage::ModelStorageKindSpec,
 };
 pub use dash_pipe_provider::{deltalake, Name};
@@ -18,7 +20,7 @@ use dash_provider::storage::ObjectStorageRef;
 use deltalake::datafusion::prelude::DataFrame;
 use futures::future::try_join_all;
 use itertools::Itertools;
-use kube::{api::ListParams, Api, Client};
+use kube::{api::ListParams, Api, Client, ResourceExt};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::warn;
 
@@ -36,16 +38,24 @@ pub struct QueryClient {
 
 impl QueryClient {
     pub async fn try_new(args: &QueryClientArgs) -> Result<Self> {
+        let namespace = args.namespace.as_deref();
+
         let ctx = StorageContext::default();
         let mut tables = vec![];
 
-        for (model, args) in load_models(args.namespace.as_deref()).await? {
+        // load models
+        for (model, args) in load_models(namespace).await? {
             let (table, _, has_inited) = ctx.register_table_with_name(args, &model, None).await?;
             if has_inited {
                 tables.push(table);
             } else {
                 warn!("Model {model:?} is not inited yet; skipping...");
             }
+        }
+
+        // load functions
+        for function in load_functions(namespace).await? {
+            ctx.register_udf(function.into());
         }
 
         Ok(Self { ctx, tables })
@@ -106,35 +116,30 @@ async fn load_models(namespace: Option<&str>) -> Result<Vec<(Name, StorageS3Args
         bindings
             .into_iter()
             .unique_by(|binding| binding.spec.model.clone())
-            .map(|binding| {
+            .filter_map(|binding| {
+                let name: Name = binding.spec.model.parse().ok()?;
+
+                let status = binding.status?;
+                if !matches!(status.state, ModelStorageBindingState::Ready) {
+                    return None;
+                }
+
+                let storage = status.storage?;
+                let storage = match storage.into_target().kind {
+                    ModelStorageKindSpec::ObjectStorage(spec) => spec,
+                    storage => {
+                        warn!(
+                            "Sorry, but the {kind:?} is not supported yet: {name}",
+                            kind = storage.to_kind(),
+                        );
+                        return None;
+                    }
+                };
+
                 let kube = kube.clone();
 
-                async move {
-                    let name: Name = binding.spec.model.parse()?;
-                    let status = match binding.status.as_ref() {
-                        Some(status) => status,
-                        None => return Ok(None),
-                    };
-                    if !matches!(status.state, ModelStorageBindingState::Ready) {
-                        return Ok(None);
-                    }
-
-                    let storage = match status.storage.as_ref() {
-                        Some(kind) => kind,
-                        _ => return Ok(None),
-                    };
-                    let storage = match &storage.target().kind {
-                        ModelStorageKindSpec::ObjectStorage(spec) => spec,
-                        storage => {
-                            warn!(
-                                "Sorry, but the {kind:?} is not supported yet: {name}",
-                                kind = storage.to_kind(),
-                            );
-                            return Ok(None);
-                        }
-                    };
-
-                    ObjectStorageRef::load_storage_provider(&kube, namespace, &name, storage)
+                Some(async move {
+                    ObjectStorageRef::load_storage_provider(&kube, namespace, &name, &storage)
                         .await
                         .map(|storage| {
                             let credentials = storage.fetch_provider();
@@ -148,10 +153,41 @@ async fn load_models(namespace: Option<&str>) -> Result<Vec<(Name, StorageS3Args
                                 },
                             ))
                         })
-                }
+                })
             }),
     )
     .await?;
 
     Ok(models.into_iter().flatten().collect())
+}
+
+async fn load_functions(namespace: Option<&str>) -> Result<Vec<self::function::DashFunction>> {
+    let kube = Client::try_default()
+        .await
+        .map_err(|error| anyhow!("failed to init k8s client: {error}"))?;
+    let namespace = namespace.unwrap_or(kube.default_namespace());
+
+    let api = Api::<PipeCrd>::namespaced(kube.clone(), namespace);
+    let lp = ListParams::default();
+    let functions = api.list(&lp).await?.items;
+
+    functions
+        .into_iter()
+        .filter_map(|function| {
+            let name: Name = function.name_any().parse().ok()?;
+
+            let status = function.status?;
+            if !matches!(status.state, PipeState::Ready) {
+                return None;
+            }
+
+            let PipeSpec { input, output } = status.spec?;
+
+            let kube = kube.clone();
+
+            Some(self::function::DashFunction::try_new(
+                kube, name, &input, &output,
+            ))
+        })
+        .collect()
 }

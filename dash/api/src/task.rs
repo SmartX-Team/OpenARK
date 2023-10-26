@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use dash_provider_api::job::FunctionActorJobMetadata;
+use dash_provider_api::job::TaskActorJobMetadata;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -11,15 +11,15 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
 #[kube(
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
-    kind = "Function",
-    struct = "FunctionCrd",
-    status = "FunctionStatus",
-    shortname = "f",
+    kind = "Task",
+    struct = "TaskCrd",
+    status = "TaskStatus",
+    shortname = "ta",
     namespaced,
     printcolumn = r#"{
         "name": "state",
         "type": "string",
-        "description": "state of the function",
+        "description": "state of the task",
         "jsonPath": ".status.state"
     }"#,
     printcolumn = r#"{
@@ -30,15 +30,15 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionSpec<Kind = ModelFieldKindSpec> {
+pub struct TaskSpec<Kind = ModelFieldKindSpec> {
     pub input: ModelFieldsSpec<Kind>,
     #[serde(default)]
     pub output: Option<ModelFieldsSpec<Kind>>,
-    pub actor: FunctionActorSpec,
+    pub actor: TaskActorSpec,
 }
 
-impl FunctionCrd {
-    pub fn get_native_spec(&self) -> &FunctionSpec<ModelFieldKindNativeSpec> {
+impl TaskCrd {
+    pub fn get_native_spec(&self) -> &TaskSpec<ModelFieldKindNativeSpec> {
         self.status
             .as_ref()
             .and_then(|status| status.spec.as_ref())
@@ -48,66 +48,38 @@ impl FunctionCrd {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionStatus {
+pub struct TaskStatus {
     #[serde(default)]
-    pub state: FunctionState,
-    pub spec: Option<FunctionSpec<ModelFieldKindNativeSpec>>,
+    pub state: TaskState,
+    pub spec: Option<TaskSpec<ModelFieldKindNativeSpec>>,
     pub last_updated: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum FunctionActorSpec {
-    Job(FunctionActorJobSpec),
-}
-
-impl FunctionActorSpec {
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Job(spec) => spec.name(),
-        }
-    }
+pub enum TaskActorSpec {
+    Job(TaskActorJobSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionActorJobSpec {
+pub struct TaskActorJobSpec {
     #[serde(default, flatten)]
-    pub metadata: FunctionActorJobMetadata,
-    pub source: FunctionActorSourceSpec,
-}
-
-impl FunctionActorJobSpec {
-    pub fn name(&self) -> &str {
-        self.source.name()
-    }
+    pub metadata: TaskActorJobMetadata,
+    pub source: TaskActorSourceSpec,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum FunctionActorSourceSpec {
-    ConfigMapRef(FunctionActorSourceConfigMapRefSpec),
-}
-
-impl FunctionActorSourceSpec {
-    fn name(&self) -> &str {
-        match self {
-            Self::ConfigMapRef(spec) => spec.name(),
-        }
-    }
+pub enum TaskActorSourceSpec {
+    ConfigMapRef(TaskActorSourceConfigMapRefSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionActorSourceConfigMapRefSpec {
+pub struct TaskActorSourceConfigMapRefSpec {
     pub name: String,
     pub path: String,
-}
-
-impl FunctionActorSourceConfigMapRefSpec {
-    fn name(&self) -> &str {
-        &self.name
-    }
 }
 
 #[derive(
@@ -115,6 +87,7 @@ impl FunctionActorSourceConfigMapRefSpec {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -125,13 +98,8 @@ impl FunctionActorSourceConfigMapRefSpec {
     Deserialize,
     JsonSchema,
 )]
-pub enum FunctionState {
+pub enum TaskState {
+    #[default]
     Pending,
     Ready,
-}
-
-impl Default for FunctionState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }

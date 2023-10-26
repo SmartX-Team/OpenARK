@@ -26,8 +26,8 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
     HttpResponse::from(Result::from(result))
 }
 
-#[get("/model/{name}/function/")]
-pub async fn get_function_list(
+#[get("/model/{name}/task/")]
+pub async fn get_task_list(
     request: HttpRequest,
     kube: Data<Client>,
     name: Path<Name>,
@@ -42,7 +42,7 @@ pub async fn get_function_list(
         namespace: &namespace,
         kube,
     };
-    let result = client.load_function_all_by_model(&name.0).await;
+    let result = client.load_task_all_by_model(&name.0).await;
     HttpResponse::from(Result::from(result))
 }
 

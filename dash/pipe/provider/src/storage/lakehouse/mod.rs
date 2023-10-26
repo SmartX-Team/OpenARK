@@ -1,5 +1,5 @@
 pub mod decoder;
-mod schema;
+pub mod schema;
 
 use std::{collections::HashMap, io::Cursor, ops, sync::Arc};
 

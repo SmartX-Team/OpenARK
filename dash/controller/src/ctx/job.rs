@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::job::{DashJobCrd, DashJobState, DashJobStatus};
 use dash_provider::storage::KubernetesStorageClient;
-use dash_provider_api::FunctionChannel;
+use dash_provider_api::TaskChannel;
 use kube::{
     api::{DeleteParams, Patch, PatchParams},
     runtime::controller::Action,
@@ -180,7 +180,7 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        channel: Option<FunctionChannel>,
+        channel: Option<TaskChannel>,
         state: DashJobState,
     ) -> Result<Action, Error> {
         match Self::update_spec(namespace, kube, name, channel, state).await {
@@ -203,7 +203,7 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        channel: Option<FunctionChannel>,
+        channel: Option<TaskChannel>,
         state: DashJobState,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(

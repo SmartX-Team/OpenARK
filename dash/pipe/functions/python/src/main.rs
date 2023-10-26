@@ -3,40 +3,38 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use dash_pipe_provider::{
-    storage::StorageIO, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
-};
+use dash_pipe_provider::{storage::StorageIO, PipeArgs, PipeMessages, PyPipeMessage, TaskContext};
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{fs::File, io::AsyncReadExt};
 
 fn main() {
-    PipeArgs::<Function>::from_env().loop_forever()
+    PipeArgs::<Task>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct FunctionArgs {
+pub struct TaskArgs {
     #[arg(short, long, env = "PIPE_PYTHON_SCRIPT", value_name = "PATH")]
     python_script: PathBuf,
 }
 
-pub struct Function {
+pub struct Task {
     tick: PyObject,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Function for Function {
-    type Args = FunctionArgs;
+impl ::dash_pipe_provider::Task for Task {
+    type Args = TaskArgs;
     type Input = Value;
     type Output = Value;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Function>::Args,
-        _ctx: &mut FunctionContext,
+        args: &<Self as ::dash_pipe_provider::Task>::Args,
+        _ctx: &mut TaskContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
-        let FunctionArgs {
+        let TaskArgs {
             python_script: file_path,
         } = args;
 
@@ -65,8 +63,8 @@ impl ::dash_pipe_provider::Function for Function {
 
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
         let inputs: Vec<PyPipeMessage> = inputs.into();
         let outputs: Vec<PyPipeMessage> = Python::with_gil(|py| {
             self.tick

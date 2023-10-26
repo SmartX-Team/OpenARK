@@ -48,7 +48,7 @@ spec:
       target: kubernetes
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
-kind: Function
+kind: Task
 metadata:
   name: vine-session
   namespace: vine

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use dash_provider_api::FunctionChannel;
+use dash_provider_api::TaskChannel;
 use k8s_openapi::chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -32,7 +32,7 @@ use strum::{Display, EnumString};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DashJobSpec {
-    pub function: String,
+    pub task: String,
     #[serde(default)]
     #[schemars(schema_with = "DashJobCrd::preserve_arbitrary")]
     pub value: BTreeMap<String, Value>,
@@ -41,9 +41,8 @@ pub struct DashJobSpec {
 impl DashJobCrd {
     pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-jobs";
 
-    pub const LABEL_TARGET_FUNCTION: &'static str = "dash.ulagbulag.io/target-function";
-    pub const LABEL_TARGET_FUNCTION_NAMESPACE: &'static str =
-        "dash.ulagbulag.io/target-function-namespace";
+    pub const LABEL_TARGET_TASK: &'static str = "dash.ulagbulag.io/target-task";
+    pub const LABEL_TARGET_TASK_NAMESPACE: &'static str = "dash.ulagbulag.io/target-task-namespace";
 
     fn preserve_arbitrary(
         _gen: &mut ::schemars::gen::SchemaGenerator,
@@ -59,7 +58,7 @@ impl DashJobCrd {
 #[serde(rename_all = "camelCase")]
 pub struct DashJobStatus {
     #[serde(default)]
-    pub channel: Option<FunctionChannel>,
+    pub channel: Option<TaskChannel>,
     #[serde(default)]
     pub state: DashJobState,
     pub last_updated: DateTime<Utc>,
@@ -70,6 +69,7 @@ pub struct DashJobStatus {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -81,15 +81,10 @@ pub struct DashJobStatus {
     JsonSchema,
 )]
 pub enum DashJobState {
+    #[default]
     Pending,
     Running,
     Error,
     Completed,
     Deleting,
-}
-
-impl Default for DashJobState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }

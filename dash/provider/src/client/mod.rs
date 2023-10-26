@@ -1,9 +1,9 @@
+pub mod job;
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use dash_api::function::FunctionActorSpec;
-use dash_provider_api::{
-    FunctionChannel, FunctionChannelKind, SessionContext, SessionContextMetadata,
-};
+use dash_api::task::TaskActorSpec;
+use dash_provider_api::{SessionContext, SessionContextMetadata, TaskChannel, TaskChannelKind};
 use futures::TryFutureExt;
 use kube::Client;
 use serde::Serialize;
@@ -14,12 +14,8 @@ use crate::{
     storage::{KubernetesStorageClient, StorageClient},
 };
 
-use self::job::FunctionActorJobClient;
-
-pub mod job;
-
 #[async_trait]
-pub trait FunctionSessionUpdateFields<Value> {
+pub trait TaskSessionUpdateFields<Value> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
@@ -28,7 +24,7 @@ pub trait FunctionSessionUpdateFields<Value> {
 }
 
 #[async_trait]
-impl<'a> FunctionSessionUpdateFields<String> for FunctionSession<'a> {
+impl<'a> TaskSessionUpdateFields<String> for TaskSession<'a> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
@@ -42,7 +38,7 @@ impl<'a> FunctionSessionUpdateFields<String> for FunctionSession<'a> {
 }
 
 #[async_trait]
-impl<'a> FunctionSessionUpdateFields<Value> for FunctionSession<'a> {
+impl<'a> TaskSessionUpdateFields<Value> for TaskSession<'a> {
     async fn update_field(
         &mut self,
         storage: &StorageClient,
@@ -55,30 +51,29 @@ impl<'a> FunctionSessionUpdateFields<Value> for FunctionSession<'a> {
     }
 }
 
-pub struct FunctionSession<'a> {
-    client: FunctionActorClient,
+pub struct TaskSession<'a> {
+    client: TaskActorClient,
     input: InputTemplate,
     metadata: &'a SessionContextMetadata,
 }
 
-impl<'a> FunctionSession<'a> {
+impl<'a> TaskSession<'a> {
     pub async fn load(
         kube: Client,
         metadata: &'a SessionContextMetadata,
-        function_name: &str,
-    ) -> Result<FunctionSession<'a>> {
+        task_name: &str,
+    ) -> Result<TaskSession<'a>> {
         let storage = KubernetesStorageClient {
             namespace: &metadata.namespace,
             kube: &kube,
         };
-        let function = storage.load_function(function_name).await?;
+        let task = storage.load_task(task_name).await?;
 
-        let origin = &function.spec.input;
-        let parsed = &function.get_native_spec().input;
+        let origin = &task.spec.input;
+        let parsed = &task.get_native_spec().input;
 
         Ok(Self {
-            client: FunctionActorClient::try_new(&metadata.namespace, &kube, &function.spec.actor)
-                .await?,
+            client: TaskActorClient::try_new(&metadata.namespace, &kube, &task.spec.actor).await?,
             input: InputTemplate::new_empty(origin, parsed.clone()),
             metadata,
         })
@@ -86,7 +81,7 @@ impl<'a> FunctionSession<'a> {
 
     async fn update_fields<Value>(&mut self, inputs: Vec<InputField<Value>>) -> Result<()>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
         let namespace = self.metadata.namespace.clone();
         let kube = self.client.kube().clone();
@@ -104,20 +99,20 @@ impl<'a> FunctionSession<'a> {
     pub async fn exists<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
-        function_name: &str,
+        task_name: &str,
         inputs: Vec<InputField<Value>>,
     ) -> Result<bool>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata, function_name)
+        Self::load(kube, metadata, task_name)
             .and_then(|session| session.try_exists(inputs))
             .await
     }
 
     async fn try_exists<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
         let input = SessionContext {
             metadata: self.metadata.clone(),
@@ -130,26 +125,26 @@ impl<'a> FunctionSession<'a> {
         self.client
             .exists(&input)
             .await
-            .map_err(|e| anyhow!("failed to check function {:?}: {e}", &self.metadata.name))
+            .map_err(|e| anyhow!("failed to check task {:?}: {e}", &self.metadata.name))
     }
 
     pub async fn create<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
-        function_name: &str,
+        task_name: &str,
         inputs: Vec<InputField<Value>>,
-    ) -> Result<FunctionChannel>
+    ) -> Result<TaskChannel>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata, function_name)
+        Self::load(kube, metadata, task_name)
             .and_then(|session| session.try_create(inputs))
             .await
     }
 
-    async fn try_create<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<FunctionChannel>
+    async fn try_create<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<TaskChannel>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
         let input = SessionContext {
             metadata: self.metadata.clone(),
@@ -162,26 +157,26 @@ impl<'a> FunctionSession<'a> {
         self.client
             .create(&input)
             .await
-            .map_err(|e| anyhow!("failed to create function {:?}: {e}", &self.metadata.name))
+            .map_err(|e| anyhow!("failed to create task {:?}: {e}", &self.metadata.name))
     }
 
     pub async fn delete<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
-        function_name: &str,
+        task_name: &str,
         inputs: Vec<InputField<Value>>,
-    ) -> Result<FunctionChannel>
+    ) -> Result<TaskChannel>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
-        Self::load(kube, metadata, function_name)
+        Self::load(kube, metadata, task_name)
             .and_then(|session| session.try_delete(inputs))
             .await
     }
 
-    async fn try_delete<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<FunctionChannel>
+    async fn try_delete<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<TaskChannel>
     where
-        Self: FunctionSessionUpdateFields<Value>,
+        Self: TaskSessionUpdateFields<Value>,
     {
         let input = SessionContext {
             metadata: self.metadata.clone(),
@@ -194,20 +189,20 @@ impl<'a> FunctionSession<'a> {
         self.client
             .delete(&input)
             .await
-            .map_err(|e| anyhow!("failed to delete function {:?}: {e}", &self.metadata.name))
+            .map_err(|e| anyhow!("failed to delete task {:?}: {e}", &self.metadata.name))
     }
 }
 
-pub enum FunctionActorClient {
-    Job(Box<FunctionActorJobClient>),
+pub enum TaskActorClient {
+    Job(Box<self::job::TaskActorJobClient>),
 }
 
-impl FunctionActorClient {
-    pub async fn try_new(namespace: &str, kube: &Client, spec: &FunctionActorSpec) -> Result<Self> {
+impl TaskActorClient {
+    pub async fn try_new(namespace: &str, kube: &Client, spec: &TaskActorSpec) -> Result<Self> {
         let use_prefix = true;
         match spec {
-            FunctionActorSpec::Job(spec) => {
-                FunctionActorJobClient::try_new(namespace.into(), kube, spec, use_prefix)
+            TaskActorSpec::Job(spec) => {
+                self::job::TaskActorJobClient::try_new(namespace.into(), kube, spec, use_prefix)
                     .await
                     .map(Box::new)
                     .map(Self::Job)
@@ -230,26 +225,26 @@ impl FunctionActorClient {
         }
     }
 
-    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
+    pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannel>
     where
         Spec: Serialize,
     {
-        Ok(FunctionChannel {
+        Ok(TaskChannel {
             metadata: input.metadata.clone(),
             actor: match self {
-                Self::Job(client) => client.create(input).await.map(FunctionChannelKind::Job)?,
+                Self::Job(client) => client.create(input).await.map(TaskChannelKind::Job)?,
             },
         })
     }
 
-    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<FunctionChannel>
+    pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannel>
     where
         Spec: Serialize,
     {
-        Ok(FunctionChannel {
+        Ok(TaskChannel {
             metadata: input.metadata.clone(),
             actor: match self {
-                Self::Job(client) => client.delete(input).await.map(FunctionChannelKind::Job)?,
+                Self::Job(client) => client.delete(input).await.map(TaskChannelKind::Job)?,
             },
         })
     }

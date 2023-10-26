@@ -105,6 +105,7 @@ pub struct BoxStatus {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -116,6 +117,7 @@ pub struct BoxStatus {
     JsonSchema,
 )]
 pub enum BoxState {
+    #[default]
     New,
     Commissioning,
     Ready,
@@ -124,12 +126,6 @@ pub enum BoxState {
     GroupChanged,
     Failed,
     Disconnected,
-}
-
-impl Default for BoxState {
-    fn default() -> Self {
-        Self::New
-    }
 }
 
 impl BoxState {
@@ -262,6 +258,7 @@ impl BoxGroupSpec {
     Clone,
     Debug,
     Display,
+    Default,
     EnumString,
     PartialEq,
     Eq,
@@ -292,13 +289,8 @@ pub enum BoxGroupRole {
     /*
         General Worker
     */
+    #[default]
     GenericWorker,
-}
-
-impl Default for BoxGroupRole {
-    fn default() -> Self {
-        Self::GenericWorker
-    }
 }
 
 impl BoxGroupRole {

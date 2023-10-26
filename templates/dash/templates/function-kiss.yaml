@@ -36,7 +36,7 @@ spec:
       target: kubernetes
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
-kind: Function
+kind: Task
 metadata:
   name: box-power # 함수 이름
   namespace: kiss

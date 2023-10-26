@@ -11,11 +11,11 @@ pub(crate) mod consts {
 #[tokio::main]
 async fn main() {
     join!(
-        self::ctx::function::Ctx::spawn_crd(),
+        self::ctx::task::Ctx::spawn_crd(),
         self::ctx::job::Ctx::spawn_crd(),
         self::ctx::model::Ctx::spawn_crd(),
         self::ctx::model_storage_binding::Ctx::spawn_crd(),
-        // self::ctx::pipe::Ctx::spawn(),
+        self::ctx::pipe::Ctx::spawn(),
         self::ctx::storage::Ctx::spawn_crd(),
     );
 }

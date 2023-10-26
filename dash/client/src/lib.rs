@@ -3,7 +3,7 @@ use std::error::Error;
 use anyhow::{anyhow, Result};
 use ark_api::SessionRef;
 use ark_core::result::Result as SessionResult;
-use dash_api::{function::FunctionCrd, job::DashJobCrd, model::ModelCrd};
+use dash_api::{job::DashJobCrd, model::ModelCrd, task::TaskCrd};
 use dash_provider_api::job::Payload;
 use reqwest::{Client, Method, Url};
 use schemars::JsonSchema;
@@ -47,39 +47,35 @@ impl DashClient {
 }
 
 impl DashClient {
-    pub async fn get_function(&self, name: &str) -> Result<FunctionCrd> {
-        self.get(format!("/function/{name}/")).await
+    pub async fn get_task(&self, name: &str) -> Result<TaskCrd> {
+        self.get(format!("/task/{name}/")).await
     }
 
-    pub async fn get_function_list(&self) -> Result<Vec<ObjectRef>> {
-        self.get("/function/").await
+    pub async fn get_task_list(&self) -> Result<Vec<ObjectRef>> {
+        self.get("/task/").await
     }
 }
 
 impl DashClient {
-    pub async fn delete_job(&self, function_name: &str, job_name: &str) -> Result<()> {
-        self.delete(format!("/function/{function_name}/job/{job_name}/"))
+    pub async fn delete_job(&self, task_name: &str, job_name: &str) -> Result<()> {
+        self.delete(format!("/task/{task_name}/job/{job_name}/"))
             .await
     }
 
-    pub async fn get_job(&self, function_name: &str, job_name: &str) -> Result<Option<DashJobCrd>> {
-        self.get(format!("/function/{function_name}/job/{job_name}/"))
-            .await
+    pub async fn get_job(&self, task_name: &str, job_name: &str) -> Result<Option<DashJobCrd>> {
+        self.get(format!("/task/{task_name}/job/{job_name}/")).await
     }
 
     pub async fn get_job_list(&self) -> Result<Vec<DashJobCrd>> {
         self.get("/job/").await
     }
 
-    pub async fn get_job_list_with_function_name(
-        &self,
-        function_name: &str,
-    ) -> Result<Vec<DashJobCrd>> {
-        self.get(format!("/function/{function_name}/job/")).await
+    pub async fn get_job_list_with_task_name(&self, task_name: &str) -> Result<Vec<DashJobCrd>> {
+        self.get(format!("/task/{task_name}/job/")).await
     }
 
-    pub async fn post_job(&self, function_name: &str, value: &Value) -> Result<DashJobCrd> {
-        self.post(format!("/function/{function_name}/job/"), Some(value))
+    pub async fn post_job(&self, task_name: &str, value: &Value) -> Result<DashJobCrd> {
+        self.post(format!("/task/{task_name}/job/"), Some(value))
             .await
     }
 
@@ -87,9 +83,9 @@ impl DashClient {
         self.post("/batch/job/", Some(payload)).await
     }
 
-    pub async fn restart_job(&self, function_name: &str, job_name: &str) -> Result<DashJobCrd> {
+    pub async fn restart_job(&self, task_name: &str, job_name: &str) -> Result<DashJobCrd> {
         self.post(
-            format!("/function/{function_name}/job/{job_name}/restart/"),
+            format!("/task/{task_name}/job/{job_name}/restart/"),
             Option::<&()>::None,
         )
         .await
@@ -101,8 +97,8 @@ impl DashClient {
         self.get(format!("/model/{name}/")).await
     }
 
-    pub async fn get_model_function_list(&self, name: &str) -> Result<Vec<FunctionCrd>> {
-        self.get(format!("/model/{name}/function/")).await
+    pub async fn get_model_task_list(&self, name: &str) -> Result<Vec<TaskCrd>> {
+        self.get(format!("/model/{name}/task/")).await
     }
 
     pub async fn get_model_list(&self) -> Result<Vec<ObjectRef>> {

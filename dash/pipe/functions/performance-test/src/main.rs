@@ -9,7 +9,7 @@ use byte_unit::Byte;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
-    FunctionContext, MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload,
+    MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload, TaskContext,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,11 +17,11 @@ use tokio::spawn;
 use tracing::info;
 
 fn main() {
-    PipeArgs::<Function>::from_env().loop_forever()
+    PipeArgs::<Task>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct FunctionArgs {
+pub struct TaskArgs {
     #[arg(long, env = "PIPE_PERFORMANCE_TEST_DATA_SIZE", value_name = "SIZE")]
     data_size: Byte,
 
@@ -40,8 +40,8 @@ pub struct FunctionArgs {
     total_messages: Byte,
 }
 
-pub struct Function {
-    ctx: FunctionContext,
+pub struct Task {
+    ctx: TaskContext,
     metric: MetricData,
     next_stdout: Duration,
     storage: Arc<StorageSet>,
@@ -50,19 +50,19 @@ pub struct Function {
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Function for Function {
-    type Args = FunctionArgs;
+impl ::dash_pipe_provider::Task for Task {
+    type Args = TaskArgs;
     type Input = Metric;
     type Output = Metric;
 
     async fn try_new(
-        FunctionArgs {
+        TaskArgs {
             data_size,
             payload_size,
             quiet,
             total_messages,
-        }: &<Self as ::dash_pipe_provider::Function>::Args,
-        ctx: &mut FunctionContext,
+        }: &<Self as ::dash_pipe_provider::Task>::Args,
+        ctx: &mut TaskContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let metric = MetricData {
@@ -109,8 +109,8 @@ impl ::dash_pipe_provider::Function for Function {
 
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
         let elapsed = self.elapsed();
 
         let outputs = match inputs {
@@ -144,7 +144,7 @@ impl ::dash_pipe_provider::Function for Function {
     }
 }
 
-impl Function {
+impl Task {
     const TICK: Duration = Duration::from_secs(1);
 
     fn elapsed(&mut self) -> Duration {
@@ -154,7 +154,7 @@ impl Function {
         self.timestamp.unwrap().elapsed()
     }
 
-    fn create_packet(&self) -> PipeMessage<<Self as ::dash_pipe_provider::Function>::Output> {
+    fn create_packet(&self) -> PipeMessage<<Self as ::dash_pipe_provider::Task>::Output> {
         PipeMessage::new(self.create_payload(), self.create_value())
     }
 
@@ -165,7 +165,7 @@ impl Function {
         }
     }
 
-    fn create_value(&self) -> <Self as ::dash_pipe_provider::Function>::Output {
+    fn create_value(&self) -> <Self as ::dash_pipe_provider::Task>::Output {
         Metric {
             data: Default::default(),
             value: create_data(self.metric.data_size),
@@ -239,7 +239,7 @@ impl MetricData {
 
     fn update_bytes_counter(
         &mut self,
-        message: &PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>,
+        message: &PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>,
     ) {
         let bytes = message.value.value.len() as u128;
         self.num_sent_bytes += bytes;
@@ -256,7 +256,7 @@ impl MetricData {
 
     fn update_bytes_counter_one(
         &mut self,
-        message: &PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>,
+        message: &PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>,
     ) {
         let sent = 1;
         self.num_sent += sent;
@@ -267,7 +267,7 @@ impl MetricData {
 
     fn update_bytes_counter_batch(
         &mut self,
-        messages: &[PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>],
+        messages: &[PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>],
     ) {
         let sent = messages.len() as u128;
         self.num_sent += sent;
