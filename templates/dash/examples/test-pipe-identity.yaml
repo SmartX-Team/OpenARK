@@ -1,0 +1,25 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: identity-input
+  namespace: default
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: identity-output
+  namespace: default
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Pipe
+metadata:
+  name: identity
+  namespace: default
+spec:
+  input: identity-input
+  output: identity-output

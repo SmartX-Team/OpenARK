@@ -33,6 +33,12 @@ use serde::{Deserialize, Serialize};
         "type": "date",
         "description": "expired time",
         "jsonPath": ".spec.expiredTimestamp"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "integer",
+        "description": "model version",
+        "jsonPath": ".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

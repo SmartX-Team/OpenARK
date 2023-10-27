@@ -27,13 +27,17 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
         "type": "date",
         "description": "created time",
         "jsonPath": ".metadata.creationTimestamp"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "integer",
+        "description": "model version",
+        "jsonPath": ".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSpec<Kind = ModelFieldKindSpec> {
     pub input: ModelFieldsSpec<Kind>,
-    #[serde(default)]
-    pub output: Option<ModelFieldsSpec<Kind>>,
     pub actor: TaskActorSpec,
 }
 

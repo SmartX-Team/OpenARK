@@ -15,7 +15,7 @@ async fn main() {
         self::ctx::job::Ctx::spawn_crd(),
         self::ctx::model::Ctx::spawn_crd(),
         self::ctx::model_storage_binding::Ctx::spawn_crd(),
-        self::ctx::pipe::Ctx::spawn(),
+        self::ctx::pipe::Ctx::spawn_crd(),
         self::ctx::storage::Ctx::spawn_crd(),
     );
 }

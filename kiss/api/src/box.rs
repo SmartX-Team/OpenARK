@@ -77,6 +77,12 @@ impl BoxCrd {
         "type": "string",
         "description": "network interface link speed (Unit: Mbps)",
         "jsonPath": ".status.access.primary.speedMbps"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "integer",
+        "description": "model version",
+        "jsonPath": ".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

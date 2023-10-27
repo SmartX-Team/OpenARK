@@ -33,4 +33,5 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 serde = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }

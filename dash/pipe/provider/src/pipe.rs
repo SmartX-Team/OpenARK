@@ -23,7 +23,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    function::{Task, TaskContext},
+    function::{Function, FunctionBuilder, FunctionContext},
     message::{Name, PipeMessages},
     messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
@@ -33,7 +33,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct PipeArgs<F>
 where
-    F: Task,
+    F: FunctionBuilder,
 {
     #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "BATCH_SIZE")]
     #[serde(default)]
@@ -48,7 +48,7 @@ where
     default_model_in: Option<DefaultModelIn>,
 
     #[command(flatten)]
-    function_args: <F as Task>::Args,
+    function_args: <F as FunctionBuilder>::Args,
 
     #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
     #[serde(default)]
@@ -75,7 +75,7 @@ where
 
 impl<F> PipeArgs<F>
 where
-    F: Task,
+    F: FunctionBuilder,
 {
     pub fn from_env() -> Self {
         Self::parse()
@@ -95,7 +95,7 @@ where
         self
     }
 
-    pub fn with_function_args(mut self, function_args: <F as Task>::Args) -> Self {
+    pub fn with_function_args(mut self, function_args: <F as FunctionBuilder>::Args) -> Self {
         self.function_args = function_args;
         self
     }
@@ -113,14 +113,25 @@ where
 
 impl<F> PipeArgs<F>
 where
-    F: Task,
+    F: FunctionBuilder,
 {
     async fn init_context(&self) -> Result<Context<F>> {
         let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Task Context");
-        let mut function_context = TaskContext::new(messenger.messenger_type());
+        let mut function_context = FunctionContext::new(messenger.messenger_type());
         function_context.clone().trap_on_sigint()?;
+
+        // Do not load payloads on writer mode
+        if self.model_in.is_none() {
+            function_context.disable_load();
+        }
+
+        // Force read-only mode on self processing
+        if self.model_in == self.model_out || self.model_out.is_none() {
+            function_context.disable_store();
+            function_context.disable_store_metadata();
+        }
 
         debug!("Initializing Storage IO");
         let max_tasks = self.batch_size.unwrap_or(1) * self.default_max_tasks();
@@ -130,7 +141,7 @@ where
             StorageIO {
                 input: Arc::new({
                     let default_metadata =
-                        MetadataStorageArgs::<<F as Task>::Input>::new(default_metadata_type);
+                        MetadataStorageArgs::<<F as Function>::Input>::new(default_metadata_type);
                     let model = self.model_in.as_ref().or_else(|| {
                         match self.default_model_in.unwrap_or_default() {
                             DefaultModelIn::ModelOut => self.model_out.as_ref(),
@@ -147,7 +158,7 @@ where
                 }),
                 output: Arc::new({
                     let default_metadata =
-                        MetadataStorageArgs::<<F as Task>::Output>::new(default_metadata_type);
+                        MetadataStorageArgs::<<F as Function>::Output>::new(default_metadata_type);
                     let model = self.model_out.as_ref();
 
                     StorageSet::try_new(
@@ -162,10 +173,11 @@ where
         });
 
         debug!("Initializing Task");
-        let function = <F as Task>::try_new(&self.function_args, &mut function_context, &storage)
-            .await
-            .map(Into::into)
-            .map_err(|error| anyhow!("failed to init function: {error}"))?;
+        let function =
+            <F as FunctionBuilder>::try_new(&self.function_args, &mut function_context, &storage)
+                .await
+                .map(Into::into)
+                .map_err(|error| anyhow!("failed to init function: {error}"))?;
 
         debug!("Initializing Reader");
         let reader = match self.model_in.as_ref() {
@@ -260,10 +272,10 @@ where
 
 async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
-    F: Task,
+    F: Function,
 {
     async fn recv_one<Value>(
-        function_context: &TaskContext,
+        function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
     ) -> Result<Option<PipeMessage<Value>>>
     where
@@ -354,13 +366,13 @@ impl Timer {
 
 struct Context<F>
 where
-    F: Task,
+    F: Function,
 {
     batch_size: Option<usize>,
     batch_timeout: Option<Duration>,
     function: F,
-    function_context: TaskContext,
-    reader: Option<ReadContext<<F as Task>::Input>>,
+    function_context: FunctionContext,
+    reader: Option<ReadContext<<F as Function>::Input>>,
     storage: Arc<StorageIO>,
     writer: WriteContext,
 }
@@ -377,7 +389,7 @@ struct ReadSession<Value>
 where
     Value: Default,
 {
-    function_context: TaskContext,
+    function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Box<dyn Subscriber<Value>>,
     tx: Arc<Sender<PipeMessage<Value>>>,
@@ -393,8 +405,8 @@ where
                 match self.read_input_one().await {
                     Ok(()) => yield_now().await,
                     Err(error) => {
-                        error!("failed to read inputs: {error}");
-                        break;
+                        warn!("failed to read inputs: {error}");
+                        yield_now().await;
                     }
                 }
             }
@@ -439,7 +451,7 @@ where
 #[derive(Clone)]
 struct WriteContext {
     atomic_session: AtomicSession,
-    function_context: TaskContext,
+    function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Option<Arc<dyn Publisher>>,
 }
@@ -469,10 +481,14 @@ impl WriteContext {
             Some(stream) => {
                 self.atomic_session
                     .alloc(async {
-                        let outputs = messages
-                            .dump_payloads(&self.storage, input_payloads)
-                            .await?
-                            .into_vec();
+                        let outputs = if self.function_context.is_disabled_store() {
+                            messages.load_payloads_as_empty()
+                        } else {
+                            messages
+                                .dump_payloads(&self.storage, input_payloads)
+                                .await?
+                        }
+                        .into_vec();
 
                         for output in outputs {
                             if !self.function_context.is_disabled_store_metadata() {

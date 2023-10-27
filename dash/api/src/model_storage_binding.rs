@@ -32,6 +32,12 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
         "type": "date",
         "description": "updated time",
         "jsonPath": ".status.lastUpdated"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "integer",
+        "description": "model version",
+        "jsonPath": ".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

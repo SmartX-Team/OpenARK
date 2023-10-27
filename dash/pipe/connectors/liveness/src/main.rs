@@ -4,43 +4,43 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use dash_pipe_provider::{storage::StorageIO, PipeArgs, PipeMessage, PipeMessages, TaskContext};
+use dash_pipe_provider::{
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
 
 fn main() {
-    PipeArgs::<Task>::from_env().loop_forever()
+    PipeArgs::<Function>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct TaskArgs {
-    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS", default_value_t = TaskArgs::default_interval_ms(),)]
-    #[serde(default = "TaskArgs::default_interval_ms")]
+pub struct FunctionArgs {
+    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS", default_value_t = FunctionArgs::default_interval_ms(),)]
+    #[serde(default = "FunctionArgs::default_interval_ms")]
     interval_ms: u64,
 }
 
-impl TaskArgs {
+impl FunctionArgs {
     pub fn default_interval_ms() -> u64 {
         1_000 // 1 second
     }
 }
 
-pub struct Task {
-    args: TaskArgs,
+pub struct Function {
+    args: FunctionArgs,
     instant: Instant,
     iteration: RangeInclusive<u64>,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Task for Task {
-    type Args = TaskArgs;
-    type Input = ();
-    type Output = Ping;
+impl ::dash_pipe_provider::FunctionBuilder for Function {
+    type Args = FunctionArgs;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Task>::Args,
-        ctx: &mut TaskContext,
+        args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
+        ctx: &mut FunctionContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         ctx.disable_load();
@@ -51,11 +51,17 @@ impl ::dash_pipe_provider::Task for Task {
             iteration: 0..=u64::MAX,
         })
     }
+}
+
+#[async_trait(?Send)]
+impl ::dash_pipe_provider::Function for Function {
+    type Input = ();
+    type Output = Ping;
 
     async fn tick(
         &mut self,
-        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
+        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         let index = self.iteration.next();
 
         // wait for fit interval

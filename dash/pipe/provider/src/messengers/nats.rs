@@ -106,11 +106,19 @@ pub struct Publisher {
 
 #[async_trait]
 impl super::Publisher for Publisher {
-    async fn reply_one(&self, data: Bytes, reply: String) -> Result<()> {
+    async fn reply_one(&self, data: Bytes, reply: Name) -> Result<()> {
         self.client
-            .publish(reply, data)
+            .publish(reply.into(), data)
             .await
             .map_err(|error| anyhow!("failed to reply data to NATS: {error}"))
+    }
+
+    async fn request_one(&self, data: Bytes) -> Result<Bytes> {
+        self.client
+            .request(self.subject.clone(), data)
+            .await
+            .map(|message| message.payload)
+            .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
     }
 
     async fn send_one(&self, data: Bytes) -> Result<()> {
@@ -133,10 +141,9 @@ where
         self.next()
             .await
             .map(|message| {
-                message
-                    .payload
-                    .try_into()
-                    .map(|input: PipeMessage<_, _>| input.with_reply(message.reply))
+                message.payload.try_into().map(|input: PipeMessage<_, _>| {
+                    input.with_reply(message.reply.map(|reply| Name::new(reply.to_string())))
+                })
             })
             .transpose()
             .map_err(|error| anyhow!("failed to subscribe NATS input: {error}"))

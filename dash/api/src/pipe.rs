@@ -26,6 +26,12 @@ use crate::model::ModelFieldsNativeSpec;
         "type": "date",
         "description": "created time",
         "jsonPath": ".metadata.creationTimestamp"
+    }"#,
+    printcolumn = r#"{
+        "name": "version",
+        "type": "integer",
+        "description": "model version",
+        "jsonPath": ".metadata.generation"
     }"#
 )]
 #[serde(rename_all = "camelCase")]

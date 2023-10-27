@@ -11,7 +11,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionRef};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DashClient {
     client: Client,
     host: Url,

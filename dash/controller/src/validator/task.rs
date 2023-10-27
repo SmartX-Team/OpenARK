@@ -22,20 +22,12 @@ impl<'namespace, 'kube> TaskValidator<'namespace, 'kube> {
             },
         };
         let input = model_validator.validate_fields(spec.input).await?;
-        let output = match spec.output {
-            Some(output) => Some(model_validator.validate_fields(output).await?),
-            None => None,
-        };
 
         let actor = spec.actor;
         if let Err(e) = TaskActorClient::try_new(self.namespace, self.kube, &actor).await {
             bail!("failed to validate task actor: {e}");
         }
 
-        Ok(TaskSpec {
-            input,
-            output,
-            actor,
-        })
+        Ok(TaskSpec { input, actor })
     }
 }

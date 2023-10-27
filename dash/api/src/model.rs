@@ -34,7 +34,7 @@ use strum::{Display, EnumString};
     }"#,
     printcolumn = r#"{
         "name": "version",
-        "type": "date",
+        "type": "integer",
         "description": "model version",
         "jsonPath": ".metadata.generation"
     }"#

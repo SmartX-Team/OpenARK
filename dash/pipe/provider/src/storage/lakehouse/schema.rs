@@ -45,9 +45,34 @@ impl ToFieldByDataType for SchemaDataType {
     }
 }
 
-impl ToFieldByDataType for String {
+impl ToFieldByDataType for SchemaTypeArray {
     fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
-        let data_type = match self.as_str() {
+        Ok(Field::new_list(
+            name,
+            self.get_element_type()
+                .to_field(name, self.contains_null())?,
+            nullable,
+        ))
+    }
+}
+
+impl<T> ToFieldByDataType for T
+where
+    T: ToDataType,
+{
+    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
+        self.to_data_type()
+            .map(|data_type| Field::new(name, data_type, nullable))
+    }
+}
+
+pub trait ToDataType {
+    fn to_data_type(&self) -> Result<DataType>;
+}
+
+impl ToDataType for String {
+    fn to_data_type(&self) -> Result<DataType> {
+        Ok(match self.as_str() {
             "boolean" => DataType::Boolean,
             "byte" => DataType::Int8,
             "short" => DataType::Int16,
@@ -61,39 +86,29 @@ impl ToFieldByDataType for String {
             "timestamp" => DataType::Timestamp(TimeUnit::Microsecond, None),
             // "decimal" => todo!(),
             _ => bail!("unsupported schema data type: {self}"),
-        };
-
-        Ok(Field::new(name, data_type, nullable))
+        })
     }
 }
 
-impl ToFieldByDataType for SchemaTypeStruct {
-    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
-        Ok(Field::new_struct(
-            name,
-            self.get_fields()
-                .iter()
-                .map(|field| field.to_field())
-                .collect::<Result<Fields>>()?,
-            nullable,
-        ))
+impl ToDataType for SchemaTypeStruct {
+    fn to_data_type(&self) -> Result<DataType> {
+        self.get_fields()
+            .iter()
+            .map(|field| field.to_field())
+            .collect::<Result<Fields>>()
+            .map(DataType::Struct)
     }
 }
 
-impl ToFieldByDataType for SchemaTypeArray {
-    fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
-        Ok(Field::new_list(
-            name,
-            self.get_element_type()
-                .to_field(name, self.contains_null())?,
-            nullable,
-        ))
-    }
-}
-
-impl ToFieldByDataType for SchemaTypeMap {
-    fn to_field(&self, _name: &str, _nullable: bool) -> Result<Field> {
+impl ToDataType for SchemaTypeMap {
+    fn to_data_type(&self) -> Result<DataType> {
         bail!("unsupported schema data type: Map")
+    }
+}
+
+impl ToDataType for ::deltalake::arrow::datatypes::Schema {
+    fn to_data_type(&self) -> Result<DataType> {
+        Ok(DataType::Struct(self.fields().clone()))
     }
 }
 

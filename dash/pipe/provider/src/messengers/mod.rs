@@ -30,7 +30,7 @@ pub async fn init_messenger<Value>(
 }
 
 #[async_trait]
-pub trait Messenger<Value> {
+pub trait Messenger<Value = ::serde_json::Value> {
     fn messenger_type(&self) -> MessengerType;
 
     async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>>;
@@ -56,7 +56,9 @@ pub trait Publisher
 where
     Self: Send + Sync,
 {
-    async fn reply_one(&self, data: Bytes, reply: String) -> Result<()>;
+    async fn reply_one(&self, data: Bytes, reply: Name) -> Result<()>;
+
+    async fn request_one(&self, data: Bytes) -> Result<Bytes>;
 
     async fn send_one(&self, data: Bytes) -> Result<()>;
 }

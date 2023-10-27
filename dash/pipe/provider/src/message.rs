@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, ops, str::FromStr};
+use std::{borrow::Borrow, cmp::Ordering, collections::HashMap, fmt, ops, str::FromStr};
 
 use anyhow::{bail, Error, Result};
 use bytes::Bytes;
@@ -59,6 +59,22 @@ where
             Self::Batch(values) => values,
         }
     }
+
+    pub(crate) fn load_payloads_as_empty<P>(self) -> PipeMessages<Value, P>
+    where
+        P: Default + JsonSchema,
+    {
+        match self {
+            PipeMessages::None => PipeMessages::None,
+            PipeMessages::Single(value) => PipeMessages::Single(value.load_payloads_as_empty()),
+            PipeMessages::Batch(values) => PipeMessages::Batch(
+                values
+                    .into_iter()
+                    .map(|value| value.load_payloads_as_empty())
+                    .collect(),
+            ),
+        }
+    }
 }
 
 impl<Value> PipeMessages<Value>
@@ -93,7 +109,7 @@ where
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
     timestamp: DateTime<Utc>,
-    reply: Option<String>,
+    reply: Option<Name>,
     value: DynValue,
 }
 
@@ -270,14 +286,15 @@ where
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
     #[serde(skip)]
-    pub reply: Option<String>,
+    pub reply: Option<Name>,
     timestamp: DateTime<Utc>,
     #[serde(default)]
     pub value: Value,
 }
 
-impl<Value> TryFrom<&[u8]> for PipeMessage<Value, ()>
+impl<Value, Payload> TryFrom<&[u8]> for PipeMessage<Value, Payload>
 where
+    Payload: Default + DeserializeOwned + JsonSchema,
     Value: Default + DeserializeOwned,
 {
     type Error = Error;
@@ -291,8 +308,9 @@ where
     }
 }
 
-impl<Value> TryFrom<Bytes> for PipeMessage<Value, ()>
+impl<Value, Payload> TryFrom<Bytes> for PipeMessage<Value, Payload>
 where
+    Payload: Default + DeserializeOwned + JsonSchema,
     Value: Default + DeserializeOwned,
 {
     type Error = Error;
@@ -345,7 +363,7 @@ where
         }
     }
 
-    pub(crate) fn with_reply(mut self, reply: Option<String>) -> Self {
+    pub(crate) fn with_reply(mut self, reply: Option<Name>) -> Self {
         self.reply = reply;
         self
     }
@@ -370,7 +388,10 @@ where
         })
     }
 
-    pub(crate) fn load_payloads_as_empty(self) -> PipeMessage<Value> {
+    pub(crate) fn load_payloads_as_empty<P>(self) -> PipeMessage<Value, P>
+    where
+        P: Default + JsonSchema,
+    {
         PipeMessage {
             payloads: self
                 .payloads
@@ -582,6 +603,25 @@ impl From<Name> for String {
     }
 }
 
+// #[cfg(feature = "nats")]
+// impl From<Name> for ::async_nats::Subject {
+//     fn from(value: Name) -> Self {
+//         value.0.into()
+//     }
+// }
+
+impl Borrow<str> for Name {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<String> for Name {
+    fn borrow(&self) -> &String {
+        &self.0
+    }
+}
+
 impl ops::Deref for Name {
     type Target = String;
 
@@ -599,6 +639,62 @@ impl fmt::Debug for Name {
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <String as fmt::Display>::fmt(&self.0, f)
+    }
+}
+
+impl PartialEq<String> for Name {
+    fn eq(&self, other: &String) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialEq<Name> for String {
+    fn eq(&self, other: &Name) -> bool {
+        self.eq(&other.0)
+    }
+}
+
+impl PartialOrd<String> for Name {
+    fn partial_cmp(&self, other: &String) -> Option<Ordering> {
+        self.0.partial_cmp(other)
+    }
+
+    fn lt(&self, other: &String) -> bool {
+        self.0.lt(other)
+    }
+
+    fn le(&self, other: &String) -> bool {
+        self.0.le(other)
+    }
+
+    fn gt(&self, other: &String) -> bool {
+        self.0.gt(other)
+    }
+
+    fn ge(&self, other: &String) -> bool {
+        self.0.ge(other)
+    }
+}
+
+impl PartialOrd<Name> for String {
+    fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
+        self.partial_cmp(&other.0)
+    }
+
+    fn lt(&self, other: &Name) -> bool {
+        self.lt(&other.0)
+    }
+
+    fn le(&self, other: &Name) -> bool {
+        self.le(&other.0)
+    }
+
+    fn gt(&self, other: &Name) -> bool {
+        self.gt(&other.0)
+    }
+
+    fn ge(&self, other: &Name) -> bool {
+        self.ge(&other.0)
     }
 }
 

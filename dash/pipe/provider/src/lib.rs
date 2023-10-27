@@ -4,11 +4,16 @@ pub extern crate deltalake;
 
 mod function;
 mod message;
-mod messengers;
+pub mod messengers;
 mod pipe;
 pub mod storage;
 
-pub use self::function::{Task, TaskContext};
+#[cfg(feature = "deltalake")]
+pub use self::function::deltalake::DeltaFunction;
+pub use self::function::{
+    Function, FunctionBuilder, FunctionContext, GenericStatelessRemoteFunction, RemoteFunction,
+    StatelessRemoteFunction,
+};
 #[cfg(feature = "pyo3")]
 pub use self::message::PyPipeMessage;
 pub use self::message::{Name, PipeMessage, PipeMessages, PipePayload};

@@ -1,81 +1,114 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use anyhow::Result;
-use dash_api::model::ModelFieldsNativeSpec;
 use dash_pipe_provider::{
     deltalake::{
-        arrow::datatypes::{DataType, Field},
+        arrow::datatypes::{DataType, Schema},
         datafusion::{
             error::DataFusionError,
             logical_expr::{ScalarUDF, Signature, TypeSignature, Volatility},
-            physical_plan::ColumnarValue,
         },
     },
-    storage::lakehouse::schema::{FieldColumns, ToField},
-    Name,
+    messengers::Messenger,
+    GenericStatelessRemoteFunction, Name,
 };
+use futures::executor::block_on;
 use inflector::Inflector;
-use kube::Client;
+use tokio::{spawn, sync::oneshot};
+use tracing::debug;
 
 #[derive(Debug)]
-pub struct DashFunction {
+pub(crate) struct DashFunctionTemplate {
     name: Name,
-    input: DataType,
-    output: DataType,
+    model_in: Name,
+    input: Arc<Schema>,
+    output: Arc<Schema>,
 }
 
-impl DashFunction {
-    pub fn try_new(
-        _kube: Client,
+impl DashFunctionTemplate {
+    pub(crate) fn new(
         name: Name,
-        input: &ModelFieldsNativeSpec,
-        output: &ModelFieldsNativeSpec,
+        model_in: Name,
+        input: Arc<Schema>,
+        output: Arc<Schema>,
     ) -> Result<Self> {
-        fn to_data_type(spec: &ModelFieldsNativeSpec) -> Result<DataType> {
-            spec.to_data_columns()?
-                .into_iter()
-                .map(|schema| schema.to_field())
-                .collect::<Result<_>>()
-                .map(DataType::Struct)
-        }
-
         Ok(Self {
             name,
-            input: to_data_type(input)?,
-            output: to_data_type(output)?,
+            model_in,
+            input,
+            output,
+        })
+    }
+
+    pub(crate) async fn try_into_udf(self, messenger: &dyn Messenger) -> Result<ScalarUDF> {
+        let info = self.to_string();
+
+        let Self {
+            name,
+            model_in,
+            input,
+            output,
+        } = self;
+
+        let inputs = input
+            .fields()
+            .iter()
+            .map(|field| field.data_type().clone())
+            .collect();
+        let outputs = DataType::Struct(output.fields().clone());
+
+        let function = GenericStatelessRemoteFunction::try_new(messenger, model_in)
+            .await?
+            .into_delta(input, output);
+
+        Ok(ScalarUDF {
+            name: name.to_snake_case(),
+            signature: Signature {
+                type_signature: TypeSignature::Exact(inputs),
+                volatility: Volatility::Immutable,
+            },
+            return_type: {
+                let return_type = Arc::new(outputs);
+                Arc::new(move |_| Ok(Arc::clone(&return_type)))
+            },
+            fun: Arc::new(move |inputs| {
+                debug!("Calling function: {info}");
+
+                let (tx, rx) = oneshot::channel();
+
+                let function = function.clone();
+                let inputs = inputs.to_vec();
+                spawn(async move {
+                    let result = function.call(&inputs).await;
+                    let _ = tx.send(result);
+                });
+
+                block_on(rx)
+                    .map_err(|error| DataFusionError::External(error.into()))
+                    .and_then(|result| {
+                        result.map_err(|error| DataFusionError::External(error.into()))
+                    })
+            }),
         })
     }
 }
 
-impl From<DashFunction> for ScalarUDF {
-    fn from(value: DashFunction) -> Self {
-        Self {
-            name: value.name.to_snake_case(),
-            signature: Signature {
-                type_signature: TypeSignature::Exact(vec![value.input]),
-                volatility: Volatility::Immutable,
-            },
-            return_type: {
-                let return_type = Arc::new(value.output);
-                Arc::new(move |_| Ok(Arc::clone(&return_type)))
-            },
-            fun: Arc::new(execute),
-        }
-    }
-}
+impl fmt::Display for DashFunctionTemplate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            name,
+            model_in: _,
+            input,
+            output: _,
+        } = self;
 
-fn execute(args: &[ColumnarValue]) -> Result<ColumnarValue, DataFusionError> {
-    println!("{args:#?}");
-    // todo!()
-    Ok(ColumnarValue::Array(Arc::new(
-        ::dash_pipe_provider::deltalake::arrow::array::StructArray::new(
-            args.iter()
-                .enumerate()
-                .map(|(index, arg)| Field::new(format!("arg{index}"), arg.data_type(), false))
-                .collect::<Vec<_>>()
-                .into(),
-            args.iter().map(|arg| arg.clone().into_array(1)).collect(),
-            None,
-        ),
-    )))
+        write!(f, "{name}(")?;
+        for (index, name) in input.fields().iter().map(|field| field.name()).enumerate() {
+            if index > 0 {
+                write!(f, ", ")?;
+            }
+            name.fmt(f)?;
+        }
+        write!(f, ")")
+    }
 }

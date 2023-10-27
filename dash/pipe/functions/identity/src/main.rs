@@ -4,46 +4,51 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
-    storage::StorageIO, PipeArgs, PipeMessage, PipeMessages, PipePayload, TaskContext,
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 fn main() {
-    PipeArgs::<Task>::from_env().loop_forever()
+    PipeArgs::<Function>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct TaskArgs {
+pub struct FunctionArgs {
     #[arg(long, env = "PIPE_IDENTITY_WRITE_TO_PERSISTENT_STORAGE", action = ArgAction::SetTrue)]
     #[serde(default)]
     write_to_persistent_storage: Option<bool>,
 }
 
-pub struct Task {
-    args: TaskArgs,
+pub struct Function {
+    args: FunctionArgs,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Task for Task {
-    type Args = TaskArgs;
-    type Input = Value;
-    type Output = Value;
+impl ::dash_pipe_provider::FunctionBuilder for Function {
+    type Args = FunctionArgs;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Task>::Args,
-        ctx: &mut TaskContext,
+        args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
+        ctx: &mut FunctionContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         ctx.disable_load();
+        ctx.disable_store();
 
         Ok(Self { args: args.clone() })
     }
+}
+
+#[async_trait(?Send)]
+impl ::dash_pipe_provider::Function for Function {
+    type Input = Value;
+    type Output = Value;
 
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
+        inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         match self.args.write_to_persistent_storage {
             Some(true) => Ok(match inputs {
                 PipeMessages::None => PipeMessages::None,

@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{
-    storage::StorageIO, PipeArgs, PipeMessage, PipeMessages, PipePayload, TaskContext,
+    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use image::{codecs, RgbImage};
 use opencv::{
@@ -15,11 +15,11 @@ use opencv::{
 use serde::{Deserialize, Serialize};
 
 fn main() {
-    PipeArgs::<Task>::from_env().loop_forever()
+    PipeArgs::<Function>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct TaskArgs {
+pub struct FunctionArgs {
     #[arg(long, env = "PIPE_WEBCAM_CAMERA_DEVICE", value_name = "PATH")]
     camera_device: String,
 
@@ -66,30 +66,28 @@ impl CameraEncoder {
     }
 }
 
-pub struct Task {
+pub struct Function {
     camera_encoder: CameraEncoder,
     capture: VideoCapture,
-    ctx: TaskContext,
+    ctx: FunctionContext,
     frame: Mat,
     frame_counter: FrameCounter,
     frame_size: FrameSize,
     params: Vector<i32>,
 }
 
-pub type TaskOutput = ::dash_openapi::image::Image;
+pub type FunctionOutput = ::dash_openapi::image::Image;
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Task for Task {
-    type Args = TaskArgs;
-    type Input = ();
-    type Output = TaskOutput;
+impl ::dash_pipe_provider::FunctionBuilder for Function {
+    type Args = FunctionArgs;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Task>::Args,
-        ctx: &mut TaskContext,
+        args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
+        ctx: &mut FunctionContext,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
-        let TaskArgs {
+        let FunctionArgs {
             camera_device,
             camera_encoder,
         } = args.clone();
@@ -113,11 +111,17 @@ impl ::dash_pipe_provider::Task for Task {
             params: Default::default(),
         })
     }
+}
+
+#[async_trait(?Send)]
+impl ::dash_pipe_provider::Function for Function {
+    type Input = ();
+    type Output = ::dash_openapi::image::Image;
 
     async fn tick(
         &mut self,
-        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
+        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         let (frame, (width, height)) = match self.capture.read(&mut self.frame) {
             Ok(true) => {
                 match self.camera_encoder {
@@ -189,7 +193,7 @@ impl ::dash_pipe_provider::Task for Task {
             ),
             frame,
         )];
-        let value = TaskOutput {
+        let value = FunctionOutput {
             width,
             height,
             index: frame_idx,

@@ -9,7 +9,7 @@ use byte_unit::Byte;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
-    MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload, TaskContext,
+    FunctionContext, MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,11 +17,11 @@ use tokio::spawn;
 use tracing::info;
 
 fn main() {
-    PipeArgs::<Task>::from_env().loop_forever()
+    PipeArgs::<Function>::from_env().loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct TaskArgs {
+pub struct FunctionArgs {
     #[arg(long, env = "PIPE_PERFORMANCE_TEST_DATA_SIZE", value_name = "SIZE")]
     data_size: Byte,
 
@@ -40,8 +40,8 @@ pub struct TaskArgs {
     total_messages: Byte,
 }
 
-pub struct Task {
-    ctx: TaskContext,
+pub struct Function {
+    ctx: FunctionContext,
     metric: MetricData,
     next_stdout: Duration,
     storage: Arc<StorageSet>,
@@ -50,19 +50,17 @@ pub struct Task {
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Task for Task {
-    type Args = TaskArgs;
-    type Input = Metric;
-    type Output = Metric;
+impl ::dash_pipe_provider::FunctionBuilder for Function {
+    type Args = FunctionArgs;
 
     async fn try_new(
-        TaskArgs {
+        FunctionArgs {
             data_size,
             payload_size,
             quiet,
             total_messages,
-        }: &<Self as ::dash_pipe_provider::Task>::Args,
-        ctx: &mut TaskContext,
+        }: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
+        ctx: &mut FunctionContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let metric = MetricData {
@@ -106,11 +104,17 @@ impl ::dash_pipe_provider::Task for Task {
             verbose,
         })
     }
+}
+
+#[async_trait(?Send)]
+impl ::dash_pipe_provider::Function for Function {
+    type Input = Metric;
+    type Output = Metric;
 
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
+        inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         let elapsed = self.elapsed();
 
         let outputs = match inputs {
@@ -144,7 +148,7 @@ impl ::dash_pipe_provider::Task for Task {
     }
 }
 
-impl Task {
+impl Function {
     const TICK: Duration = Duration::from_secs(1);
 
     fn elapsed(&mut self) -> Duration {
@@ -154,7 +158,7 @@ impl Task {
         self.timestamp.unwrap().elapsed()
     }
 
-    fn create_packet(&self) -> PipeMessage<<Self as ::dash_pipe_provider::Task>::Output> {
+    fn create_packet(&self) -> PipeMessage<<Self as ::dash_pipe_provider::Function>::Output> {
         PipeMessage::new(self.create_payload(), self.create_value())
     }
 
@@ -165,7 +169,7 @@ impl Task {
         }
     }
 
-    fn create_value(&self) -> <Self as ::dash_pipe_provider::Task>::Output {
+    fn create_value(&self) -> <Self as ::dash_pipe_provider::Function>::Output {
         Metric {
             data: Default::default(),
             value: create_data(self.metric.data_size),
@@ -239,7 +243,7 @@ impl MetricData {
 
     fn update_bytes_counter(
         &mut self,
-        message: &PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>,
+        message: &PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>,
     ) {
         let bytes = message.value.value.len() as u128;
         self.num_sent_bytes += bytes;
@@ -256,7 +260,7 @@ impl MetricData {
 
     fn update_bytes_counter_one(
         &mut self,
-        message: &PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>,
+        message: &PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>,
     ) {
         let sent = 1;
         self.num_sent += sent;
@@ -267,7 +271,7 @@ impl MetricData {
 
     fn update_bytes_counter_batch(
         &mut self,
-        messages: &[PipeMessage<<Task as ::dash_pipe_provider::Task>::Input>],
+        messages: &[PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>],
     ) {
         let sent = messages.len() as u128;
         self.num_sent += sent;

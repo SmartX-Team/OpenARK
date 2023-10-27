@@ -5,6 +5,6 @@ metadata:
   name: sleep
   namespace: default
   labels:
-    dash.ulagbulag.io/target-function: sleep
+    dash.ulagbulag.io/target-task: sleep
 spec:
-  function: sleep
+  task: sleep

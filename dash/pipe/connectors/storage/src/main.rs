@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
     storage::{MetadataStorageExt, StorageIO, Stream},
-    DefaultModelIn, PipeArgs, PipeMessage, PipeMessages, TaskContext,
+    DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
 };
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -13,41 +13,40 @@ use serde_json::Value;
 use tokio::time::{sleep, Instant};
 
 fn main() {
-    PipeArgs::<Task>::from_env()
+    PipeArgs::<Function>::from_env()
         .with_default_model_in(DefaultModelIn::ModelOut)
         .loop_forever()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct TaskArgs {
+pub struct FunctionArgs {
     #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS")]
     #[serde(default)]
     interval_ms: Option<u64>,
 }
 
-pub struct Task {
-    args: TaskArgs,
-    ctx: TaskContext,
+pub struct Function {
+    args: FunctionArgs,
+    ctx: FunctionContext,
     instant: Instant,
     items: Stream<PipeMessage<Value>>,
     iteration: RangeInclusive<u64>,
 }
 
 #[async_trait(?Send)]
-impl ::dash_pipe_provider::Task for Task {
-    type Args = TaskArgs;
-    type Input = Value;
-    type Output = Value;
+impl ::dash_pipe_provider::FunctionBuilder for Function {
+    type Args = FunctionArgs;
 
     async fn try_new(
-        args: &<Self as ::dash_pipe_provider::Task>::Args,
-        ctx: &mut TaskContext,
+        args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
+        ctx: &mut FunctionContext,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self {
             args: args.clone(),
             ctx: {
                 ctx.disable_load();
+                ctx.disable_store();
                 ctx.disable_store_metadata();
                 ctx.clone()
             },
@@ -56,11 +55,17 @@ impl ::dash_pipe_provider::Task for Task {
             iteration: 0..=u64::MAX,
         })
     }
+}
+
+#[async_trait(?Send)]
+impl ::dash_pipe_provider::Function for Function {
+    type Input = Value;
+    type Output = Value;
 
     async fn tick(
         &mut self,
-        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Task>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Task>::Output>> {
+        _inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
+    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
         // wait for fit interval
         if let Some(delay) = self.args.interval_ms.and_then(|interval_ms| {
             self.iteration

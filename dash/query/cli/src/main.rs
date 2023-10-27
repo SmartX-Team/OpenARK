@@ -34,8 +34,8 @@ async fn try_main() -> Result<()> {
     let QueryArgs { client, sql } = QueryArgs::parse();
     let client = QueryClient::try_new(&client).await?;
 
-    let tables = client.list_table_names();
-    let table_sample = match tables.first() {
+    let mut tables = client.list_table_names();
+    let table_sample = match tables.next() {
         Some(table) => table.clone(),
         None => bail!("None of the tables are detected!"),
     };
