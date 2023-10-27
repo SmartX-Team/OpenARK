@@ -56,7 +56,7 @@ pub trait Publisher
 where
     Self: Send + Sync,
 {
-    async fn reply_one(&self, data: Bytes, reply: Name) -> Result<()>;
+    async fn reply_one(&self, data: Bytes, reply: String) -> Result<()>;
 
     async fn request_one(&self, data: Bytes) -> Result<Bytes>;
 

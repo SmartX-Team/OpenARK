@@ -109,7 +109,7 @@ where
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
     timestamp: DateTime<Utc>,
-    reply: Option<Name>,
+    reply: Option<String>,
     value: DynValue,
 }
 
@@ -155,7 +155,12 @@ impl From<PyPipeMessage> for PipeMessage {
 #[::pyo3::pymethods]
 impl PyPipeMessage {
     #[new]
-    fn new(payloads: Vec<(String, Option<Vec<u8>>)>, value: &::pyo3::PyAny) -> Self {
+    #[pyo3(signature = (payloads, value, reply = None))]
+    fn new(
+        payloads: Vec<(String, Option<Vec<u8>>)>,
+        value: &::pyo3::PyAny,
+        reply: Option<String>,
+    ) -> ::pyo3::PyResult<Self> {
         fn value_to_native(value: &::pyo3::PyAny) -> DynValue {
             if value.is_none() {
                 DynValue::Null
@@ -190,17 +195,17 @@ impl PyPipeMessage {
             }
         }
 
-        Self {
+        Ok(Self {
             payloads: payloads
                 .into_iter()
                 .map(|(key, value)| {
                     PipePayload::new(key, value.map(Into::into).unwrap_or_default())
                 })
                 .collect(),
-            reply: None,
+            reply,
             timestamp: Utc::now(),
             value: value_to_native(value),
-        }
+        })
     }
 
     #[getter]
@@ -216,6 +221,11 @@ impl PyPipeMessage {
                  }| { (key.as_str(), value as &[u8]) },
             )
             .collect()
+    }
+
+    #[getter]
+    fn get_reply(&self) -> Option<&str> {
+        self.reply.as_deref()
     }
 
     #[getter]
@@ -286,7 +296,7 @@ where
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
     #[serde(skip)]
-    pub reply: Option<Name>,
+    pub reply: Option<String>,
     timestamp: DateTime<Utc>,
     #[serde(default)]
     pub value: Value,
@@ -363,7 +373,7 @@ where
         }
     }
 
-    pub(crate) fn with_reply(mut self, reply: Option<Name>) -> Self {
+    pub(crate) fn with_reply(mut self, reply: Option<String>) -> Self {
         self.reply = reply;
         self
     }

@@ -63,7 +63,7 @@ pub struct Publisher {
 
 #[async_trait]
 impl super::Publisher for Publisher {
-    async fn reply_one(&self, _data: Bytes, _reply: Name) -> Result<()> {
+    async fn reply_one(&self, _data: Bytes, _reply: String) -> Result<()> {
         bail!("cannot reply with Kafka")
     }
 

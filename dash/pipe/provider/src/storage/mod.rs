@@ -29,7 +29,6 @@ pub struct StorageIO {
 
 impl StorageIO {
     pub(crate) async fn flush(&self) -> Result<()> {
-        self.input.flush().await?;
         self.output.flush().await?;
         Ok(())
     }
