@@ -120,6 +120,8 @@ for env_key in $(
 ); do
     if [ "x${env_key}" = 'x' ]; then
         continue
+    elif [ "x${env_key}" = 'xHOME' ]; then
+        continue
     elif echo "x${env_key}" | grep -q '^USER_'; then
         continue
     fi
