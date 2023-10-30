@@ -3,10 +3,11 @@ use dash_api::{
     model::{
         ModelFieldKindExtendedSpec, ModelFieldKindSpec, ModelFieldSpec, ModelFieldsNativeSpec,
     },
-    pipe::PipeSpec,
+    pipe::{PipeExec, PipeSpec},
 };
 use dash_provider::storage::KubernetesStorageClient;
 use kube::Client;
+use straw_api::pipe::StrawPipe;
 
 use super::model::ModelValidator;
 
@@ -33,11 +34,28 @@ impl<'namespace, 'kube> PipeValidator<'namespace, 'kube> {
                 .await
         };
 
-        let PipeSpec { input, output } = spec;
+        let PipeSpec {
+            input,
+            output,
+            exec,
+        } = spec;
 
         Ok(PipeSpec {
-            input: validate_model(input).await?,
-            output: validate_model(output).await?,
+            input: validate_model(input.into()).await?,
+            output: validate_model(output.into()).await?,
+            exec: self.validate_exec(exec).await?,
         })
+    }
+
+    async fn validate_exec(&self, exec: PipeExec) -> Result<PipeExec> {
+        match exec {
+            PipeExec::Placeholder {} => Ok(exec),
+            PipeExec::Straw(exec) => self.validate_exec_straw(exec).await.map(PipeExec::Straw),
+        }
+    }
+
+    async fn validate_exec_straw(&self, exec: StrawPipe) -> Result<StrawPipe> {
+        // TODO: to be implemented!
+        Ok(exec)
     }
 }

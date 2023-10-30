@@ -4,6 +4,7 @@ pub mod schema;
 use std::{collections::HashMap, io::Cursor, ops, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
+use ark_core_k8s::data::Name;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use deltalake::{
@@ -20,7 +21,7 @@ use serde_json::json;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
 
-use crate::message::{Name, PipeMessage};
+use crate::message::PipeMessage;
 
 use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
@@ -123,7 +124,7 @@ impl<Value> super::MetadataStorageMut<Value> for MaybeStorageTable {
 
 pub struct StorageTable {
     ctx: StorageContext,
-    model: Name,
+    model: String,
     table: Arc<DeltaTable>,
     writer: Option<JsonWriter>,
 }
@@ -283,9 +284,9 @@ impl StorageContext {
             region,
             secret_key,
         }: super::StorageS3Args,
-        model: &Name,
+        model: &str,
         fields: Option<RootSchema>,
-    ) -> Result<(Name, Arc<DeltaTable>, bool)> {
+    ) -> Result<(String, Arc<DeltaTable>, bool)> {
         let mut table = {
             let allow_http = s3_endpoint.scheme() == "http";
             let table_uri = format!(
@@ -344,12 +345,12 @@ impl StorageContext {
             }
         };
 
-        let model = Name::new(model.to_snake_case());
+        let model = model.to_snake_case();
         let table = Arc::new(table);
 
         if has_inited {
             self.session
-                .register_table(model.as_str(), table.clone())
+                .register_table(&model, table.clone())
                 .map_err(|error| anyhow!("failed to load DeltaLake metadata session: {error}"))?;
         }
 

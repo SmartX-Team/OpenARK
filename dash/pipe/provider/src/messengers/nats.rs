@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, bail, Result};
+use ark_core_k8s::data::Name;
 use async_nats::{Client, ServerAddr, ToServerAddrs};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -9,7 +10,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use tracing::debug;
 
-use crate::message::{Name, PipeMessage};
+use crate::message::PipeMessage;
 
 pub struct Messenger {
     client: Arc<Client>,

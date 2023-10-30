@@ -47,7 +47,7 @@ pub struct QueryClientArgs {
 #[derive(Clone)]
 pub struct QueryClient {
     ctx: StorageContext,
-    tables: BTreeMap<Name, Arc<DeltaTable>>,
+    tables: BTreeMap<String, Arc<DeltaTable>>,
 }
 
 impl QueryClient {
@@ -93,7 +93,7 @@ impl QueryClient {
         Ok(Self { ctx, tables })
     }
 
-    pub fn list_table_names(&self) -> Keys<'_, Name, Arc<DeltaTable>> {
+    pub fn list_table_names(&self) -> Keys<'_, String, Arc<DeltaTable>> {
         self.tables.keys()
     }
 
@@ -137,8 +137,15 @@ impl QueryClient {
 async fn load_models<'a>(
     kube: &'a Client,
     namespace: &'a str,
-) -> Result<impl Iterator<Item = (Name, Name, impl Future<Output = Result<StorageS3Args>> + 'a)> + 'a>
-{
+) -> Result<
+    impl Iterator<
+            Item = (
+                String,
+                String,
+                impl Future<Output = Result<StorageS3Args>> + 'a,
+            ),
+        > + 'a,
+> {
     let api = Api::<ModelStorageBindingCrd>::namespaced(kube.clone(), namespace);
     let lp = ListParams::default();
     let bindings = api.list(&lp).await?.items;
@@ -151,8 +158,8 @@ async fn load_models<'a>(
             (model_name, storage_name)
         })
         .filter_map(move |binding| {
-            let model_name: Name = binding.spec.model.parse().ok()?;
-            let storage_name: Name = binding.spec.storage.target().parse().ok()?;
+            let model_name = binding.spec.model;
+            let storage_name = binding.spec.storage.target().clone();
 
             let status = binding.status?;
             if !matches!(status.state, ModelStorageBindingState::Ready) {
@@ -196,11 +203,11 @@ async fn load_models<'a>(
 
 async fn load_functions(
     kube: &Client,
-    tables: &BTreeMap<Name, Arc<DeltaTable>>,
+    tables: &BTreeMap<String, Arc<DeltaTable>>,
     namespace: &str,
 ) -> Result<Vec<self::function::DashFunctionTemplate>> {
     async fn get_model_schema(
-        tables: &BTreeMap<Name, Arc<DeltaTable>>,
+        tables: &BTreeMap<String, Arc<DeltaTable>>,
         name: &str,
     ) -> Result<Arc<Schema>> {
         match tables.get(&name.to_snake_case()) {
@@ -228,16 +235,16 @@ async fn load_functions(
         let PipeSpec {
             input: model_in,
             output: model_out,
+            exec: _,
         } = function.spec;
 
-        let model_in: Name = model_in.parse().ok()?;
-        let model_out: Name = model_out.parse().ok()?;
-
         Some(async move {
-            let input = get_model_schema(tables, &model_in).await?;
-            let output = get_model_schema(tables, &model_out).await?;
-
-            self::function::DashFunctionTemplate::new(name, model_in, input, output)
+            let spec = PipeSpec {
+                input: get_model_schema(tables, &model_in).await?,
+                output: get_model_schema(tables, &model_out).await?,
+                exec: (),
+            };
+            self::function::DashFunctionTemplate::new(name, model_in, spec)
         })
     }))
     .await

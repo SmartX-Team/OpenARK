@@ -6,6 +6,7 @@ mod nats;
 use std::sync::Arc;
 
 use anyhow::Result;
+use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use bytes::Bytes;
 use clap::Parser;
@@ -14,7 +15,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
 use tracing::debug;
 
-use crate::message::{Name, PipeMessage};
+use crate::message::PipeMessage;
 
 pub async fn init_messenger<Value>(
     args: &MessengerArgs,

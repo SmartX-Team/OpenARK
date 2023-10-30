@@ -6,5 +6,5 @@ pub mod storage;
 pub mod task;
 
 pub mod consts {
-    pub use ::vine_api::consts::NAMESPACE;
+    pub const NAMESPACE: &str = "dash";
 }

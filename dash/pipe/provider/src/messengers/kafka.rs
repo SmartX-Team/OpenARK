@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
+use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use bytes::Bytes;
 use clap::Parser;
@@ -13,7 +14,7 @@ use rdkafka::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::debug;
 
-use crate::message::{Name, PipeMessage};
+use crate::message::PipeMessage;
 
 pub struct Messenger {
     config: ClientConfig,

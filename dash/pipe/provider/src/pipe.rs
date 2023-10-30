@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use ark_core_k8s::data::Name;
 use clap::{ArgAction, Parser};
 use futures::Future;
 use schemars::JsonSchema;
@@ -24,7 +25,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     function::{Function, FunctionBuilder, FunctionContext},
-    message::{Name, PipeMessages},
+    message::PipeMessages,
     messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,

@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error, Result};
+use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use clap::Args;
 use futures::future::try_join_all;
@@ -16,7 +17,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use tracing::info;
 
 use crate::{
-    message::{Name, PipeMessages},
+    message::PipeMessages,
     messengers::{Messenger, MessengerType, Publisher},
     storage::StorageIO,
 };

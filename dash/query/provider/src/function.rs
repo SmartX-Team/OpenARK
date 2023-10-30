@@ -1,6 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use anyhow::Result;
+use dash_api::pipe::PipeSpec;
 use dash_pipe_provider::{
     deltalake::{
         arrow::datatypes::{DataType, Schema},
@@ -21,22 +22,15 @@ use tracing::debug;
 pub(crate) struct DashFunctionTemplate {
     name: Name,
     model_in: Name,
-    input: Arc<Schema>,
-    output: Arc<Schema>,
+    spec: RemotePipeSpec,
 }
 
 impl DashFunctionTemplate {
-    pub(crate) fn new(
-        name: Name,
-        model_in: Name,
-        input: Arc<Schema>,
-        output: Arc<Schema>,
-    ) -> Result<Self> {
+    pub(crate) fn new(name: Name, model_in: Name, spec: RemotePipeSpec) -> Result<Self> {
         Ok(Self {
             name,
             model_in,
-            input,
-            output,
+            spec,
         })
     }
 
@@ -46,8 +40,12 @@ impl DashFunctionTemplate {
         let Self {
             name,
             model_in,
-            input: input_schema,
-            output: output_schema,
+            spec:
+                PipeSpec {
+                    input: input_schema,
+                    output: output_schema,
+                    exec: (),
+                },
         } = self;
 
         let input = DataType::Struct(input_schema.fields().clone());
@@ -102,8 +100,12 @@ impl fmt::Display for DashFunctionTemplate {
         let Self {
             name,
             model_in: _,
-            input,
-            output: _,
+            spec:
+                PipeSpec {
+                    input,
+                    output: _,
+                    exec: _,
+                },
         } = self;
 
         write!(f, "{name}(")?;
@@ -116,3 +118,5 @@ impl fmt::Display for DashFunctionTemplate {
         write!(f, ")")
     }
 }
+
+type RemotePipeSpec = PipeSpec<Arc<Schema>, ()>;

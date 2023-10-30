@@ -1,6 +1,5 @@
-use std::{cmp::Ordering, ops::Deref, str::FromStr};
-
 use anyhow::{bail, Result};
+use ark_core_k8s::data::Url;
 use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -148,50 +147,4 @@ pub enum UserAuthError {
     NamespaceTokenMalformed,
     PrimaryKeyMalformed,
     UserNotRegistered,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Url(pub ::url::Url);
-
-impl FromStr for Url {
-    type Err = <::url::Url as FromStr>::Err;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        <::url::Url as FromStr>::from_str(s).map(Self)
-    }
-}
-
-impl Deref for Url {
-    type Target = ::url::Url;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl PartialOrd for Url {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(<Self as Ord>::cmp(self, other))
-    }
-}
-
-impl Ord for Url {
-    fn cmp(&self, other: &Self) -> Ordering {
-        <str as Ord>::cmp(self.0.as_str(), other.0.as_str())
-    }
-}
-
-impl JsonSchema for Url {
-    fn is_referenceable() -> bool {
-        false
-    }
-
-    fn schema_name() -> String {
-        "Url".into()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
-    }
 }

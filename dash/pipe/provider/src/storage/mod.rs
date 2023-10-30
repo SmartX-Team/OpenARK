@@ -6,6 +6,7 @@ pub mod s3;
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use anyhow::{anyhow, Result};
+use ark_core_k8s::data::Name;
 use async_stream::try_stream;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -17,10 +18,7 @@ use strum::{Display, EnumString};
 use tracing::debug;
 use url::Url;
 
-use crate::{
-    function::FunctionContext,
-    message::{Name, PipeMessage},
-};
+use crate::{function::FunctionContext, message::PipeMessage};
 
 pub struct StorageIO {
     pub input: Arc<StorageSet>,

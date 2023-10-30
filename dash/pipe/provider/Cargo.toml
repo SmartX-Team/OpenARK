@@ -36,6 +36,7 @@ s3 = ["chrono", "minio"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core" }
+ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
 dash-api = { path = "../../api", optional = true }
 
 anyhow = { workspace = true }
@@ -47,13 +48,7 @@ bytes = { workspace = true }
 chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
-deltalake = { workspace = true, optional = true, features = [
-    "arrow",
-    "datafusion",
-    "json",
-    "parquet",
-    "s3",
-] }
+deltalake = { workspace = true, optional = true, features = ["json", "s3"] }
 futures = { workspace = true }
 gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }
@@ -62,7 +57,6 @@ map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
-regex = { workspace = true }
 rmp-serde = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }

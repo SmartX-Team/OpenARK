@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Error, Result};
+use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::{SecondsFormat, Utc};
@@ -10,8 +11,6 @@ use minio::s3::{
     http::BaseUrl,
 };
 use tracing::debug;
-
-use crate::message::Name;
 
 #[derive(Clone)]
 pub struct Storage {

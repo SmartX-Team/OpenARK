@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, net::Ipv4Addr};
 
+use ark_core_k8s::data::Url;
 use k8s_openapi::{
     api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use vine_api::user_auth::Url;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

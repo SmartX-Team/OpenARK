@@ -1,7 +1,9 @@
+use ark_core_k8s::data::Name;
 use chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use straw_api::pipe::StrawPipe;
 use strum::{Display, EnumString};
 
 use crate::model::ModelFieldsNativeSpec;
@@ -35,9 +37,24 @@ use crate::model::ModelFieldsNativeSpec;
     }"#
 )]
 #[serde(rename_all = "camelCase")]
-pub struct PipeSpec<Spec = String> {
+pub struct PipeSpec<Spec = Name, Exec = PipeExec> {
     pub input: Spec,
     pub output: Spec,
+    #[serde(default, flatten)]
+    pub exec: Exec,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum PipeExec {
+    Placeholder {},
+    Straw(StrawPipe),
+}
+
+impl Default for PipeExec {
+    fn default() -> Self {
+        Self::Placeholder {}
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

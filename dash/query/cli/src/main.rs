@@ -2,7 +2,7 @@ use std::{cell::RefCell, process::exit};
 
 use anyhow::{anyhow, bail, Result};
 use clap::{ArgAction, Parser};
-use dash_query_provider::{Name, QueryClient, QueryClientArgs};
+use dash_query_provider::{QueryClient, QueryClientArgs};
 use futures::TryStreamExt;
 use inquire::{autocompletion::Replacement, Autocomplete, CustomUserError, Text};
 use serde_json::Value;
@@ -49,7 +49,7 @@ async fn try_main() -> Result<()> {
     }
 }
 
-async fn try_main_interactive(client: QueryClient, table_sample: Name) {
+async fn try_main_interactive(client: QueryClient, table_sample: String) {
     #[derive(Clone, Default)]
     struct History(RefCell<Vec<String>>);
 
