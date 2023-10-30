@@ -52,10 +52,13 @@ oci-build:
     .
 
 oci-build-devel:
-  docker build \
+  docker buildx build \
     --file './Dockerfile.devel' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --platform "linux/amd64" \
+    --pull \
+    --push \
     .
 
 oci-build-full:
@@ -71,7 +74,6 @@ oci-build-full:
 oci-push: oci-build
 
 oci-push-devel: oci-build-devel
-  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel"
 
 oci-push-full: oci-build-full
 

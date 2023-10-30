@@ -112,6 +112,12 @@ spec:
         - name: session
           image: quay.io/ulagbulag/openark:latest-devel
           imagePullPolicy: Always
+          env:
+            # FIXME: change your own style!
+            # - name: USER_PASSWORD
+            #   value: my-ssh-password!
+            - name: USER_SHELL
+              value: /bin/bash
           ports:
             - name: ssh
               protocol: TCP

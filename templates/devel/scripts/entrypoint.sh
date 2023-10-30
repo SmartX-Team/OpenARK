@@ -14,6 +14,8 @@ set -x
 
 # Configure environment variables
 USER_HOME="/home/user"
+USER_NAME="${USER_HOME##*/}"
+USER_ID="$(id -u "${USER_NAME}")"
 
 ###########################################################
 #   SSH Configuration                                     #
@@ -25,7 +27,7 @@ if [ ! -d "/run/sshd" ]; then
 fi
 
 # Change user home directory permissions
-chown 'user:users' "${USER_HOME}"
+chown "${USER_NAME}:${USER_NAME}" "${USER_HOME}"
 
 # Generate Host SSH keys
 if [ ! -f "/etc/ssh/ssh_host_ed25519_key.pub" ]; then
@@ -36,7 +38,24 @@ rm -rf /etc/.ssh
 
 # Generate User SSH keys
 if [ ! -f "${USER_HOME}/.ssh/id_ed25519" ]; then
-    su user -c "ssh-keygen -q -t ed25519 -f '${USER_HOME}/.ssh/id_ed25519' -N ''"
+    su "${USER_NAME}" -c "ssh-keygen -q -t ed25519 -f '${USER_HOME}/.ssh/id_ed25519' -N ''"
+fi
+
+###########################################################
+#   Create User Password                                  #
+###########################################################
+
+if [ "x${USER_PASSWORD}" != 'x' ]; then
+    echo -e "${USER_PASSWORD}\n${USER_PASSWORD}\n" |
+        sudo passwd "${USER_NAME}"
+fi
+
+###########################################################
+#   Change User Shell                                     #
+###########################################################
+
+if [ "x${USER_SHELL}" != 'x' ]; then
+    chsh --shell "${USER_SHELL}" "${USER_NAME}"
 fi
 
 ###########################################################
@@ -45,13 +64,13 @@ fi
 
 if which podman; then
     if [ ! -d "${USER_HOME}/.config/containers" ]; then
-        su user -c "mkdir -p '${USER_HOME}/.config/containers'"
-        su user -c "rm -rf '${USER_HOME}/.config/containers/containers.conf'"
-        su user -c "cp /etc/containers/podman-containers.conf '${USER_HOME}/.config/containers/containers.conf'"
+        su "${USER_NAME}" -c "mkdir -p '${USER_HOME}/.config/containers'"
+        su "${USER_NAME}" -c "rm -rf '${USER_HOME}/.config/containers/containers.conf'"
+        su "${USER_NAME}" -c "cp /etc/containers/podman-containers.conf '${USER_HOME}/.config/containers/containers.conf'"
     fi
 
     # Initialize rootless podman
-    su user -c "podman system migrate"
+    su "${USER_NAME}" -c "podman system migrate"
 
     # Generate a CDI specification that refers to all NVIDIA devices
     if [ ! -f "/etc/cdi/nvidia.json" ]; then
@@ -69,6 +88,50 @@ fi
 if [ -f "${USER_HOME}/.hosts" ]; then
     cat "${USER_HOME}/.hosts" >>/etc/hosts
 fi
+
+###########################################################
+#   Run Docker Daemon                                     #
+###########################################################
+
+export XDG_RUNTIME_DIR="/run/user/${USER_ID}"
+mkdir -p "${XDG_RUNTIME_DIR}"
+chown "${USER_NAME}:${USER_NAME}" "${XDG_RUNTIME_DIR}"
+
+export DOCKER_BIN="${USER_HOME}/.local/bin"
+export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
+export PATH="${DOCKER_BIN}:${PATH}"
+export SKIP_IPTABLES="1"
+
+# Install rootless docker
+if [ ! -d "${DOCKER_BIN}" ]; then
+    curl -fsSL 'https://get.docker.com/rootless' | su 'user' -s '/bin/bash'
+fi
+
+# Run rootless docker daemon
+su "${USER_NAME}" -c "env PATH=${PATH} dockerd-rootless.sh" &
+
+###########################################################
+#   Share public environment variables                    #
+###########################################################
+
+for env_key in $(
+    export |
+        grep -Po '^declare \-x \K[a-zA-Z0-9_]+'
+); do
+    if [ "x${env_key}" = 'x' ]; then
+        continue
+    elif echo "x${env_key}" | grep -q '^USER_'; then
+        continue
+    fi
+
+    echo "${env_key}=\"${!env_key}\"" >>/etc/environment
+done
+
+###########################################################
+#   Update ldconfig                                       #
+###########################################################
+
+ldconfig
 
 ###########################################################
 #   Run SSH Server                                        #
