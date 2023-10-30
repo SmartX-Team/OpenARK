@@ -50,23 +50,29 @@ pub mod deltalake {
             &self,
             inputs: &[ColumnarValue],
         ) -> Result<ColumnarValue, DataFusionError> {
-            let num_rows = inputs
-                .iter()
-                .map(|input| match input {
-                    ColumnarValue::Array(array) => array.len(),
-                    ColumnarValue::Scalar(_) => 1,
-                })
-                .max()
-                .unwrap_or_default();
-            if num_rows == 0 {
-                return Err(DataFusionError::External(anyhow!("empty inputs").into()));
-            }
+            let inputs = match inputs.len() {
+                1 => inputs[0].clone().into_array(1),
+                _ => {
+                    let num_rows = inputs
+                        .iter()
+                        .map(|input| match input {
+                            ColumnarValue::Array(array) => array.len(),
+                            ColumnarValue::Scalar(_) => 1,
+                        })
+                        .max()
+                        .unwrap_or_default();
+                    if num_rows == 0 {
+                        return Err(DataFusionError::External(anyhow!("empty inputs").into()));
+                    }
 
-            let arrays: Vec<_> = inputs
-                .iter()
-                .map(|input| input.clone().into_array(num_rows))
-                .collect();
-            let inputs = StructArray::new(self.input.fields().clone(), arrays, None);
+                    let arrays: Vec<_> = inputs
+                        .iter()
+                        .map(|input| input.clone().into_array(num_rows))
+                        .collect();
+
+                    Arc::new(StructArray::new(self.input.fields().clone(), arrays, None))
+                }
+            };
             let num_rows = inputs.len();
 
             let mut decoder = ReaderBuilder::new(self.output.clone()).build_decoder()?;

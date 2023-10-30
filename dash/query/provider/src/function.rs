@@ -46,29 +46,33 @@ impl DashFunctionTemplate {
         let Self {
             name,
             model_in,
-            input,
-            output,
+            input: input_schema,
+            output: output_schema,
         } = self;
 
-        let inputs = input
+        let input = DataType::Struct(input_schema.fields().clone());
+        let inputs = input_schema
             .fields()
             .iter()
             .map(|field| field.data_type().clone())
             .collect();
-        let outputs = DataType::Struct(output.fields().clone());
+        let output = DataType::Struct(output_schema.fields().clone());
 
         let function = GenericStatelessRemoteFunction::try_new(messenger, model_in)
             .await?
-            .into_delta(input, output);
+            .into_delta(input_schema, output_schema);
 
         Ok(ScalarUDF {
             name: name.to_snake_case(),
             signature: Signature {
-                type_signature: TypeSignature::Exact(inputs),
+                type_signature: TypeSignature::OneOf(vec![
+                    TypeSignature::Exact(vec![input]),
+                    TypeSignature::Exact(inputs),
+                ]),
                 volatility: Volatility::Immutable,
             },
             return_type: {
-                let return_type = Arc::new(outputs);
+                let return_type = Arc::new(output);
                 Arc::new(move |_| Ok(Arc::clone(&return_type)))
             },
             fun: Arc::new(move |inputs| {
