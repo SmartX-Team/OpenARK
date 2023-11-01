@@ -1,6 +1,9 @@
-use std::{path::PathBuf, sync::Arc};
+mod plugin;
+
+use std::sync::Arc;
 
 use anyhow::{anyhow, Error, Result};
+use ark_core_k8s::data::Url;
 use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
@@ -9,7 +12,7 @@ use dash_pipe_provider::{
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::{fs::File, io::AsyncReadExt};
+use strum::{Display, EnumString};
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -17,8 +20,20 @@ fn main() {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
-    #[arg(short, long, env = "PIPE_PYTHON_SCRIPT", value_name = "PATH")]
-    python_script: PathBuf,
+    #[arg(short, long, env = "PIPE_AI_MODEL", value_name = "URL")]
+    ai_model: Url,
+
+    #[arg(short, long, env = "PIPE_AI_MODEL_KIND", value_name = "KIND")]
+    ai_model_kind: ModelKind,
+}
+
+#[derive(Copy, Clone, Debug, Display, EnumString, Serialize, Deserialize, Parser)]
+pub enum ModelKind {
+    QuestionAnswering,
+    Summarization,
+    TextGeneration,
+    Translation,
+    ZeroShotClassification,
 }
 
 pub struct Function {
@@ -35,26 +50,17 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let FunctionArgs {
-            python_script: file_path,
+            ai_model: model,
+            ai_model_kind: kind,
         } = args;
 
-        let code = {
-            let mut file = File::open(file_path).await?;
-            let mut buf = Default::default();
-            file.read_to_string(&mut buf)
-                .await
-                .map_err(|error| anyhow!("failed to load python script: {error}"))?;
-            buf
-        };
-
-        let file_name = file_path
-            .to_str()
-            .ok_or_else(|| anyhow!("failed to parse python script path"))?;
+        let code = self::plugin::Plugin::new().load_code(model)?;
 
         Ok(Self {
             tick: Python::with_gil(|py| {
-                let module = PyModule::from_code(py, &code, file_name, "__dash_pipe__")?;
-                let tick = module.getattr("tick")?;
+                let module = PyModule::from_code(py, code, "__dash_pipe__.py", "__dash_pipe__")?;
+                let loader = module.getattr("load")?;
+                let tick = loader.call1((model.to_string(), kind.to_string()))?;
                 Ok(tick.into())
             })
             .map_err(|error: Error| anyhow!("failed to init python tick function: {error}"))?,

@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-
 use ark_core_k8s::data::Url;
+use k8s_openapi::api::core::v1::EnvVar;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -15,9 +14,6 @@ pub struct StrawPipe {
 pub struct StrawNode {
     pub name: String,
     #[serde(default)]
-    pub params: StrawParams,
-    #[serde(default)]
-    pub repo: Option<Url>,
+    pub env: Vec<EnvVar>,
+    pub src: Url,
 }
-
-pub type StrawParams = BTreeMap<String, String>;

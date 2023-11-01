@@ -30,7 +30,7 @@ WORKDIR /src
 
 # Build it!
 RUN mkdir /out \
-    # Exclude netai packages
+    # Exclude non-musl packages
     && sed -i 's/^\( *\)\(.*\# *exclude *( *alpine *)\)$/\1# \2/g' ./Cargo.toml \
     # Include target-dependent packages
     && sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' ./Cargo.toml \

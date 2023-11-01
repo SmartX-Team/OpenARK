@@ -53,7 +53,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
-ADD ./netai/solver/requirements.txt /requirements.txt
+ADD ./requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y \
     # Install core dependencies
     curl \

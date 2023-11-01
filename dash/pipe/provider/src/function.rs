@@ -11,7 +11,7 @@ use anyhow::{anyhow, Error, Result};
 use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use clap::Args;
-use futures::future::try_join_all;
+use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::info;
@@ -168,17 +168,22 @@ where
         &self,
         inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
     ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
-        try_join_all(inputs.into_vec().into_iter().map(|input| {
-            let publisher = self.publisher.clone();
-            async move {
-                publisher
-                    .request_one((&input).try_into()?)
-                    .await
-                    .and_then(|outputs| outputs.try_into())
-            }
-        }))
-        .await
-        .map(|outputs| PipeMessages::Batch(outputs))
+        inputs
+            .into_vec()
+            .into_iter()
+            .map(|input| {
+                let publisher = self.publisher.clone();
+                async move {
+                    publisher
+                        .request_one((&input).try_into()?)
+                        .await
+                        .and_then(|outputs| outputs.try_into())
+                }
+            })
+            .collect::<FuturesOrdered<_>>()
+            .try_collect()
+            .await
+            .map(|outputs| PipeMessages::Batch(outputs))
     }
 }
 

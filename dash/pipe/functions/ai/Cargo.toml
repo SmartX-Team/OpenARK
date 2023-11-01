@@ -1,5 +1,5 @@
 [package]
-name = "proxyx-cli"
+name = "dash-pipe-function-ai"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -16,14 +16,19 @@ version = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+straw = ["kube", "straw-api"]
+
 [dependencies]
-proxyx-api = { path = "../api" }
+ark-core-k8s = { path = "../../../../ark/core/k8s", features = ["data"] }
+dash-pipe-provider = { path = "../../provider", features = ["pyo3"] }
+straw-api = { path = "../../../../straw/api", optional = true }
 
 anyhow = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
-
-# TEST
-chatgpt = { workspace = true }
-dash-api = { path = "../../dash/api" }
-regex = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+kube = { workspace = true, optional = true, features = ["client"] }
+pyo3 = { workspace = true, features = ["auto-initialize"] }
+serde = { workspace = true }
 serde_json = { workspace = true }
+strum = { workspace = true }

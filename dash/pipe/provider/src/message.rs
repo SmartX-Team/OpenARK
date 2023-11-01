@@ -4,7 +4,7 @@ use anyhow::{bail, Error, Result};
 use ark_core_k8s::data::Name;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use futures::future::try_join_all;
+use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value as DynValue;
@@ -92,13 +92,13 @@ where
                 .dump_payloads(storage, input_payloads)
                 .await
                 .map(PipeMessages::Single),
-            Self::Batch(values) => try_join_all(
-                values
-                    .into_iter()
-                    .map(|value| value.dump_payloads(storage, input_payloads)),
-            )
-            .await
-            .map(PipeMessages::Batch),
+            Self::Batch(values) => values
+                .into_iter()
+                .map(|value| value.dump_payloads(storage, input_payloads))
+                .collect::<FuturesOrdered<_>>()
+                .try_collect()
+                .await
+                .map(PipeMessages::Batch),
         }
     }
 }
@@ -386,12 +386,13 @@ where
 
     pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
         Ok(PipeMessage {
-            payloads: try_join_all(
-                self.payloads
-                    .into_iter()
-                    .map(|payload| payload.load(storage)),
-            )
-            .await?,
+            payloads: self
+                .payloads
+                .into_iter()
+                .map(|payload| payload.load(storage))
+                .collect::<FuturesOrdered<_>>()
+                .try_collect()
+                .await?,
             reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,
@@ -445,12 +446,13 @@ where
         input_payloads: &HashMap<String, PipePayload<()>>,
     ) -> Result<PipeMessage<Value, ()>> {
         Ok(PipeMessage {
-            payloads: try_join_all(
-                self.payloads
-                    .into_iter()
-                    .map(|payload| payload.dump(storage, input_payloads)),
-            )
-            .await?,
+            payloads: self
+                .payloads
+                .into_iter()
+                .map(|payload| payload.dump(storage, input_payloads))
+                .collect::<FuturesOrdered<_>>()
+                .try_collect()
+                .await?,
             reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,

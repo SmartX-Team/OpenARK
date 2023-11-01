@@ -17,7 +17,7 @@ use dash_api::{
         ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
-use futures::{future::try_join_all, TryFutureExt};
+use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
@@ -379,15 +379,15 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         args.max_keys = Some(LIMIT);
 
         match self.target.list_objects_v2(&args).await {
-            Ok(response) => try_join_all(
-                response
-                    .contents
-                    .into_iter()
-                    .map(|item| async move { self.get(&item.name).await }),
-            )
-            .await
-            .map(|values| values.into_iter().flatten().collect())
-            .map_err(|error| anyhow!("failed to list object ({bucket_name}): {error}")),
+            Ok(response) => response
+                .contents
+                .into_iter()
+                .map(|item| async move { self.get(&item.name).await })
+                .collect::<FuturesUnordered<_>>()
+                .try_collect()
+                .await
+                .map(|values: Vec<_>| values.into_iter().flatten().collect())
+                .map_err(|error| anyhow!("failed to list object ({bucket_name}): {error}")),
             Err(error) => bail!("failed to list object ({bucket_name}): {error}"),
         }
     }

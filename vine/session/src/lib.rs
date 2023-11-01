@@ -6,7 +6,7 @@ use ark_core::env;
 use chrono::Utc;
 use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
-use futures::{future::try_join_all, TryFutureExt};
+use futures::TryFutureExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Node, Pod, PodCondition},
     serde_json::Value,
@@ -320,16 +320,18 @@ impl<'a> SessionExec for SessionRef<'a> {
     where
         Item: Send + Sync + AsRef<str>,
     {
+        use futures::{stream::FuturesUnordered, TryStreamExt};
+
         let api = Api::<UserCrd>::all(kube);
 
-        try_join_all(
-            user_names
-                .iter()
-                .map(|user_name| api.get(user_name.as_ref())),
-        )
-        .await
-        .map(collect_user_sessions)
-        .map_err(Into::into)
+        user_names
+            .iter()
+            .map(|user_name| api.get(user_name.as_ref()))
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await
+            .map(|users: Vec<_>| collect_user_sessions(users))
+            .map_err(Into::into)
     }
 
     async fn exec<I, T>(
@@ -341,7 +343,7 @@ impl<'a> SessionExec for SessionRef<'a> {
         I: Send + Sync + Clone + fmt::Debug + IntoIterator<Item = T>,
         T: Sync + Into<String>,
     {
-        use futures::future::try_join_all;
+        use futures::{stream::FuturesUnordered, TryStreamExt};
         use kube::api::AttachParams;
 
         let api = Api::<Pod>::namespaced(kube, &self.namespace);
@@ -368,21 +370,24 @@ impl<'a> SessionExec for SessionRef<'a> {
                 .unwrap_or_default()
         });
 
-        try_join_all(pods.into_iter().map(|pod| {
-            let api = api.clone();
-            let ap = AttachParams {
-                container: Some("desktop-environment".into()),
-                stdin: false,
-                stdout: true,
-                stderr: true,
-                tty: false,
-                ..Default::default()
-            };
-            let command = command.clone();
-            async move { api.exec(&pod.name_any(), command, &ap).await }
-        }))
-        .await
-        .map_err(Into::into)
+        pods.into_iter()
+            .map(|pod| {
+                let api = api.clone();
+                let ap = AttachParams {
+                    container: Some("desktop-environment".into()),
+                    stdin: false,
+                    stdout: true,
+                    stderr: true,
+                    tty: false,
+                    ..Default::default()
+                };
+                let command = command.clone();
+                async move { api.exec(&pod.name_any(), command, &ap).await }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await
+            .map_err(Into::into)
     }
 }
 

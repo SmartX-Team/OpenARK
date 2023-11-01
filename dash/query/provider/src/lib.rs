@@ -27,7 +27,7 @@ use dash_pipe_provider::{
 };
 use dash_provider::storage::ObjectStorageRef;
 use deltalake::datafusion::prelude::DataFrame;
-use futures::{future::try_join_all, Future};
+use futures::{stream::FuturesUnordered, Future, TryStreamExt};
 use inflector::Inflector;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, Client, ResourceExt};
@@ -224,28 +224,32 @@ async fn load_functions(
     let lp = ListParams::default();
     let functions = api.list(&lp).await?.items;
 
-    try_join_all(functions.into_iter().filter_map(|function| {
-        let name: Name = function.name_any().parse().ok()?;
+    functions
+        .into_iter()
+        .filter_map(|function| {
+            let name: Name = function.name_any().parse().ok()?;
 
-        let status = function.status?;
-        if !matches!(status.state, PipeState::Ready) {
-            return None;
-        }
+            let status = function.status?;
+            if !matches!(status.state, PipeState::Ready) {
+                return None;
+            }
 
-        let PipeSpec {
-            input: model_in,
-            output: model_out,
-            exec: _,
-        } = function.spec;
+            let PipeSpec {
+                input: model_in,
+                output: model_out,
+                exec: _,
+            } = function.spec;
 
-        Some(async move {
-            let spec = PipeSpec {
-                input: get_model_schema(tables, &model_in).await?,
-                output: get_model_schema(tables, &model_out).await?,
-                exec: (),
-            };
-            self::function::DashFunctionTemplate::new(name, model_in, spec)
+            Some(async move {
+                let spec = PipeSpec {
+                    input: get_model_schema(tables, &model_in).await?,
+                    output: get_model_schema(tables, &model_out).await?,
+                    exec: (),
+                };
+                self::function::DashFunctionTemplate::new(name, model_in, spec)
+            })
         })
-    }))
-    .await
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await
 }

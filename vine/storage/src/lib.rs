@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Result};
-use futures::future::try_join_all;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use k8s_openapi::{
     api::core::v1::{
         CSIPersistentVolumeSource, PersistentVolume, PersistentVolumeClaim,
@@ -37,11 +37,11 @@ pub async fn get_or_create_shared_pvcs(
     };
     match api.list(&lp).await {
         Ok(pvcs) => {
-            try_join_all(
-                pvcs.into_iter()
-                    .map(|pvc| clone_pvc(kube, source_namespace, target_namespace, pvc)),
-            )
-            .await
+            pvcs.into_iter()
+                .map(|pvc| clone_pvc(kube, source_namespace, target_namespace, pvc))
+                .collect::<FuturesUnordered<_>>()
+                .try_collect()
+                .await
         }
         Err(error) => {
             bail!("failed to get shared PVCs ({source_namespace} => {target_namespace}): {error}")

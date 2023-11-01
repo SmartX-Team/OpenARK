@@ -14,6 +14,7 @@ members = [
     "dash/pipe/connectors/liveness",
     "dash/pipe/connectors/storage",
     "dash/pipe/connectors/webcam",          # exclude(alpine)
+    "dash/pipe/functions/ai",               # exclude(alpine)
     "dash/pipe/functions/identity",
     "dash/pipe/functions/performance-test",
     "dash/pipe/functions/python",           # exclude(alpine)
@@ -31,15 +32,6 @@ members = [
     "kiss/gateway",
     "kiss/manager",
     "kiss/monitor",
-    "netai/api",
-    "netai/client",
-    "netai/endpoint",          # exclude(alpine)
-    "netai/solver",            # exclude(alpine)
-    "proxyx/api",              # exclude(alpine)
-    "proxyx/cli",              # exclude(alpine)
-    "proxyx/provider/api",     # exclude(alpine)
-    "proxyx/provider/chatgpt", # exclude(alpine)
-    "proxyx/storage/influxdb", # exclude(alpine)
     "straw/api",
     "straw/provider",
     "vine/api",
@@ -84,12 +76,11 @@ base64 = { version = "0.21" }
 byteorder = { version = "1.5" }
 bytes = { version = "1.5" }
 byte-unit = { version = "4.0" }
-chatgpt = { package = "chatgpt_rs", version = "1.2" }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["env", "derive"] }
 csv = { version = "1.3" }
 ctrlc = { version = "3.4" }
-deltalake = { git = "https://github.com/delta-io/delta-rs.git", version = "0.17", default-features = false, features = [
+deltalake = { git = "https://github.com/ulagbulag/delta-rs.git", version = "0.17", default-features = false, features = [
     "arrow",
     "datafusion",
     "parquet",
@@ -97,20 +88,15 @@ deltalake = { git = "https://github.com/delta-io/delta-rs.git", version = "0.17"
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.4" }
-half = { version = "2.3" }
 home = { version = "0.5" }
 http-cache-reqwest = { version = "0.11", features = ["manager-cacache"] }
 image = { version = "0.24", default-features = false }
 inflector = { package = "Inflector", version = "0.11" }
-influxdb2 = { version = "0.4", default-features = false, features = ["rustls"] }
-influxdb2-derive = { version = "0.1" }
-influxdb2-structmap = { version = "0.2" }
 inquire = { version = "0.6" }
 ipnet = { version = "2.9", features = ["schemars", "serde"] }
 itertools = { version = "0.11" }
 k8s-openapi = { version = "0.20", features = ["schemars", "v1_26"] }
 kube = { version = "0.86", default-features = false }
-language-tags = { version = "0.3", features = ["serde"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 mime = { version = "0.3" }
@@ -119,8 +105,6 @@ minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = 
     "rustls-tls",
 ] } # not deployed to crates.io
 map-macro = { version = "0.2" }
-ndarray = { version = "0.15", features = ["serde"] }
-num-traits = { version = "0.2" }
 octocrab = { version = "0.31", default-features = false, features = ["rustls"] }
 opencv = { version = "0.85", default-features = false }
 ordered-float = { version = "4.1", default-features = false, features = [
@@ -129,17 +113,6 @@ ordered-float = { version = "4.1", default-features = false, features = [
     "serde",
     "std",
 ] }
-ort = { version = "1.16", default-features = false, features = [
-    # Common
-    "copy-dylibs",
-    "download-binaries",
-    "half",
-    # "load-dynamic",
-    # NOTE: external providers are supported by python packages in a container
-    "cuda",     # include(x86_64)
-    "tensorrt", # include(x86_64)
-] }
-paste = { version = "1.0" }
 pyo3 = { version = "0.20" }
 rand = { version = "0.8" }
 rdkafka = { version = "0.34", features = ["cmake-build"] }
@@ -152,7 +125,6 @@ reqwest = { version = "0.11", default-features = false, features = [
 reqwest-middleware = { version = "0.2" }
 resolv-conf = { version = "0.7" }
 rmp-serde = { version = "1.1" }
-rust-tokenizers = { package = "rust_tokenizers", version = "8.1" }
 schemars = { version = "0.8", features = ["chrono", "derive", "uuid1"] }
 sea-orm = { version = "0.12", features = [
     "macros",

@@ -20,7 +20,7 @@ CMD [ "/bin/sh" ]
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib"
 
 # Install python dependencies
-ADD ./netai/solver/requirements.txt /requirements.txt
+ADD ./requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y \
     # Install core dependencies
     curl \

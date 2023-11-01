@@ -24,7 +24,7 @@ init-conda:
     -c pytorch -c nvidia \
     autopep8 pip python \
     pytorch torchvision torchaudio pytorch-cuda=11.8
-  pip install -r ./netai/solver/requirements.txt
+  pip install -r ./requirements.txt
 
 fmt:
   cargo fmt --all

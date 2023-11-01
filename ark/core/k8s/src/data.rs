@@ -143,7 +143,7 @@ impl<'de> Deserialize<'de> for Name {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Url(pub ::url::Url);
 
@@ -160,6 +160,18 @@ impl ops::Deref for Url {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl fmt::Debug for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <::url::Url as fmt::Debug>::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Display for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <::url::Url as fmt::Display>::fmt(&self.0, f)
     }
 }
 

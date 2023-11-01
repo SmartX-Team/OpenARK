@@ -3,7 +3,7 @@ use std::env;
 use anyhow::Result;
 use ark_core::tracer;
 use clap::{value_parser, ArgAction, Parser, Subcommand};
-use futures::future::try_join_all;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use serde::{Deserialize, Serialize};
 
@@ -85,22 +85,24 @@ impl Commands {
                 .and_then(show_output),
             Self::LoginBatch(BatchCommandSession { csv }) => {
                 let mut rdr = ::csv::Reader::from_path(csv)?;
-                try_join_all(rdr.deserialize().map(|result| {
-                    let kube = kube.clone();
-                    async move {
-                        match result {
-                            Ok(CommandSession {
-                                box_name,
-                                user_name,
-                            }) => ::vine_rbac::login::execute(&kube, &box_name, &user_name)
-                                .await
-                                .and_then(show_output),
-                            Err(e) => Err(e.into()),
+                rdr.deserialize()
+                    .map(|result| {
+                        let kube = kube.clone();
+                        async move {
+                            match result {
+                                Ok(CommandSession {
+                                    box_name,
+                                    user_name,
+                                }) => ::vine_rbac::login::execute(&kube, &box_name, &user_name)
+                                    .await
+                                    .and_then(show_output),
+                                Err(e) => Err(e.into()),
+                            }
                         }
-                    }
-                }))
-                .await
-                .map(|_| ())
+                    })
+                    .collect::<FuturesUnordered<_>>()
+                    .try_collect()
+                    .await
             }
             Self::Logout(CommandSession {
                 box_name,
@@ -110,22 +112,24 @@ impl Commands {
                 .and_then(show_output),
             Self::LogoutBatch(BatchCommandSession { csv }) => {
                 let mut rdr = ::csv::Reader::from_path(csv)?;
-                try_join_all(rdr.deserialize().map(|result| {
-                    let kube = kube.clone();
-                    async move {
-                        match result {
-                            Ok(CommandSession {
-                                box_name,
-                                user_name,
-                            }) => ::vine_rbac::logout::execute(&kube, &box_name, &user_name)
-                                .await
-                                .and_then(show_output),
-                            Err(e) => Err(e.into()),
+                rdr.deserialize()
+                    .map(|result| {
+                        let kube = kube.clone();
+                        async move {
+                            match result {
+                                Ok(CommandSession {
+                                    box_name,
+                                    user_name,
+                                }) => ::vine_rbac::logout::execute(&kube, &box_name, &user_name)
+                                    .await
+                                    .and_then(show_output),
+                                Err(e) => Err(e.into()),
+                            }
                         }
-                    }
-                }))
-                .await
-                .map(|_| ())
+                    })
+                    .collect::<FuturesUnordered<_>>()
+                    .try_collect()
+                    .await
             }
         }
     }

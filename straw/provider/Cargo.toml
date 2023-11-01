@@ -16,7 +16,21 @@ version = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["ai"]
+ai = ["dash-pipe-function-ai"]
+
 [dependencies]
+dash-pipe-function-ai = { path = "../../dash/pipe/functions/ai", optional = true, features = [
+    "straw",
+] }
 straw-api = { path = "../api" }
 
 anyhow = { workspace = true }
+futures = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }

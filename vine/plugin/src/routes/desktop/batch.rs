@@ -5,7 +5,7 @@ use actix_web::{
 };
 use ark_api::SessionRef;
 use ark_core::result::Result;
-use futures::future::try_join_all;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
 use vine_rbac::auth::AuthUserSession;
@@ -36,12 +36,15 @@ pub async fn post_exec_broadcast(
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
-    let result = try_join_all(sessions.into_iter().map(|session| {
-        let kube = kube.clone();
-        let command = command.clone();
-        async move { session.exec(kube, command).await.map(|_| ()) }
-    }))
-    .await
-    .map(|_| ());
+    let result: ::core::result::Result<(), _> = sessions
+        .into_iter()
+        .map(|session| {
+            let kube = kube.clone();
+            let command = command.clone();
+            async move { session.exec(kube, command).await.map(|_| ()) }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await;
     HttpResponse::from(Result::from(result))
 }

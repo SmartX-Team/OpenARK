@@ -22,6 +22,7 @@ dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
 dash-provider-api = { path = "../provider/api" }
 straw-api = { path = "../../straw/api" }
+straw-provider = { path = "../../straw/provider" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

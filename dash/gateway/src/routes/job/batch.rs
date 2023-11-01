@@ -6,9 +6,10 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder,
 };
 use ark_core::result::Result;
+use dash_api::job::DashJobCrd;
 use dash_provider_api::job::Payload;
 use dash_provider_client::DashProviderClient;
-use futures::future::try_join_all;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use serde_json::Value;
 use vine_api::user_session::UserSessionMetadata;
@@ -26,21 +27,26 @@ pub async fn post(
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
-    let result = try_join_all(values.0.into_iter().map(
-        |Payload {
-             task_name,
-             namespace,
-             value,
-         }| {
-            let kube = kube.clone();
-            let metadata = metadata.clone();
-            async move {
-                let session = metadata.namespaced(namespace).await?;
-                let client = DashProviderClient::new(kube, &session);
-                client.create(&task_name, value).await
-            }
-        },
-    ))
-    .await;
+    let result: ::core::result::Result<Vec<DashJobCrd>, _> = values
+        .0
+        .into_iter()
+        .map(
+            |Payload {
+                 task_name,
+                 namespace,
+                 value,
+             }| {
+                let kube = kube.clone();
+                let metadata = metadata.clone();
+                async move {
+                    let session = metadata.namespaced(namespace).await?;
+                    let client = DashProviderClient::new(kube, &session);
+                    client.create(&task_name, value).await
+                }
+            },
+        )
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await;
     HttpResponse::from(Result::from(result))
 }
