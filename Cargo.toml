@@ -33,6 +33,7 @@ members = [
     "kiss/manager",
     "kiss/monitor",
     "straw/api",
+    "straw/cli",
     "straw/provider",
     "vine/api",
     "vine/bastion",

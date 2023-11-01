@@ -56,7 +56,7 @@ impl<'namespace, 'kube> PipeValidator<'namespace, 'kube> {
     }
 
     async fn validate_exec_straw(&self, exec: StrawPipe) -> Result<StrawPipe> {
-        let session = StrawSession::new(self.kube.clone());
+        let session = StrawSession::new(self.kube.clone(), Some(self.namespace.into()));
         session.create(&exec).await.map(|()| exec)
     }
 }

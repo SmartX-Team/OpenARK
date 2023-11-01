@@ -54,7 +54,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             ai_model_kind: kind,
         } = args;
 
-        let code = self::plugin::Plugin::new().load_code(model)?;
+        let code = self::plugin::PluginBuilder::new().load_code(model)?;
 
         Ok(Self {
             tick: Python::with_gil(|py| {
