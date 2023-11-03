@@ -38,6 +38,7 @@ use kube::{
     core::{DynamicObject, ObjectMeta, TypeMeta},
     Api, Client, ResourceExt,
 };
+use maplit::btreemap;
 use minio::s3::{
     args::{
         BucketExistsArgs, GetBucketReplicationArgs, GetObjectArgs, ListObjectsV2Args,
@@ -232,10 +233,8 @@ impl<'model> ObjectStorageRef {
         }
 
         let tenant_name = "object-storage";
-        let labels = {
-            let mut map: BTreeMap<String, String> = BTreeMap::default();
-            map.insert("v1.min.io/tenant".into(), tenant_name.to_string());
-            map
+        let labels = btreemap! {
+            "v1.min.io/tenant".into() => tenant_name.into(),
         };
 
         let secret_user_0 = {
@@ -649,16 +648,10 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             let source_endpoint = source.as_ref().map(|source| source.endpoint.to_string());
             let target_endpoint = self.target_ref.endpoint.to_string();
 
-            let labels: BTreeMap<_, _> = vec![
-                ("dash.ulagbulag.io/modelstorage.name", bucket),
-                (
-                    "dash.ulagbulag.io/modelstorage.objectstorage.command",
-                    command,
-                ),
-            ]
-            .into_iter()
-            .map(|(key, value)| (key.into(), value.into()))
-            .collect();
+            let labels = btreemap! {
+                "dash.ulagbulag.io/modelstorage.name".into() => bucket.into(),
+                "dash.ulagbulag.io/modelstorage.objectstorage.command".into() => command.into(),
+            };
 
             Job {
                 metadata: ObjectMeta {
@@ -1085,36 +1078,16 @@ async fn get_or_create_ingress(
 ) -> Result<Ingress> {
     get_or_create(api, "ingress", name, || Ingress {
         metadata: ObjectMeta {
-            annotations: Some({
-                let mut map = BTreeMap::default();
-                map.insert(
-                    "cert-manager.io/cluster-issuer".into(),
-                    "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                );
-                map.insert(
-                    "kubernetes.io/ingress.class".into(),
-                    "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                );
-                map.insert(
-                    "nginx.ingress.kubernetes.io/proxy-read-timeout".into(),
-                    "3600".into(),
-                );
-                map.insert(
-                    "nginx.ingress.kubernetes.io/proxy-send-timeout".into(),
-                    "3600".into(),
-                );
-                map.insert(
-                    "nginx.ingress.kubernetes.io/rewrite-target".into(),
-                    "/$2".into(),
-                );
-                map.insert("vine.ulagbulag.io/is-service".into(), "true".into());
-                map.insert("vine.ulagbulag.io/is-service-public".into(), "true".into());
-                map.insert("vine.ulagbulag.io/is-service-system".into(), "true".into());
-                map.insert(
-                    "vine.ulagbulag.io/service-kind".into(),
-                    "S3 Endpoint".into(),
-                );
-                map
+            annotations: Some(btreemap! {
+                "cert-manager.io/cluster-issuer".into() => "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                "kubernetes.io/ingress.class".into() => "ingress-nginx-controller.vine.svc.ops.openark".into(),
+                "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
+                "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
+                "nginx.ingress.kubernetes.io/rewrite-target".into() => "/$2".into(),
+                "vine.ulagbulag.io/is-service".into() => "true".into(),
+                "vine.ulagbulag.io/is-service-public".into()=> "true".into(),
+                "vine.ulagbulag.io/is-service-system".into()=> "true".into(),
+                "vine.ulagbulag.io/service-kind".into()=> "S3 Endpoint".into(),
             }),
             labels: labels.cloned(),
             name: Some(name.to_string()),
@@ -1203,22 +1176,17 @@ async fn get_or_create_minio_tenant(
                 ..Default::default()
             },
             immutable: Some(false),
-            string_data: Some({
-                let mut map: BTreeMap<String, String> = BTreeMap::default();
-                map.insert(
-                    "config.env".into(),
-                    format!(
-                        r#"
+            string_data: Some(btreemap! {
+                "config.env".into() => format!(
+                    r#"
 export MINIO_BROWSER="on"
 export MINIO_STORAGE_CLASS_STANDARD="EC:{parity_level}"
 export MINIO_ROOT_USER="{username}"
 export MINIO_ROOT_PASSWORD="{password}"
 "#,
-                        username = random_string(16),
-                        password = random_string(32),
-                    ),
-                );
-                map
+                    username = random_string(16),
+                    password = random_string(32),
+                ),
             }),
             ..Default::default()
         })
@@ -1235,11 +1203,9 @@ export MINIO_ROOT_PASSWORD="{password}"
                 ..Default::default()
             },
             immutable: Some(true),
-            string_data: Some({
-                let mut map: BTreeMap<String, String> = BTreeMap::default();
-                map.insert("accesskey".into(), Default::default());
-                map.insert("secretkey".into(), Default::default());
-                map
+            string_data: Some(btreemap! {
+                "accesskey".into() => Default::default(),
+                "secretkey".into() => Default::default(),
             }),
             ..Default::default()
         })
@@ -1256,11 +1222,9 @@ export MINIO_ROOT_PASSWORD="{password}"
                 ..Default::default()
             },
             immutable: Some(true),
-            string_data: Some({
-                let mut map: BTreeMap<String, String> = BTreeMap::default();
-                map.insert("CONSOLE_ACCESS_KEY".into(), random_string(16));
-                map.insert("CONSOLE_SECRET_KEY".into(), random_string(32));
-                map
+            string_data: Some(btreemap! {
+                "CONSOLE_ACCESS_KEY".into() => random_string(16),
+                "CONSOLE_SECRET_KEY".into() => random_string(32),
             }),
             ..Default::default()
         })
@@ -1427,7 +1391,6 @@ fn split_resources(
             });
         }
 
-        let mut storage_resources = BTreeMap::default();
         let mut storage_resource = compute_resources.remove("storage");
         if fill_default {
             storage_resource.get_or_insert_with(|| {
@@ -1441,12 +1404,12 @@ fn split_resources(
                 .map_err(|error| anyhow!("failed to parse storage volume size: {error}"))?;
             let storage_resource_per_volume =
                 storage_resource_as_bytes.get_bytes() / total_volumes as u128;
-            storage_resources.insert(
-                "storage".into(),
-                Quantity(storage_resource_per_volume.to_string()),
-            );
+            Ok(Some(btreemap! {
+                "storage".into() => Quantity(storage_resource_per_volume.to_string()),
+            }))
+        } else {
+            Ok(Some(Default::default()))
         }
-        Ok(Some(storage_resources))
     }
 
     let mut compute = resources.clone();

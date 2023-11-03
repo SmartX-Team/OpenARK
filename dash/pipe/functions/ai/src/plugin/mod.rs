@@ -42,4 +42,43 @@ pub struct ModelLoader<'a> {
 }
 
 #[cfg(feature = "straw")]
-impl<'a> ::straw_api::plugin::PluginDaemon for ModelLoader<'a> {}
+impl<'a> ::straw_api::plugin::PluginDaemon for ModelLoader<'a> {
+    fn container_default_env(
+        &self,
+        node: &::straw_api::pipe::StrawNode,
+    ) -> Vec<::k8s_openapi::api::core::v1::EnvVar> {
+        use inflector::Inflector;
+        use k8s_openapi::api::core::v1::EnvVar;
+
+        vec![
+            EnvVar {
+                name: "PIPE_AI_MODEL".into(),
+                value: Some(node.src.to_string()),
+                value_from: None,
+            },
+            EnvVar {
+                name: "PIPE_AI_MODEL_KIND".into(),
+                value: Some(node.name.to_pascal_case()),
+                value_from: None,
+            },
+        ]
+    }
+
+    fn container_command(&self) -> Option<Vec<String>> {
+        Some(vec!["dash-pipe-function-ai".into()])
+    }
+
+    fn container_resources(&self) -> Option<::k8s_openapi::api::core::v1::ResourceRequirements> {
+        use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+
+        Some(::k8s_openapi::api::core::v1::ResourceRequirements {
+            claims: None,
+            requests: None,
+            limits: Some(::maplit::btreemap! {
+                // "cpu".into() => Quantity("1".into()),
+                // "memory".into() => Quantity("500Mi".into()),
+                "nvidia.com/gpu".into() => Quantity("1".into()),
+            }),
+        })
+    }
+}

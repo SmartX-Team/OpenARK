@@ -17,13 +17,16 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-plugin = ["anyhow", "async-trait", "kube"]
+clap = ["dep:clap", "plugin"]
+plugin = ["anyhow", "async-trait", "chrono", "kube", "tracing"]
 
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 
 anyhow = { workspace = true, optional = true }
 async-trait = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, optional = true, features = [
     "client",
@@ -31,5 +34,7 @@ kube = { workspace = true, optional = true, features = [
     "rustls-tls",
     "ws",
 ] }
+maplit = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+tracing = { workspace = true, optional = true }

@@ -1,8 +1,5 @@
-import io
-import json
 from typing import Any, Callable
 
-from PIL import Image
 from transformers import AutoTokenizer, Pipeline, PretrainedConfig, pipeline
 from optimum.onnxruntime import ORTModel
 
@@ -56,8 +53,11 @@ def load(model_id: str, kind: str) -> Callable:
 def preprocess(input: Any, kind: str) -> dict[str, Any]:
     match kind:
         # NLP
-        case 'QuestionAnswering' | \
-                'Translation':
+        case 'QuestionAnswering' \
+                | 'Summarization' \
+                | 'TextGeneration' \
+                | 'Translation' \
+                | 'ZeroShotClassification':
             return input.value
 
 

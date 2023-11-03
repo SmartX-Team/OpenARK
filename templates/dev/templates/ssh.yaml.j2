@@ -1,0 +1,152 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    dashService: "true"
+    name: "{{ metadata.name }}"
+    serviceType: ssh
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      dashService: "true"
+      name: "{{ metadata.name }}"
+      serviceType: ssh
+  template:
+    metadata:
+      labels:
+        dashService: "true"
+        name: "{{ metadata.name }}"
+        serviceType: ssh
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+              weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+      containers:
+        - image: "{{ spec.image }}"
+          imagePullPolicy: Always
+          name: ssh
+          env:
+{% if spec.resource.gpu <= 0 %}
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: none
+{% endif %}
+            - name: USER_PASSWORD
+              value: "{{ spec.user.password }}"
+            - name: USER_SHELL
+              value: /bin/bash
+          ports:
+            - containerPort: 22
+              name: ssh
+              protocol: TCP
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "{{ spec.resource.cpu }}"
+              memory: "{{ spec.resource.memory }}"
+              github.com/fuse: "1"
+              nvidia.com/gpu: "{{ spec.resource.gpu }}"
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+                - seccomp:unconfined
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /home/user
+              name: home
+            - mountPath: /etc/ssh
+              name: host-ssh
+      dnsPolicy: ClusterFirst
+      hostname: "{{ metadata.name }}"
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: "{{ metadata.name }}"
+        - name: host-ssh
+          persistentVolumeClaim:
+            claimName: "{{ metadata.name }}-host-ssh"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    dashService: "true"
+    name: "{{ metadata.name }}"
+    serviceType: ssh
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  loadBalancerIP: "{{ spec.ip }}"
+  ports:
+    - name: ssh
+      port: 22
+      protocol: TCP
+      targetPort: 22
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    name: "{{ metadata.name }}"
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    dashService: "true"
+    name: "{{ metadata.name }}"
+    serviceType: ssh
+    storageType: home
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  accessModes:
+    - "{{ spec.storage.access.mode }}"
+  resources:
+    requests:
+      storage: "{{ spec.resource.storage }}"
+  storageClassName: "{{ spec.storage.class }}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    dashService: "true"
+    name: "{{ metadata.name }}"
+    serviceType: ssh
+    storageType: host-ssh
+  name: "{{ metadata.name }}-host-ssh"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  accessModes:
+    - "{{ spec.storage.access.mode }}"
+  resources:
+    requests:
+      storage: 16Mi
+  storageClassName: "{{ spec.storage.class }}"

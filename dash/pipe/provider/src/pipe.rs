@@ -25,7 +25,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     function::{Function, FunctionBuilder, FunctionContext},
-    message::PipeMessages,
+    message::{Codec, PipeMessages},
     messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,
@@ -44,12 +44,25 @@ where
     #[serde(default)]
     batch_timeout_ms: Option<u64>,
 
+    /// Init the function and stop it immediately.
+    #[arg(long, env = "PIPE_BOOTSTRAP", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    bootstrap: bool,
+
     #[arg(long, env = "PIPE_DEFAULT_MODEL_IN", value_name = "POLICY")]
     #[serde(default)]
     default_model_in: Option<DefaultModelIn>,
 
+    #[arg(long, env = "PIPE_ENCODER", value_name = "CODEC")]
+    #[serde(default)]
+    encoder: Option<Codec>,
+
     #[command(flatten)]
     function_args: <F as FunctionBuilder>::Args,
+
+    #[arg(long, env = "RUST_LOG")]
+    #[serde(default)]
+    log_level: Option<String>,
 
     #[arg(long, env = "PIPE_MAX_TASKS", value_name = "NUM")]
     #[serde(default)]
@@ -88,6 +101,11 @@ where
 
     pub fn with_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size = Some(batch_size);
+        self
+    }
+
+    pub fn with_bootstrap(mut self, bootstrap: bool) -> Self {
+        self.bootstrap = bootstrap;
         self
     }
 
@@ -210,6 +228,7 @@ where
         debug!("Initializing Writer");
         let writer = WriteContext {
             atomic_session: AtomicSession::new(max_tasks),
+            encoder: self.encoder.unwrap_or_default(),
             function_context: function_context.clone(),
             storage: storage.output.clone(),
             stream: match self.model_out.as_ref() {
@@ -230,7 +249,10 @@ where
     }
 
     pub fn loop_forever(&self) {
-        ::ark_core::tracer::init_once();
+        match &self.log_level {
+            Some(level) => ::ark_core::tracer::init_once_with(level),
+            None => ::ark_core::tracer::init_once(),
+        }
 
         match ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -252,20 +274,30 @@ where
         let mut ctx = self.init_context().await?;
         info!("Initialized!");
 
-        loop {
-            // yield per every loop
-            yield_now().await;
+        if self.bootstrap {
+            Ok(())
+        } else {
+            loop {
+                // yield per every loop
+                yield_now().await;
 
-            if ctx.function_context.is_terminating() {
-                break ctx.storage.flush().await;
-            }
+                if ctx.function_context.is_terminating()
+                    && !ctx.function_context.is_disabled_store_metadata()
+                {
+                    break ctx.storage.flush().await;
+                }
 
-            let response = tick_async(&mut ctx).await;
-            if ctx.function_context.is_terminating() {
-                let flush_response = ctx.storage.flush().await;
-                break response.and(flush_response);
-            } else if let Err(error) = response {
-                warn!("{error}");
+                let response = tick_async(&mut ctx).await;
+                if ctx.function_context.is_terminating() {
+                    if ctx.function_context.is_disabled_store_metadata() {
+                        break response;
+                    } else {
+                        let flush_response = ctx.storage.flush().await;
+                        break response.and(flush_response);
+                    }
+                } else if let Err(error) = response {
+                    warn!("{error}");
+                }
             }
         }
     }
@@ -452,6 +484,7 @@ where
 #[derive(Clone)]
 struct WriteContext {
     atomic_session: AtomicSession,
+    encoder: Codec,
     function_context: FunctionContext,
     storage: Arc<StorageSet>,
     stream: Option<Arc<dyn Publisher>>,
@@ -504,7 +537,7 @@ impl WriteContext {
                             }
 
                             let data = output
-                                .to_bytes()
+                                .to_bytes(self.encoder)
                                 .map_err(|error| anyhow!("failed to parse output: {error}"))?;
                             match output.reply {
                                 Some(reply) => stream

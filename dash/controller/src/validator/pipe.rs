@@ -7,7 +7,7 @@ use dash_api::{
 };
 use dash_provider::storage::KubernetesStorageClient;
 use kube::Client;
-use straw_api::pipe::StrawPipe;
+use straw_api::{pipe::StrawPipe, plugin::PluginContext};
 use straw_provider::StrawSession;
 
 use super::model::ModelValidator;
@@ -56,7 +56,8 @@ impl<'namespace, 'kube> PipeValidator<'namespace, 'kube> {
     }
 
     async fn validate_exec_straw(&self, exec: StrawPipe) -> Result<StrawPipe> {
+        let ctx = PluginContext::default();
         let session = StrawSession::new(self.kube.clone(), Some(self.namespace.into()));
-        session.create(&exec).await.map(|()| exec)
+        session.create(&ctx, &exec).await.map(|()| exec)
     }
 }

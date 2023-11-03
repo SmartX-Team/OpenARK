@@ -6,7 +6,10 @@ use ark_core_k8s::data::Url;
 use clap::{value_parser, ArgAction, Parser, Subcommand};
 use k8s_openapi::api::core::v1::EnvVar;
 use kube::Client;
-use straw_api::pipe::{StrawNode, StrawPipe};
+use straw_api::{
+    pipe::{StrawNode, StrawPipe},
+    plugin::PluginContext,
+};
 use straw_provider::StrawSession;
 use tracing::{error, info};
 
@@ -87,18 +90,30 @@ impl Commands {
         let session = StrawSession::new(kube, namespace);
 
         match self {
-            Self::Create(command) => session.create(&command.into()).await,
-            Self::Delete(command) => session.delete(&command.into()).await,
-            Self::Exists(command) => session
-                .exists(&command.into())
-                .await
-                .map(|exists| info!("exists: {exists}")),
+            Self::Create(command) => {
+                let (ctx, pipe) = command.into();
+                session.create(&ctx, &pipe).await
+            }
+            Self::Delete(command) => {
+                let (_, pipe) = command.into();
+                session.delete(&pipe).await
+            }
+            Self::Exists(command) => {
+                let (_, pipe) = command.into();
+                session
+                    .exists(&pipe)
+                    .await
+                    .map(|exists| info!("exists: {exists}"))
+            }
         }
     }
 }
 
 #[derive(Clone, Parser)]
 struct CommandSession {
+    #[command(flatten)]
+    ctx: PluginContext,
+
     /// Set a straw name
     #[arg(short, long, env = "STRAW_NAME", value_name = "NAME")]
     name: String,
@@ -112,10 +127,15 @@ struct CommandSession {
     src: Url,
 }
 
-impl From<CommandSession> for StrawPipe {
+impl From<CommandSession> for (PluginContext, StrawPipe) {
     fn from(value: CommandSession) -> Self {
-        let CommandSession { name, env, src } = value;
-        Self {
+        let CommandSession {
+            ctx,
+            name,
+            env,
+            src,
+        } = value;
+        let pipe = StrawPipe {
             straw: vec![StrawNode {
                 name,
                 env: env
@@ -128,7 +148,9 @@ impl From<CommandSession> for StrawPipe {
                     .collect(),
                 src,
             }],
-        }
+        };
+
+        (ctx, pipe)
     }
 }
 

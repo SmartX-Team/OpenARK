@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use anyhow::{anyhow, bail, Result};
 use k8s_openapi::{
     api::{
@@ -14,6 +12,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, ResourceExt,
 };
+use maplit::btreemap;
 use semver::Version;
 use serde_json::json;
 use tracing::{info, warn};
@@ -43,10 +42,8 @@ impl Handler {
                 ..Default::default()
             },
             immutable: Some(false),
-            data: Some({
-                let mut map = BTreeMap::default();
-                map.insert("version".into(), version.to_string());
-                map
+            data: Some(btreemap! {
+                "version".into() => version.to_string(),
             }),
             ..Default::default()
         };

@@ -42,6 +42,7 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+maplit = { workspace = true }
 mime = { workspace = true }
 minio = { workspace = true }
 rand = { workspace = true }

@@ -64,8 +64,8 @@ jobs:
 
       - name: Include target-dependent packages
         run: >
-          sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' ./Cargo.toml
-          && sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" ./Cargo.toml
+          find ./ -type f -name Cargo.toml -exec sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' {} +
+          && find ./ -type f -name Cargo.toml -exec sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" {} +
 
       - name: Build
         run: cargo build --all --workspace --verbose

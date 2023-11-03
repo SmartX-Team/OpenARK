@@ -29,6 +29,7 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+maplit = { workspace = true }
 octocrab = { workspace = true }
 semver = { workspace = true }
 serde_json = { workspace = true }

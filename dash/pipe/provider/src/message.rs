@@ -8,6 +8,7 @@ use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value as DynValue;
+use strum::{Display, EnumString};
 
 use crate::storage::{StorageSet, StorageType};
 
@@ -338,12 +339,7 @@ where
     type Error = Error;
 
     fn try_from(value: &PipeMessage<Value, Payload>) -> Result<Self> {
-        // opcode
-        let mut buf = vec![OpCode::MessagePack as u8];
-
-        ::rmp_serde::encode::write(&mut buf, value)
-            .map(|()| buf.into())
-            .map_err(Into::into)
+        value.to_bytes(Codec::default())
     }
 }
 
@@ -419,20 +415,24 @@ where
         self.timestamp
     }
 
-    pub fn to_bytes(&self) -> Result<Bytes>
+    pub fn to_bytes(&self, encoder: Codec) -> Result<Bytes>
     where
         Payload: Serialize,
         Value: Serialize,
     {
-        self.try_into()
-    }
+        match encoder {
+            Codec::Json => ::serde_json::to_vec(self)
+                .map(Into::into)
+                .map_err(Into::into),
+            Codec::MessagePack => {
+                // opcode
+                let mut buf = vec![OpCode::MessagePack as u8];
 
-    pub fn to_json(&self) -> Result<DynValue>
-    where
-        Payload: Serialize,
-        Value: Serialize,
-    {
-        self.try_into()
+                ::rmp_serde::encode::write(&mut buf, self)
+                    .map(|()| buf.into())
+                    .map_err(Into::into)
+            }
+        }
     }
 }
 
@@ -590,6 +590,28 @@ impl PipePayload {
             value: (),
         })
     }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumString,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+pub enum Codec {
+    Json,
+    #[default]
+    MessagePack,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

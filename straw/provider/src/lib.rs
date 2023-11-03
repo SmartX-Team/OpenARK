@@ -6,7 +6,7 @@ use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use straw_api::{
     pipe::{StrawNode, StrawPipe},
-    plugin::{Plugin, PluginBuilder},
+    plugin::{Plugin, PluginBuilder, PluginContext},
 };
 
 pub struct StrawSession {
@@ -33,19 +33,19 @@ impl StrawSession {
         self.builders.push(builder.into())
     }
 
-    pub async fn create(&self, pipe: &StrawPipe) -> Result<()> {
+    pub async fn create(&self, ctx: &PluginContext, pipe: &StrawPipe) -> Result<()> {
         pipe.straw
             .iter()
-            .map(|node| self.create_node(node))
+            .map(|node| self.create_node(ctx, node))
             .collect::<FuturesUnordered<_>>()
             .try_collect()
             .await
     }
 
-    async fn create_node(&self, node: &StrawNode) -> Result<()> {
+    async fn create_node(&self, ctx: &PluginContext, node: &StrawNode) -> Result<()> {
         self.load_plugin(node)
             .await?
-            .create(self.kube.clone(), self.namespace.as_deref(), node)
+            .create(self.kube.clone(), self.namespace.as_deref(), ctx, node)
             .await
     }
 

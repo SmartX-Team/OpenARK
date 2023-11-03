@@ -25,6 +25,7 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["derive"] }
+maplit = { workspace = true }
 ordered-float = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }

@@ -1,9 +1,10 @@
-use std::{collections::BTreeMap, net::Ipv4Addr};
+use std::net::Ipv4Addr;
 
 use ark_core_k8s::data::Url;
 use k8s_openapi::{
     api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
 };
+use maplit::btreemap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -127,18 +128,10 @@ impl ModelStorageObjectOwnedReplicationSpec {
 
     fn default_resources() -> ResourceRequirements {
         ResourceRequirements {
-            requests: Some({
-                let mut map = BTreeMap::default();
-                map.insert("cpu".into(), Quantity(Self::default_resources_cpu().into()));
-                map.insert(
-                    "memory".into(),
-                    Quantity(Self::default_resources_memory().into()),
-                );
-                map.insert(
-                    "storage".into(),
-                    Quantity(Self::default_resources_storage().into()),
-                );
-                map
+            requests: Some(btreemap! {
+                "cpu".into() => Quantity(Self::default_resources_cpu().into()),
+                "memory".into() => Quantity(Self::default_resources_memory().into()),
+                "storage".into() => Quantity(Self::default_resources_storage().into()),
             }),
             ..Default::default()
         }

@@ -18,6 +18,6 @@ pub use self::function::{
 };
 #[cfg(feature = "pyo3")]
 pub use self::message::PyPipeMessage;
-pub use self::message::{PipeMessage, PipeMessages, PipePayload};
+pub use self::message::{Codec, PipeMessage, PipeMessages, PipePayload};
 pub use self::messengers::MessengerType;
 pub use self::pipe::{DefaultModelIn, PipeArgs};

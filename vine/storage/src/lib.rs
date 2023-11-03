@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use anyhow::{anyhow, bail, Result};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use k8s_openapi::{
@@ -14,6 +12,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, ResourceExt,
 };
+use maplit::btreemap;
 
 pub(crate) mod consts {
     pub const NAME: &str = "vine-storage";
@@ -335,11 +334,9 @@ async fn get_or_create_user_level_cephfs_secret(
     };
 
     let secret = Secret {
-        data: Some({
-            let mut data = BTreeMap::default();
-            data.insert("userID".into(), get_data("adminID")?);
-            data.insert("userKey".into(), get_data("adminKey")?);
-            data
+        data: Some(btreemap! {
+            "userID".into() => get_data("adminID")?,
+            "userKey".into() => get_data("adminKey")?,
         }),
         metadata: ObjectMeta {
             annotations: secret.metadata.annotations,

@@ -1,0 +1,48 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Task
+metadata:
+  name: ssh
+  namespace: dev
+  labels:
+    dash.ulagbulag.io/alias: remote-ssh-server
+spec:
+  input:
+    - name: /image/
+      string:
+        default: quay.io/ulagbulag/openark:latest-devel
+        dynamic: {}
+    - name: /ip/
+      ip: {}
+    - name: /resource/cpu/
+      string:
+        default: 200m
+        dynamic: {}
+    - name: /resource/gpu/
+      integer:
+        default: 0
+    - name: /resource/memory/
+      string:
+        default: 200Mi
+        dynamic: {}
+    - name: /resource/storage/
+      string:
+        default: 100Gi
+        dynamic: {}
+    - name: /user/password/
+      string:
+        dynamic: {}
+    - name: /storage/access/mode/
+      string:
+        default: ReadWriteMany
+        dynamic: {}
+    - name: /storage/class/
+      string:
+        default: ceph-filesystem
+        dynamic: {}
+  actor:
+    job:
+      source:
+        configMapRef:
+          name: ssh
+          path: ssh.yaml.j2

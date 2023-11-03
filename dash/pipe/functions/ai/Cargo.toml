@@ -17,7 +17,7 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-straw = ["kube", "straw-api"]
+straw = ["k8s-openapi", "kube", "maplit", "straw-api"]
 
 [dependencies]
 ark-core-k8s = { path = "../../../../ark/core/k8s", features = ["data"] }
@@ -29,7 +29,10 @@ straw-api = { path = "../../../../straw/api", optional = true, features = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+inflector = { workspace = true }
+k8s-openapi = { workspace = true, optional = true }
 kube = { workspace = true, optional = true, features = ["client"] }
+maplit = { workspace = true, optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
