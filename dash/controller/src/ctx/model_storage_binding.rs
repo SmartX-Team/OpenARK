@@ -66,9 +66,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         .map(|status| status.deletion_policy)
                         .unwrap_or(data.spec.deletion_policy),
                     model: status.and_then(|status| status.model.as_ref()).cloned(),
-                    storage: status
-                        .and_then(|status: &ModelStorageBindingStatus| status.storage.as_ref())
-                        .cloned(),
+                    storage: status.and_then(|status| status.storage.as_ref()).cloned(),
                     state: ModelStorageBindingState::Deleting,
                 },
             )

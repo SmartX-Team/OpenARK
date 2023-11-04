@@ -47,6 +47,10 @@ pub struct FunctionSpec<Spec = Name, Exec = FunctionExec> {
     pub volatility: FunctionVolatility,
 }
 
+impl FunctionCrd {
+    pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-functions";
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum FunctionExec {
@@ -121,4 +125,5 @@ pub enum FunctionState {
     #[default]
     Pending,
     Ready,
+    Deleting,
 }

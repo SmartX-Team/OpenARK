@@ -69,8 +69,8 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
     ) -> Result<FunctionExec> {
         match exec {
             FunctionExec::Placeholder {} => Ok(exec),
-            FunctionExec::Straw(exec) => self
-                .validate_exec_straw(type_, exec, models)
+            FunctionExec::Straw(function) => self
+                .validate_exec_straw(type_, function, models)
                 .await
                 .map(FunctionExec::Straw),
         }
@@ -99,6 +99,18 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         client.ensure_model_storage_binding(&models.input).await?;
         client.ensure_model_storage_binding(&models.output).await?;
         Ok(())
+    }
+
+    pub async fn delete(&self, spec: &FunctionSpec) -> Result<()> {
+        match &spec.exec {
+            FunctionExec::Placeholder {} => Ok(()),
+            FunctionExec::Straw(function) => self.delete_exec_straw(function).await,
+        }
+    }
+
+    async fn delete_exec_straw(&self, function: &StrawFunction) -> Result<()> {
+        let session = StrawSession::new(self.kube.clone(), Some(self.namespace.into()));
+        session.delete(function).await
     }
 }
 
