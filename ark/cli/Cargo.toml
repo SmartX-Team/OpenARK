@@ -22,8 +22,13 @@ path = "./src/main.rs"
 
 [dependencies]
 ark-core = { path = "../core" }
-ark-api = { path = "../api" }
+ark-core-k8s = { path = "../core/k8s", features = ["data"] }
+dash-pipe-api = { path = "../../dash/pipe/api" }
+dash-query-cli = { path = "../../dash/query/cli" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
+dirs = { workspace = true }
+itertools = { workspace = true }
+procfs = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

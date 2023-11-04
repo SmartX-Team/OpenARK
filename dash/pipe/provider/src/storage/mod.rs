@@ -16,7 +16,6 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
 use tracing::debug;
-use url::Url;
 
 use crate::{function::FunctionContext, message::PipeMessage};
 
@@ -284,34 +283,7 @@ pub struct StorageArgs {
 
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
-    s3: StorageS3Args,
-}
-
-#[cfg(any(feature = "lakehouse", feature = "s3"))]
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct StorageS3Args {
-    #[arg(long, env = "AWS_ACCESS_KEY_ID", value_name = "VALUE")]
-    pub access_key: String,
-
-    #[arg(
-        long,
-        env = "AWS_REGION",
-        value_name = "REGION",
-        default_value_t = Self::default_region().into(),
-    )]
-    pub region: String,
-
-    #[arg(long, env = "AWS_ENDPOINT_URL", value_name = "URL")]
-    pub s3_endpoint: Url,
-
-    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", value_name = "VALUE")]
-    pub secret_key: String,
-}
-
-impl StorageS3Args {
-    pub const fn default_region() -> &'static str {
-        "us-east-1"
-    }
+    s3: ::dash_pipe_api::storage::StorageS3Args,
 }
 
 pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;

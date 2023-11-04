@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::Result;
 use ark_core::tracer;
 use clap::{value_parser, ArgAction, Parser};
@@ -31,20 +29,6 @@ pub(crate) struct ArgsCommon {
 
 impl ArgsCommon {
     fn run(self) {
-        self.init_tracer()
-    }
-
-    fn init_tracer(&self) {
-        // You can see how many times a particular flag or argument occurred
-        // Note, only flags can have multiple occurrences
-        let debug_level = match self.debug {
-            0 => "WARN",
-            1 => "INFO",
-            2 => "DEBUG",
-            3 => "TRACE",
-            level => unreachable!("too high debug level: {level}"),
-        };
-        env::set_var("RUST_LOG", debug_level);
-        tracer::init_once();
+        tracer::init_once_with_level_int(self.debug)
     }
 }

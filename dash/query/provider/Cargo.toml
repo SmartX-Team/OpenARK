@@ -18,6 +18,7 @@ version = { workspace = true }
 
 [dependencies]
 dash-api = { path = "../../api" }
+dash-pipe-api = { path = "../../pipe/api" }
 dash-pipe-provider = { path = "../../pipe/provider", features = ["lakehouse"] }
 dash-provider = { path = "../../provider" }
 

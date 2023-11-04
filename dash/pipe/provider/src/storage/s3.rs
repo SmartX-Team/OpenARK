@@ -3,6 +3,7 @@ use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::{SecondsFormat, Utc};
+use dash_pipe_api::storage::StorageS3Args;
 use futures::TryFutureExt;
 use minio::s3::{
     args::{GetObjectArgs, PutObjectApiArgs, RemoveObjectArgs},
@@ -23,12 +24,12 @@ pub struct Storage {
 
 impl Storage {
     pub async fn try_new(
-        super::StorageS3Args {
+        StorageS3Args {
             access_key,
             region: _,
             s3_endpoint,
             secret_key,
-        }: &super::StorageS3Args,
+        }: &StorageS3Args,
         model: Option<&Name>,
         pipe_name: &Name,
     ) -> Result<Self> {

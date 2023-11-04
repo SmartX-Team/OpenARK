@@ -16,7 +16,8 @@ CMD [ "/opt/scripts/entrypoint-image-pull.sh" ]
 # Install dependencies
 RUN apk add --no-cache \
     fuse-overlayfs \
-    nerdctl
+    nerdctl \
+    s3fs-fuse
 
 # Add scripts
 ADD ./scripts /opt/scripts/

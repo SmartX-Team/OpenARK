@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y \
     llvm-dev \
     mold \
     nasm \
+    s3fs \
     # Install rustup
     && curl https://sh.rustup.rs -sSf >/rustup.sh \
     && bash /rustup.sh -y \

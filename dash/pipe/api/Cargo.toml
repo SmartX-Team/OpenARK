@@ -1,5 +1,5 @@
 [package]
-name = "vine-cli"
+name = "dash-pipe-api"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -16,25 +16,8 @@ version = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "vine"
-path = "./src/main.rs"
-
 [dependencies]
-ark-core = { path = "../../ark/core" }
-vine-rbac = { path = "../rbac" }
+ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
 
-anyhow = { workspace = true }
 clap = { workspace = true }
-csv = { workspace = true }
-futures = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
-tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

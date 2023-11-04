@@ -39,6 +39,8 @@ jobs:
           config_file: ./.github/linters/yamllint.yaml
 
   build-rust:
+    needs:
+      - lint-yaml
     runs-on: ubuntu-latest
 
     steps:
@@ -56,6 +58,7 @@ jobs:
           llvm-dev
           mold
           nasm
+          s3fs
 
       - name: Disable clang linker
         run: >
@@ -75,6 +78,8 @@ jobs:
 
   build-and-push-image:
     if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - lint-yaml
     runs-on: ubuntu-latest
     permissions:
       contents: read

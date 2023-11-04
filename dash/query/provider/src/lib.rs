@@ -13,6 +13,7 @@ use dash_api::{
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
     storage::ModelStorageKindSpec,
 };
+use dash_pipe_api::storage::StorageS3Args;
 pub use dash_pipe_provider::{deltalake, Name};
 use dash_pipe_provider::{
     deltalake::{
@@ -22,7 +23,7 @@ use dash_pipe_provider::{
     messengers::{init_messenger, MessengerArgs},
     storage::{
         lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
-        StorageS3Args, Stream,
+        Stream,
     },
 };
 use dash_provider::storage::ObjectStorageRef;

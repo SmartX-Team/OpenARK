@@ -93,6 +93,7 @@ pub enum MessengerType {
     #[cfg(feature = "kafka")]
     #[cfg_attr(all(not(feature = "nats"), feature = "kafka"), default)]
     Kafka,
+
     #[cfg(feature = "nats")]
     #[cfg_attr(feature = "nats", default)]
     Nats,

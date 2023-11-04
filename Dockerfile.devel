@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     nasm \
     openssh-server \
     pkg-config \
+    s3fs \
     # GStreamer
     libges-1.0-dev \
     libgstreamer1.0-dev \

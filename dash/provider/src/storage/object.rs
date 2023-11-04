@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Error, Result};
-use ark_core_k8s::domain::get_cluster_domain;
+use ark_core_k8s::{data::Url, domain::get_cluster_domain};
 use byte_unit::Byte;
 use chrono::Utc;
 use dash_api::{
@@ -50,7 +50,7 @@ use minio::s3::{
     utils::Multimap,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use reqwest::{Method, Url};
+use reqwest::Method;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
@@ -217,7 +217,7 @@ impl<'model> ObjectStorageRef {
 
         Ok(Self {
             base_url: BaseUrl::from_string(endpoint.to_string())?,
-            endpoint: endpoint.0.clone(),
+            endpoint: endpoint.clone(),
             name: name.to_string(),
             provider: StaticProvider::new(&access_key, &secret_key, None),
         })

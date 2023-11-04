@@ -7,6 +7,7 @@ use anyhow::{anyhow, bail, Result};
 use ark_core_k8s::data::Name;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
+use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
     arrow::json::reader::infer_json_schema_from_seekable,
     datafusion::prelude::SessionContext,
@@ -31,7 +32,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub async fn try_new<Value>(args: &super::StorageS3Args, model: Option<&Name>) -> Result<Self>
+    pub async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
@@ -75,7 +76,7 @@ struct MaybeStorageTable {
 }
 
 impl MaybeStorageTable {
-    async fn try_new<Value>(args: &super::StorageS3Args, model: Option<&Name>) -> Result<Self>
+    async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
@@ -131,7 +132,7 @@ pub struct StorageTable {
 }
 
 impl StorageTable {
-    pub async fn try_new<Value>(args: &super::StorageS3Args, model: &Name) -> Result<Self>
+    pub async fn try_new<Value>(args: &StorageS3Args, model: &Name) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
@@ -279,12 +280,12 @@ impl ops::DerefMut for StorageContext {
 impl StorageContext {
     pub async fn register_table_with_name(
         &self,
-        super::StorageS3Args {
+        StorageS3Args {
             access_key,
             s3_endpoint,
             region,
             secret_key,
-        }: super::StorageS3Args,
+        }: StorageS3Args,
         model: &str,
         fields: Option<RootSchema>,
     ) -> Result<(String, Arc<DeltaTable>, bool)> {

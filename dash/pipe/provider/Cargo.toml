@@ -38,6 +38,7 @@ s3 = ["chrono", "minio"]
 ark-core = { path = "../../../ark/core" }
 ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
 dash-api = { path = "../../api", optional = true }
+dash-pipe-api = { path = "../api" }
 
 anyhow = { workspace = true }
 async-nats = { workspace = true, optional = true }
