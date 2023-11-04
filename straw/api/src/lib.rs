@@ -1,4 +1,4 @@
-pub mod pipe;
+pub mod function;
 #[cfg(feature = "plugin")]
 pub mod plugin;
 

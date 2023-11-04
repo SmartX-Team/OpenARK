@@ -9,8 +9,8 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use dash_api::{
+    function::{FunctionCrd, FunctionSpec, FunctionState},
     model_storage_binding::{ModelStorageBindingCrd, ModelStorageBindingState},
-    pipe::{PipeCrd, PipeSpec, PipeState},
     storage::ModelStorageKindSpec,
 };
 pub use dash_pipe_provider::{deltalake, Name};
@@ -220,7 +220,7 @@ async fn load_functions(
         }
     }
 
-    let api = Api::<PipeCrd>::namespaced(kube.clone(), namespace);
+    let api = Api::<FunctionCrd>::namespaced(kube.clone(), namespace);
     let lp = ListParams::default();
     let functions = api.list(&lp).await?.items;
 
@@ -230,21 +230,25 @@ async fn load_functions(
             let name: Name = function.name_any().parse().ok()?;
 
             let status = function.status?;
-            if !matches!(status.state, PipeState::Ready) {
+            if !matches!(status.state, FunctionState::Ready) {
                 return None;
             }
 
-            let PipeSpec {
+            let FunctionSpec {
                 input: model_in,
                 output: model_out,
                 exec: _,
+                type_,
+                volatility,
             } = function.spec;
 
             Some(async move {
-                let spec = PipeSpec {
+                let spec = FunctionSpec {
                     input: get_model_schema(tables, &model_in).await?,
                     output: get_model_schema(tables, &model_out).await?,
                     exec: (),
+                    type_,
+                    volatility,
                 };
                 self::function::DashFunctionTemplate::new(name, model_in, spec)
             })

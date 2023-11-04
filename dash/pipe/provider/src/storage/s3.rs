@@ -48,7 +48,7 @@ impl Storage {
 
 impl Storage {
     fn bucket_name(&self) -> Result<&str> {
-        match self.model.as_deref() {
+        match self.model.as_ref().map(|model| model.storage()) {
             Some(model) => Ok(model),
             None => bail!("s3 storage is not inited"),
         }
@@ -66,7 +66,7 @@ impl super::Storage for Storage {
     }
 
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
-        let bucket_name = model.as_str();
+        let bucket_name = model.storage();
         let args = GetObjectArgs::new(bucket_name, path)?;
 
         Client::new(self.base_url.clone(), Some(&self.provider))

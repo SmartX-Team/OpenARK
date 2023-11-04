@@ -15,6 +15,7 @@ members = [
     "dash/pipe/connectors/storage",
     "dash/pipe/connectors/webcam",          # exclude(alpine)
     "dash/pipe/functions/ai",               # exclude(alpine)
+    "dash/pipe/functions/ai/plugin",
     "dash/pipe/functions/identity",
     "dash/pipe/functions/performance-test",
     "dash/pipe/functions/python",           # exclude(alpine)

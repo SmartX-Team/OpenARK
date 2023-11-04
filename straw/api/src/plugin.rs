@@ -27,7 +27,7 @@ use maplit::btreemap;
 use serde::de::DeserializeOwned;
 use tracing::Level;
 
-use crate::pipe::StrawNode;
+use crate::function::{StrawFunctionType, StrawNode};
 
 pub trait PluginBuilder {
     fn try_build(&self, url: &Url) -> Option<DynPlugin>;
@@ -181,36 +181,25 @@ where
     Self: PluginDaemon,
 {
     fn build_job(&self, ctx: &PluginContext, node: &StrawNode) -> Deployment {
+        let name = &node.name;
         let service_account = ctx.service_account.clone();
 
+        // load default env
         let mut env = self.container_default_env(node);
+        ctx.apply_to_env(&mut env);
+
+        // load user-defined env
         for var in node.env.iter().cloned() {
             match env.iter_mut().find(|stored| stored.name == var.name) {
                 Some(stored) => *stored = var,
                 None => env.push(var),
             }
         }
-        ctx.apply_to_env(&mut env);
-        {
-            let var = EnvVar {
-                name: "NATS_ACCOUNT".into(),
-                value: Some(service_account.clone()),
-                value_from: None,
-            };
-            match env.iter_mut().find(|stored| stored.name == var.name) {
-                Some(stored) => {
-                    if stored
-                        .value
-                        .as_ref()
-                        .map(|value| value.is_empty())
-                        .unwrap_or(true)
-                    {
-                        *stored = var;
-                    }
-                }
-                None => env.push(var),
-            }
-        }
+
+        // infer required missing env
+        try_apply_to_env(&mut env, "NATS_ACCOUNT", &service_account);
+        try_apply_to_env(&mut env, "PIPE_MODEL_IN", format!("{name}.in"));
+        try_apply_to_env(&mut env, "PIPE_MODEL_OUT", format!("{name}.out"));
 
         let env = env
             .into_iter()
@@ -227,7 +216,7 @@ where
             "dash.ulagbulag.io/timestamp".into() => Utc::now().to_rfc3339_opts(SecondsFormat::Nanos, true),
         };
         let labels = btreemap! {
-            "dash.ulagbulag.io/plugin".into() => node.name.clone(),
+            "dash.ulagbulag.io/plugin".into() => name.clone(),
             "dash.ulagbulag.io/service-account".into() => service_account.clone(),
         };
 
@@ -238,7 +227,7 @@ where
             metadata: ObjectMeta {
                 annotations: Some(annotations.clone()),
                 labels: Some(labels.clone()),
-                name: Some(node.name.clone()),
+                name: Some(name.clone()),
                 ..Default::default()
             },
             spec: Some(DeploymentSpec {
@@ -331,7 +320,7 @@ where
                                 env: Some(env),
                                 image: Some(self.container_image()),
                                 image_pull_policy: Some("Always".into()),
-                                name: "pipe".into(),
+                                name: "function".into(),
                                 resources: self.container_resources(),
                                 volume_mounts: Some(vec![
                                     VolumeMount {
@@ -671,6 +660,19 @@ context_env_fields! {
     },
 }
 
+impl PluginContext {
+    pub fn new(type_: StrawFunctionType, model_in: Option<Name>, model_out: Option<Name>) -> Self {
+        match type_ {
+            StrawFunctionType::OneShot => Self::default(),
+            StrawFunctionType::Pipe => Self {
+                model_in,
+                model_out,
+                ..Default::default()
+            },
+        }
+    }
+}
+
 trait EnvValue {
     fn to_string_value(&self) -> Option<String>;
 }
@@ -723,6 +725,28 @@ where
     }
 }
 
+fn try_apply_to_env(env: &mut Vec<EnvVar>, name: &str, value: impl EnvValue) {
+    let var = EnvVar {
+        name: name.into(),
+        value: value.to_string_value(),
+        value_from: None,
+    };
+
+    match env.iter_mut().find(|stored| stored.name == var.name) {
+        Some(stored) => {
+            if stored
+                .value
+                .as_ref()
+                .map(|value| value.is_empty())
+                .unwrap_or(true)
+            {
+                *stored = var;
+            }
+        }
+        None => env.push(var),
+    }
+}
+
 fn apply_to_env(env: &mut Vec<EnvVar>, name: &str, value: impl EnvValue) {
     let var = EnvVar {
         name: name.into(),
@@ -730,7 +754,7 @@ fn apply_to_env(env: &mut Vec<EnvVar>, name: &str, value: impl EnvValue) {
         value_from: None,
     };
 
-    match env.iter_mut().find(|stored| stored.name == name) {
+    match env.iter_mut().find(|stored| stored.name == var.name) {
         Some(stored) => *stored = var,
         None => env.push(var),
     }

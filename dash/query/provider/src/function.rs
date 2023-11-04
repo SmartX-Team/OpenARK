@@ -1,7 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use anyhow::Result;
-use dash_api::pipe::PipeSpec;
+use dash_api::function::{FunctionSpec, FunctionVolatility};
 use dash_pipe_provider::{
     deltalake::{
         arrow::datatypes::{DataType, Schema},
@@ -22,11 +22,11 @@ use tracing::debug;
 pub(crate) struct DashFunctionTemplate {
     name: Name,
     model_in: Name,
-    spec: RemotePipeSpec,
+    spec: RemoteFunctionSpec,
 }
 
 impl DashFunctionTemplate {
-    pub(crate) fn new(name: Name, model_in: Name, spec: RemotePipeSpec) -> Result<Self> {
+    pub(crate) fn new(name: Name, model_in: Name, spec: RemoteFunctionSpec) -> Result<Self> {
         Ok(Self {
             name,
             model_in,
@@ -41,10 +41,12 @@ impl DashFunctionTemplate {
             name,
             model_in,
             spec:
-                PipeSpec {
+                FunctionSpec {
                     input: input_schema,
                     output: output_schema,
                     exec: (),
+                    type_: _,
+                    volatility,
                 },
         } = self;
 
@@ -67,7 +69,11 @@ impl DashFunctionTemplate {
                     TypeSignature::Exact(vec![input]),
                     TypeSignature::Exact(inputs),
                 ]),
-                volatility: Volatility::Immutable,
+                volatility: match volatility {
+                    FunctionVolatility::Immutable => Volatility::Immutable,
+                    FunctionVolatility::Stable => Volatility::Stable,
+                    FunctionVolatility::Volatile => Volatility::Volatile,
+                },
             },
             return_type: {
                 let return_type = Arc::new(output);
@@ -101,10 +107,12 @@ impl fmt::Display for DashFunctionTemplate {
             name,
             model_in: _,
             spec:
-                PipeSpec {
+                FunctionSpec {
                     input,
                     output: _,
                     exec: _,
+                    type_: _,
+                    volatility: _,
                 },
         } = self;
 
@@ -119,4 +127,4 @@ impl fmt::Display for DashFunctionTemplate {
     }
 }
 
-type RemotePipeSpec = PipeSpec<Arc<Schema>, ()>;
+type RemoteFunctionSpec = FunctionSpec<Arc<Schema>, ()>;

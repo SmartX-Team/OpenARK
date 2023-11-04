@@ -23,7 +23,9 @@ impl FromStr for Name {
     type Err = Error;
 
     fn from_str(name: &str) -> Result<Self, <Self as FromStr>::Err> {
-        let re = Regex::new(r"^[a-z][a-z0-9_-]*[a-z0-9]?$")?;
+        let field = Self::RE_FIELD;
+        let fields = format!(r"^{field}(\.{field})*$");
+        let re = Regex::new(&fields)?;
         if re.is_match(name) {
             Ok(Self(name.into()))
         } else {
@@ -37,13 +39,6 @@ impl From<Name> for String {
         value.0
     }
 }
-
-// #[cfg(feature = "nats")]
-// impl From<Name> for ::async_nats::Subject {
-//     fn from(value: Name) -> Self {
-//         value.0.into()
-//     }
-// }
 
 impl Borrow<str> for Name {
     fn borrow(&self) -> &str {
@@ -140,6 +135,14 @@ impl<'de> Deserialize<'de> for Name {
     {
         <String as Deserialize<'de>>::deserialize(deserializer)
             .and_then(|name| Self::from_str(&name).map_err(::serde::de::Error::custom))
+    }
+}
+
+impl Name {
+    const RE_FIELD: &str = r"[a-z]([a-z0-9_-]*[a-z0-9])?";
+
+    pub fn storage(&self) -> &str {
+        self.0.split('.').next().unwrap()
     }
 }
 

@@ -7,7 +7,7 @@ use clap::{value_parser, ArgAction, Parser, Subcommand};
 use k8s_openapi::api::core::v1::EnvVar;
 use kube::Client;
 use straw_api::{
-    pipe::{StrawNode, StrawPipe},
+    function::{StrawFunction, StrawNode},
     plugin::PluginContext,
 };
 use straw_provider::StrawSession;
@@ -33,7 +33,7 @@ struct Args {
     #[command(subcommand)]
     command: Commands,
 
-    /// Set a default k8s namespace
+    /// Set a k8s namespace
     #[arg(short, long, env = "NAMESPACE", value_name = "NAME")]
     namespace: Option<String>,
 }
@@ -91,17 +91,18 @@ impl Commands {
 
         match self {
             Self::Create(command) => {
-                let (ctx, pipe) = command.into();
-                session.create(&ctx, &pipe).await
+                let (ctx, function) = command.into();
+                // TODO: FIXME: type 이 Pipe 인 경우 ctx에 model_in, model_out 정의하기
+                session.create(&ctx, &function).await
             }
             Self::Delete(command) => {
-                let (_, pipe) = command.into();
-                session.delete(&pipe).await
+                let (_, function) = command.into();
+                session.delete(&function).await
             }
             Self::Exists(command) => {
-                let (_, pipe) = command.into();
+                let (_, function) = command.into();
                 session
-                    .exists(&pipe)
+                    .exists(&function)
                     .await
                     .map(|exists| info!("exists: {exists}"))
             }
@@ -127,7 +128,7 @@ struct CommandSession {
     src: Url,
 }
 
-impl From<CommandSession> for (PluginContext, StrawPipe) {
+impl From<CommandSession> for (PluginContext, StrawFunction) {
     fn from(value: CommandSession) -> Self {
         let CommandSession {
             ctx,
@@ -135,7 +136,7 @@ impl From<CommandSession> for (PluginContext, StrawPipe) {
             env,
             src,
         } = value;
-        let pipe = StrawPipe {
+        let function = StrawFunction {
             straw: vec![StrawNode {
                 name,
                 env: env
@@ -150,7 +151,7 @@ impl From<CommandSession> for (PluginContext, StrawPipe) {
             }],
         };
 
-        (ctx, pipe)
+        (ctx, function)
     }
 }
 

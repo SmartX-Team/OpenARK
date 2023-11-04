@@ -1,11 +1,10 @@
-mod plugin;
-
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error, Result};
 use ark_core_k8s::data::Url;
 use async_trait::async_trait;
 use clap::Parser;
+use dash_pipe_function_ai_plugin::PluginBuilder;
 use dash_pipe_provider::{
     storage::StorageIO, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
 };
@@ -54,7 +53,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             ai_model_kind: kind,
         } = args;
 
-        let code = self::plugin::PluginBuilder::new().load_code(model)?;
+        let code = PluginBuilder::new().load_code(model)?;
 
         Ok(Self {
             tick: Python::with_gil(|py| {

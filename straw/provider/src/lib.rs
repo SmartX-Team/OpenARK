@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use straw_api::{
-    pipe::{StrawNode, StrawPipe},
+    function::{StrawFunction, StrawNode},
     plugin::{Plugin, PluginBuilder, PluginContext},
 };
 
@@ -20,7 +20,7 @@ impl StrawSession {
         Self {
             builders: vec![
                 #[cfg(feature = "ai")]
-                Box::new(::dash_pipe_function_ai::plugin::PluginBuilder::new()),
+                Box::new(::dash_pipe_function_ai_plugin::PluginBuilder::new()),
                 #[cfg(feature = "oci")]
                 Box::new(self::oci::PluginBuilder::new()),
             ],
@@ -33,8 +33,9 @@ impl StrawSession {
         self.builders.push(builder.into())
     }
 
-    pub async fn create(&self, ctx: &PluginContext, pipe: &StrawPipe) -> Result<()> {
-        pipe.straw
+    pub async fn create(&self, ctx: &PluginContext, function: &StrawFunction) -> Result<()> {
+        function
+            .straw
             .iter()
             .map(|node| self.create_node(ctx, node))
             .collect::<FuturesUnordered<_>>()
@@ -49,8 +50,9 @@ impl StrawSession {
             .await
     }
 
-    pub async fn delete(&self, pipe: &StrawPipe) -> Result<()> {
-        pipe.straw
+    pub async fn delete(&self, function: &StrawFunction) -> Result<()> {
+        function
+            .straw
             .iter()
             .map(|node| self.delete_node(node))
             .collect::<FuturesUnordered<_>>()
@@ -65,8 +67,9 @@ impl StrawSession {
             .await
     }
 
-    pub async fn exists(&self, pipe: &StrawPipe) -> Result<bool> {
-        pipe.straw
+    pub async fn exists(&self, function: &StrawFunction) -> Result<bool> {
+        function
+            .straw
             .iter()
             .map(|node| self.exists_node(node))
             .collect::<FuturesUnordered<_>>()

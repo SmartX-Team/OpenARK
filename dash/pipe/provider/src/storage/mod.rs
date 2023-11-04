@@ -53,7 +53,8 @@ impl StorageSet {
     {
         debug!("Initializing Storage Set ({model:?})");
 
-        if !args.persistence_metadata.unwrap_or_default() {
+        let persistence_metadata = args.persistence_metadata.unwrap_or_default();
+        if !persistence_metadata {
             ctx.disable_store_metadata();
         }
 
@@ -75,7 +76,11 @@ impl StorageSet {
             default,
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "lakehouse")]
-            lakehouse: self::lakehouse::Storage::try_new::<Value>(&args.s3, model).await?,
+            lakehouse: if persistence_metadata {
+                self::lakehouse::Storage::try_new::<Value>(&args.s3, model).await?
+            } else {
+                self::lakehouse::Storage::default()
+            },
             #[cfg(feature = "s3")]
             s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name).await?,
         })

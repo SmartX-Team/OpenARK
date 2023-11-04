@@ -1,0 +1,42 @@
+[package]
+name = "dash-pipe-function-ai-plugin"
+
+authors = { workspace = true }
+description = { workspace = true }
+documentation = { workspace = true }
+edition = { workspace = true }
+include = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+rust-version = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+code = ["anyhow", "ark-core-k8s"]
+straw = [
+    "ark-core-k8s",
+    "inflector",
+    "k8s-openapi",
+    "kube",
+    "maplit",
+    "straw-api",
+]
+
+[dependencies]
+ark-core-k8s = { path = "../../../../../ark/core/k8s", optional = true, features = [
+    "data",
+] }
+straw-api = { path = "../../../../../straw/api", optional = true, features = [
+    "plugin",
+] }
+
+anyhow = { workspace = true, optional = true }
+inflector = { workspace = true, optional = true }
+k8s-openapi = { workspace = true, optional = true }
+kube = { workspace = true, optional = true, features = ["client"] }
+maplit = { workspace = true, optional = true }

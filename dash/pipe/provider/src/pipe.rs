@@ -147,7 +147,10 @@ where
         }
 
         // Force read-only mode on self processing
-        if self.model_in == self.model_out || self.model_out.is_none() {
+        if self.model_in.as_ref().map(|model| model.storage())
+            == self.model_out.as_ref().map(|model| model.storage())
+            || self.model_out.is_none()
+        {
             function_context.disable_store();
             function_context.disable_store_metadata();
         }

@@ -308,6 +308,24 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             })
             .collect())
     }
+
+    pub async fn ensure_model_storage_binding(&self, model_name: &str) -> Result<()> {
+        let client = super::StorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
+
+        client
+            .get_model_storage_bindings(model_name)
+            .await
+            .and_then(|bindings| {
+                if bindings.is_empty() {
+                    bail!("model is not binded yet: {model_name}")
+                } else {
+                    Ok(())
+                }
+            })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -16,7 +16,7 @@ spec:
   dynamic: {}
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
-kind: Pipe
+kind: Function
 metadata:
   name: identity
   namespace: default
@@ -24,3 +24,5 @@ spec:
   input: identity-input
   output: identity-output
   placeholder: {}
+  type: OneShot
+  volatility: Immutable

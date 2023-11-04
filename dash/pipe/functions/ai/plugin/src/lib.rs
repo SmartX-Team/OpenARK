@@ -1,4 +1,5 @@
-use anyhow::{anyhow, Result};
+#![cfg(any(feature = "code", feature = "straw"))]
+
 use ark_core_k8s::data::Url;
 
 pub struct PluginBuilder<'a> {
@@ -10,15 +11,17 @@ impl<'a> PluginBuilder<'a> {
         Self {
             loaders: &[ModelLoader {
                 scheme: "huggingface",
+                #[cfg(feature = "code")]
                 code: include_str!("./huggingface.py"),
             }],
         }
     }
 
-    pub fn load_code(&self, model: &Url) -> Result<&'a str> {
+    #[cfg(feature = "code")]
+    pub fn load_code(&self, model: &Url) -> ::anyhow::Result<&'a str> {
         self.try_load(model)
             .map(|loader| loader.code)
-            .ok_or_else(|| anyhow!("unsupported model URL scheme: {model}"))
+            .ok_or_else(|| ::anyhow::anyhow!("unsupported model URL scheme: {model}"))
     }
 
     fn try_load(&self, model: &Url) -> Option<&ModelLoader<'a>> {
@@ -38,6 +41,7 @@ impl ::straw_api::plugin::PluginBuilder for PluginBuilder<'static> {
 #[derive(Copy, Clone)]
 pub struct ModelLoader<'a> {
     scheme: &'a str,
+    #[cfg(feature = "code")]
     code: &'a str,
 }
 
@@ -45,7 +49,7 @@ pub struct ModelLoader<'a> {
 impl<'a> ::straw_api::plugin::PluginDaemon for ModelLoader<'a> {
     fn container_default_env(
         &self,
-        node: &::straw_api::pipe::StrawNode,
+        node: &::straw_api::function::StrawNode,
     ) -> Vec<::k8s_openapi::api::core::v1::EnvVar> {
         use inflector::Inflector;
         use k8s_openapi::api::core::v1::EnvVar;

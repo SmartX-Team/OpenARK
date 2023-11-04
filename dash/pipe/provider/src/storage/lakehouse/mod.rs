@@ -25,7 +25,7 @@ use crate::message::PipeMessage;
 
 use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Storage {
     session: Arc<Mutex<MaybeStorageTable>>,
 }
@@ -69,7 +69,8 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     }
 }
 
-pub struct MaybeStorageTable {
+#[derive(Default)]
+struct MaybeStorageTable {
     inner: Option<StorageTable>,
 }
 
@@ -140,7 +141,7 @@ impl StorageTable {
         let (model, table, has_writer) = ctx
             .register_table_with_name(
                 args.clone(),
-                model,
+                model.storage(),
                 Some(::schemars::schema_for!(PipeMessage<Value, ()>)),
             )
             .await?;
