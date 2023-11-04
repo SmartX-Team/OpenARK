@@ -16,6 +16,12 @@ EXPOSE 80/tcp
 WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    s3fs \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
 # Install python dependencies
 ADD ./requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y \
@@ -44,7 +50,6 @@ RUN apt-get update && apt-get install -y \
     llvm-dev \
     mold \
     nasm \
-    s3fs \
     # Install rustup
     && curl https://sh.rustup.rs -sSf >/rustup.sh \
     && bash /rustup.sh -y \

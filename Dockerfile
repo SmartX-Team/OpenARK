@@ -15,14 +15,14 @@ WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
 # Install dependencies
-RUN apk add --no-cache libgcc
+RUN apk add --no-cache libgcc s3fs-fuse
 
 # Be ready for building
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
 RUN apk add --no-cache bzip2-static clang-dev cmake g++ \
-    make mold musl-dev nasm s3fs-fuse xz-static zlib-static
+    make mold musl-dev nasm xz-static zlib-static
 
 # Load source files
 ADD . /src
