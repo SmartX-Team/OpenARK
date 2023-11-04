@@ -6,7 +6,7 @@
 set dotenv-load
 
 # Configure environment variables
-export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.17')
+export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.18')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
