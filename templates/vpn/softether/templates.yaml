@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vpn-softether
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: softether
+  namespace: vpn-softether
+spec:
+  selector:
+    matchLabels:
+      app: softether
+  template:
+    metadata:
+      labels:
+        app: softether
+    spec:
+      containers:
+        - name: server
+          image: docker.io/siomiz/softethervpn:latest
+          env:
+            - name: HPW
+              value: __ADMIN_PASSWORD__
+            - name: USERS
+              value: openark:__ADMIN_PASSWORD__
+            - name: SPW
+              value: __ADMIN_PASSWORD__
+          ports:
+            - name: openvpn-tcp
+              protocol: TCP
+              containerPort: 443
+            - name: openvpn
+              protocol: UDP
+              containerPort: 1194
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: softether
+  namespace: vpn-softether
+spec:
+  selector:
+    app: softether
+  ports:
+    - name: openvpn-tcp
+      port: 443
+      protocol: TCP
+      targetPort: 443
+    - name: openvpn
+      protocol: UDP
+      port: 1194
+      targetPort: 1194
+  type: LoadBalancer
+  loadBalancerIP: __LOADBALANCER_IP__
