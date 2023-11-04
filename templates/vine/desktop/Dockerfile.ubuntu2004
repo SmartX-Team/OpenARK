@@ -140,6 +140,7 @@ RUN apt-get update && apt-get install -y \
     network-manager \
     network-manager-gnome \
     plank \
+    s3fs \
     sqlite \
     ssh-askpass \
     thunar thunar-archive-plugin thunar-volman \

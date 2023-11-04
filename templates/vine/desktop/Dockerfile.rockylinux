@@ -193,6 +193,7 @@ RUN dnf install -y --enablerepo raven \
     openssh-askpass \
     picom \
     plank \
+    s3fs-fuse \
     sqlite \
     Thunar thunar-archive-plugin thunar-volman \
     tumbler \

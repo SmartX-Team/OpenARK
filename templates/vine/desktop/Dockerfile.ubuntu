@@ -179,6 +179,7 @@ RUN apt-get update && apt-get install -y \
     network-manager-gnome \
     picom \
     plank \
+    s3fs \
     sqlite \
     ssh-askpass \
     thunar thunar-archive-plugin thunar-volman \

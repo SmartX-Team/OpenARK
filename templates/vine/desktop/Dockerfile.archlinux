@@ -220,6 +220,7 @@ RUN yay -Sy --noconfirm \
     nm-connection-editor \
     picom \
     plank \
+    s3fs-fuse \
     sqlite \
     thunar thunar-archive-plugin thunar-volman \
     tumbler \
