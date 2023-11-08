@@ -9,6 +9,7 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value as DynValue;
 use strum::{Display, EnumString};
+use tracing::{instrument, Level};
 
 use crate::storage::{StorageSet, StorageType};
 
@@ -82,6 +83,7 @@ impl<Value> PipeMessages<Value>
 where
     Value: Default,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
@@ -110,7 +112,7 @@ where
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
     timestamp: DateTime<Utc>,
-    reply: Option<String>,
+    reply: Option<PipeReply>,
     value: DynValue,
 }
 
@@ -160,7 +162,7 @@ impl PyPipeMessage {
     fn new(
         payloads: Vec<(String, Option<Vec<u8>>)>,
         value: &::pyo3::PyAny,
-        reply: Option<String>,
+        reply: Option<(String, Option<String>)>,
     ) -> ::pyo3::PyResult<Self> {
         fn value_to_native(value: &::pyo3::PyAny) -> DynValue {
             if value.is_none() {
@@ -203,7 +205,10 @@ impl PyPipeMessage {
                     PipePayload::new(key, value.map(Into::into).unwrap_or_default())
                 })
                 .collect(),
-            reply,
+            reply: reply.map(|(inbox, target)| PipeReply {
+                inbox,
+                target: target.and_then(|target| target.parse().ok()),
+            }),
             timestamp: Utc::now(),
             value: value_to_native(value),
         })
@@ -225,8 +230,13 @@ impl PyPipeMessage {
     }
 
     #[getter]
-    fn get_reply(&self) -> Option<&str> {
-        self.reply.as_deref()
+    fn get_reply(&self) -> Option<(&str, Option<&str>)> {
+        self.reply.as_ref().map(|PipeReply { inbox, target }| {
+            (
+                inbox.as_str(),
+                target.as_ref().map(|target| target.as_str()),
+            )
+        })
     }
 
     #[getter]
@@ -296,8 +306,8 @@ where
 {
     #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
-    #[serde(skip)]
-    pub reply: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) reply: Option<PipeReply>,
     timestamp: DateTime<Utc>,
     #[serde(default)]
     pub value: Value,
@@ -369,8 +379,20 @@ where
         }
     }
 
-    pub(crate) fn with_reply(mut self, reply: Option<String>) -> Self {
-        self.reply = reply;
+    pub(crate) fn with_reply_inbox(mut self, inbox: String) -> Self {
+        self.reply = Some(PipeReply {
+            inbox,
+            target: None,
+        });
+        self
+    }
+
+    pub(crate) fn with_reply_target(mut self, target: &Option<Name>) -> Self {
+        if let Some(reply) = &mut self.reply {
+            if reply.target.is_none() {
+                reply.target = target.clone();
+            }
+        }
         self
     }
 
@@ -380,6 +402,7 @@ where
             .map(|payload| (payload.key.clone(), payload.get_ref()))
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
         Ok(PipeMessage {
             payloads: self
@@ -440,6 +463,7 @@ impl<Value> PipeMessage<Value>
 where
     Value: Default,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn dump_payloads(
         self,
         storage: &StorageSet,
@@ -506,6 +530,7 @@ where
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
         let Self {
             key,
@@ -550,6 +575,7 @@ where
 }
 
 impl PipePayload {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn dump(
         self,
         storage: &StorageSet,
@@ -590,6 +616,14 @@ impl PipePayload {
             value: (),
         })
     }
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub struct PipeReply {
+    pub inbox: String,
+    pub target: Option<Name>,
 }
 
 #[derive(

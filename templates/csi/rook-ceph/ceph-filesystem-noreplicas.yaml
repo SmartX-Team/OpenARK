@@ -1,0 +1,67 @@
+apiVersion: ceph.rook.io/v1
+kind: CephFilesystem
+metadata:
+  name: ceph-filesystem-noreplicas
+  namespace: csi-rook-ceph
+spec:
+  dataPools:
+    - erasureCoded:
+        codingChunks: 0
+        dataChunks: 0
+      failureDomain: host
+      mirroring: {}
+      name: data0
+      quotas: {}
+      replicated:
+        size: 1
+      statusCheck:
+        mirror: {}
+  metadataPool:
+    erasureCoded:
+      codingChunks: 0
+      dataChunks: 0
+    mirroring: {}
+    quotas: {}
+    replicated:
+      size: 1
+    statusCheck:
+      mirror: {}
+  metadataServer:
+    activeCount: 1
+    activeStandby: true
+    placement:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - Storage
+            weight: 1
+          - preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - Gateway
+            weight: 2
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - Compute
+                    - Gateway
+                    - Storage
+    priorityClassName: system-cluster-critical
+    resources:
+      limits:
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        cpu: "1"
+        memory: 4Gi
+  statusCheck:
+    mirror: {}

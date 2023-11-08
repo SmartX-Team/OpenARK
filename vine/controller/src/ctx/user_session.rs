@@ -5,7 +5,7 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use k8s_openapi::api::core::v1::Node;
 use kube::{runtime::controller::Action, Error, ResourceExt};
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 use vine_api::user::UserCrd;
 use vine_session::SessionManager;
 
@@ -19,6 +19,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::vine_api::consts::NAMESPACE;
 
+    #[instrument(level = Level::INFO, skip_all, fields(name = data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,

@@ -14,7 +14,7 @@ use strum::{Display, EnumString};
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "ModelStorage",
-    struct = "ModelStorageCrd",
+    root = "ModelStorageCrd",
     status = "ModelStorageStatus",
     shortname = "ms",
     namespaced,

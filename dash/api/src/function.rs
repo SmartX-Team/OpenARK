@@ -13,7 +13,7 @@ use crate::model::ModelFieldsNativeSpec;
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "Function",
-    struct = "FunctionCrd",
+    root = "FunctionCrd",
     status = "FunctionStatus",
     shortname = "f",
     namespaced,

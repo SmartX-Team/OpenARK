@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "User",
-    struct = "UserCrd",
+    root = "UserCrd",
     status = "UserStatus",
     shortname = "u",
     printcolumn = r#"{

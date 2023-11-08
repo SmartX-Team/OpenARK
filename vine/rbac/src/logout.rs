@@ -1,7 +1,9 @@
 use anyhow::Result;
 use kube::Client;
+use tracing::{instrument, Level};
 use vine_api::user_auth::UserSessionResponse;
 
+#[instrument(level = Level::INFO, skip(client), err(Display))]
 pub async fn execute(
     client: &Client,
     box_name: &str,

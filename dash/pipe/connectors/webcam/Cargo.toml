@@ -23,6 +23,7 @@ dash-pipe-provider = { path = "../../provider" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+derivative = { workspace = true }
 image = { workspace = true, features = ["png"] }
 opencv = { workspace = true, features = ["imgcodecs", "videoio"] }
 serde = { workspace = true }

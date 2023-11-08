@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use dash_api::{model::ModelFieldKindNativeSpec, task::TaskSpec};
 use dash_provider::{client::TaskActorClient, storage::KubernetesStorageClient};
 use kube::Client;
+use tracing::{instrument, Level};
 
 use super::model::ModelValidator;
 
@@ -11,6 +12,7 @@ pub struct TaskValidator<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> TaskValidator<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_task(
         &self,
         spec: TaskSpec,

@@ -32,3 +32,4 @@ dirs = { workspace = true }
 itertools = { workspace = true }
 procfs = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }

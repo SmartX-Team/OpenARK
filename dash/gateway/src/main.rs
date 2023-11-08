@@ -4,15 +4,19 @@ use std::net::SocketAddr;
 
 use actix_cors::Cors;
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web_opentelemetry::RequestTracing;
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO)]
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok().json("dash-gateway")
 }
 
+#[instrument(level = Level::INFO)]
 #[get("/health")]
 async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
@@ -53,7 +57,7 @@ async fn main() {
                 .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list);
             let app = ::vine_plugin::register(app);
-            app.wrap(cors)
+            app.wrap(cors).wrap(RequestTracing::new())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

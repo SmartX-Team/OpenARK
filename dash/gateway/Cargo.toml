@@ -30,6 +30,7 @@ vine-rbac = { path = "../../vine/rbac", features = ["actix", "serde"] }
 
 actix-cors = { workspace = true }
 actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true, features = [
@@ -39,3 +40,4 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 serde_json = { workspace = true }
+tracing = { workspace = true }

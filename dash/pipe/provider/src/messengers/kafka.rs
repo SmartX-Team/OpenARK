@@ -12,7 +12,7 @@ use rdkafka::{
     ClientConfig, Message,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, instrument, Level};
 
 use crate::message::PipeMessage;
 
@@ -21,7 +21,7 @@ pub struct Messenger {
 }
 
 impl Messenger {
-    pub async fn try_new(args: &MessengerNatsArgs) -> Result<Self> {
+    pub fn try_new(args: &MessengerNatsArgs) -> Result<Self> {
         debug!("Initializing Messenger IO - Kafka");
 
         let mut config = ClientConfig::new();
@@ -38,13 +38,15 @@ impl<Value> super::Messenger<Value> for Messenger {
         super::MessengerType::Kafka
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.config.create()?,
-            topic: topic.into(),
+            topic,
         }))
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + Default + DeserializeOwned,
@@ -59,19 +61,26 @@ impl<Value> super::Messenger<Value> for Messenger {
 
 pub struct Publisher {
     client: FutureProducer,
-    topic: String,
+    topic: Name,
 }
 
 #[async_trait]
 impl super::Publisher for Publisher {
-    async fn reply_one(&self, _data: Bytes, _reply: String) -> Result<()> {
+    fn topic(&self) -> &Name {
+        &self.topic
+    }
+
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = _data.len()), err(Display))]
+    async fn reply_one(&self, _data: Bytes, _inbox: String) -> Result<()> {
         bail!("cannot reply with Kafka")
     }
 
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = _data.len()), err(Display))]
     async fn request_one(&self, _data: Bytes) -> Result<Bytes> {
         bail!("cannot request with Kafka")
     }
 
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .send(

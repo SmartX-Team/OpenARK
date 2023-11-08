@@ -4,6 +4,7 @@ use anyhow::{anyhow, Error, Result};
 use ipnet::Ipv4Net;
 use k8s_openapi::api::core::v1::ConfigMap;
 use kube::{Api, Client};
+use tracing::{instrument, Level};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KissConfig {
@@ -27,6 +28,7 @@ pub struct KissConfig {
 }
 
 impl KissConfig {
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     pub async fn try_default(kube: &Client) -> Result<Self> {
         let ns = ::kiss_api::consts::NAMESPACE;
         let api = Api::<ConfigMap>::namespaced(kube.clone(), ns);

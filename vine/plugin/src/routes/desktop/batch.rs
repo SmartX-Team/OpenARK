@@ -7,10 +7,12 @@ use ark_api::SessionRef;
 use ark_core::result::Result;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
+use tracing::{instrument, Level};
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
 use vine_rbac::auth::AuthUserSession;
 use vine_session::SessionExec;
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/batch/user/desktop/exec/broadcast/")]
 pub async fn post_exec_broadcast(
     request: HttpRequest,

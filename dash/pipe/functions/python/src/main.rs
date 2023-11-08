@@ -6,6 +6,7 @@ use clap::Parser;
 use dash_pipe_provider::{
     storage::StorageIO, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
 };
+use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -21,7 +22,10 @@ pub struct FunctionArgs {
     python_script: PathBuf,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Function {
+    #[derivative(Debug = "ignore")]
     tick: PyObject,
 }
 

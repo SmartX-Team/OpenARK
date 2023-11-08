@@ -8,6 +8,7 @@ use futures::TryFutureExt;
 use kube::Client;
 use serde::Serialize;
 use serde_json::Value;
+use tracing::{instrument, Level};
 
 use crate::{
     input::{InputField, InputTemplate},
@@ -25,6 +26,7 @@ pub trait TaskSessionUpdateFields<Value> {
 
 #[async_trait]
 impl<'a> TaskSessionUpdateFields<String> for TaskSession<'a> {
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     async fn update_field(
         &mut self,
         storage: &StorageClient,
@@ -39,6 +41,7 @@ impl<'a> TaskSessionUpdateFields<String> for TaskSession<'a> {
 
 #[async_trait]
 impl<'a> TaskSessionUpdateFields<Value> for TaskSession<'a> {
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     async fn update_field(
         &mut self,
         storage: &StorageClient,
@@ -58,6 +61,7 @@ pub struct TaskSession<'a> {
 }
 
 impl<'a> TaskSession<'a> {
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     pub async fn load(
         kube: Client,
         metadata: &'a SessionContextMetadata,
@@ -79,6 +83,7 @@ impl<'a> TaskSession<'a> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self, inputs), err(Display))]
     async fn update_fields<Value>(&mut self, inputs: Vec<InputField<Value>>) -> Result<()>
     where
         Self: TaskSessionUpdateFields<Value>,
@@ -96,6 +101,7 @@ impl<'a> TaskSession<'a> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(kube, inputs), err(Display))]
     pub async fn exists<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
@@ -110,6 +116,7 @@ impl<'a> TaskSession<'a> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_exists<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<bool>
     where
         Self: TaskSessionUpdateFields<Value>,
@@ -128,6 +135,7 @@ impl<'a> TaskSession<'a> {
             .map_err(|e| anyhow!("failed to check task {:?}: {e}", &self.metadata.name))
     }
 
+    #[instrument(level = Level::INFO, skip(kube, inputs), err(Display))]
     pub async fn create<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
@@ -142,6 +150,7 @@ impl<'a> TaskSession<'a> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_create<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<TaskChannel>
     where
         Self: TaskSessionUpdateFields<Value>,
@@ -160,6 +169,7 @@ impl<'a> TaskSession<'a> {
             .map_err(|e| anyhow!("failed to create task {:?}: {e}", &self.metadata.name))
     }
 
+    #[instrument(level = Level::INFO, skip(kube, inputs), err(Display))]
     pub async fn delete<Value>(
         kube: Client,
         metadata: &'a SessionContextMetadata,
@@ -174,6 +184,7 @@ impl<'a> TaskSession<'a> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_delete<Value>(mut self, inputs: Vec<InputField<Value>>) -> Result<TaskChannel>
     where
         Self: TaskSessionUpdateFields<Value>,
@@ -198,6 +209,7 @@ pub enum TaskActorClient {
 }
 
 impl TaskActorClient {
+    #[instrument(level = Level::INFO, skip(kube, spec), err(Display))]
     pub async fn try_new(namespace: &str, kube: &Client, spec: &TaskActorSpec) -> Result<Self> {
         let use_prefix = true;
         match spec {
@@ -216,6 +228,7 @@ impl TaskActorClient {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn exists<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
@@ -225,6 +238,7 @@ impl TaskActorClient {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannel>
     where
         Spec: Serialize,
@@ -237,6 +251,7 @@ impl TaskActorClient {
         })
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannel>
     where
         Spec: Serialize,

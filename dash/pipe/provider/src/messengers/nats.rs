@@ -8,7 +8,7 @@ use bytes::Bytes;
 use clap::{ArgAction, Parser};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio_stream::StreamExt;
-use tracing::debug;
+use tracing::{debug, instrument, Level};
 
 use crate::message::PipeMessage;
 
@@ -17,6 +17,7 @@ pub struct Messenger {
 }
 
 impl Messenger {
+    #[instrument(level = Level::INFO, err(Display))]
     pub async fn try_new(args: &MessengerNatsArgs) -> Result<Self> {
         debug!("Initializing Messenger IO - Nats");
 
@@ -37,6 +38,7 @@ impl Messenger {
             }
         }
 
+        #[instrument(level = Level::INFO, skip_all, err(Display))]
         async fn parse_password(args: &MessengerNatsArgs) -> Result<Option<String>> {
             match args.nats_password_path.as_ref() {
                 Some(path) => ::tokio::fs::read_to_string(path)
@@ -70,20 +72,28 @@ impl<Value> super::Messenger<Value> for Messenger {
         super::MessengerType::Nats
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.client.clone(),
-            subject: topic.into(),
+            topic,
         }))
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + Default + DeserializeOwned,
     {
-        Ok(Box::new(self.client.subscribe(topic.into()).await?))
+        Ok(Box::new(
+            self.client
+                .subscribe(topic.into())
+                .await
+                .map(|inner| Subscriber { inner })?,
+        ))
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
         topic: Name,
@@ -95,42 +105,52 @@ impl<Value> super::Messenger<Value> for Messenger {
         Ok(Box::new(
             self.client
                 .queue_subscribe(topic.into(), queue_group.into())
-                .await?,
+                .await
+                .map(|inner| Subscriber { inner })?,
         ))
     }
 }
 
 pub struct Publisher {
     client: Arc<Client>,
-    subject: String,
+    topic: Name,
 }
 
 #[async_trait]
 impl super::Publisher for Publisher {
-    async fn reply_one(&self, data: Bytes, reply: String) -> Result<()> {
+    fn topic(&self) -> &Name {
+        &self.topic
+    }
+
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
+    async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()> {
         self.client
-            .publish(reply, data)
+            .publish(inbox, data)
             .await
             .map_err(|error| anyhow!("failed to reply data to NATS: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
     async fn request_one(&self, data: Bytes) -> Result<Bytes> {
         self.client
-            .request(self.subject.clone(), data)
+            .request(self.topic.clone().into(), data)
             .await
             .map(|message| message.payload)
             .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
-            .publish(self.subject.clone(), data)
+            .publish(self.topic.clone().into(), data)
             .await
             .map_err(|error| anyhow!("failed to publish data to NATS: {error}"))
     }
 }
 
-pub type Subscriber = ::async_nats::Subscriber;
+pub struct Subscriber {
+    inner: ::async_nats::Subscriber,
+}
 
 #[async_trait]
 impl<Value> super::Subscriber<Value> for Subscriber
@@ -138,14 +158,19 @@ where
     Self: Send + Sync,
     Value: Send + Default + DeserializeOwned,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
-        self.next()
+        self.inner
+            .next()
             .await
             .map(|message| {
                 message
                     .payload
                     .try_into()
-                    .map(|input: PipeMessage<_, _>| input.with_reply(message.reply))
+                    .map(|input: PipeMessage<_, _>| match message.reply {
+                        Some(inbox) => input.with_reply_inbox(inbox),
+                        None => input,
+                    })
             })
             .transpose()
             .map_err(|error| anyhow!("failed to subscribe NATS input: {error}"))

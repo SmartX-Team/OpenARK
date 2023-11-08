@@ -10,9 +10,11 @@ use dash_provider::input::Name;
 use dash_provider_client::DashProviderClient;
 use kube::Client;
 use serde_json::Value;
+use tracing::{instrument, Level};
 use vine_api::user_session::UserSessionRef;
 use vine_rbac::auth::AuthUserSession;
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[delete("/task/{task_name}/job/{job_name}/")]
 pub async fn delete(
     request: HttpRequest,
@@ -31,6 +33,7 @@ pub async fn delete(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/{task_name}/job/{job_name}/")]
 pub async fn get(
     request: HttpRequest,
@@ -49,6 +52,7 @@ pub async fn get(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/job/")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref().clone();
@@ -62,6 +66,7 @@ pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responde
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/{task_name}/job/")]
 pub async fn get_list_with_task_name(
     request: HttpRequest,
@@ -79,6 +84,7 @@ pub async fn get_list_with_task_name(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/{task_name}/job/{job_name}/logs/")]
 pub async fn get_stream_logs(
     request: HttpRequest,
@@ -102,6 +108,7 @@ pub async fn get_stream_logs(
     }
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/task/{task_name}/job/")]
 pub async fn post(
     request: HttpRequest,
@@ -120,6 +127,7 @@ pub async fn post(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/task/{task_name}/job/{job_name}/restart/")]
 pub async fn post_restart(
     request: HttpRequest,

@@ -20,7 +20,7 @@ use schemars::{schema::RootSchema, JsonSchema};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
-use tracing::{debug, info};
+use tracing::{debug, info, instrument, Level};
 
 use crate::message::PipeMessage;
 
@@ -32,6 +32,7 @@ pub struct Storage {
 }
 
 impl Storage {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
     where
         Value: Default + JsonSchema,
@@ -47,6 +48,7 @@ impl Storage {
 
 #[async_trait]
 impl<Value> super::MetadataStorage<Value> for Storage {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
@@ -54,6 +56,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
         super::MetadataStorageMut::list_metadata(&mut *self.session.lock().await).await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
@@ -65,6 +68,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
         super::MetadataStorageMut::put_metadata(&mut *self.session.lock().await, values).await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn flush(&self) -> Result<()> {
         super::MetadataStorageMut::<Value>::flush(&mut *self.session.lock().await).await
     }
@@ -76,6 +80,7 @@ struct MaybeStorageTable {
 }
 
 impl MaybeStorageTable {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
     where
         Value: Default + JsonSchema,
@@ -91,6 +96,7 @@ impl MaybeStorageTable {
 
 #[async_trait]
 impl<Value> super::MetadataStorageMut<Value> for MaybeStorageTable {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list_metadata(&mut self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
@@ -103,6 +109,7 @@ impl<Value> super::MetadataStorageMut<Value> for MaybeStorageTable {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
@@ -116,6 +123,7 @@ impl<Value> super::MetadataStorageMut<Value> for MaybeStorageTable {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn flush(&mut self) -> Result<()> {
         match self.inner.as_mut() {
             Some(inner) => <StorageTable as super::MetadataStorageMut<Value>>::flush(inner).await,
@@ -132,6 +140,7 @@ pub struct StorageTable {
 }
 
 impl StorageTable {
+    #[instrument(level = Level::INFO, err(Display))]
     pub async fn try_new<Value>(args: &StorageS3Args, model: &Name) -> Result<Self>
     where
         Value: Default + JsonSchema,
@@ -164,6 +173,7 @@ impl StorageTable {
 
 #[async_trait]
 impl<Value> super::MetadataStorageMut<Value> for StorageTable {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn list_metadata(&mut self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
@@ -182,6 +192,7 @@ impl<Value> super::MetadataStorageMut<Value> for StorageTable {
         })
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
@@ -189,6 +200,7 @@ impl<Value> super::MetadataStorageMut<Value> for StorageTable {
         self.put_metadata_impl(values).await
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn flush(&mut self) -> Result<()> {
         match self.writer.as_mut() {
             Some(writer) => {
@@ -219,6 +231,7 @@ impl<Value> super::MetadataStorageMut<Value> for StorageTable {
 
 impl StorageTable {
     #[async_recursion]
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn put_metadata_impl<Value>(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: Send + Sync + Default + Serialize + JsonSchema,
@@ -278,6 +291,7 @@ impl ops::DerefMut for StorageContext {
 }
 
 impl StorageContext {
+    #[instrument(level = Level::INFO, skip_all, fields(model = model), err(Display))]
     pub async fn register_table_with_name(
         &self,
         StorageS3Args {
@@ -364,6 +378,7 @@ fn clone_table(table: &DeltaTable) -> DeltaTable {
     DeltaTable::new(table.object_store(), DeltaTableConfig { ..table.config })
 }
 
+#[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn create_table(
     table: DeltaTable,
     columns: impl IntoIterator<Item = impl Into<SchemaField>>,

@@ -22,6 +22,7 @@ dash-pipe-provider = { path = "../../provider", features = ["pyo3"] }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+derivative = { workspace = true }
 pyo3 = { workspace = true, features = ["auto-initialize"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

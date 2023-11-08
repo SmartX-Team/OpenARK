@@ -6,7 +6,7 @@ use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
 use kube::{api::ListParams, Api, Client, Error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, instrument, Level};
 
 use crate::config::KissConfig;
 
@@ -18,6 +18,7 @@ pub struct ClusterState<'a> {
 }
 
 impl<'a> ClusterState<'a> {
+    #[instrument(level = Level::INFO, skip(kube, config, owner), err(Display))]
     pub async fn load(
         kube: &'a Client,
         config: &'a KissConfig,

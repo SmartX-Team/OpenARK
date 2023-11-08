@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserBoxQuotaBinding",
-    struct = "UserBoxQuotaBindingCrd",
+    root = "UserBoxQuotaBindingCrd",
     shortname = "ubqb",
     printcolumn = r#"{
         "name": "user",

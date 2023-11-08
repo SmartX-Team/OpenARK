@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserAuthBinding",
-    struct = "UserAuthBindingCrd",
+    root = "UserAuthBindingCrd",
     shortname = "uab",
     printcolumn = r#"{
         "name": "user",

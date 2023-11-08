@@ -14,12 +14,14 @@ use dash_provider::storage::{
 };
 use itertools::Itertools;
 use kube::ResourceExt;
+use tracing::{instrument, Level};
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
 }
 
 impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_model_storage(&self, name: &str, spec: &ModelStorageSpec) -> Result<()> {
         if spec.kind.is_unique() {
             self.validate_model_storage_conflict(name, spec.kind.to_kind())
@@ -37,6 +39,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_model_storage_conflict(
         &self,
         name: &str,
@@ -57,6 +60,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_model_storage_database(
         &self,
         storage: &ModelStorageDatabaseSpec,
@@ -72,6 +76,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_model_storage_object(
         &self,
         name: &str,
@@ -92,6 +97,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         .map(|_| ())
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn bind_model(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageCrd>,
@@ -134,6 +140,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn bind_model_to_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -158,6 +165,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn bind_model_to_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
@@ -172,6 +180,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn unbind_model(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageCrd>,
@@ -230,6 +239,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn unbind_model_to_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -264,6 +274,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn unbind_model_to_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,

@@ -22,6 +22,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
+use tracing::{instrument, Level};
 
 pub struct DatabaseStorageClient {
     db: DatabaseConnection,
@@ -30,12 +31,14 @@ pub struct DatabaseStorageClient {
 impl<'model> DatabaseStorageClient {
     const NATIVE_URL: &'static str = "postgres://dash-postgres/dash";
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new(storage: &ModelStorageDatabaseSpec) -> Result<Self> {
         Ok(Self {
             db: Self::load_storage(storage).await?,
         })
     }
 
+    #[instrument(level = Level::INFO, err(Display))]
     async fn load_storage(storage: &ModelStorageDatabaseSpec) -> Result<DatabaseConnection> {
         let db = match storage {
             ModelStorageDatabaseSpec::Borrowed(storage) => {
@@ -49,6 +52,7 @@ impl<'model> DatabaseStorageClient {
         Entity::init(&db).await.map(|()| db).map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, err(Display))]
     async fn load_storage_by_borrowed(
         storage: &ModelStorageDatabaseBorrowedSpec,
     ) -> Result<DatabaseConnection> {
@@ -57,6 +61,7 @@ impl<'model> DatabaseStorageClient {
             .map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, err(Display))]
     async fn load_storage_by_owned(
         storage: &ModelStorageDatabaseOwnedSpec,
     ) -> Result<DatabaseConnection> {
@@ -135,6 +140,7 @@ impl<'model> DatabaseStorageSession<'model> {
         self.get_model_fields().and_then(convert_fields_to_columns)
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn is_table_exists(&self) -> Result<bool> {
         let (_, table_name) = self.get_table_name();
         let statement = Statement::from_string(
@@ -145,6 +151,7 @@ impl<'model> DatabaseStorageSession<'model> {
         Ok(self.db.execute(statement).await.is_ok())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get(&self, ref_name: &str) -> Result<Option<Value>> {
         let (_, table_name) = self.get_table_name();
         let column_name = self.get_model_name_column()?;
@@ -164,6 +171,7 @@ impl<'model> DatabaseStorageSession<'model> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_list(&self) -> Result<Vec<Value>> {
         const LIMIT: usize = 30;
 
@@ -181,6 +189,7 @@ impl<'model> DatabaseStorageSession<'model> {
             .collect()
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get_current_table_fields(&self) -> Result<Option<ModelFieldsNativeSpec>> {
         let (name, table_name) = self.get_table_name();
         let model_hash = self.get_model_hash()?;
@@ -221,6 +230,7 @@ impl<'model> DatabaseStorageSession<'model> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get_current_table_columns(&self) -> Result<Columns> {
         self.get_current_table_fields()
             .await
@@ -233,6 +243,7 @@ impl<'model> DatabaseStorageSession<'model> {
             .and_then(|fields| convert_fields_to_columns(&fields))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn create_table(&self) -> Result<()> {
         if self.is_table_exists().await? {
             return Ok(());
@@ -275,6 +286,7 @@ impl<'model> DatabaseStorageSession<'model> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn create_table_metadata(&self) -> Result<(String, RuntimeIden)> {
         let (name, table_name) = self.get_table_name();
 
@@ -291,6 +303,7 @@ impl<'model> DatabaseStorageSession<'model> {
         Ok((name, table_name))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn update_table(&self) -> Result<()> {
         if !self.is_table_exists().await? {
             return self.create_table().await;
@@ -334,6 +347,7 @@ impl<'model> DatabaseStorageSession<'model> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn delete_table(&self) -> Result<()> {
         let (_, table_name) = self.get_table_name();
 
@@ -368,6 +382,7 @@ pub enum Relation {}
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Entity {
+    #[instrument(level = Level::INFO, skip(db), err(Display))]
     pub async fn init(db: &DatabaseConnection) -> Result<(), DbErr> {
         // Drop the old model table
         #[cfg(feature = "i-want-to-cleanup-all-before-running-for-my-testing")]

@@ -8,6 +8,7 @@ use dash_api::{
     },
     storage::ModelStorageSpec,
 };
+use tracing::{instrument, Level};
 
 use super::{model::ModelValidator, storage::ModelStorageValidator};
 
@@ -17,6 +18,7 @@ pub struct ModelStorageBindingValidator<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_model_storage_binding(
         &self,
         spec: &ModelStorageBindingSpec,
@@ -82,6 +84,7 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             })
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn delete(&self, spec: &ModelStorageBindingSpec) -> Result<()> {
         let model = self
             .model

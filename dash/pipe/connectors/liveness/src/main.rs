@@ -28,6 +28,7 @@ impl FunctionArgs {
     }
 }
 
+#[derive(Debug)]
 pub struct Function {
     args: FunctionArgs,
     instant: Instant,

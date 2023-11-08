@@ -13,7 +13,7 @@ use kube::{
     Api, Client, CustomResourceExt, Error, ResourceExt,
 };
 use serde_json::json;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 
 use crate::validator::job::DashJobValidator;
 
@@ -30,6 +30,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const FINALIZER_NAME: &'static str =
         <Self as ::ark_core_k8s::manager::Ctx>::Data::FINALIZER_NAME;
 
+    #[instrument(level = Level::INFO, skip_all, fields(name = data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
@@ -176,6 +177,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 }
 
 impl Ctx {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn update_spec_or_requeue(
         namespace: &str,
         kube: &Client,
@@ -199,6 +201,7 @@ impl Ctx {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(kube, channel), err(Display))]
     async fn update_spec(
         namespace: &str,
         kube: &Client,
@@ -226,6 +229,7 @@ impl Ctx {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     async fn delete_or_requeue(
         namespace: &str,
         kube: &Client,

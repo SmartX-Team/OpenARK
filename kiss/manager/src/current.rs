@@ -15,7 +15,7 @@ use kube::{
 use maplit::btreemap;
 use semver::Version;
 use serde_json::json;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 
 pub struct Handler {
     api_config: Api<ConfigMap>,
@@ -23,6 +23,7 @@ pub struct Handler {
 }
 
 impl Handler {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default() -> Result<Self> {
         // create a kubernetes client
         let client = Client::try_default().await?;
@@ -35,6 +36,7 @@ impl Handler {
 }
 
 impl Handler {
+    #[instrument(level = Level::INFO, skip(self))]
     async fn create_config(&self, version: &Version) -> Result<()> {
         let config = ConfigMap {
             metadata: ObjectMeta {
@@ -55,6 +57,7 @@ impl Handler {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     pub async fn get_version(&self, latest: &Version) -> Result<Option<Version>> {
         if !self.update_job_status().await? {
             info!("Cannot find the current cluster version from Job; skipping");
@@ -78,6 +81,7 @@ impl Handler {
         version.parse().map(Some).map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     async fn patch_version(&self, version: &Version) -> Result<()> {
         let patch = Patch::Apply(json!({
             "apiVersion": ConfigMap::API_VERSION,
@@ -95,6 +99,7 @@ impl Handler {
 impl Handler {
     const UPGRADE_SERVICE_TYPE: &'static str = "openark-upgrade-kiss";
 
+    #[instrument(level = Level::INFO, skip(self))]
     async fn update_job_status(&self) -> Result<bool> {
         // load the previous jobs
         let lp = ListParams {
@@ -155,6 +160,7 @@ impl Handler {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     pub async fn upgrade(&self, current: &Version, latest: &Version) -> Result<()> {
         // spawn a upgrade job
         let metadata = ObjectMeta {

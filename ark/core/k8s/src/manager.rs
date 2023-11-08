@@ -16,7 +16,7 @@ use kube::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::json;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 
 pub struct Manager<C> {
     pub kube: Client,
@@ -135,6 +135,7 @@ where
         Api::<<Self as Ctx>::Data>::namespaced(client, <Self as Ctx>::NAMESPACE)
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_crd(client: Client) -> Result<()>
     where
         <Self as Ctx>::Data: CustomResourceExt,
@@ -181,6 +182,7 @@ where
     where
         Self: Sized;
 
+    #[instrument(level = Level::INFO, skip(api), err(Display))]
     async fn add_finalizer(api: &Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
     where
         Self: Sized,
@@ -202,6 +204,7 @@ where
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(api), err(Display))]
     async fn add_finalizer_or_requeue(
         api: &Api<<Self as Ctx>::Data>,
         namespace: Option<&str>,
@@ -224,6 +227,7 @@ where
         }
     }
 
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     async fn add_finalizer_or_requeue_namespaced(
         kube: Client,
         namespace: &str,
@@ -237,6 +241,7 @@ where
         <Self as Ctx>::add_finalizer_or_requeue(&api, Some(namespace), name).await
     }
 
+    #[instrument(level = Level::INFO, skip(api), err(Display))]
     async fn remove_finalizer(api: &Api<<Self as Ctx>::Data>, name: &str) -> Result<(), Error>
     where
         Self: Sized,
@@ -256,6 +261,7 @@ where
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(api), err(Display))]
     async fn remove_finalizer_or_requeue(
         api: &Api<<Self as Ctx>::Data>,
         namespace: Option<&str>,
@@ -278,6 +284,7 @@ where
         }
     }
 
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     async fn remove_finalizer_or_requeue_namespaced(
         kube: Client,
         namespace: &str,
@@ -291,7 +298,8 @@ where
         <Self as Ctx>::remove_finalizer_or_requeue(&api, Some(namespace), name).await
     }
 
-    fn error_policy<E>(_manager: Arc<Manager<Self>>, _error: E) -> Action
+    #[instrument(level = Level::WARN, skip(_manager))]
+    fn error_policy<E>(_manager: Arc<Manager<Self>>, error: E) -> Action
     where
         Self: Sized,
         E: ::std::fmt::Debug,

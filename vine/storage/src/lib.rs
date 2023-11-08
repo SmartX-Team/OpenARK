@@ -13,6 +13,7 @@ use kube::{
     Api, Client, ResourceExt,
 };
 use maplit::btreemap;
+use tracing::{instrument, Level};
 
 pub(crate) mod consts {
     pub const NAME: &str = "vine-storage";
@@ -23,6 +24,7 @@ pub(crate) mod consts {
     pub const PV_PERSISTENT_VOLUME_RECLAIM_POLICY: &str = "Retain";
 }
 
+#[instrument(level = Level::INFO, skip(kube), err(Display))]
 pub async fn get_or_create_shared_pvcs(
     kube: &Client,
     target_namespace: &str,
@@ -48,6 +50,7 @@ pub async fn get_or_create_shared_pvcs(
     }
 }
 
+#[instrument(level = Level::INFO, skip(kube), fields(pvc.name = pvc.name_any(), pvc.namespace = pvc.namespace()), err(Display))]
 async fn clone_pvc(
     kube: &Client,
     source_namespace: &str,
@@ -133,6 +136,7 @@ async fn clone_pvc(
 ///    (claimRef, managedFields,...)
 ///
 /// * Reference: https://rook.io/docs/rook/v1.11/Storage-Configuration/Shared-Filesystem-CephFS/filesystem-storage/#shared-volume-creation
+#[instrument(level = Level::INFO, skip(kube, pp), err(Display))]
 async fn clone_pv(
     kube: &Client,
     target_namespace: &str,
@@ -219,6 +223,7 @@ async fn clone_pv(
         .map_err(|error| anyhow!("failed to create a PV ({source_name} => {target_name}): {error}"))
 }
 
+#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = pv.name_any()), err(Display))]
 async fn release_pv(
     api: &Api<PersistentVolume>,
     mut pv: PersistentVolume,
@@ -246,6 +251,7 @@ async fn release_pv(
 /// to avoid it from being deleted when you will delete PVCs.
 ///
 /// Don't forget to change it back to `Delete` when you want to remove the shared volume.
+#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = pv.name_any()), err(Display))]
 async fn retain_pv_on_delete(
     api: &Api<PersistentVolume>,
     mut pv: PersistentVolume,
@@ -274,6 +280,7 @@ async fn retain_pv_on_delete(
     }
 }
 
+#[instrument(level = Level::INFO, skip(kube, pp), fields(pv.name = pv.name_any()), err(Display))]
 async fn get_or_create_user_level_cephfs_secret(
     kube: &Client,
     pv: &PersistentVolume,

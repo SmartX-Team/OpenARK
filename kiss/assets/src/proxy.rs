@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use ark_core::env;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+use tracing::{instrument, Level};
 use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,6 +13,7 @@ pub struct ProxyConfig {
 }
 
 impl ProxyConfig {
+    #[instrument(level = Level::INFO, err(Display))]
     pub async fn load() -> Result<Self> {
         let path: PathBuf = env::infer("KISS_ASSETS_CONFIG_PATH")?;
 

@@ -21,6 +21,7 @@ ark-core = { path = "../../ark/core", features = ["actix-web"] }
 dash-api = { path = "../api" }
 
 actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true, features = [

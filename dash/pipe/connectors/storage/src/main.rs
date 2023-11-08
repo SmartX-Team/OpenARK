@@ -7,6 +7,7 @@ use dash_pipe_provider::{
     storage::{MetadataStorageExt, StorageIO, Stream},
     DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
 };
+use derivative::Derivative;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -25,10 +26,13 @@ pub struct FunctionArgs {
     interval_ms: Option<u64>,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Function {
     args: FunctionArgs,
     ctx: FunctionContext,
     instant: Instant,
+    #[derivative(Debug = "ignore")]
     items: Stream<PipeMessage<Value>>,
     iteration: RangeInclusive<u64>,
 }

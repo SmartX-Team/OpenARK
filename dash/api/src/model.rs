@@ -10,7 +10,7 @@ use strum::{Display, EnumString};
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "Model",
-    struct = "ModelCrd",
+    root = "ModelCrd",
     status = "ModelStatus",
     shortname = "m",
     namespaced,

@@ -21,7 +21,7 @@ impl BoxCrd {
     group = "kiss.ulagbulag.io",
     version = "v1alpha1",
     kind = "Box",
-    struct = "BoxCrd",
+    root = "BoxCrd",
     status = "BoxStatus",
     shortname = "box",
     printcolumn = r#"{

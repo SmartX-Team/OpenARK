@@ -25,7 +25,7 @@ use kube::{
 };
 use maplit::btreemap;
 use serde::de::DeserializeOwned;
-use tracing::Level;
+use tracing::{instrument, Level};
 
 use crate::function::{StrawFunctionType, StrawNode};
 
@@ -86,6 +86,7 @@ impl<T> Plugin for T
 where
     Self: Send + Sync + PluginDaemon,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn create(
         &self,
         client: Client,
@@ -122,6 +123,7 @@ where
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn delete(
         &self,
         client: Client,
@@ -141,6 +143,7 @@ where
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn exists(
         &self,
         client: Client,
@@ -152,6 +155,7 @@ where
     }
 }
 
+#[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn exists<K>(api: &Api<K>, node: &StrawNode) -> Result<Option<PartialObjectMeta<K>>>
 where
     K: Clone + fmt::Debug + DeserializeOwned,

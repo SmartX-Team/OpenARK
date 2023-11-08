@@ -24,7 +24,9 @@ dash-provider-api = { path = "../provider/api" }
 vine-api = { path = "../../vine/api" }
 
 anyhow = { workspace = true }
+derivative = { workspace = true }
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true, features = [] }
 serde_json = { workspace = true }
+tracing = { workspace = true }

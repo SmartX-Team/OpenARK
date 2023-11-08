@@ -8,7 +8,7 @@ use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
 use futures::TryFutureExt;
 use k8s_openapi::{
-    api::core::v1::{Namespace, Node, Pod, PodCondition},
+    api::core::v1::{Namespace, Node, Pod},
     serde_json::Value,
 };
 use kiss_api::r#box::BoxCrd;
@@ -18,7 +18,7 @@ use kube::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
-use tracing::info;
+use tracing::{info, instrument, Level};
 use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
 pub(crate) mod consts {
@@ -30,6 +30,7 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     pub async fn try_new(namespace: String, kube: Client) -> Result<Self> {
         let templates_home = env::infer("VINE_SESSION_TEMPLATES_HOME").or_else(|_| {
             // local directory
@@ -58,6 +59,7 @@ impl SessionManager {
 
     const THRESHOLD_SESSION_TIMEOUT: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
     pub async fn try_create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         match self.create(spec).await {
             Ok(()) => Ok(()),
@@ -68,6 +70,7 @@ impl SessionManager {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     pub async fn try_delete(&self, node: &Node) -> Result<Option<String>> {
         match node.get_session_ref() {
             Ok(SessionRef { user_name, .. }) => {
@@ -116,6 +119,7 @@ impl SessionManager {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
     async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx = self.get_context(spec);
 
@@ -128,6 +132,7 @@ impl SessionManager {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
     pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx = self.get_context(spec);
 
@@ -140,12 +145,34 @@ impl SessionManager {
             .await
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn exists_template(&self, ctx: &SessionContext<'_>) -> Result<bool> {
         self.client
             .exists_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
             .await
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn create_namespace(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .create_named(Self::TEMPLATE_NAMESPACE_FILENAME, ctx)
@@ -153,12 +180,34 @@ impl SessionManager {
             .map(|_| ())
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn create_shared_pvc(&self, ctx: &SessionContext<'_>) -> Result<()> {
         ::vine_storage::get_or_create_shared_pvcs(&self.client.kube, &ctx.metadata.namespace)
             .await
             .map(|_| ())
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn create_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .create_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
@@ -166,6 +215,17 @@ impl SessionManager {
             .map(|_| ())
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn delete_template(&self, ctx: &SessionContext<'_>) -> Result<()> {
         self.client
             .delete_named(Self::TEMPLATE_SESSION_FILENAME, ctx)
@@ -173,6 +233,17 @@ impl SessionManager {
             .map(|_| ())
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+            user_name = %ctx.spec.user_name,
+        ),
+        err(Display),
+    )]
     async fn delete_pods(&self, ctx: &SessionContext<'_>) -> Result<()> {
         let api = Api::<Pod>::namespaced(self.client.kube.clone(), &ctx.metadata.namespace);
         let dp = DeleteParams::background();
@@ -186,11 +257,13 @@ impl SessionManager {
             .map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     async fn try_label_box(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
         let name = node.name_any();
         self.try_label::<BoxCrd>(&name, node, user_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     async fn try_label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
     where
         K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
@@ -203,6 +276,16 @@ impl SessionManager {
         }
     }
 
+    #[instrument(
+        level = Level::INFO,
+        skip(self, ctx),
+        fields(
+            name = %ctx.metadata.name,
+            namespace = %ctx.metadata.namespace,
+            node_name = %ctx.spec.node.name_any(),
+        ),
+        err(Display),
+    )]
     async fn label_namespace(
         &self,
         ctx: &SessionContext<'_>,
@@ -215,16 +298,19 @@ impl SessionManager {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     async fn label_node(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
         let name = node.name_any();
         self.label::<Node>(&name, node, user_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     async fn label_user(&self, node: &Node, user_name: &str, create: bool) -> Result<()> {
         self.label::<UserCrd>(user_name, node, if create { Some(user_name) } else { None })
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
     async fn label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
     where
         K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
@@ -233,6 +319,7 @@ impl SessionManager {
         self.label_with_api(api, name, node, user_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, api, node), fields(node_name = node.name_any()), err(Display))]
     async fn label_with_api<K>(
         &self,
         api: Api<K>,
@@ -285,7 +372,8 @@ pub trait SessionExec {
     async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
     where
         Self: Sized,
-        Item: Send + Sync + AsRef<str>;
+        Item: Send + Sync + AsRef<str>,
+        [Item]: fmt::Debug;
 
     async fn exec<I, T>(
         &self,
@@ -300,6 +388,7 @@ pub trait SessionExec {
 #[cfg(feature = "exec")]
 #[::async_trait::async_trait]
 impl<'a> SessionExec for SessionRef<'a> {
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     async fn list(kube: Client) -> Result<Vec<Self>> {
         let api = Api::<UserCrd>::all(kube);
         let lp = ListParams {
@@ -316,9 +405,11 @@ impl<'a> SessionExec for SessionRef<'a> {
             .map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
     async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
     where
         Item: Send + Sync + AsRef<str>,
+        [Item]: fmt::Debug,
     {
         use futures::{stream::FuturesUnordered, TryStreamExt};
 
@@ -334,6 +425,7 @@ impl<'a> SessionExec for SessionRef<'a> {
             .map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
     async fn exec<I, T>(
         &self,
         kube: Client,
@@ -344,6 +436,7 @@ impl<'a> SessionExec for SessionRef<'a> {
         T: Sync + Into<String>,
     {
         use futures::{stream::FuturesUnordered, TryStreamExt};
+        use k8s_openapi::api::core::v1::PodCondition;
         use kube::api::AttachParams;
 
         let api = Api::<Pod>::namespaced(kube, &self.namespace);
@@ -458,6 +551,7 @@ pub enum AllocationState<'a> {
     NotAllocated,
 }
 
+#[cfg(feature = "exec")]
 fn collect_user_sessions<I>(users: I) -> Vec<SessionRef<'static>>
 where
     I: IntoIterator<Item = UserCrd>,

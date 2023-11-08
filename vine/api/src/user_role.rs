@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserRole",
-    struct = "UserRoleCrd",
+    root = "UserRoleCrd",
     shortname = "ur",
     printcolumn = r#"{
         "name": "created-at",

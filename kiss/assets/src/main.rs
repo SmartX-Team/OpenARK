@@ -7,6 +7,7 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use actix_web_opentelemetry::RequestTracing;
 use ark_core::{env::infer, tracer};
 use futures::StreamExt;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
@@ -16,12 +17,15 @@ use reqwest::{
     Client, Method,
 };
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO)]
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok().json("kiss-proxy")
 }
 
+#[instrument(level = Level::INFO)]
 #[get("/health")]
 async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
@@ -131,6 +135,7 @@ async fn main() {
                 .service(index)
                 .service(health)
                 .route("/{site}/{path:.*}", ::actix_web::web::route().to(resolve))
+                .wrap(RequestTracing::new())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

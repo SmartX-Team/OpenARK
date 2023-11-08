@@ -10,14 +10,16 @@ use clap::{Parser, Subcommand};
 use dash_pipe_api::storage::StorageS3Args;
 use itertools::Itertools;
 use tokio::fs;
+use tracing::{instrument, Level};
 
-#[derive(Subcommand)]
+#[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Command {
     Mount(MountArgs),
     Unmount(UnmountArgs),
 }
 
 impl Command {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn run(self) -> Result<()> {
         match self {
             Self::Mount(command) => command.run().await,
@@ -26,7 +28,7 @@ impl Command {
     }
 }
 
-#[derive(Parser)]
+#[derive(Clone, Debug, Parser)]
 pub(crate) struct MountArgs {
     #[command(flatten)]
     s3: StorageS3Args,
@@ -39,6 +41,7 @@ pub(crate) struct MountArgs {
 }
 
 impl MountArgs {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn run(self) -> Result<()> {
         if is_mounted(&self.target)? {
             return Ok(());
@@ -54,6 +57,7 @@ impl MountArgs {
         self.exec().await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn exec(self) -> Result<()> {
         struct MountOption<'a> {
             key: Cow<'a, str>,
@@ -110,13 +114,14 @@ impl MountArgs {
     }
 }
 
-#[derive(Parser)]
+#[derive(Clone, Debug, Parser)]
 pub(crate) struct UnmountArgs {
     #[arg(value_name = "PATH")]
     target: PathBuf,
 }
 
 impl UnmountArgs {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn run(self) -> Result<()> {
         if !is_mounted(&self.target)? {
             return Ok(());
@@ -125,6 +130,7 @@ impl UnmountArgs {
         self.exec().await
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn exec(self) -> Result<()> {
         if ::tokio::process::Command::new("umount")
             .arg(self.target)
@@ -149,6 +155,7 @@ struct S3PasswdFile<'a> {
 }
 
 impl<'a> S3PasswdFile<'a> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn create(&self) -> Result<()> {
         let Self {
             access_key,
@@ -179,6 +186,7 @@ impl<'a> S3PasswdFile<'a> {
     }
 }
 
+#[instrument(level = Level::INFO, skip_all, err(Display))]
 fn is_mounted(target: &Path) -> Result<bool> {
     ::procfs::mounts()
         .map(|infos| {

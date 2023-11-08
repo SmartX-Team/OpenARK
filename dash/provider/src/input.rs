@@ -18,6 +18,7 @@ use inflector::Inflector;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use tracing::{instrument, Level};
 use uuid::Uuid;
 
 use crate::storage::StorageClient;
@@ -51,6 +52,7 @@ impl InputTemplate {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     pub async fn update_field_string(
         &mut self,
         storage: &StorageClient<'_, '_>,
@@ -59,6 +61,7 @@ impl InputTemplate {
         self.update_field_string_impl(storage, input, false).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     async fn update_field_string_impl(
         &mut self,
         storage: &StorageClient<'_, '_>,
@@ -184,6 +187,7 @@ impl InputTemplate {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     pub async fn update_field_value(
         &mut self,
         storage: &StorageClient<'_, '_>,
@@ -193,6 +197,7 @@ impl InputTemplate {
     }
 
     #[async_recursion]
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     async fn update_field_value_impl(
         &mut self,
         storage: &StorageClient<'_, '_>,

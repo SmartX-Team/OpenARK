@@ -206,6 +206,15 @@ grafana:
     - grafana-polystat-panel
     - vonage-status-panel
 
+## Manages Prometheus and Alertmanager components
+##
+prometheusOperator:
+  enabled: true
+
+  # Enable vertical pod autoscaler support for prometheus-operator
+  verticalPodAutoscaler:
+    enabled: true
+
 ## Deploy a Prometheus instance
 ##
 prometheus:

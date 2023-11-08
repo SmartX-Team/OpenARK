@@ -1,6 +1,8 @@
 use anyhow::Result;
+use tracing::{instrument, Level};
 
 #[cfg(unix)]
+#[instrument(level = Level::INFO, skip_all, err(Display))]
 pub async fn get_cluster_domain() -> Result<String> {
     use tokio::{fs::File, io::AsyncReadExt};
 

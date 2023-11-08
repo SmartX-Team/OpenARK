@@ -19,6 +19,7 @@ use kube::{
     Api, Client, ResourceExt,
 };
 use serde_json::Value;
+use tracing::{instrument, Level};
 use vine_api::user_session::UserSessionRef;
 
 pub(crate) const NAME: &str = "dash-provider-client";
@@ -39,6 +40,7 @@ impl<'a> DashProviderClient<'a> {
     }
 
     #[cfg(feature = "dash-provider")]
+    #[instrument(level = Level::INFO, skip(self, value), err(Display))]
     pub async fn create(
         &self,
         task_name: &str,
@@ -52,6 +54,7 @@ impl<'a> DashProviderClient<'a> {
         self.create_raw(&task, value).await
     }
 
+    #[instrument(level = Level::INFO, skip_all, fields(task_name = task.name_any()), err(Display))]
     pub async fn create_raw(
         &self,
         task: &TaskCrd,
@@ -99,6 +102,7 @@ impl<'a> DashProviderClient<'a> {
             .map_err(|error| anyhow!("failed to create job ({task_name} => {job_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn delete(&self, task_name: &str, job_name: &str) -> Result<()> {
         match self.get(task_name, job_name).await? {
             Some(_) => self.force_delete(task_name, job_name).await,
@@ -106,6 +110,7 @@ impl<'a> DashProviderClient<'a> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn force_delete(&self, task_name: &str, job_name: &str) -> Result<()> {
         let dp = DeleteParams::default();
         self.api
@@ -115,6 +120,7 @@ impl<'a> DashProviderClient<'a> {
             .map_err(|error| anyhow!("failed to delete job ({task_name} => {job_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get(&self, task_name: &str, job_name: &str) -> Result<Option<DashJobCrd>> {
         self.api
             .get_opt(job_name)
@@ -131,6 +137,7 @@ impl<'a> DashProviderClient<'a> {
             })
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_list(&self) -> Result<Vec<DashJobCrd>> {
         let lp = ListParams::default();
         self.api
@@ -140,6 +147,7 @@ impl<'a> DashProviderClient<'a> {
             .map_err(|error| anyhow!("failed to list jobs: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_list_with_task_name(&self, task_name: &str) -> Result<Vec<DashJobCrd>> {
         let lp = ListParams {
             label_selector: Some(format!(
@@ -156,6 +164,7 @@ impl<'a> DashProviderClient<'a> {
             .map_err(|error| anyhow!("failed to list jobs ({task_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_stream_logs(
         &self,
         task_name: &str,
@@ -222,6 +231,7 @@ impl<'a> DashProviderClient<'a> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_stream_logs_as_bytes(
         &self,
         task_name: &str,
@@ -233,6 +243,7 @@ impl<'a> DashProviderClient<'a> {
     }
 
     #[cfg(feature = "dash-provider")]
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn restart(&self, task_name: &str, job_name: &str) -> Result<DashJobCrd> {
         match self.get(task_name, job_name).await? {
             Some(job) => {

@@ -21,6 +21,7 @@ ark-core = { path = "../../ark/core" }
 kiss-api = { path = "../api" }
 
 actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
 http-cache-reqwest = { workspace = true }

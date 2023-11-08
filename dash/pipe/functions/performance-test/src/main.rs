@@ -11,6 +11,7 @@ use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
     FunctionContext, MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
+use derivative::Derivative;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
@@ -40,10 +41,13 @@ pub struct FunctionArgs {
     total_messages: Byte,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Function {
     ctx: FunctionContext,
     metric: MetricData,
     next_stdout: Duration,
+    #[derivative(Debug = "ignore")]
     storage: Arc<StorageSet>,
     timestamp: Option<Instant>,
     verbose: bool,

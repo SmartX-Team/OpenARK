@@ -1,5 +1,7 @@
 use actix_web::{get, HttpResponse, Responder};
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO)]
 #[get("/")]
 pub async fn get() -> impl Responder {
     HttpResponse::Ok()

@@ -8,7 +8,7 @@ edition = "2021"
 [features]
 default = []
 data = ["anyhow", "regex", "schemars", "serde", "strum", "url"]
-domain = ["anyhow", "resolv-conf", "tokio/fs"]
+domain = ["anyhow", "resolv-conf", "tokio/fs", "tracing"]
 manager = [
     "anyhow",
     "async-trait",

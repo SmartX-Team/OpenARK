@@ -31,3 +31,4 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+tracing = { workspace = true }

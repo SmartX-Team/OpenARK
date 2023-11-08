@@ -12,9 +12,11 @@ use dash_provider_client::DashProviderClient;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use serde_json::Value;
+use tracing::{instrument, Level};
 use vine_api::user_session::UserSessionMetadata;
 use vine_rbac::auth::{AuthUserSession, AuthUserSessionMetadata};
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/batch/job/")]
 pub async fn post(
     request: HttpRequest,

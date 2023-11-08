@@ -1,12 +1,17 @@
+#![recursion_limit = "256"]
+
 mod routes;
 
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web_opentelemetry::RequestTracing;
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO)]
 #[get("/health")]
 async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
@@ -29,6 +34,7 @@ async fn main() {
                 .service(crate::routes::r#box::login::get)
                 .service(crate::routes::install_os::get)
                 .service(crate::routes::welcome::get)
+                .wrap(RequestTracing::new())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

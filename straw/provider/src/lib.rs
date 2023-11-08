@@ -8,6 +8,7 @@ use straw_api::{
     function::{StrawFunction, StrawNode},
     plugin::{Plugin, PluginBuilder, PluginContext},
 };
+use tracing::{instrument, Level};
 
 pub struct StrawSession {
     builders: Vec<Box<dyn Send + Sync + PluginBuilder>>,
@@ -33,6 +34,7 @@ impl StrawSession {
         self.builders.push(builder.into())
     }
 
+    #[instrument(level = Level::INFO, skip(self, ctx, function), err(Display))]
     pub async fn create(&self, ctx: &PluginContext, function: &StrawFunction) -> Result<()> {
         function
             .straw
@@ -43,6 +45,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, ctx, node), fields(node.name = %node.name, node.src = %node.src), err(Display))]
     async fn create_node(&self, ctx: &PluginContext, node: &StrawNode) -> Result<()> {
         self.load_plugin(node)
             .await?
@@ -50,6 +53,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, function), err(Display))]
     pub async fn delete(&self, function: &StrawFunction) -> Result<()> {
         function
             .straw
@@ -60,6 +64,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node.name = %node.name, node.src = %node.src), err(Display))]
     async fn delete_node(&self, node: &StrawNode) -> Result<()> {
         self.load_plugin(node)
             .await?
@@ -67,6 +72,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, function), err(Display))]
     pub async fn exists(&self, function: &StrawFunction) -> Result<bool> {
         function
             .straw
@@ -77,6 +83,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node.name = %node.name, node.src = %node.src), err(Display))]
     async fn exists_node(&self, node: &StrawNode) -> Result<bool> {
         self.load_plugin(node)
             .await?
@@ -84,6 +91,7 @@ impl StrawSession {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, node), fields(node.name = %node.name, node.src = %node.src), err(Display))]
     async fn load_plugin(&self, node: &StrawNode) -> Result<Box<dyn Send + Plugin>> {
         let url = &node.src;
         self.builders

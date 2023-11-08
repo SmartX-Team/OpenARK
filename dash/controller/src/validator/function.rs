@@ -13,6 +13,7 @@ use straw_api::{
     plugin::PluginContext,
 };
 use straw_provider::StrawSession;
+use tracing::{instrument, Level};
 
 use super::model::ModelValidator;
 
@@ -22,6 +23,7 @@ pub struct FunctionValidator<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_function(
         &self,
         spec: FunctionSpec,
@@ -61,6 +63,7 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_exec(
         &self,
         type_: StrawFunctionType,
@@ -76,6 +79,7 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_exec_straw(
         &self,
         type_: StrawFunctionType,
@@ -91,6 +95,7 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         session.create(&ctx, &function).await.map(|()| function)
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_model_storage_binding(&self, models: &Models) -> Result<()> {
         let client = KubernetesStorageClient {
             namespace: self.namespace,
@@ -101,6 +106,7 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn delete(&self, spec: &FunctionSpec) -> Result<()> {
         match &spec.exec {
             FunctionExec::Placeholder {} => Ok(()),
@@ -108,6 +114,7 @@ impl<'namespace, 'kube> FunctionValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn delete_exec_straw(&self, function: &StrawFunction) -> Result<()> {
         let session = StrawSession::new(self.kube.clone(), Some(self.namespace.into()));
         session.delete(function).await

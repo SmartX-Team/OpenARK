@@ -12,7 +12,7 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "Task",
-    struct = "TaskCrd",
+    root = "TaskCrd",
     status = "TaskStatus",
     shortname = "ta",
     namespaced,

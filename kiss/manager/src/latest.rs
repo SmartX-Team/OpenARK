@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use ark_core::env::infer;
 use octocrab::Octocrab;
 use semver::Version;
-use tracing::warn;
+use tracing::{instrument, warn, Level};
 
 pub struct Handler {
     instance: Arc<Octocrab>,
@@ -28,6 +28,7 @@ impl Handler {
 
     const MAX_RETRY: usize = 5;
 
+    #[instrument(level = Level::INFO, skip(self))]
     pub async fn get_version(&self) -> Result<Version> {
         // request the latest release info
         let release = 'load_release: loop {

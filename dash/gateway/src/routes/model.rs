@@ -9,7 +9,9 @@ use dash_provider::{
     storage::{KubernetesStorageClient, Storage, StorageClient},
 };
 use kube::Client;
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/{name}/")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
@@ -26,6 +28,7 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/{name}/task/")]
 pub async fn get_task_list(
     request: HttpRequest,
@@ -46,6 +49,7 @@ pub async fn get_task_list(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
@@ -62,6 +66,7 @@ pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responde
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/{name}/item/{item}/")]
 pub async fn get_item(
     request: HttpRequest,
@@ -82,6 +87,7 @@ pub async fn get_item(
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/{name}/item/")]
 pub async fn get_item_list(
     request: HttpRequest,

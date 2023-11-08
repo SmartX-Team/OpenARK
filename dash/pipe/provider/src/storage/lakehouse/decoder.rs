@@ -9,6 +9,7 @@ use deltalake::{
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use serde::de::DeserializeOwned;
+use tracing::{instrument, Level};
 
 #[async_trait]
 pub trait TryIntoTableDecoder {
@@ -23,6 +24,7 @@ pub trait TryIntoTableDecoder {
 impl TryIntoTableDecoder for DataFrame {
     type Output<T> = super::super::Stream<T>;
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_into_decoder<T>(self) -> Result<<Self as TryIntoTableDecoder>::Output<T>>
     where
         T: 'static + Send + DeserializeOwned,

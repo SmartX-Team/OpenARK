@@ -1,11 +1,13 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use tracing::{instrument, Level};
 
 #[async_trait]
 pub trait Infer<'a> {
     type GenesisArgs: Send + ?Sized;
     type GenesisResult: Send;
 
+    #[instrument(level = Level::INFO, skip_all)]
     async fn infer() -> Self
     where
         Self: Sized,

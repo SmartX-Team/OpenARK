@@ -5,10 +5,12 @@ use actix_web::{
 };
 use ark_core::result::Result;
 use kube::Client;
+use tracing::{instrument, Level};
 use vine_api::user_session::{UserSessionCommand, UserSessionRef};
 use vine_rbac::auth::{AuthUserSession, AuthUserSessionRef};
 use vine_session::SessionExec;
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/user/desktop/exec/")]
 pub async fn post_exec(
     request: HttpRequest,

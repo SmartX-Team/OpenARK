@@ -14,7 +14,7 @@ use clap::Args;
 use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::info;
+use tracing::{info, instrument, Level};
 
 use crate::{
     message::PipeMessages,
@@ -35,6 +35,7 @@ pub mod deltalake {
         },
         datafusion::{error::DataFusionError, physical_plan::ColumnarValue},
     };
+    use tracing::{instrument, Level};
 
     use super::{GenericStatelessRemoteFunction, PipeMessages, RemoteFunction};
 
@@ -47,6 +48,7 @@ pub mod deltalake {
     }
 
     impl DeltaFunction {
+        #[instrument(level = Level::INFO, skip_all, err(Display))]
         pub async fn call(
             &self,
             inputs: &[ColumnarValue],
@@ -127,6 +129,7 @@ pub struct StatelessRemoteFunction<Input, Output> {
 }
 
 impl<Input, Output> StatelessRemoteFunction<Input, Output> {
+    #[instrument(level = Level::INFO, skip(messenger), err(Display))]
     pub async fn try_new(messenger: &dyn Messenger<Output>, model_in: Name) -> Result<Self>
     where
         Output: Send + Default + DeserializeOwned,
@@ -164,6 +167,7 @@ where
     type Input = Input;
     type Output = Output;
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call(
         &self,
         inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
@@ -190,7 +194,7 @@ where
 #[async_trait(?Send)]
 pub trait FunctionBuilder
 where
-    Self: Function,
+    Self: fmt::Debug + Function,
 {
     type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
 
@@ -207,12 +211,13 @@ where
 impl<T> Function for T
 where
     T: RemoteFunction,
-    <T as RemoteFunction>::Input: DeserializeOwned + JsonSchema,
-    <T as RemoteFunction>::Output: Serialize + JsonSchema,
+    <T as RemoteFunction>::Input: fmt::Debug + DeserializeOwned + JsonSchema,
+    <T as RemoteFunction>::Output: fmt::Debug + Serialize + JsonSchema,
 {
     type Input = <T as RemoteFunction>::Input;
     type Output = <T as RemoteFunction>::Output;
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn tick(
         &mut self,
         inputs: PipeMessages<<Self as RemoteFunction>::Input>,
@@ -225,8 +230,8 @@ where
 
 #[async_trait(?Send)]
 pub trait Function {
-    type Input: 'static + Send + Sync + Default + DeserializeOwned + JsonSchema;
-    type Output: 'static + Send + Sync + Default + Serialize + JsonSchema;
+    type Input: 'static + Send + Sync + Default + fmt::Debug + DeserializeOwned + JsonSchema;
+    type Output: 'static + Send + Sync + Default + fmt::Debug + Serialize + JsonSchema;
 
     async fn tick(
         &mut self,

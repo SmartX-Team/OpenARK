@@ -24,6 +24,7 @@ dash-pipe-function-ai-plugin = { path = "./plugin", features = ["code"] }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+derivative = { workspace = true }
 pyo3 = { workspace = true, features = ["auto-initialize"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

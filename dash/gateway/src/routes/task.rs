@@ -6,7 +6,9 @@ use actix_web::{
 use ark_core::result::Result;
 use dash_provider::{input::Name, storage::KubernetesStorageClient};
 use kube::Client;
+use tracing::{instrument, Level};
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/{name}/")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
@@ -23,6 +25,7 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
     HttpResponse::from(Result::from(result))
 }
 
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();

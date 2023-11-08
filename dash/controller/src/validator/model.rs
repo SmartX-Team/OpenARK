@@ -18,13 +18,14 @@ use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
     CustomResourceDefinitionVersion, JSONSchemaProps,
 };
 use regex::Regex;
-use tracing::warn;
+use tracing::{instrument, warn, Level};
 
 pub struct ModelValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
 }
 
 impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_model(&self, spec: ModelSpec) -> Result<ModelFieldsNativeSpec> {
         match spec {
             ModelSpec::Dynamic {} => Ok(vec![ModelFieldSpec {
@@ -42,6 +43,7 @@ impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_fields(&self, spec: ModelFieldsSpec) -> Result<ModelFieldsNativeSpec> {
         let mut parser = ModelFieldsParser::default();
         for field in spec {
@@ -75,6 +77,7 @@ impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
         parser.finalize()
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_custom_resource_definition_ref(
         &self,
         spec: ModelCustomResourceDefinitionRefSpec,

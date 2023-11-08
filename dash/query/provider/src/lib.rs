@@ -33,7 +33,7 @@ use inflector::Inflector;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, Client, ResourceExt};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct QueryClientArgs {
@@ -52,6 +52,7 @@ pub struct QueryClient {
 }
 
 impl QueryClient {
+    #[instrument(level = Level::INFO, skip(args), err(Display))]
     pub async fn try_new(args: &QueryClientArgs) -> Result<Self> {
         let kube = Client::try_default()
             .await
@@ -98,6 +99,7 @@ impl QueryClient {
         self.tables.keys()
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn sql(&self, sql: &str) -> Result<DataFrame> {
         self.ctx
             .sql(sql)
@@ -105,6 +107,7 @@ impl QueryClient {
             .map_err(|error| anyhow!("failed to query object metadata: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn sql_and_decode<Value>(&self, sql: &str) -> Result<Stream<Value>>
     where
         Value: 'static + Send + DeserializeOwned,
@@ -116,6 +119,7 @@ impl QueryClient {
             .map_err(|error| anyhow!("failed to decode object metadata: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn sql_and_flatten(&self, sql: &str) -> Result<Option<RecordBatch>> {
         self.sql(sql)
             .await?
@@ -135,6 +139,7 @@ impl QueryClient {
     }
 }
 
+#[instrument(level = Level::INFO, skip(kube), err(Display))]
 async fn load_models<'a>(
     kube: &'a Client,
     namespace: &'a str,
@@ -202,6 +207,7 @@ async fn load_models<'a>(
         }))
 }
 
+#[instrument(level = Level::INFO, skip(kube, tables), err(Display))]
 async fn load_functions(
     kube: &Client,
     tables: &BTreeMap<String, Arc<DeltaTable>>,

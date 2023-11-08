@@ -21,7 +21,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, Error,
 };
-use tracing::info;
+use tracing::{info, instrument, Level};
 
 pub struct AnsibleClient {
     pub kiss: self::config::KissConfig,
@@ -32,12 +32,14 @@ impl AnsibleClient {
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.ulagbulag.io/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.ulagbulag.io/completed_state";
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default(kube: &Client) -> Result<Self> {
         Ok(Self {
             kiss: self::config::KissConfig::try_default(kube).await?,
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self, kube, job), err(Display))]
     pub async fn spawn(&self, kube: &Client, job: AnsibleJob<'_>) -> Result<bool, Error> {
         let ns = ::kiss_api::consts::NAMESPACE;
         let box_name = job.r#box.spec.machine.uuid.to_string();

@@ -53,6 +53,7 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Method;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use tracing::{instrument, Level};
 
 pub struct ObjectStorageClient {
     source: Option<(ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
@@ -61,6 +62,7 @@ pub struct ObjectStorageClient {
 }
 
 impl ObjectStorageClient {
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     pub async fn try_new<'source>(
         kube: &Client,
         namespace: &str,
@@ -119,6 +121,7 @@ pub struct ObjectStorageRef {
 }
 
 impl<'model> ObjectStorageRef {
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     pub async fn load_storage_provider(
         kube: &Client,
         namespace: &str,
@@ -139,6 +142,7 @@ impl<'model> ObjectStorageRef {
         .map_err(|error| anyhow!("failed to load object storage provider: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
     async fn load_storage_provider_by_borrowed(
         kube: &Client,
         namespace: &str,
@@ -149,6 +153,7 @@ impl<'model> ObjectStorageRef {
         Self::load_storage_provider_by_reference(kube, namespace, name, reference).await
     }
 
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     async fn load_storage_provider_by_cloned(
         kube: &Client,
         namespace: &str,
@@ -171,6 +176,7 @@ impl<'model> ObjectStorageRef {
         Ok(owned)
     }
 
+    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
     async fn load_storage_provider_by_owned(
         kube: &Client,
         namespace: &str,
@@ -181,6 +187,7 @@ impl<'model> ObjectStorageRef {
         Self::load_storage_provider_by_reference(kube, namespace, name, &storage).await
     }
 
+    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
     async fn load_storage_provider_by_reference(
         kube: &Client,
         namespace: &str,
@@ -223,6 +230,7 @@ impl<'model> ObjectStorageRef {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     async fn create_or_get_storage(
         kube: &Client,
         namespace: &str,
@@ -345,6 +353,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn is_bucket_exists(&self) -> Result<bool> {
         let bucket_name = self.get_bucket_name();
         self.target
@@ -353,6 +362,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             .map_err(|error| anyhow!("failed to check bucket ({bucket_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get(&self, ref_name: &str) -> Result<Option<Value>> {
         let bucket_name = self.get_bucket_name();
         let args = GetObjectArgs::new(&bucket_name, ref_name)?;
@@ -370,6 +380,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_list(&self) -> Result<Vec<Value>> {
         const LIMIT: u16 = 30;
 
@@ -391,6 +402,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn create_bucket(&self) -> Result<()> {
         let mut bucket_name = self.get_bucket_name();
         if !self.is_bucket_exists().await? {
@@ -404,6 +416,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         self.sync_bucket(bucket_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn sync_bucket(&self, bucket_name: String) -> Result<()> {
         match &self.source {
             Some((source, ModelStorageBindingSyncPolicy { pull, push })) => {
@@ -431,6 +444,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         .map_err(|error: Error| anyhow!("failed to sync a bucket ({bucket_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn sync_bucket_pull_always(&self, bucket: &str) -> Result<()> {
         self.target
             .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
@@ -444,6 +458,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         source_session.sync_bucket_push_always(source, bucket).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, source), err(Display))]
     async fn sync_bucket_pull_on_create(
         &self,
         source: &ObjectStorageRef,
@@ -457,6 +472,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         self.get_or_create_bucket_job(bucket, "pull", spec).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, source), err(Display))]
     async fn sync_bucket_push_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
         self.target
             .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
@@ -532,6 +548,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn delete_bucket(&self) -> Result<()> {
         let bucket_name = self.get_bucket_name();
         if self.is_bucket_exists().await? {
@@ -551,6 +568,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn unsync_bucket(
         &self,
         bucket_name: Option<String>,
@@ -584,6 +602,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         .map_err(|error: Error| anyhow!("failed to unsync a bucket ({bucket_name}): {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
     async fn unsync_bucket_pull_always(
         &self,
         _source: &ObjectStorageRef,
@@ -593,6 +612,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         Ok(true)
     }
 
+    #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
     async fn unsync_bucket_push_always(
         &self,
         _source: &ObjectStorageRef,
@@ -602,6 +622,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         Ok(true)
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn unsync_bucket_push_on_delete(
         &self,
         bucket: &str,
@@ -620,6 +641,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         Ok(false)
     }
 
+    #[instrument(level = Level::INFO, skip_all, fields(bucket = bucket, command = command), err(Display))]
     async fn get_or_create_bucket_job(
         &self,
         bucket: &str,
@@ -820,6 +842,7 @@ struct MinioAdminClient<'storage> {
 }
 
 impl<'storage> MinioAdminClient<'storage> {
+    #[instrument(level = Level::INFO, skip(self, target), err(Display))]
     async fn add_site_replication(&self, target: &ObjectStorageRef) -> Result<()> {
         let origin_creds = self.storage.provider.fetch();
         let target_creds = target.provider.fetch();
@@ -868,6 +891,7 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn is_site_replication_enabled(&self) -> Result<bool> {
         self.execute::<&str>(Method::GET, "/admin/v3/site-replication/info", &[], None)
             .and_then(|resp| async move {
@@ -890,6 +914,7 @@ impl<'storage> MinioAdminClient<'storage> {
     }
 
     #[allow(dead_code)]
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn list_remote_targets(&self, bucket_name: &str) -> Result<Vec<Map<String, Value>>> {
         self.execute(
             Method::GET,
@@ -912,6 +937,7 @@ impl<'storage> MinioAdminClient<'storage> {
     }
 
     #[allow(dead_code)]
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn remove_remote_target(&self, bucket_name: &str, arn: &str) -> Result<()> {
         self.execute(
             Method::DELETE,
@@ -930,6 +956,7 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self, target), err(Display))]
     async fn set_remote_target(
         &self,
         target: &ObjectStorageRef,
@@ -974,6 +1001,7 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self, headers, data), fields(data.len = data.as_ref().map(|data| data.len())), err(Display))]
     async fn execute<Header>(
         &self,
         method: Method,
@@ -1069,6 +1097,7 @@ impl<'storage> MinioAdminClient<'storage> {
     }
 }
 
+#[instrument(level = Level::INFO, skip(api, labels, service), err(Display))]
 async fn get_or_create_ingress(
     api: &Api<Ingress>,
     namespace: &str,
@@ -1122,6 +1151,7 @@ struct MinioTenantSpec<'a> {
     storage: &'a ModelStorageObjectOwnedSpec,
 }
 
+#[instrument(level = Level::INFO, skip(kube), err(Display))]
 async fn get_or_create_minio_tenant(
     kube: &Client,
     namespace: &str,
@@ -1345,6 +1375,7 @@ struct BucketJobSpec<'a> {
     sync_source_overwrite: bool,
 }
 
+#[instrument(level = Level::INFO, skip(api, data), err(Display))]
 async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
 where
     Data: FnOnce() -> K,
@@ -1478,6 +1509,7 @@ fn get_default_node_affinity() -> NodeAffinity {
     }
 }
 
+#[instrument(level = Level::INFO, err(Display))]
 async fn get_kubernetes_minio_domain(namespace: &str) -> Result<String> {
     Ok(format!(
         "minio.{namespace}.svc.{cluster_domain}",

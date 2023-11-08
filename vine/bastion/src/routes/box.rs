@@ -5,10 +5,11 @@ pub mod login {
         HttpRequest, HttpResponse, Responder,
     };
     use kube::Client;
-    use tracing::error;
+    use tracing::{error, instrument, Level};
     use uuid::Uuid;
     use vine_api::user_auth::UserSessionResponse;
 
+    #[instrument(level = Level::INFO, skip(request, client))]
     #[get("/box/{box_name}/login")]
     pub async fn get(
         request: HttpRequest,

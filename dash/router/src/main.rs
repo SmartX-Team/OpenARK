@@ -3,6 +3,7 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web_opentelemetry::RequestTracing;
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
@@ -28,7 +29,8 @@ async fn main() {
         // Start web server
         HttpServer::new(move || {
             let app = App::new().app_data(Data::clone(&client));
-            app.service(index).service(health)
+            let app = app.service(index).service(health);
+            app.wrap(RequestTracing::new())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

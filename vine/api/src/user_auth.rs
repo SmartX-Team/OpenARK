@@ -19,7 +19,7 @@ use crate::{
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserAuth",
-    struct = "UserAuthCrd",
+    root = "UserAuthCrd",
     shortname = "ua",
     printcolumn = r#"{
         "name": "created-at",

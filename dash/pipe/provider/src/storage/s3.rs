@@ -11,7 +11,7 @@ use minio::s3::{
     creds::StaticProvider,
     http::BaseUrl,
 };
-use tracing::debug;
+use tracing::{debug, instrument, Level};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -23,7 +23,8 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub async fn try_new(
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub fn try_new(
         StorageS3Args {
             access_key,
             region: _,
@@ -66,6 +67,7 @@ impl super::Storage for Storage {
         super::StorageType::S3
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
         let bucket_name = model.storage();
         let args = GetObjectArgs::new(bucket_name, path)?;
@@ -85,6 +87,7 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to get object from S3 object store: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
         let path = format!(
@@ -102,6 +105,7 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn delete(&self, path: &str) -> Result<()> {
         let bucket_name = self.bucket_name()?;
         let args = RemoveObjectArgs::new(bucket_name, path)?;

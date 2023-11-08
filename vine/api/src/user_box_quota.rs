@@ -10,7 +10,7 @@ use strum::{Display, EnumString};
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
     kind = "UserBoxQuota",
-    struct = "UserBoxQuotaCrd",
+    root = "UserBoxQuotaCrd",
     shortname = "ubq",
     printcolumn = r#"{
         "name": "image",

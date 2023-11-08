@@ -11,7 +11,7 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "ModelStorageBinding",
-    struct = "ModelStorageBindingCrd",
+    root = "ModelStorageBindingCrd",
     status = "ModelStorageBindingStatus",
     shortname = "msb",
     namespaced,

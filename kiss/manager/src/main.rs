@@ -4,8 +4,9 @@ mod latest;
 use std::{cmp::Ordering, time::Duration};
 
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 
+#[instrument(level = Level::INFO, skip_all)]
 async fn sync_cluster(
     current_handler: &self::current::Handler,
     latest_handler: &self::latest::Handler,

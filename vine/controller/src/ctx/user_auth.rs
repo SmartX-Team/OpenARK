@@ -4,7 +4,8 @@ use anyhow::Result;
 use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use kube::{runtime::controller::Action, CustomResourceExt, Error};
+use kube::{runtime::controller::Action, CustomResourceExt, Error, ResourceExt};
+use tracing::{instrument, Level};
 use vine_api::user_auth::UserAuthCrd;
 
 #[derive(Default)]
@@ -30,6 +31,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         ]
     }
 
+    #[instrument(level = Level::INFO, skip_all, fields(name = data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,

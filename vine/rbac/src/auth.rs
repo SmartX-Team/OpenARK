@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Node;
 use kube::{api::ListParams, Api, Client, ResourceExt};
-use tracing::{info, warn};
+use tracing::{info, instrument, warn, Level};
 use vine_api::{
     user::UserCrd,
     user_auth::{UserAuthError, UserAuthResponse},
@@ -30,6 +30,7 @@ pub trait AuthUserSession {
     fn role(&self) -> &UserRoleSpec;
 
     #[cfg(feature = "actix")]
+    #[instrument(level = Level::INFO, skip(client, request), err(Display))]
     async fn from_request(
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
@@ -64,6 +65,7 @@ impl AuthUserSession for UserSessionRef {
     }
 
     #[cfg(feature = "actix")]
+    #[instrument(level = Level::INFO, skip(client, request), err(Display))]
     async fn from_request_with_timestamp(
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
@@ -120,6 +122,7 @@ impl AuthUserSession for UserSessionMetadata {
     }
 
     #[cfg(feature = "actix")]
+    #[instrument(level = Level::INFO, skip(client, request), err(Display))]
     async fn from_request_with_timestamp(
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
@@ -151,6 +154,7 @@ impl AuthUserSession for UserSessionMetadata {
 
 #[async_trait(?Send)]
 impl AuthUserSessionMetadata for UserSessionMetadata {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef> {
         check_user_namespace(namespace, &self.user_name, self.role)
             .map(|namespace| UserSessionRef {
@@ -211,6 +215,7 @@ fn get_user_name_with_timestamp(
 }
 
 #[cfg(feature = "actix")]
+#[instrument(level = Level::INFO, skip(client, request), err(Display))]
 pub async fn get_user_namespace(
     client: &::kube::Client,
     request: &::actix_web::HttpRequest,
@@ -242,6 +247,7 @@ fn get_user_namespace_with(
     }
 }
 
+#[instrument(level = Level::INFO, skip(client), err(Display))]
 async fn get_user_role(
     client: &::kube::Client,
     user_name: &str,
@@ -285,12 +291,14 @@ async fn get_user_role(
     Ok(role)
 }
 
+#[instrument(level = Level::INFO, skip(client), err(Display))]
 pub async fn execute(client: &Client, user_name: &str) -> Result<UserAuthResponse> {
     // get current time
     let now = Utc::now();
     execute_with_timestamp(client, user_name, now).await
 }
 
+#[instrument(level = Level::INFO, skip(client), err(Display))]
 async fn execute_with_timestamp(
     client: &Client,
     user_name: &str,

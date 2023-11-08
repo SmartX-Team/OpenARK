@@ -6,6 +6,7 @@ use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{
     storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
+use derivative::Derivative;
 use image::{codecs, RgbImage};
 use opencv::{
     core::{Mat, MatTraitConst, MatTraitConstManual, Vec3b, Vector},
@@ -66,13 +67,18 @@ impl CameraEncoder {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Function {
     camera_encoder: CameraEncoder,
+    #[derivative(Debug = "ignore")]
     capture: VideoCapture,
     ctx: FunctionContext,
+    #[derivative(Debug = "ignore")]
     frame: Mat,
     frame_counter: FrameCounter,
     frame_size: FrameSize,
+    #[derivative(Debug = "ignore")]
     params: Vector<i32>,
 }
 
@@ -203,7 +209,7 @@ impl ::dash_pipe_provider::Function for Function {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct FrameSize(Option<(u32, u32)>);
 
 impl FrameSize {
@@ -222,7 +228,7 @@ impl FrameSize {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct FrameCounter(usize);
 
 impl FrameCounter {

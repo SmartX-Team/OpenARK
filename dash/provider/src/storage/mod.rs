@@ -17,8 +17,10 @@ use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_api::storage::object::ModelStorageObjectSpec;
 use dash_api::storage::{ModelStorageKindSpec, ModelStorageSpec};
+use kube::ResourceExt;
 use kube::{core::object::HasStatus, Client};
 use serde_json::Value;
+use tracing::{instrument, Level};
 
 pub use self::{
     db::DatabaseStorageClient,
@@ -40,6 +42,7 @@ pub struct StorageClient<'namespace, 'kube> {
 
 #[async_trait]
 impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
         for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
@@ -64,6 +67,7 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
         bail!("no such object: {ref_name:?}")
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
@@ -89,6 +93,7 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self, spec), err(Display))]
     pub(crate) async fn get_by_field(
         &self,
         spec: Option<&ModelFieldSpec>,
@@ -107,6 +112,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
@@ -153,6 +159,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -166,6 +173,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_kubernetes(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
@@ -182,6 +190,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
@@ -195,6 +204,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get_custom_resource(
         &self,
         model: &ModelCrd,
@@ -210,6 +220,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage.load_custom_resource(spec, parsed, ref_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get_model(&self, model_name: &str) -> Result<ModelCrd> {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
@@ -218,6 +229,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage.load_model(model_name).await
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get_model_storage_bindings(
         &self,
         model_name: &str,
@@ -241,6 +253,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self, storage), err(Display))]
     async fn list_by_storage(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
@@ -283,6 +296,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -295,6 +309,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_kubernetes(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
@@ -310,6 +325,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
@@ -322,6 +338,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
+    #[instrument(level = Level::INFO, skip(self), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_custom_resource(
         &self,
         model: &ModelCrd,

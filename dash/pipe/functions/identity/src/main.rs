@@ -20,6 +20,7 @@ pub struct FunctionArgs {
     write_to_persistent_storage: Option<bool>,
 }
 
+#[derive(Debug)]
 pub struct Function {
     args: FunctionArgs,
 }

@@ -1,8 +1,9 @@
 use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
 use kube::Client;
-use tracing::error;
+use tracing::{error, instrument, Level};
 use vine_api::user_auth::UserAuthResponse;
 
+#[instrument(level = Level::INFO, skip(request, client))]
 #[get("/auth")]
 pub async fn get(request: HttpRequest, client: Data<Client>) -> impl Responder {
     match {

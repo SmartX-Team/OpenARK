@@ -15,7 +15,7 @@ use futures::{StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
-use tracing::debug;
+use tracing::{debug, instrument, Level};
 
 use crate::{function::FunctionContext, message::PipeMessage};
 
@@ -25,6 +25,7 @@ pub struct StorageIO {
 }
 
 impl StorageIO {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn flush(&self) -> Result<()> {
         self.output.flush().await?;
         Ok(())
@@ -41,6 +42,7 @@ pub struct StorageSet {
 }
 
 impl StorageSet {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new<Value>(
         args: &StorageArgs,
         ctx: &mut FunctionContext,
@@ -81,7 +83,7 @@ impl StorageSet {
                 self::lakehouse::Storage::default()
             },
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name).await?,
+            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name)?,
         })
     }
 
@@ -110,6 +112,7 @@ impl StorageSet {
         self.get_metadata(self.default_metadata)
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn flush(&self) -> Result<()> {
         #[cfg(feature = "lakehouse")]
         (&self.lakehouse as &(dyn Sync + MetadataStorage))
@@ -172,6 +175,7 @@ impl<T, Value> MetadataStorageExt<Value> for T
 where
     T: ?Sized + Send + Sync + MetadataStorage<Value>,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
@@ -187,6 +191,7 @@ where
         .boxed())
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list_as_empty(&self) -> Result<Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,

@@ -2,8 +2,9 @@ mod storage;
 
 use anyhow::Result;
 use clap::Subcommand;
+use tracing::{instrument, Level};
 
-#[derive(Subcommand)]
+#[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Command {
     Query(::dash_query_cli::QueryArgs),
 
@@ -12,6 +13,7 @@ pub(crate) enum Command {
 }
 
 impl Command {
+    #[instrument(level = Level::INFO, err(Display))]
     pub(crate) async fn run(self) -> Result<()> {
         match self {
             Command::Query(command) => command.run().await,

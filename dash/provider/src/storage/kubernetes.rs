@@ -22,6 +22,7 @@ use kube::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::{instrument, Level};
 
 use crate::input::{InputFieldValue, ItemTemplate};
 
@@ -42,6 +43,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         Api::all(self.kube.clone())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub(super) async fn api_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
@@ -88,6 +90,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_config_map<'f>(
         &self,
         spec: &'f TaskActorSourceConfigMapRefSpec,
@@ -106,6 +109,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, parsed), err(Display))]
     pub async fn load_custom_resource(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
@@ -119,6 +123,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .transpose()
     }
 
+    #[instrument(level = Level::INFO, skip(self, parsed), err(Display))]
     pub async fn load_custom_resource_all(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
@@ -134,6 +139,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_custom_resource_definition(
         &self,
         spec: &ModelCustomResourceDefinitionRefSpec,
@@ -152,6 +158,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model(&self, name: &str) -> Result<ModelCrd> {
         let api = self.api_namespaced::<ModelCrd>();
         let model = api.get(name).await?;
@@ -165,6 +172,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_all(&self) -> Result<Vec<ResourceRef>> {
         let api = self.api_namespaced::<ModelCrd>();
         let lp = ListParams::default();
@@ -187,6 +195,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
         let api = self.api_namespaced::<ModelStorageCrd>();
         let storage = api.get(name).await?;
@@ -197,6 +206,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self, filter), err(Display))]
     pub async fn load_model_storages_by<Filter>(
         &self,
         filter: Filter,
@@ -224,6 +234,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .map_err(Into::into)
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
@@ -256,6 +267,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_task(&self, name: &str) -> Result<TaskCrd> {
         let api = self.api_namespaced::<TaskCrd>();
         let task = api.get(name).await?;
@@ -269,6 +281,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         }
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_task_all(&self) -> Result<Vec<ResourceRef>> {
         let api = self.api_namespaced::<TaskCrd>();
         let lp = ListParams::default();
@@ -288,6 +301,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_task_all_by_model(&self, model_name: &str) -> Result<Vec<TaskCrd>> {
         let api = self.api_namespaced::<TaskCrd>();
         let lp = ListParams::default();
@@ -309,6 +323,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn ensure_model_storage_binding(&self, model_name: &str) -> Result<()> {
         let client = super::StorageClient {
             namespace: self.namespace,

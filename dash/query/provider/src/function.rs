@@ -8,15 +8,16 @@ use dash_pipe_provider::{
         datafusion::{
             error::DataFusionError,
             logical_expr::{ScalarUDF, Signature, TypeSignature, Volatility},
+            physical_plan::ColumnarValue,
         },
     },
     messengers::Messenger,
-    GenericStatelessRemoteFunction, Name,
+    DeltaFunction, GenericStatelessRemoteFunction, Name,
 };
 use futures::executor::block_on;
 use inflector::Inflector;
 use tokio::{spawn, sync::oneshot};
-use tracing::debug;
+use tracing::{instrument, Level};
 
 #[derive(Debug)]
 pub(crate) struct DashFunctionTemplate {
@@ -34,6 +35,7 @@ impl DashFunctionTemplate {
         })
     }
 
+    #[instrument(level = Level::INFO, skip(self, messenger), fields(function = %self), err(Display))]
     pub(crate) async fn try_into_udf(self, messenger: &dyn Messenger) -> Result<ScalarUDF> {
         let info = self.to_string();
 
@@ -62,6 +64,26 @@ impl DashFunctionTemplate {
             .await?
             .into_delta(input_schema, output_schema);
 
+        #[instrument(level = Level::INFO, skip(function, inputs), err(Display))]
+        fn wrap_function(
+            info: &str,
+            function: &DeltaFunction,
+            inputs: &[ColumnarValue],
+        ) -> Result<ColumnarValue, DataFusionError> {
+            let (tx, rx) = oneshot::channel();
+
+            let function = function.clone();
+            let inputs = inputs.to_vec();
+            spawn(async move {
+                let result = function.call(&inputs).await;
+                let _ = tx.send(result);
+            });
+
+            block_on(rx)
+                .map_err(|error| DataFusionError::External(error.into()))
+                .and_then(|result| result.map_err(|error| DataFusionError::External(error.into())))
+        }
+
         Ok(ScalarUDF {
             name: name.to_snake_case(),
             signature: Signature {
@@ -79,24 +101,7 @@ impl DashFunctionTemplate {
                 let return_type = Arc::new(output);
                 Arc::new(move |_| Ok(Arc::clone(&return_type)))
             },
-            fun: Arc::new(move |inputs| {
-                debug!("Calling function: {info}");
-
-                let (tx, rx) = oneshot::channel();
-
-                let function = function.clone();
-                let inputs = inputs.to_vec();
-                spawn(async move {
-                    let result = function.call(&inputs).await;
-                    let _ = tx.send(result);
-                });
-
-                block_on(rx)
-                    .map_err(|error| DataFusionError::External(error.into()))
-                    .and_then(|result| {
-                        result.map_err(|error| DataFusionError::External(error.into()))
-                    })
-            }),
+            fun: Arc::new(move |inputs| wrap_function(&info, &function, inputs)),
         })
     }
 }

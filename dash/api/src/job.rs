@@ -13,7 +13,7 @@ use strum::{Display, EnumString};
     group = "dash.ulagbulag.io",
     version = "v1alpha1",
     kind = "DashJob",
-    struct = "DashJobCrd",
+    root = "DashJobCrd",
     status = "DashJobStatus",
     shortname = "djob",
     namespaced,

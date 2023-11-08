@@ -21,12 +21,12 @@ use tokio::{
     task::{yield_now, JoinHandle},
     time::sleep,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn, Level};
 
 use crate::{
     function::{Function, FunctionBuilder, FunctionContext},
     message::{Codec, PipeMessages},
-    messengers::{init_messenger, MessengerArgs, Publisher, Subscriber},
+    messengers::{init_messenger, MessengerArgs, Publisher, PublisherExt, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
     PipeMessage, PipePayload,
 };
@@ -134,6 +134,7 @@ impl<F> PipeArgs<F>
 where
     F: FunctionBuilder,
 {
+    #[instrument(level = Level::INFO, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
         let messenger = init_messenger(&self.messenger_args).await?;
 
@@ -195,11 +196,16 @@ where
         });
 
         debug!("Initializing Task");
-        let function =
-            <F as FunctionBuilder>::try_new(&self.function_args, &mut function_context, &storage)
-                .await
-                .map(Into::into)
-                .map_err(|error| anyhow!("failed to init function: {error}"))?;
+
+        #[instrument(level = Level::INFO, skip_all, err(Display))]
+        async fn init_function<F, Fut>(f: impl Future<Output = Result<F>>) -> Result<F>
+        where
+            Fut: Future<Output = Result<F>>,
+        {
+            f.await
+        }
+
+        let function = self.init_function(&mut function_context, &storage).await?;
 
         debug!("Initializing Reader");
         let reader = match self.model_in.as_ref() {
@@ -209,6 +215,7 @@ where
                 Some(ReadContext {
                     _job: ReadSession {
                         function_context: function_context.clone(),
+                        model_out: self.model_out.clone(),
                         storage: storage.input.clone(),
                         stream: if self.queue_group {
                             messenger
@@ -251,12 +258,19 @@ where
         })
     }
 
-    pub fn loop_forever(&self) {
-        match &self.log_level {
-            Some(level) => ::ark_core::tracer::init_once_with(level),
-            None => ::ark_core::tracer::init_once(),
-        }
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn init_function(
+        &self,
+        ctx: &mut FunctionContext,
+        storage: &Arc<StorageIO>,
+    ) -> Result<F> {
+        <F as FunctionBuilder>::try_new(&self.function_args, ctx, storage)
+            .await
+            .map(Into::into)
+            .map_err(|error| anyhow!("failed to init function: {error}"))
+    }
 
+    pub fn loop_forever(&self) {
         match ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -274,6 +288,11 @@ where
     }
 
     async fn loop_forever_async(&self) -> Result<()> {
+        match &self.log_level {
+            Some(level) => ::ark_core::tracer::init_once_with(level),
+            None => ::ark_core::tracer::init_once(),
+        }
+
         let mut ctx = self.init_context().await?;
         info!("Initialized!");
 
@@ -306,10 +325,12 @@ where
     }
 }
 
+#[instrument(name = "tick", level = Level::INFO, skip(ctx), err(Display))]
 async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
+    #[instrument(name = "read", level = Level::INFO, skip_all, err(Display))]
     async fn recv_one<Value>(
         function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
@@ -319,9 +340,7 @@ where
     {
         loop {
             select! {
-                input = reader
-                .rx
-                .recv() => break Ok(input),
+                input = reader.rx.recv() => break Ok(input),
                 () = sleep(Duration::from_millis(100)) => if function_context.is_terminating() {
                     break Ok(None)
                 },
@@ -364,7 +383,18 @@ where
 
     let input_payloads = inputs.get_payloads_ref();
 
-    match ctx.function.tick(inputs).await? {
+    #[instrument(level = Level::INFO, skip(function), err(Display))]
+    async fn call_function<F>(
+        function: &mut F,
+        inputs: PipeMessages<<F as Function>::Input>,
+    ) -> Result<PipeMessages<<F as Function>::Output>>
+    where
+        F: Function,
+    {
+        function.tick(inputs).await
+    }
+
+    match call_function(&mut ctx.function, inputs).await? {
         PipeMessages::None => Ok(()),
         outputs => {
             let mut writer = ctx.writer.clone();
@@ -426,6 +456,7 @@ where
     Value: Default,
 {
     function_context: FunctionContext,
+    model_out: Option<Name>,
     storage: Arc<StorageSet>,
     stream: Box<dyn Subscriber<Value>>,
     tx: Arc<Sender<PipeMessage<Value>>>,
@@ -449,7 +480,9 @@ where
         })
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn read_input_one(&mut self) -> Result<()> {
+        #[instrument(level = Level::INFO, skip_all, err(Display))]
         async fn send_one<Value>(
             tx: &Sender<PipeMessage<Value>>,
             input: PipeMessage<Value>,
@@ -462,7 +495,12 @@ where
                 .map_err(|error| anyhow!("failed to send input: {error}"))
         }
 
-        match self.stream.read_one().await? {
+        match self
+            .stream
+            .read_one()
+            .await?
+            .map(|input| input.with_reply_target(&self.model_out))
+        {
             Some(input) => {
                 if self.function_context.is_disabled_load() || input.payloads.is_empty() {
                     send_one(&self.tx, input.load_payloads_as_empty()).await
@@ -494,6 +532,7 @@ struct WriteContext {
 }
 
 impl WriteContext {
+    #[instrument(level = Level::INFO, skip_all)]
     async fn write_outputs<Value>(
         &mut self,
         input_payloads: &HashMap<String, PipePayload<()>>,
@@ -506,6 +545,7 @@ impl WriteContext {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_write_outputs<Value>(
         &mut self,
         input_payloads: &HashMap<String, PipePayload<()>>,
@@ -542,16 +582,7 @@ impl WriteContext {
                             let data = output
                                 .to_bytes(self.encoder)
                                 .map_err(|error| anyhow!("failed to parse output: {error}"))?;
-                            match output.reply {
-                                Some(reply) => stream
-                                    .reply_one(data, reply)
-                                    .await
-                                    .map_err(|error| anyhow!("failed to reply output: {error}"))?,
-                                None => stream
-                                    .send_one(data)
-                                    .await
-                                    .map_err(|error| anyhow!("failed to send output: {error}"))?,
-                            }
+                            stream.reply_or_send_one(data, output.reply).await?
                         }
                         Ok(())
                     })
@@ -576,6 +607,7 @@ impl AtomicSession {
         }
     }
 
+    #[instrument(level = Level::INFO, skip_all)]
     async fn alloc<F>(&self, task: F) -> <F as Future>::Output
     where
         F: Future,
@@ -586,6 +618,7 @@ impl AtomicSession {
         result
     }
 
+    #[instrument(name = "submit", level = Level::INFO, skip_all)]
     async fn wait(&self) {
         while self.num_tasks.load(Ordering::SeqCst) >= self.max_tasks {
             yield_now().await

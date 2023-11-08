@@ -5,6 +5,7 @@ use actix_web::{
     web::{Data, Json, Query},
     App, HttpResponse, HttpServer, Responder,
 };
+use actix_web_opentelemetry::RequestTracing;
 use anyhow::{bail, Result};
 use ark_core::{env::infer, tracer};
 use chrono::Utc;
@@ -18,18 +19,21 @@ use kube::{
     Api, Client, CustomResourceExt,
 };
 use serde_json::json;
-use tracing::warn;
+use tracing::{instrument, warn, Level};
 
+#[instrument(level = Level::INFO)]
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok().json("kiss-gateway")
 }
 
+#[instrument(level = Level::INFO)]
 #[get("/health")]
 async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
 }
 
+#[instrument(level = Level::INFO, skip(client))]
 #[get("/new")]
 async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl Responder {
     async fn try_handle(client: Data<Client>, query: BoxNewQuery) -> Result<()> {
@@ -103,6 +107,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
     }
 }
 
+#[instrument(level = Level::INFO, skip(client))]
 #[post("/commission")]
 async fn post_commission(
     client: Data<Client>,
@@ -173,6 +178,7 @@ async fn main() {
                 .service(health)
                 .service(get_new)
                 .service(post_commission)
+                .wrap(RequestTracing::new())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

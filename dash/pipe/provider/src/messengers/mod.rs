@@ -5,7 +5,7 @@ mod nats;
 
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -13,10 +13,11 @@ use clap::Parser;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
-use tracing::debug;
+use tracing::{debug, instrument, Level};
 
-use crate::message::PipeMessage;
+use crate::message::{PipeMessage, PipeReply};
 
+#[instrument(level = Level::INFO, skip_all, err(Display))]
 pub async fn init_messenger<Value>(
     args: &MessengerArgs,
 ) -> Result<Box<dyn Send + Sync + Messenger<Value>>> {
@@ -24,7 +25,7 @@ pub async fn init_messenger<Value>(
 
     Ok(match args.default_messenger {
         #[cfg(feature = "kafka")]
-        MessengerType::Kafka => Box::new(self::kafka::Messenger::try_new(&args.kafka).await?),
+        MessengerType::Kafka => Box::new(self::kafka::Messenger::try_new(&args.kafka)?),
         #[cfg(feature = "nats")]
         MessengerType::Nats => Box::new(self::nats::Messenger::try_new(&args.nats).await?),
     })
@@ -40,6 +41,7 @@ pub trait Messenger<Value = ::serde_json::Value> {
     where
         Value: Send + Default + DeserializeOwned;
 
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
         topic: Name,
@@ -57,11 +59,38 @@ pub trait Publisher
 where
     Self: Send + Sync,
 {
-    async fn reply_one(&self, data: Bytes, reply: String) -> Result<()>;
+    fn topic(&self) -> &Name;
+
+    async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()>;
 
     async fn request_one(&self, data: Bytes) -> Result<Bytes>;
 
     async fn send_one(&self, data: Bytes) -> Result<()>;
+}
+
+#[async_trait]
+pub trait PublisherExt
+where
+    Self: Send + Sync,
+{
+    async fn reply_or_send_one(&self, data: Bytes, reply: Option<PipeReply>) -> Result<()>;
+}
+
+#[async_trait]
+impl PublisherExt for Arc<dyn Publisher> {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn reply_or_send_one(&self, data: Bytes, reply: Option<PipeReply>) -> Result<()> {
+        match reply {
+            Some(PipeReply { inbox, target }) if Some(self.topic()) == target.as_ref() => self
+                .reply_one(data, inbox)
+                .await
+                .map_err(|error| anyhow!("failed to reply output: {error}")),
+            Some(_) | None => self
+                .send_one(data)
+                .await
+                .map_err(|error| anyhow!("failed to send output: {error}")),
+        }
+    }
 }
 
 #[async_trait]
