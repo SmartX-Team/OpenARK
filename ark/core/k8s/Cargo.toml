@@ -26,6 +26,7 @@ manager = [
 ark-core = { path = ".." }
 
 anyhow = { workspace = true, optional = true }
+async-nats = { workspace = true, optional = true, default-features = false }
 async-trait = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 k8s-openapi = { workspace = true, optional = true }

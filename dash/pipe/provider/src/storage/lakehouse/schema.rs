@@ -10,7 +10,9 @@ use deltalake::{
         self,
         datatypes::{DataType, Field, Fields, TimeUnit},
     },
-    SchemaDataType, SchemaField, SchemaTypeArray, SchemaTypeMap, SchemaTypeStruct,
+    kernel::{
+        ArrayType, DataType as DeltaDataType, MapType, PrimitiveType, StructField, StructType,
+    },
 };
 use map_macro::hash_map;
 use schemars::schema::{
@@ -23,10 +25,9 @@ pub trait ToField {
     fn to_field(&self) -> Result<Field>;
 }
 
-impl ToField for SchemaField {
+impl ToField for StructField {
     fn to_field(&self) -> Result<Field> {
-        self.get_type()
-            .to_field(self.get_name(), self.is_nullable())
+        self.data_type().to_field(self.name(), self.is_nullable())
     }
 }
 
@@ -34,23 +35,22 @@ trait ToFieldByDataType {
     fn to_field(&self, name: &str, nullable: bool) -> Result<Field>;
 }
 
-impl ToFieldByDataType for SchemaDataType {
+impl ToFieldByDataType for DeltaDataType {
     fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
         match self {
-            SchemaDataType::primitive(type_) => type_.to_field(name, nullable),
-            SchemaDataType::r#struct(type_) => type_.to_field(name, nullable),
-            SchemaDataType::array(type_) => type_.to_field(name, nullable),
-            SchemaDataType::map(type_) => type_.to_field(name, nullable),
+            DeltaDataType::Primitive(type_) => type_.to_field(name, nullable),
+            DeltaDataType::Struct(type_) => type_.to_field(name, nullable),
+            DeltaDataType::Array(type_) => type_.to_field(name, nullable),
+            DeltaDataType::Map(type_) => type_.to_field(name, nullable),
         }
     }
 }
 
-impl ToFieldByDataType for SchemaTypeArray {
+impl ToFieldByDataType for ArrayType {
     fn to_field(&self, name: &str, nullable: bool) -> Result<Field> {
         Ok(Field::new_list(
             name,
-            self.get_element_type()
-                .to_field(name, self.contains_null())?,
+            self.element_type().to_field(name, self.contains_null())?,
             nullable,
         ))
     }
@@ -70,29 +70,29 @@ pub trait ToDataType {
     fn to_data_type(&self) -> Result<DataType>;
 }
 
-impl ToDataType for String {
+impl ToDataType for PrimitiveType {
     fn to_data_type(&self) -> Result<DataType> {
-        Ok(match self.as_str() {
-            "boolean" => DataType::Boolean,
-            "byte" => DataType::Int8,
-            "short" => DataType::Int16,
-            "integer" => DataType::Int32,
-            "long" => DataType::Int64,
-            "float" => DataType::Float32,
-            "double" => DataType::Float64,
-            "binary" => DataType::Binary,
-            "string" => DataType::Utf8,
-            "date" => DataType::Date32,
-            "timestamp" => DataType::Timestamp(TimeUnit::Microsecond, None),
-            // "decimal" => todo!(),
-            _ => bail!("unsupported schema data type: {self}"),
+        Ok(match self {
+            Self::Boolean => DataType::Boolean,
+            Self::Byte => DataType::Int8,
+            Self::Short => DataType::Int16,
+            Self::Integer => DataType::Int32,
+            Self::Long => DataType::Int64,
+            Self::Float => DataType::Float32,
+            Self::Double => DataType::Float64,
+            Self::Binary => DataType::Binary,
+            Self::String => DataType::Utf8,
+            Self::Date => DataType::Date32,
+            Self::Timestamp => DataType::Timestamp(TimeUnit::Microsecond, None),
+            // Self::Decimal(precision, scale) => DataType::Decimal128(*precision, *scale),
+            Self::Decimal(_, _) => bail!("unsupported schema data type: {self}"),
         })
     }
 }
 
-impl ToDataType for SchemaTypeStruct {
+impl ToDataType for StructType {
     fn to_data_type(&self) -> Result<DataType> {
-        self.get_fields()
+        self.fields()
             .iter()
             .map(|field| field.to_field())
             .collect::<Result<Fields>>()
@@ -100,7 +100,7 @@ impl ToDataType for SchemaTypeStruct {
     }
 }
 
-impl ToDataType for SchemaTypeMap {
+impl ToDataType for MapType {
     fn to_data_type(&self) -> Result<DataType> {
         bail!("unsupported schema data type: Map")
     }
@@ -113,18 +113,18 @@ impl ToDataType for ::deltalake::arrow::datatypes::Schema {
 }
 
 pub trait FieldColumns {
-    fn to_data_columns(&self) -> Result<Vec<SchemaField>>;
+    fn to_data_columns(&self) -> Result<Vec<StructField>>;
 }
 
 impl FieldColumns for arrow::datatypes::Schema {
-    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<StructField>> {
         let api_version = json!("http://arrow.apache.org/");
         self.fields().to_data_columns(&api_version)
     }
 }
 
 impl FieldColumns for RootSchema {
-    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<StructField>> {
         type Definitions = ::schemars::Map<String, Schema>;
 
         fn find_schema_definition<'a>(
@@ -194,7 +194,7 @@ impl FieldColumns for RootSchema {
                 definitions: &Definitions,
                 name: &str,
                 nullable: bool,
-            ) -> Result<Option<SchemaField>>;
+            ) -> Result<Option<StructField>>;
         }
 
         impl JsonFieldColumn for Schema {
@@ -204,7 +204,7 @@ impl FieldColumns for RootSchema {
                 definitions: &Definitions,
                 name: &str,
                 nullable: bool,
-            ) -> Result<Option<SchemaField>> {
+            ) -> Result<Option<StructField>> {
                 fn parse_instance_type(
                     Context {
                         api_version,
@@ -215,52 +215,43 @@ impl FieldColumns for RootSchema {
                     instance_type: &InstanceType,
                     metadata: impl FnOnce(Value) -> FieldMetadata,
                     nullable: bool,
-                ) -> Result<Option<SchemaField>> {
+                ) -> Result<Option<StructField>> {
                     Ok(match instance_type {
                         InstanceType::Null => None,
-                        InstanceType::Boolean => Some(SchemaField::new(
-                            name.into(),
-                            self::types::boolean(),
-                            nullable,
-                            metadata("Boolean".into()),
-                        )),
-                        InstanceType::Integer => Some(SchemaField::new(
-                            name.into(),
-                            self::types::integer(),
-                            nullable,
-                            metadata("Integer".into()),
-                        )),
-                        InstanceType::Number => Some(SchemaField::new(
-                            name.into(),
-                            self::types::number(),
-                            nullable,
-                            metadata("Number".into()),
-                        )),
-                        InstanceType::String => Some(SchemaField::new(
-                            name.into(),
-                            self::types::string(),
-                            nullable,
-                            metadata("String".into()),
-                        )),
+                        InstanceType::Boolean => Some(
+                            StructField::new(name, DeltaDataType::boolean(), nullable)
+                                .with_metadata(metadata("Boolean".into())),
+                        ),
+                        InstanceType::Integer => Some(
+                            StructField::new(name, DeltaDataType::long(), nullable)
+                                .with_metadata(metadata("Integer".into())),
+                        ),
+                        InstanceType::Number => Some(
+                            StructField::new(name, DeltaDataType::double(), nullable)
+                                .with_metadata(metadata("Number".into())),
+                        ),
+                        InstanceType::String => Some(
+                            StructField::new(name, DeltaDataType::string(), nullable)
+                                .with_metadata(metadata("String".into())),
+                        ),
                         InstanceType::Array => value
                             .array
                             .to_array_data_type(api_version, definitions)?
+                            .map(Box::new)
                             .map(|type_| {
-                                SchemaField::new(
-                                    name.into(),
-                                    SchemaDataType::array(type_),
-                                    nullable,
-                                    metadata("Array".into()),
-                                )
+                                StructField::new(name, DeltaDataType::Array(type_), nullable)
+                                    .with_metadata(metadata("Array".into()))
                             }),
-                        InstanceType::Object => Some(SchemaField::new(
-                            name.into(),
-                            SchemaDataType::r#struct(SchemaTypeStruct::new(
-                                value.object.to_data_columns(api_version, definitions)?,
-                            )),
-                            nullable,
-                            metadata("Object".into()),
-                        )),
+                        InstanceType::Object => Some(
+                            StructField::new(
+                                name,
+                                DeltaDataType::Struct(Box::new(StructType::new(
+                                    value.object.to_data_columns(api_version, definitions)?,
+                                ))),
+                                nullable,
+                            )
+                            .with_metadata(metadata("Object".into())),
+                        ),
                     })
                 }
 
@@ -344,7 +335,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 ctx: Context,
                 nullable: bool,
-            ) -> Result<Option<SchemaField>>;
+            ) -> Result<Option<StructField>>;
         }
 
         impl JsonFieldColumnEnum for SubschemaValidation {
@@ -352,7 +343,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 ctx: Context,
                 nullable: bool,
-            ) -> Result<Option<SchemaField>> {
+            ) -> Result<Option<StructField>> {
                 if let Some(schemas) = self.any_of.as_ref() {
                     match schemas.len() {
                         0 => Ok(None),
@@ -382,7 +373,7 @@ impl FieldColumns for RootSchema {
                     name,
                 }: Context,
                 nullable: bool,
-            ) -> Result<Option<SchemaField>> {
+            ) -> Result<Option<StructField>> {
                 self.to_data_column(api_version, definitions, name, nullable)
             }
         }
@@ -392,7 +383,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Option<SchemaTypeArray>>;
+            ) -> Result<Option<ArrayType>>;
         }
 
         impl JsonFieldColumnArray for Schema {
@@ -400,41 +391,37 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Option<SchemaTypeArray>> {
+            ) -> Result<Option<ArrayType>> {
                 fn parse_instance_type(
                     api_version: &Value,
                     definitions: &Definitions,
                     instance_type: &InstanceType,
                     nullable: bool,
                     value: &SchemaObject,
-                ) -> Result<Option<SchemaTypeArray>> {
+                ) -> Result<Option<ArrayType>> {
                     Ok(match instance_type {
                         InstanceType::Null => None,
-                        InstanceType::Boolean => Some(SchemaTypeArray::new(
-                            self::types::boolean().into(),
-                            nullable,
-                        )),
-                        InstanceType::Integer => Some(SchemaTypeArray::new(
-                            self::types::integer().into(),
-                            nullable,
-                        )),
+                        InstanceType::Boolean => {
+                            Some(ArrayType::new(DeltaDataType::boolean(), nullable))
+                        }
+                        InstanceType::Integer => {
+                            Some(ArrayType::new(DeltaDataType::long(), nullable))
+                        }
                         InstanceType::Number => {
-                            Some(SchemaTypeArray::new(self::types::number().into(), nullable))
+                            Some(ArrayType::new(DeltaDataType::double(), nullable))
                         }
                         InstanceType::String => {
-                            Some(SchemaTypeArray::new(self::types::string().into(), nullable))
+                            Some(ArrayType::new(DeltaDataType::string(), nullable))
                         }
                         InstanceType::Array => value
                             .array
                             .to_array_data_type(api_version, definitions)?
-                            .map(|type_| {
-                                SchemaTypeArray::new(SchemaDataType::array(type_).into(), nullable)
-                            }),
-                        InstanceType::Object => Some(SchemaTypeArray::new(
-                            SchemaDataType::r#struct(SchemaTypeStruct::new(
+                            .map(Box::new)
+                            .map(|type_| ArrayType::new(DeltaDataType::Array(type_), nullable)),
+                        InstanceType::Object => Some(ArrayType::new(
+                            DeltaDataType::Struct(Box::new(StructType::new(
                                 value.object.to_data_columns(api_version, definitions)?,
-                            ))
-                            .into(),
+                            ))),
                             nullable,
                         )),
                     })
@@ -493,7 +480,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Option<SchemaTypeArray>> {
+            ) -> Result<Option<ArrayType>> {
                 match self {
                     Some(SingleOrVec::Single(value)) => {
                         value.to_array_data_type(api_version, definitions)
@@ -511,7 +498,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Option<SchemaTypeArray>> {
+            ) -> Result<Option<ArrayType>> {
                 self.as_ref()
                     .and_then(|value| value.items.as_ref())
                     .to_array_data_type(api_version, definitions)
@@ -523,7 +510,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Vec<SchemaField>>;
+            ) -> Result<Vec<StructField>>;
         }
 
         impl JsonFieldColumns for Box<ObjectValidation> {
@@ -531,7 +518,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Vec<SchemaField>> {
+            ) -> Result<Vec<StructField>> {
                 self.properties
                     .iter()
                     .filter_map(|(child_name, child)| {
@@ -549,7 +536,7 @@ impl FieldColumns for RootSchema {
                 &self,
                 api_version: &Value,
                 definitions: &Definitions,
-            ) -> Result<Vec<SchemaField>> {
+            ) -> Result<Vec<StructField>> {
                 match self {
                     Some(value) => value.to_data_columns(api_version, definitions),
                     None => Ok(Default::default()),
@@ -582,7 +569,7 @@ impl FieldColumns for RootSchema {
 }
 
 impl FieldColumns for [ModelFieldNativeSpec] {
-    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<StructField>> {
         struct FieldBuilder {
             name: String,
             type_: FieldBuilderType,
@@ -811,7 +798,7 @@ impl FieldColumns for [ModelFieldNativeSpec] {
             }
         }
 
-        impl TryFrom<FieldBuilder> for SchemaField {
+        impl TryFrom<FieldBuilder> for StructField {
             type Error = Error;
 
             fn try_from(field: FieldBuilder) -> Result<Self> {
@@ -827,29 +814,29 @@ impl FieldColumns for [ModelFieldNativeSpec] {
                     match type_ {
                         FieldBuilderType::Primitive(type_) => type_.into(),
                         FieldBuilderType::Array(type_) => {
-                            SchemaDataType::array(SchemaTypeArray::new(
-                                Box::new(match type_ {
+                            DeltaDataType::Array(Box::new(ArrayType::new(
+                                match type_ {
                                     FieldBuilderArrayType::Primitive(type_) => type_.into(),
                                     FieldBuilderArrayType::Object => {
                                         bail!("object array is not supported yet")
                                     }
-                                }),
+                                },
                                 nullable,
-                            ))
+                            )))
                         }
                         FieldBuilderType::Object(children) => {
-                            SchemaDataType::r#struct(SchemaTypeStruct::new(
+                            DeltaDataType::Struct(Box::new(StructType::new(
                                 children
                                     .into_values()
                                     .map(TryInto::try_into)
                                     .collect::<Result<_>>()?,
-                            ))
+                            )))
                         }
                         FieldBuilderType::Dynamic => bail!("dynamic array is not supported yet"),
                     },
                     nullable,
-                    metadata,
-                ))
+                )
+                .with_metadata(metadata))
             }
         }
 
@@ -873,18 +860,15 @@ impl FieldColumns for [ModelFieldNativeSpec] {
             DateTime,
         }
 
-        impl From<FieldBuilderPrimitiveType> for SchemaDataType {
+        impl From<FieldBuilderPrimitiveType> for DeltaDataType {
             fn from(value: FieldBuilderPrimitiveType) -> Self {
-                SchemaDataType::primitive(
-                    match value {
-                        FieldBuilderPrimitiveType::Boolean => "boolean",
-                        FieldBuilderPrimitiveType::Integer => "long",
-                        FieldBuilderPrimitiveType::Number => "double",
-                        FieldBuilderPrimitiveType::String => "string",
-                        FieldBuilderPrimitiveType::DateTime => "timestamp",
-                    }
-                    .into(),
-                )
+                match value {
+                    FieldBuilderPrimitiveType::Boolean => DeltaDataType::boolean(),
+                    FieldBuilderPrimitiveType::Integer => DeltaDataType::long(),
+                    FieldBuilderPrimitiveType::Number => DeltaDataType::double(),
+                    FieldBuilderPrimitiveType::String => DeltaDataType::string(),
+                    FieldBuilderPrimitiveType::DateTime => DeltaDataType::timestamp(),
+                }
             }
         }
 
@@ -1007,17 +991,17 @@ impl FieldColumns for [ModelFieldNativeSpec] {
 }
 
 impl FieldColumns for Vec<ModelFieldNativeSpec> {
-    fn to_data_columns(&self) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self) -> Result<Vec<StructField>> {
         self.as_slice().to_data_columns()
     }
 }
 
 trait FieldChildren {
-    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>>;
+    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<StructField>>;
 }
 
 impl FieldChildren for Fields {
-    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<SchemaField>> {
+    fn to_data_columns(&self, api_version: &Value) -> Result<Vec<StructField>> {
         self.iter()
             .filter_map(|field| field.to_data_column(api_version).transpose())
             .collect()
@@ -1025,22 +1009,18 @@ impl FieldChildren for Fields {
 }
 
 trait FieldChild {
-    fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>>;
+    fn to_data_column(&self, api_version: &Value) -> Result<Option<StructField>>;
 }
 
 impl FieldChild for Field {
-    fn to_data_column(&self, api_version: &Value) -> Result<Option<SchemaField>> {
+    fn to_data_column(&self, api_version: &Value) -> Result<Option<StructField>> {
         self.data_type().to_data_type(api_version).map(|type_| {
             type_.map(|type_| {
-                SchemaField::new(
-                    self.name().clone(),
-                    type_,
-                    self.is_nullable(),
+                StructField::new(self.name().clone(), type_, self.is_nullable()).with_metadata(
                     self.metadata()
                         .iter()
                         .map(|(key, value)| (key.clone(), Value::String(value.clone())))
-                        .chain([("apiVersion".into(), api_version.clone())])
-                        .collect(),
+                        .chain([("apiVersion".into(), api_version.clone())]),
                 )
             })
         })
@@ -1048,43 +1028,43 @@ impl FieldChild for Field {
 }
 
 trait FieldSchema {
-    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>>;
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<DeltaDataType>>;
 }
 
 impl FieldSchema for Field {
-    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>> {
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<DeltaDataType>> {
         self.data_type().to_data_type(api_version)
     }
 }
 
 impl FieldSchema for DataType {
-    fn to_data_type(&self, api_version: &Value) -> Result<Option<SchemaDataType>> {
+    fn to_data_type(&self, api_version: &Value) -> Result<Option<DeltaDataType>> {
         Ok(match self {
             // BEGIN primitive types
             DataType::Null => None,
-            DataType::Boolean => Some(self::types::boolean()),
-            DataType::Int8 | DataType::UInt8 => Some(SchemaDataType::primitive("byte".into())),
-            DataType::Int16 | DataType::UInt16 => Some(SchemaDataType::primitive("short".into())),
-            DataType::Int32 | DataType::UInt32 => Some(SchemaDataType::primitive("integer".into())),
-            DataType::Int64 | DataType::UInt64 => Some(SchemaDataType::primitive("long".into())),
+            DataType::Boolean => Some(DeltaDataType::boolean()),
+            DataType::Int8 | DataType::UInt8 => Some(DeltaDataType::byte()),
+            DataType::Int16 | DataType::UInt16 => Some(DeltaDataType::short()),
+            DataType::Int32 | DataType::UInt32 => Some(DeltaDataType::integer()),
+            DataType::Int64 | DataType::UInt64 => Some(DeltaDataType::long()),
             // DataType::Float16 => todo!(),
-            DataType::Float32 => Some(SchemaDataType::primitive("float".into())),
-            DataType::Float64 => Some(SchemaDataType::primitive("double".into())),
-            DataType::Decimal128(_, _) | DataType::Decimal256(_, _) => {
-                Some(SchemaDataType::primitive("decimal".into()))
+            DataType::Float32 => Some(DeltaDataType::float()),
+            DataType::Float64 => Some(DeltaDataType::double()),
+            DataType::Decimal128(precision, scale) | DataType::Decimal256(precision, scale) => {
+                Some(DeltaDataType::decimal(*precision as usize, *scale as usize))
             }
             // BEGIN binary formats
             DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => {
-                Some(SchemaDataType::primitive("binary".into()))
+                Some(DeltaDataType::binary())
             }
             // BEGIN string formats
-            DataType::Utf8 | DataType::LargeUtf8 => Some(self::types::string()),
-            DataType::Date32 | DataType::Date64 => Some(SchemaDataType::primitive("date".into())),
+            DataType::Utf8 | DataType::LargeUtf8 => Some(DeltaDataType::string()),
+            DataType::Date32 | DataType::Date64 => Some(DeltaDataType::date()),
             // DataType::Duration(_) => todo!(),
             // DataType::Interval(_) => todo!(),
             // DataType::Time32(_) => todo!(),
             // DataType::Time64(_) => todo!(),
-            DataType::Timestamp(_, _) => Some(self::types::date_time()),
+            DataType::Timestamp(_, _) => Some(DeltaDataType::timestamp()),
             // BEGIN aggregation types
             DataType::Union(_, _) => bail!("union data type is not supported"),
             DataType::FixedSizeList(field, _)
@@ -1092,40 +1072,17 @@ impl FieldSchema for DataType {
             | DataType::LargeList(field) => field
                 .to_data_type(api_version)?
                 .map(Into::into)
-                .map(|type_| SchemaTypeArray::new(type_, field.is_nullable()))
-                .map(SchemaDataType::array),
-            DataType::Struct(fields) => Some(SchemaDataType::r#struct(SchemaTypeStruct::new(
+                .map(|type_| ArrayType::new(type_, field.is_nullable()))
+                .map(Box::new)
+                .map(DeltaDataType::Array),
+            DataType::Struct(fields) => Some(DeltaDataType::Struct(Box::new(StructType::new(
                 fields.to_data_columns(api_version)?,
-            ))),
+            )))),
             // DataType::Dictionary(_, _) => todo!(),
             // DataType::Map(_, _) => todo!(),
             type_ => bail!("unsupported data type: {type_:?}"),
             // DataType::RunEndEncoded(_, _) => todo!(),
         })
-    }
-}
-
-mod types {
-    use deltalake::SchemaDataType;
-
-    pub(super) fn boolean() -> SchemaDataType {
-        SchemaDataType::primitive("boolean".into())
-    }
-
-    pub(super) fn integer() -> SchemaDataType {
-        SchemaDataType::primitive("long".into())
-    }
-
-    pub(super) fn number() -> SchemaDataType {
-        SchemaDataType::primitive("double".into())
-    }
-
-    pub(super) fn string() -> SchemaDataType {
-        SchemaDataType::primitive("string".into())
-    }
-
-    pub(super) fn date_time() -> SchemaDataType {
-        SchemaDataType::primitive("timestamp".into())
     }
 }
 

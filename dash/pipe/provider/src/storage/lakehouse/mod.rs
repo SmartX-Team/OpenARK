@@ -11,9 +11,10 @@ use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
     arrow::json::reader::infer_json_schema_from_seekable,
     datafusion::prelude::SessionContext,
+    kernel::StructField,
     protocol::SaveMode,
     writer::{DeltaWriter, JsonWriter},
-    DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError, SchemaField,
+    DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError,
 };
 use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
@@ -381,7 +382,7 @@ fn clone_table(table: &DeltaTable) -> DeltaTable {
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn create_table(
     table: DeltaTable,
-    columns: impl IntoIterator<Item = impl Into<SchemaField>>,
+    columns: impl IntoIterator<Item = impl Into<StructField>>,
 ) -> Result<DeltaTable> {
     DeltaOps::from(table)
         .create()

@@ -87,7 +87,7 @@ impl<Value> super::Messenger<Value> for Messenger {
     {
         Ok(Box::new(
             self.client
-                .subscribe(topic.into())
+                .subscribe(topic)
                 .await
                 .map(|inner| Subscriber { inner })?,
         ))
@@ -104,7 +104,7 @@ impl<Value> super::Messenger<Value> for Messenger {
     {
         Ok(Box::new(
             self.client
-                .queue_subscribe(topic.into(), queue_group.into())
+                .queue_subscribe(topic, queue_group.into())
                 .await
                 .map(|inner| Subscriber { inner })?,
         ))
@@ -133,7 +133,7 @@ impl super::Publisher for Publisher {
     #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
     async fn request_one(&self, data: Bytes) -> Result<Bytes> {
         self.client
-            .request(self.topic.clone().into(), data)
+            .request(&self.topic, data)
             .await
             .map(|message| message.payload)
             .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
@@ -142,7 +142,7 @@ impl super::Publisher for Publisher {
     #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
-            .publish(self.topic.clone().into(), data)
+            .publish(&self.topic, data)
             .await
             .map_err(|error| anyhow!("failed to publish data to NATS: {error}"))
     }
@@ -168,7 +168,7 @@ where
                     .payload
                     .try_into()
                     .map(|input: PipeMessage<_, _>| match message.reply {
-                        Some(inbox) => input.with_reply_inbox(inbox),
+                        Some(inbox) => input.with_reply_inbox(inbox.to_string()),
                         None => input,
                     })
             })

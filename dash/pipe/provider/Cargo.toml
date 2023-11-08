@@ -36,7 +36,10 @@ s3 = ["chrono", "minio"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core" }
-ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
+ark-core-k8s = { path = "../../../ark/core/k8s", features = [
+    "async-nats",
+    "data",
+] }
 dash-api = { path = "../../api", optional = true }
 dash-pipe-api = { path = "../api" }
 

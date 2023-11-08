@@ -128,6 +128,20 @@ impl PartialOrd<Name> for String {
     }
 }
 
+#[cfg(feature = "async-nats")]
+impl ::async_nats::subject::ToSubject for Name {
+    fn to_subject(&self) -> ::async_nats::subject::Subject {
+        self.0.clone().into()
+    }
+}
+
+#[cfg(feature = "async-nats")]
+impl ::async_nats::subject::ToSubject for &Name {
+    fn to_subject(&self) -> ::async_nats::subject::Subject {
+        <Name as ::async_nats::subject::ToSubject>::to_subject(*self)
+    }
+}
+
 impl<'de> Deserialize<'de> for Name {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
