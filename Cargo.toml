@@ -83,7 +83,9 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive", "env"] }
 csv = { version = "1.3" }
 ctrlc = { version = "3.4" }
-deltalake = { git = "https://github.com/delta-io/delta-rs.git", rev = "7090a1260fab0efc6804764559688f7766439b4f", version = "0.17", features = [
+# TODO: wait a PR to begin merged: 
+# deltalake = { git = "https://github.com/delta-io/delta-rs.git", rev = "[TODO]", version = "0.17", features = [
+deltalake = { git = "https://github.com/ArroyoSystems/delta-rs.git", rev = "4a376eb178b537f7e4091a8e88db95a3ce7feadc", version = "0.17", features = [
     "arrow",
     "datafusion",
     "datafusion-ext",
