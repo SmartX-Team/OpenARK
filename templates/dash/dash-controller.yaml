@@ -18,6 +18,8 @@ spec:
       name: controller
   template:
     metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
         name: controller
         dashService: "true"

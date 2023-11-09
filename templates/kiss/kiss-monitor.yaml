@@ -18,6 +18,8 @@ spec:
       name: monitor
   template:
     metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
         name: monitor
         kissService: "true"

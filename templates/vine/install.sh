@@ -49,13 +49,6 @@ echo "- Installing Dex ... "
 pushd "dex" && ./install.sh && popd
 
 ###########################################################
-#   Install OpenTelemetry                                 #
-###########################################################
-
-echo "- Installing OpenTelemetry ... "
-pushd "monitoring/opentelemetry" && ./install.sh && popd
-
-###########################################################
 #   Install Prometheus                                    #
 ###########################################################
 

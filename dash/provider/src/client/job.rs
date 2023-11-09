@@ -78,7 +78,7 @@ impl TaskActorJobClient {
         })
     }
 
-    fn from_raw_content(
+    pub fn from_raw_content(
         kube: Client,
         metadata: TaskActorJobMetadata,
         namespace: String,

@@ -53,7 +53,6 @@ helm upgrade --install "opentelemetry" \
     --create-namespace \
     --disable-openapi-validation \
     --namespace "${NAMESPACE}" \
-    --set toolkit.version="${TOOLKIT_VERSION}-${TOOLKIT_OS}" \
     --values "./values-operator.yaml"
 
 # Finished!

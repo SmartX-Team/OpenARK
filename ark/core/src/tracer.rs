@@ -3,7 +3,7 @@ use std::{env, ffi::OsStr};
 #[cfg(feature = "opentelemetry-otlp")]
 use opentelemetry_otlp as otlp;
 use opentelemetry_sdk::runtime;
-use tracing::Subscriber;
+use tracing::{dispatcher, Subscriber};
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::{
     layer::SubscriberExt, registry::LookupSpan, util::SubscriberInitExt, Layer, Registry,
@@ -11,6 +11,11 @@ use tracing_subscriber::{
 
 fn init_once_opentelemetry() {
     use runtime::Tokio as Runtime;
+
+    // Skip init if has been set
+    if dispatcher::has_been_set() {
+        return;
+    }
 
     // Set default service name
     {
@@ -89,7 +94,7 @@ fn init_once_opentelemetry() {
         .with(init_layer_otlp_metrics())
         .with(init_layer_otlp_tracer());
 
-    layer.try_init().ok();
+    layer.init()
 }
 
 pub fn init_once() {

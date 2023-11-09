@@ -27,6 +27,7 @@ straw-provider = { path = "../../straw/provider" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }

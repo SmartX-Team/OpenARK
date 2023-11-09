@@ -14,6 +14,7 @@ pub(crate) mod consts {
 async fn main() {
     join!(
         self::ctx::function::Ctx::spawn_crd(),
+        self::ctx::injectors::otlp::Ctx::spawn(),
         self::ctx::job::Ctx::spawn_crd(),
         self::ctx::model::Ctx::spawn_crd(),
         self::ctx::model_storage_binding::Ctx::spawn_crd(),

@@ -17,6 +17,8 @@ spec:
       name: gateway
   template:
     metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
         name: gateway
         serviceType: internal

@@ -1,4 +1,5 @@
 pub mod function;
+pub mod injector;
 pub mod job;
 pub mod model;
 pub mod model_storage_binding;

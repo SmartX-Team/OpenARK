@@ -41,6 +41,8 @@ spec:
       name: assets
   template:
     metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
         name: assets
         kissService: "true"
