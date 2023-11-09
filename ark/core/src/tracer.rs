@@ -89,7 +89,7 @@ fn init_once_opentelemetry() {
         .with(init_layer_otlp_metrics())
         .with(init_layer_otlp_tracer());
 
-    layer.init()
+    layer.try_init().ok()
 }
 
 pub fn init_once() {
