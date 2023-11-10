@@ -5,10 +5,11 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
-use actix_web_opentelemetry::RequestTracing;
+use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
+use opentelemetry::global;
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO)]
@@ -34,7 +35,8 @@ async fn main() {
                 .service(crate::routes::r#box::login::get)
                 .service(crate::routes::install_os::get)
                 .service(crate::routes::welcome::get)
-                .wrap(RequestTracing::new())
+                .wrap(RequestMetrics::default())
+                .wrap(RequestTracing::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
@@ -44,5 +46,6 @@ async fn main() {
     }
 
     tracer::init_once();
-    try_main().await.expect("running a server")
+    try_main().await.expect("running a server");
+    global::shutdown_tracer_provider()
 }

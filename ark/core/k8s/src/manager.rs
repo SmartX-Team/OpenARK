@@ -14,6 +14,7 @@ use kube::{
     runtime::{controller::Action, watcher::Config, Controller},
     Api, Client, CustomResourceExt, Error, Resource, ResourceExt,
 };
+use opentelemetry::global;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 use tracing::{info, instrument, warn, Level};
@@ -121,6 +122,8 @@ where
             )
             .for_each(|_| ::futures::future::ready(()))
             .await;
+
+        global::shutdown_tracer_provider();
         Ok(())
     }
 

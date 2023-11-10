@@ -1,0 +1,149 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collector
+  namespace: dash
+  labels:
+    name: collector
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: collector
+  template:
+    metadata:
+      # annotations:
+      #   instrumentation.opentelemetry.io/inject-sdk: "true"
+      labels:
+        name: collector
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+            # KISS compute nodes should be preferred
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+            # KISS gateway nodes should be more preferred
+            - weight: 4
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
+                      - Compute
+                      - Gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: nats-dash-collector
+      containers:
+        - name: collector
+          image: quay.io/ulagbulag/openark:latest
+          imagePullPolicy: Always
+          command:
+            - dash-collector
+          env:
+            - name: DASH_COLLECTOR_GRPC_ADDR
+              value: 0.0.0.0:4317
+            - name: NATS_ACCOUNT
+              value: nats-dash-collector
+            - name: NATS_ADDRS
+              value: nats
+            - name: NATS_PASSWORD_PATH
+              value: /var/run/secrets/nats.io/token
+            - name: NATS_TLS_REQUIRED
+              value: "false"
+            - name: RUST_LOG
+              value: INFO
+          ports:
+            - name: otlp-grpc
+              protocol: TCP
+              containerPort: 4317
+            - name: otlp-http
+              protocol: TCP
+              containerPort: 4318
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 100Mi
+            limits:
+              cpu: 4000m
+              memory: 2000Mi
+          volumeMounts:
+            - name: nats-token
+              mountPath: /var/run/secrets/nats.io
+              readOnly: true
+      volumes:
+        - name: nats-token
+          secret:
+            secretName: nats-dash-collector-nats-bound-token
+            optional: false
+            items:
+              - key: token
+                path: token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector
+  namespace: dash
+spec:
+  selector:
+    name: collector
+  ports:
+    - appProtocol: grpc
+      name: otlp-grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - appProtocol: http
+      name: otlp-http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector-headless
+  namespace: dash
+spec:
+  clusterIP: None
+  selector:
+    name: collector
+  ports:
+    - appProtocol: grpc
+      name: otlp-grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - appProtocol: http
+      name: otlp-http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318

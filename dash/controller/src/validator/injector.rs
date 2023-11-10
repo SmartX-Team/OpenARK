@@ -9,6 +9,7 @@ use tracing::{instrument, Level};
 #[derive(Copy, Clone)]
 pub struct InjectorValidator<'namespace, 'kube> {
     pub content: &'static str,
+    pub name: &'static str,
     pub namespace: &'namespace str,
     pub kube: &'kube Client,
 }
@@ -40,7 +41,7 @@ impl<'namespace, 'kube> InjectorValidator<'namespace, 'kube> {
         F: FnOnce(TaskActorJobClient, SessionContext<()>) -> Fut,
         Fut: Future<Output = Result<R>>,
     {
-        let name = "dash-observability".to_string();
+        let name = self.name.to_string();
         let namespace = self.namespace.to_string();
         let metadata = TaskActorJobMetadata::default();
 

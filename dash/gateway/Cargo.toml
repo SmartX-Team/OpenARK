@@ -39,5 +39,6 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+opentelemetry = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

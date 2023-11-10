@@ -15,6 +15,7 @@ manager = [
     "futures",
     "k8s-openapi",
     "kube",
+    "opentelemetry",
     "schemars",
     "serde",
     "serde_json",
@@ -36,6 +37,7 @@ kube = { workspace = true, optional = true, features = [
     "rustls-tls",
     "ws",
 ] }
+opentelemetry = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 resolv-conf = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }

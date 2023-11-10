@@ -7,6 +7,7 @@ members = [
     "ark/core/k8s",
     "dash/api",
     "dash/client",
+    "dash/collector",
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
@@ -68,7 +69,7 @@ actix-web = { version = "4.4", default-features = false, features = [
     "macros",
     "rustls",
 ] }
-actix-web-opentelemetry = { version = "0.16" }
+actix-web-opentelemetry = { version = "0.16", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 argon2 = { version = "0.5" }
 async-nats = { version = "0.33" }
@@ -118,6 +119,7 @@ opentelemetry-otlp = { version = "0.14", features = [
     "metrics",
     "trace",
 ] }
+opentelemetry-proto = { version = "0.4", features = ["with-serde", "zpages"] }
 opentelemetry_sdk = { version = "0.21", features = [
     "logs_level_enabled",
     "metrics",
@@ -163,6 +165,7 @@ strum = { version = "0.25", features = ["derive"] }
 tera = { version = "1.19" }
 tokio = { version = "1.33", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
+tonic = { version = "0.9" } # should be synced with opentelemetry-proto
 tracing = { version = "0.1" }
 tracing-opentelemetry = { version = "0.22", features = [
     "metrics",

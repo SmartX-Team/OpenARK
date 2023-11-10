@@ -7,17 +7,17 @@ use actix_web::{
     web::{BytesMut, Data, Path, Payload},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use actix_web_opentelemetry::RequestTracing;
+use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use ark_core::{env::infer, tracer};
 use futures::StreamExt;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
-use tracing::{info, warn};
+use opentelemetry::global;
 use reqwest::{
     header::{HeaderName, HOST, ORIGIN, REFERER},
     Client, Method,
 };
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use tracing::{instrument, Level};
+use tracing::{info, instrument, warn, Level};
 
 #[instrument(level = Level::INFO)]
 #[get("/")]
@@ -135,7 +135,8 @@ async fn main() {
                 .service(index)
                 .service(health)
                 .route("/{site}/{path:.*}", ::actix_web::web::route().to(resolve))
-                .wrap(RequestTracing::new())
+                .wrap(RequestMetrics::default())
+                .wrap(RequestTracing::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
@@ -146,5 +147,6 @@ async fn main() {
     }
 
     tracer::init_once();
-    try_main().await.expect("running a server")
+    try_main().await.expect("running a server");
+    global::shutdown_tracer_provider()
 }

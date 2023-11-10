@@ -12,6 +12,7 @@ use anyhow::{anyhow, Result};
 use ark_core_k8s::data::Name;
 use clap::{ArgAction, Parser};
 use futures::Future;
+use opentelemetry::global;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -279,9 +280,11 @@ where
         {
             Ok(()) => {
                 info!("Terminated.");
+                global::shutdown_tracer_provider();
             }
             Err(error) => {
                 error!("{error}");
+                global::shutdown_tracer_provider();
                 exit(1)
             }
         }

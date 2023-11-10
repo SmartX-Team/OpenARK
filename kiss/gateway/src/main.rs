@@ -5,7 +5,7 @@ use actix_web::{
     web::{Data, Json, Query},
     App, HttpResponse, HttpServer, Responder,
 };
-use actix_web_opentelemetry::RequestTracing;
+use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::{bail, Result};
 use ark_core::{env::infer, tracer};
 use chrono::Utc;
@@ -18,6 +18,7 @@ use kube::{
     core::ObjectMeta,
     Api, Client, CustomResourceExt,
 };
+use opentelemetry::global;
 use serde_json::json;
 use tracing::{instrument, warn, Level};
 
@@ -178,7 +179,8 @@ async fn main() {
                 .service(health)
                 .service(get_new)
                 .service(post_commission)
-                .wrap(RequestTracing::new())
+                .wrap(RequestMetrics::default())
+                .wrap(RequestTracing::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
@@ -188,5 +190,6 @@ async fn main() {
     }
 
     tracer::init_once();
-    try_main().await.expect("running a server")
+    try_main().await.expect("running a server");
+    global::shutdown_tracer_provider()
 }

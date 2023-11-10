@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, cmp::Ordering, fmt, ops, str::FromStr};
 
-use anyhow::{bail, Error};
+use anyhow::{bail, Error, Result};
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -154,6 +154,10 @@ impl<'de> Deserialize<'de> for Name {
 
 impl Name {
     const RE_FIELD: &str = r"[a-z]([a-z0-9_-]*[a-z0-9])?";
+
+    pub fn new_dash(name: impl AsRef<str>) -> Result<Self> {
+        Self::from_str(name.as_ref()).map(|Self(name)| Self(format!("_dash.{name}")))
+    }
 
     pub fn storage(&self) -> &str {
         self.0.split('.').next().unwrap()

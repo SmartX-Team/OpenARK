@@ -4,10 +4,11 @@ use std::net::SocketAddr;
 
 use actix_cors::Cors;
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
-use actix_web_opentelemetry::RequestTracing;
+use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
+use opentelemetry::global;
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO)]
@@ -57,7 +58,9 @@ async fn main() {
                 .service(crate::routes::model::get_item_list)
                 .service(crate::routes::model::get_list);
             let app = ::vine_plugin::register(app);
-            app.wrap(cors).wrap(RequestTracing::new())
+            app.wrap(cors)
+                .wrap(RequestTracing::default())
+                .wrap(RequestMetrics::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
@@ -67,5 +70,6 @@ async fn main() {
     }
 
     tracer::init_once();
-    try_main().await.expect("running a server")
+    try_main().await.expect("running a server");
+    global::shutdown_tracer_provider()
 }

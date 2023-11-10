@@ -30,3 +30,4 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
+opentelemetry = { workspace = true }

@@ -11,7 +11,7 @@ use tracing::{info, instrument, warn, Level};
 use crate::validator::injector::InjectorValidator;
 
 macro_rules! define_injector {
-    [ $( $kind:ident ),* ] => {
+    [ $( $kind:ident as $name:expr , )* ] => {
         $(
             pub mod $kind {
                 pub type Ctx = super::InjectionCtx<InjectionCtxParams>;
@@ -22,13 +22,17 @@ macro_rules! define_injector {
                 impl super::InjectionCtxParams for InjectionCtxParams {
                     const CONTENT: &'static str = include_str!(concat!("./", stringify!($kind), ".yaml.j2"));
                     const KIND: &'static str = stringify!($kind);
+                    const NAME: &'static str = $name;
                 }
             }
         )*
     };
 }
 
-define_injector![otlp];
+define_injector![
+    nats as "nats",
+    otlp as "dash-observability",
+];
 
 #[derive(Default)]
 pub struct InjectionCtx<P>(PhantomData<P>)
@@ -41,6 +45,7 @@ where
 {
     const CONTENT: &'static str;
     const KIND: &'static str;
+    const NAME: &'static str;
 }
 
 #[async_trait]
@@ -68,6 +73,7 @@ where
 
         let validator = InjectorValidator {
             content: <P as InjectionCtxParams>::CONTENT,
+            name: <P as InjectionCtxParams>::NAME,
             namespace: &name,
             kube: &manager.kube,
         };

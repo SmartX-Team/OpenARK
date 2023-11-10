@@ -59,6 +59,7 @@ inflector = { workspace = true, optional = true }
 kube = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
+opentelemetry = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
 rmp-serde = { workspace = true }

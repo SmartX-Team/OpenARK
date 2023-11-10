@@ -4,4 +4,5 @@ kind: Namespace
 metadata:
   name: dash
   labels:
+    dash.ulagbulag.io/inject-nats: "true"
     dash.ulagbulag.io/inject-otlp: "true"

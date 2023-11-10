@@ -1,0 +1,87 @@
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsCluster
+metadata:
+  name: "{{ metadata.name }}"
+  namespace: "{{ metadata.namespace }}"
+spec:
+  auth:
+    enableServiceAccounts: true
+  pod:
+    enableConfigReload: true
+    enableMetrics: true
+    nodeSelector:
+      kubernetes.io/arch: amd64
+  size: 1
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ metadata.name }}-admin"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-admin"
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: "{{ metadata.name }}-admin"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-admin"
+spec:
+  permissions:
+    publish:
+      - ">"
+    subscribe:
+      - ">"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ metadata.name }}-dash-collector"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-dash-collector"
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: "{{ metadata.name }}-dash-collector"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-dash-collector"
+spec:
+  permissions:
+    publish:
+      - _dash.raw.>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ metadata.name }}-dash-system"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-dash-system"
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: "{{ metadata.name }}-dash-system"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    nats_cluster: "{{ metadata.name }}"
+    nats_service_account: "{{ metadata.name }}-dash-system"
+spec:
+  permissions:
+    publish:
+      - _dash
+      - _dash.>
+    subscribe:
+      - _dash
+      - _dash.>
