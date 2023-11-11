@@ -45,6 +45,10 @@ pub struct ModelStorageSpec {
     pub default: bool,
 }
 
+impl ModelStorageCrd {
+    pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-model-storages";
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelStorageKindSpec {

@@ -48,6 +48,10 @@ pub struct ModelClaimSpec {
     pub deletion_policy: ModelClaimDeletionPolicy,
 }
 
+impl ModelClaimCrd {
+    pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-model-claims";
+}
+
 impl Default for ModelClaimSpec {
     fn default() -> Self {
         Self {

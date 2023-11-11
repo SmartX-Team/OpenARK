@@ -53,6 +53,8 @@ impl Default for ModelSpec {
 }
 
 impl ModelCrd {
+    pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-models";
+
     pub fn get_fields_unchecked(&self) -> &ModelFieldsNativeSpec {
         self.status
             .as_ref()
