@@ -53,7 +53,7 @@ spec:
             - dash-controller
           env:
             - name: NATS_ACCOUNT
-              value: nats-dash-system
+              value: dash-system
             - name: NATS_ADDRS
               value: nats
             - name: NATS_PASSWORD_PATH
@@ -76,7 +76,7 @@ spec:
       volumes:
         - name: nats-token
           secret:
-            secretName: nats-dash-system-nats-bound-token
+            secretName: dash-system-nats-bound-token
             optional: false
             items:
               - key: token

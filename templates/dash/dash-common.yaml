@@ -87,3 +87,4 @@ spec:
       - dash.optimize.>
     subscribe:
       - _inbox.>
+      - _INBOX.>
