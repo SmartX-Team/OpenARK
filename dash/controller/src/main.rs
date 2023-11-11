@@ -18,6 +18,7 @@ async fn main() {
         self::ctx::injectors::otlp::Ctx::spawn(),
         self::ctx::job::Ctx::spawn_crd(),
         self::ctx::model::Ctx::spawn_crd(),
+        self::ctx::model_claim::Ctx::spawn_crd(),
         self::ctx::model_storage_binding::Ctx::spawn_crd(),
         self::ctx::storage::Ctx::spawn_crd(),
         self::ctx::task::Ctx::spawn_crd(),

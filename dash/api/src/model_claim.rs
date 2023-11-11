@@ -85,9 +85,8 @@ impl ModelClaimSpec {
     JsonSchema,
 )]
 pub enum ModelClaimBindingPolicy {
-    #[default]
-    Auto,
     Balanced,
+    #[default]
     LowestCopy,
     LowestLatency,
 }
@@ -120,8 +119,6 @@ pub struct ModelClaimStatus {
     #[serde(default)]
     pub state: ModelClaimState,
     #[serde(default)]
-    pub deletion_policy: ModelClaimDeletionPolicy,
-    #[serde(default)]
     pub spec: Option<ModelClaimSpec>,
     pub last_updated: DateTime<Utc>,
 }
@@ -146,5 +143,6 @@ pub enum ModelClaimState {
     #[default]
     Pending,
     Ready,
+    Replacing,
     Deleting,
 }

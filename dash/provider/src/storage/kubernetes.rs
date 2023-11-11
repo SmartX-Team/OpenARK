@@ -1,6 +1,10 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use dash_api::{
-    model::{ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelState},
+    model::{
+        ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldsNativeSpec, ModelSpec,
+        ModelState,
+    },
+    model_claim::{ModelClaimCrd, ModelClaimState},
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStorageKind,
     },
@@ -16,10 +20,11 @@ use k8s_openapi::{
     ClusterResourceScope, NamespaceResourceScope,
 };
 use kube::{
-    api::ListParams,
-    core::{object::HasStatus, DynamicObject},
+    api::{DeleteParams, ListParams, PostParams},
+    core::{object::HasStatus, DynamicObject, ObjectMeta},
     discovery, Api, Client, Resource, ResourceExt,
 };
+use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{instrument, Level};
@@ -157,19 +162,43 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             ),
         }
     }
+}
+
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn delete_model(&self, name: &str) -> Result<()> {
+        let api = self.api_namespaced::<ModelCrd>();
+        match self.try_load_model(&api, name).await? {
+            Some(_) => {
+                let dp = DeleteParams::foreground();
+                api.delete(name, &dp).await.map(|_| ()).map_err(Into::into)
+            }
+            None => Ok(()),
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn try_load_model(&self, api: &Api<ModelCrd>, name: &str) -> Result<Option<ModelCrd>> {
+        let model = match api.get_opt(name).await? {
+            Some(model) => model,
+            None => return Ok(None),
+        };
+
+        match &model.status {
+            Some(status) if status.state == ModelState::Ready => match &status.fields {
+                Some(_) => Ok(Some(model)),
+                None => bail!("model has no parsed fields: {name:?}"),
+            },
+            Some(_) | None => bail!("model is not ready: {name:?}"),
+        }
+    }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model(&self, name: &str) -> Result<ModelCrd> {
         let api = self.api_namespaced::<ModelCrd>();
-        let model = api.get(name).await?;
-
-        match &model.status {
-            Some(status) if status.state == ModelState::Ready => match &status.fields {
-                Some(_) => Ok(model),
-                None => bail!("model has no fields status: {name:?}"),
-            },
-            Some(_) | None => bail!("model is not ready: {name:?}"),
-        }
+        self.try_load_model(&api, name)
+            .await?
+            .ok_or_else(|| anyhow!("no such model: {name:?}"))
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
@@ -195,6 +224,64 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .collect())
     }
 
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn load_model_or_create_as_dynamic(
+        &self,
+        field_manager: &str,
+        name: &str,
+    ) -> Result<ModelCrd> {
+        let api = self.api_namespaced::<ModelCrd>();
+        match self.try_load_model(&api, name).await? {
+            Some(model) => return Ok(model),
+            None => {
+                let pp = PostParams {
+                    dry_run: false,
+                    field_manager: Some(field_manager.into()),
+                };
+                let data = ModelCrd {
+                    metadata: ObjectMeta {
+                        name: Some(name.into()),
+                        namespace: Some(self.namespace.into()),
+                        labels: Some(btreemap! {
+                            "dash.ulagbulag.io/claimed-by".into() => name.into(),
+                            "dash.ulagbulag.io/managed-by".into() => field_manager.into(),
+                        }),
+                        ..Default::default()
+                    },
+                    spec: ModelSpec::Dynamic {},
+                    status: None,
+                };
+
+                api.create(&pp, &data).await.map_err(Into::into)
+            }
+        }
+    }
+}
+
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn load_model_claim(&self, name: &str) -> Result<Option<ModelClaimCrd>> {
+        let api = self.api_namespaced::<ModelClaimCrd>();
+        let claim = match api.get_opt(name).await? {
+            Some(claim) => claim,
+            None => return Ok(None),
+        };
+
+        match &claim.status {
+            Some(status)
+                if matches!(
+                    status.state,
+                    ModelClaimState::Ready | ModelClaimState::Replacing | ModelClaimState::Deleting,
+                ) =>
+            {
+                Ok(Some(claim))
+            }
+            Some(_) | None => bail!("model claim is not ready: {name:?}"),
+        }
+    }
+}
+
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_storage(&self, name: &str) -> Result<ModelStorageCrd> {
         let api = self.api_namespaced::<ModelStorageCrd>();
@@ -233,7 +320,9 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             })
             .map_err(Into::into)
     }
+}
 
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_storage_bindings(
         &self,
@@ -305,6 +394,27 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn ensure_model_storage_binding(&self, model_name: &str) -> Result<()> {
+        let client = super::StorageClient {
+            namespace: self.namespace,
+            kube: self.kube,
+        };
+
+        client
+            .get_model_storage_bindings(model_name)
+            .await
+            .and_then(|bindings| {
+                if bindings.is_empty() {
+                    bail!("model is not binded yet: {model_name}")
+                } else {
+                    Ok(())
+                }
+            })
+    }
+}
+
+impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_task(&self, name: &str) -> Result<TaskCrd> {
         let api = self.api_namespaced::<TaskCrd>();
         let task = api.get(name).await?;
@@ -358,25 +468,6 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     .unwrap_or_default()
             })
             .collect())
-    }
-
-    #[instrument(level = Level::INFO, skip(self), err(Display))]
-    pub async fn ensure_model_storage_binding(&self, model_name: &str) -> Result<()> {
-        let client = super::StorageClient {
-            namespace: self.namespace,
-            kube: self.kube,
-        };
-
-        client
-            .get_model_storage_bindings(model_name)
-            .await
-            .and_then(|bindings| {
-                if bindings.is_empty() {
-                    bail!("model is not binded yet: {model_name}")
-                } else {
-                    Ok(())
-                }
-            })
     }
 }
 

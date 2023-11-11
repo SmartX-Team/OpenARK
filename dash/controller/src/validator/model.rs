@@ -4,11 +4,14 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use dash_api::model::{
-    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec,
-    ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
-    ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec,
-    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+use dash_api::{
+    model::{
+        ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec,
+        ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
+        ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec,
+        ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
+    },
+    model_claim::ModelClaimState,
 };
 use dash_provider::{imp::assert_contains, storage::KubernetesStorageClient};
 use dash_provider_api::name;
@@ -95,15 +98,42 @@ impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn delete(&self, crd: &ModelCrd) -> Result<()> {
+        let model_name = crd.name_any();
+        self.assert_empty_bindings(&model_name).await?;
+        self.assert_empty_claims(&model_name).await?;
+        Ok(())
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn assert_empty_bindings(&self, model_name: &str) -> Result<()> {
         let bindings = self
             .kubernetes_storage
-            .load_model_storage_bindings(&crd.name_any())
+            .load_model_storage_bindings(model_name)
             .await?;
 
         if bindings.is_empty() {
             Ok(())
         } else {
             bail!("model is binded")
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn assert_empty_claims(&self, name: &str) -> Result<()> {
+        let claim = self.kubernetes_storage.load_model_claim(name).await?;
+
+        if claim
+            .map(|claim| {
+                claim
+                    .status
+                    .map(|status| status.state == ModelClaimState::Ready)
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+        {
+            bail!("model claim is binded")
+        } else {
+            Ok(())
         }
     }
 }
