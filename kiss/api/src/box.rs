@@ -297,11 +297,16 @@ pub enum BoxGroupRole {
     */
     #[default]
     GenericWorker,
+    ExternalWorker,
 }
 
 impl BoxGroupRole {
     pub const fn is_domain_specific(&self) -> bool {
         matches!(self, Self::Robot,)
+    }
+
+    pub const fn is_member(&self) -> bool {
+        !matches!(self, Self::ExternalWorker,)
     }
 
     pub fn to_playbook(&self) -> String {

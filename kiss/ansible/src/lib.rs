@@ -261,6 +261,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_group_role_is_member".into(),
+                                value: Some(group.role.is_member().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_network_interface_mtu_size".into(),
                                 value: Some(self.kiss.network_interface_mtu_size.to_string()),
                                 ..Default::default()
