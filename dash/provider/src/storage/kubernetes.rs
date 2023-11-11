@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{
@@ -29,6 +31,7 @@ use kube::{
 use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::time::sleep;
 use tracing::{instrument, Level};
 
 use crate::input::{InputFieldValue, ItemTemplate};
@@ -172,6 +175,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         let api = self.api_namespaced::<ModelCrd>();
         match self.try_load_model(&api, name).await? {
             Some(_) => {
+                sleep(Duration::from_secs(3)).await;
                 self.delete_model_storage_binding_by_model(name).await?;
 
                 let dp = DeleteParams::foreground();
