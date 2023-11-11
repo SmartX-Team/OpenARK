@@ -103,6 +103,14 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         };
 
         if !matches!(old_state, BoxState::Joining) && matches!(new_state, BoxState::Joining) {
+            // skip joining to default cluster as worker nodes when external
+            if matches!(data.spec.group.role, BoxGroupRole::ExternalWorker) {
+                info!("Skipped joining (box is external) {name:?}");
+                return Ok(Action::requeue(
+                    <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                ));
+            }
+
             // skip joining to default cluster as worker nodes when disabled
             if !ansible.kiss.group_enable_default_cluster
                 && data.spec.group.is_default()

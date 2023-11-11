@@ -42,6 +42,7 @@
         kiss_group_force_reset_os: "{{ lookup('env', 'kiss_group_force_reset_os') == 'true' }}"
         kiss_group_role: "{{ lookup('env', 'kiss_group_role') }}"
         kiss_group_role_is_domain_specific: "{{ lookup('env', 'kiss_group_role_is_domain_specific') }}"
+        kiss_group_role_is_member: "{{ lookup('env', 'kiss_group_role_is_member') == 'true' }}"
         kiss_network_interface_mtu_size: "{{ lookup('env', 'kiss_network_interface_mtu_size') }}"
         kiss_network_ipv4_dhcp_duration: "{{ lookup('env', 'kiss_network_ipv4_dhcp_duration') }}"
         kiss_network_ipv4_dhcp_range_begin: "{{ lookup('env', 'kiss_network_ipv4_dhcp_range_begin') }}"
