@@ -5,10 +5,10 @@ use std::{
 
 use anyhow::{bail, Result};
 use dash_api::model::{
-    ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec, ModelFieldKindExtendedSpec,
-    ModelFieldKindNativeSpec, ModelFieldKindObjectSpec, ModelFieldKindSpec,
-    ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec, ModelFieldsNativeSpec,
-    ModelFieldsSpec, ModelSpec,
+    ModelCrd, ModelCustomResourceDefinitionRefSpec, ModelFieldAttributeSpec,
+    ModelFieldKindExtendedSpec, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
+    ModelFieldKindSpec, ModelFieldKindStringSpec, ModelFieldNativeSpec, ModelFieldSpec,
+    ModelFieldsNativeSpec, ModelFieldsSpec, ModelSpec,
 };
 use dash_provider::{imp::assert_contains, storage::KubernetesStorageClient};
 use dash_provider_api::name;
@@ -17,6 +17,7 @@ use itertools::Itertools;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::{
     CustomResourceDefinitionVersion, JSONSchemaProps,
 };
+use kube::ResourceExt;
 use regex::Regex;
 use tracing::{instrument, warn, Level};
 
@@ -90,6 +91,20 @@ impl<'namespace, 'kube> ModelValidator<'namespace, 'kube> {
         let mut parser = ModelFieldsParser::default();
         parser.parse_custom_resource_definition(&def)?;
         self.validate_native_fields(parser.finalize()?)
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn delete(&self, crd: &ModelCrd) -> Result<()> {
+        let bindings = self
+            .kubernetes_storage
+            .load_model_storage_bindings(&crd.name_any())
+            .await?;
+
+        if bindings.is_empty() {
+            Ok(())
+        } else {
+            bail!("model is binded")
+        }
     }
 }
 

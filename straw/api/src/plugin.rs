@@ -218,6 +218,7 @@ where
 
         let annotations = btreemap! {
             "dash.ulagbulag.io/timestamp".into() => Utc::now().to_rfc3339_opts(SecondsFormat::Nanos, true),
+            "instrumentation.opentelemetry.io/inject-sdk".into() => true.to_string(),
         };
         let labels = btreemap! {
             "dash.ulagbulag.io/plugin".into() => name.clone(),

@@ -6,3 +6,76 @@ metadata:
   labels:
     dash.ulagbulag.io/inject-nats: "true"
     dash.ulagbulag.io/inject-otlp: "true"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-collector
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-collector
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-collector
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-collector
+spec:
+  permissions:
+    publish:
+      - dash.raw.>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-scheduler
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-scheduler
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-scheduler
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-scheduler
+spec:
+  permissions:
+    publish:
+      - dash.optimize.>
+      - dash.schedule.>
+    subscribe:
+      - dash.raw.>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-system
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-system
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-system
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-system
+spec:
+  permissions:
+    publish:
+      - dash
+      - dash.>
+    subscribe:
+      - dash
+      - dash.>

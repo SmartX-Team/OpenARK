@@ -292,4 +292,18 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             }
         }
     }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn delete(&self, crd: &ModelStorageCrd) -> Result<()> {
+        let bindings = self
+            .kubernetes_storage
+            .load_model_storage_bindings_by_storage(&crd.name_any())
+            .await?;
+
+        if bindings.is_empty() {
+            Ok(())
+        } else {
+            bail!("storage is binded")
+        }
+    }
 }

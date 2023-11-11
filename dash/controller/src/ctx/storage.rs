@@ -40,6 +40,42 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let name = data.name_any();
         let namespace = data.namespace().unwrap();
 
+        if data.metadata.deletion_timestamp.is_some()
+            && data
+                .status
+                .as_ref()
+                .map(|status| status.state != ModelStorageState::Deleting)
+                .unwrap_or(true)
+        {
+            let status = data.status.as_ref();
+            return Self::update_state_or_requeue(
+                &namespace,
+                &manager.kube,
+                &name,
+                status.and_then(|status| status.kind.clone()),
+                ModelStorageState::Deleting,
+            )
+            .await;
+        } else if !data
+            .finalizers()
+            .iter()
+            .any(|finalizer| finalizer == <Self as ::ark_core_k8s::manager::Ctx>::FINALIZER_NAME)
+        {
+            return <Self as ::ark_core_k8s::manager::Ctx>::add_finalizer_or_requeue_namespaced(
+                manager.kube.clone(),
+                &namespace,
+                &name,
+            )
+            .await;
+        }
+
+        let validator = ModelStorageValidator {
+            kubernetes_storage: KubernetesStorageClient {
+                namespace: &namespace,
+                kube: &manager.kube,
+            },
+        };
+
         match data
             .status
             .as_ref()
@@ -47,19 +83,14 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .unwrap_or_default()
         {
             ModelStorageState::Pending => {
-                let validator = ModelStorageValidator {
-                    kubernetes_storage: KubernetesStorageClient {
-                        namespace: &namespace,
-                        kube: &manager.kube,
-                    },
-                };
                 match validator.validate_model_storage(&name, &data.spec).await {
                     Ok(()) => {
                         Self::update_state_or_requeue(
                             &namespace,
                             &manager.kube,
                             &name,
-                            data.spec.kind.clone(),
+                            Some(data.spec.kind.clone()),
+                            ModelStorageState::Ready,
                         )
                         .await
                     }
@@ -75,6 +106,22 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 // TODO: implement to finding changes
                 Ok(Action::await_change())
             }
+            ModelStorageState::Deleting => match validator.delete(&data).await {
+                Ok(()) => {
+                    <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer_or_requeue_namespaced(
+                        manager.kube.clone(),
+                        &namespace,
+                        &name,
+                    )
+                    .await
+                }
+                Err(e) => {
+                    warn!("failed to delete model storage ({namespace}/{name}): {e}");
+                    Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    ))
+                }
+            },
         }
     }
 }
@@ -85,9 +132,10 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        kind: ModelStorageKindSpec,
+        kind: Option<ModelStorageKindSpec>,
+        state: ModelStorageState,
     ) -> Result<Action, Error> {
-        match Self::update_state(namespace, kube, name, kind).await {
+        match Self::update_state(namespace, kube, name, kind, state).await {
             Ok(()) => {
                 info!("model storage is ready: {namespace}/{name}");
                 Ok(Action::requeue(
@@ -108,7 +156,8 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        kind: ModelStorageKindSpec,
+        kind: Option<ModelStorageKindSpec>,
+        state: ModelStorageState,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -120,8 +169,8 @@ impl Ctx {
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "status": ModelStorageStatus {
-                state: ModelStorageState::Ready,
-                kind: Some(kind),
+                state,
+                kind,
                 last_updated: Utc::now(),
             },
         }));

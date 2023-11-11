@@ -38,36 +38,86 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let name = data.name_any();
         let namespace = data.namespace().unwrap();
 
+        if data.metadata.deletion_timestamp.is_some()
+            && data
+                .status
+                .as_ref()
+                .map(|status| status.state != ModelState::Deleting)
+                .unwrap_or(true)
+        {
+            let status = data.status.as_ref();
+            return Self::update_fields_or_requeue(
+                &namespace,
+                &manager.kube,
+                &name,
+                status.and_then(|status| status.fields.clone()),
+                ModelState::Deleting,
+            )
+            .await;
+        } else if !data
+            .finalizers()
+            .iter()
+            .any(|finalizer| finalizer == <Self as ::ark_core_k8s::manager::Ctx>::FINALIZER_NAME)
+        {
+            return <Self as ::ark_core_k8s::manager::Ctx>::add_finalizer_or_requeue_namespaced(
+                manager.kube.clone(),
+                &namespace,
+                &name,
+            )
+            .await;
+        }
+
+        let validator = ModelValidator {
+            kubernetes_storage: KubernetesStorageClient {
+                namespace: &namespace,
+                kube: &manager.kube,
+            },
+        };
+
         match data
             .status
             .as_ref()
             .map(|status| status.state)
             .unwrap_or_default()
         {
-            ModelState::Pending => {
-                let validator = ModelValidator {
-                    kubernetes_storage: KubernetesStorageClient {
-                        namespace: &namespace,
-                        kube: &manager.kube,
-                    },
-                };
-                match validator.validate_model(data.spec.clone()).await {
-                    Ok(fields) => {
-                        Self::update_fields_or_requeue(&namespace, &manager.kube, &name, fields)
-                            .await
-                    }
-                    Err(e) => {
-                        warn!("failed to validate model: {name:?}: {e}");
-                        Ok(Action::requeue(
-                            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                        ))
-                    }
+            ModelState::Pending => match validator.validate_model(data.spec.clone()).await {
+                Ok(fields) => {
+                    Self::update_fields_or_requeue(
+                        &namespace,
+                        &manager.kube,
+                        &name,
+                        Some(fields),
+                        ModelState::Ready,
+                    )
+                    .await
                 }
-            }
+                Err(e) => {
+                    warn!("failed to validate model: {name:?}: {e}");
+                    Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    ))
+                }
+            },
             ModelState::Ready => {
                 // TODO: implement to finding changes
                 Ok(Action::await_change())
             }
+            ModelState::Deleting => match validator.delete(&data).await {
+                Ok(()) => {
+                    <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer_or_requeue_namespaced(
+                        manager.kube.clone(),
+                        &namespace,
+                        &name,
+                    )
+                    .await
+                }
+                Err(e) => {
+                    warn!("failed to delete model ({namespace}/{name}): {e}");
+                    Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    ))
+                }
+            },
         }
     }
 }
@@ -78,9 +128,10 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        fields: ModelFieldsNativeSpec,
+        fields: Option<ModelFieldsNativeSpec>,
+        state: ModelState,
     ) -> Result<Action, Error> {
-        match Self::update_fields(namespace, kube, name, fields).await {
+        match Self::update_fields(namespace, kube, name, fields, state).await {
             Ok(()) => {
                 info!("model is ready: {namespace}/{name}");
                 Ok(Action::requeue(
@@ -101,7 +152,8 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        fields: ModelFieldsNativeSpec,
+        fields: Option<ModelFieldsNativeSpec>,
+        state: ModelState,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -113,8 +165,8 @@ impl Ctx {
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "status": ModelStatus {
-                state: ModelState::Ready,
-                fields: Some(fields),
+                state,
+                fields,
                 last_updated: Utc::now(),
             },
         }));

@@ -1,70 +1,70 @@
----
-apiVersion: opentelemetry.io/v1alpha1
-kind: OpenTelemetryCollector
-metadata:
-  name: "{{ metadata.name }}"
-  namespace: "{{ metadata.namespace }}"
-spec:
-  config: |
-    receivers:
-      otlp:
-        protocols:
-          grpc:
-          http:
-    processors:
-      memory_limiter:
-        check_interval: 1s
-        limit_percentage: 75
-        spike_limit_percentage: 15
-      batch:
-        send_batch_size: 10000
-        timeout: 10s
+# ---
+# apiVersion: opentelemetry.io/v1alpha1
+# kind: OpenTelemetryCollector
+# metadata:
+#   name: "{{ metadata.name }}"
+#   namespace: "{{ metadata.namespace }}"
+# spec:
+#   config: |
+#     receivers:
+#       otlp:
+#         protocols:
+#           grpc:
+#           http:
+#     processors:
+#       memory_limiter:
+#         check_interval: 1s
+#         limit_percentage: 75
+#         spike_limit_percentage: 15
+#       batch:
+#         send_batch_size: 10000
+#         timeout: 10s
 
-    exporters:
-      # NOTE: Prior to v0.86.0 use `logging` instead of `debug`.
-      debug:
-      prometheusremotewrite:
-        endpoint: "http://kube-prometheus-stack-prometheus.vine.svc:9090/api/v1/write"
+#     exporters:
+#       # NOTE: Prior to v0.86.0 use `logging` instead of `debug`.
+#       debug:
+#       prometheusremotewrite:
+#         endpoint: "http://kube-prometheus-stack-prometheus.vine.svc:9090/api/v1/write"
 
-        # # Enabling the Write-Ahead-Log for the exporter.
-        # wal:
-        #   # The directory to store the WAL in
-        #   directory: ./prom_rw
-        #   # Optional count of elements to be read from the WAL before truncating; default of 300
-        #   # buffer_size: 300
-        #   # Optional frequency for how often the WAL should be truncated. It is a time.ParseDuration; default of 1m
-        #   # truncate_frequency: 1m
+#         # # Enabling the Write-Ahead-Log for the exporter.
+#         # wal:
+#         #   # The directory to store the WAL in
+#         #   directory: ./prom_rw
+#         #   # Optional count of elements to be read from the WAL before truncating; default of 300
+#         #   # buffer_size: 300
+#         #   # Optional frequency for how often the WAL should be truncated. It is a time.ParseDuration; default of 1m
+#         #   # truncate_frequency: 1m
 
-        # Convert resource attributes to metric labels
-        resource_to_telemetry_conversion:
-          enabled: true
+#         # Convert resource attributes to metric labels
+#         resource_to_telemetry_conversion:
+#           enabled: true
 
-    service:
-      pipelines:
-        traces:
-          receivers:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-          exporters:
-            - debug
-        metrics:
-          receivers:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-          exporters:
-            - prometheusremotewrite
-        logs:
-          receivers:
-            - otlp
-          processors:
-            - memory_limiter
-            - batch
-          exporters:
-            - debug
+#     service:
+#       pipelines:
+#         traces:
+#           receivers:
+#             - otlp
+#           processors:
+#             - memory_limiter
+#             - batch
+#           exporters:
+#             - debug
+#         metrics:
+#           receivers:
+#             - otlp
+#           processors:
+#             - memory_limiter
+#             - batch
+#           exporters:
+#             - prometheusremotewrite
+#         logs:
+#           receivers:
+#             - otlp
+#           processors:
+#             - memory_limiter
+#             - batch
+#           exporters:
+#             - debug
 ---
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
@@ -73,30 +73,31 @@ metadata:
   namespace: "{{ metadata.namespace }}"
 spec:
   exporter:
-    endpoint: "http://{{ metadata.name }}-collector:4317"
+    # endpoint: "http://{{ metadata.name }}-collector:4317"
+    endpoint: "http://collector.dash.svc:4317"
   propagators:
     - tracecontext
     - baggage
   sampler:
     type: parentbased_traceidratio
     argument: "1"
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: "{{ metadata.name }}-collector-monitoring"
-  namespace: "{{ metadata.namespace }}"
-spec:
-  endpoints:
-    - path: /metrics
-      port: monitoring
-      interval: 5s
-  namespaceSelector:
-    matchNames:
-      - "{{ metadata.namespace }}"
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: opentelemetry-collector
-      app.kubernetes.io/instance: "{{ metadata.namespace }}.{{ metadata.name }}"
-      app.kubernetes.io/managed-by: opentelemetry-operator
-      app.kubernetes.io/part-of: opentelemetry
+# ---
+# apiVersion: monitoring.coreos.com/v1
+# kind: ServiceMonitor
+# metadata:
+#   name: "{{ metadata.name }}-collector-monitoring"
+#   namespace: "{{ metadata.namespace }}"
+# spec:
+#   endpoints:
+#     - path: /metrics
+#       port: monitoring
+#       interval: 5s
+#   namespaceSelector:
+#     matchNames:
+#       - "{{ metadata.namespace }}"
+#   selector:
+#     matchLabels:
+#       app.kubernetes.io/component: opentelemetry-collector
+#       app.kubernetes.io/instance: "{{ metadata.namespace }}.{{ metadata.name }}"
+#       app.kubernetes.io/managed-by: opentelemetry-operator
+#       app.kubernetes.io/part-of: opentelemetry

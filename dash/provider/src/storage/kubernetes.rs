@@ -268,6 +268,43 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn load_model_storage_bindings_by_storage(
+        &self,
+        storage_name: &str,
+    ) -> Result<
+        Vec<(
+            ModelStorageBindingStorageKind<String>,
+            ModelStorageBindingStorageKind<ModelStorageSpec>,
+        )>,
+    > {
+        let api = self.api_namespaced::<ModelStorageBindingCrd>();
+        let lp = ListParams::default();
+        let bindings = api.list(&lp).await?;
+
+        Ok(bindings
+            .items
+            .into_iter()
+            .filter(|binding| {
+                binding
+                    .status()
+                    .map(|status| matches!(status.state, ModelStorageBindingState::Ready))
+                    .unwrap_or_default()
+            })
+            .filter(|binding| {
+                let storage = &binding.spec.storage;
+                storage.source().map(|(name, _)| name.as_str()) == Some(storage_name)
+                    || storage.target() == storage_name
+            })
+            .filter_map(|binding| {
+                let status = binding.status.unwrap();
+                status
+                    .storage
+                    .map(|storage| (binding.spec.storage, storage))
+            })
+            .collect())
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_task(&self, name: &str) -> Result<TaskCrd> {
         let api = self.api_namespaced::<TaskCrd>();
         let task = api.get(name).await?;

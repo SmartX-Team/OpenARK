@@ -122,4 +122,5 @@ pub enum ModelStorageState {
     #[default]
     Pending,
     Ready,
+    Deleting,
 }

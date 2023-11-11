@@ -155,10 +155,6 @@ impl<'de> Deserialize<'de> for Name {
 impl Name {
     const RE_FIELD: &str = r"[a-z]([a-z0-9_-]*[a-z0-9])?";
 
-    pub fn new_dash(name: impl AsRef<str>) -> Result<Self> {
-        Self::from_str(name.as_ref()).map(|Self(name)| Self(format!("_dash.{name}")))
-    }
-
     pub fn storage(&self) -> &str {
         self.0.split('.').next().unwrap()
     }

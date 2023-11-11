@@ -25,10 +25,10 @@ macro_rules! init_exporters {
         mod topics {
             $(
                 pub fn $signal() -> super::Result<::ark_core_k8s::data::Name> {
-                    ::ark_core_k8s::data::Name::new_dash(format!(
-                        "raw.{signal}",
+                    format!(
+                        "dash.raw.{signal}",
                         signal = stringify!($signal),
-                    ))
+                    ).parse()
                 }
             )*
         }

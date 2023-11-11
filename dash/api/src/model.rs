@@ -832,6 +832,7 @@ pub enum ModelState {
     #[default]
     Pending,
     Ready,
+    Deleting,
 }
 
 pub type Integer = i64;
