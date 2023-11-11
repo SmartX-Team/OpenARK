@@ -11,7 +11,7 @@ use strum::{Display, EnumString};
     kind = "ModelClaim",
     root = "ModelClaimCrd",
     status = "ModelClaimStatus",
-    shortname = "m",
+    shortname = "mc",
     namespaced,
     printcolumn = r#"{
         "name": "state",
