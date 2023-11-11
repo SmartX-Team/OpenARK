@@ -175,8 +175,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         let api = self.api_namespaced::<ModelCrd>();
         match self.try_load_model(&api, name).await? {
             Some(_) => {
-                sleep(Duration::from_secs(3)).await;
                 self.delete_model_storage_binding_by_model(name).await?;
+                sleep(Duration::from_secs(3)).await;
 
                 let dp = DeleteParams::foreground();
                 api.delete(name, &dp).await.map(|_| ()).map_err(Into::into)
