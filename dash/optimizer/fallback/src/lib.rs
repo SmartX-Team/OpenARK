@@ -2,7 +2,7 @@ mod db;
 mod kubernetes;
 mod object;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use dash_api::{
     model::ModelCrd,
@@ -14,9 +14,9 @@ use dash_api::{
 };
 use dash_provider::storage::KubernetesStorageClient;
 use dash_provider_api::data::Capacity;
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use kube::ResourceExt;
-use tracing::{instrument, Level};
+use tracing::{instrument, warn, Level};
 
 pub struct OptimizerClient<'namespace, 'kube> {
     kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
@@ -56,27 +56,32 @@ impl<'namespace, 'kube> OptimizerClient<'namespace, 'kube> {
                         let capacity = match &kind {
                             ModelStorageKindSpec::Database(spec) => {
                                 spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await?
+                                    .await
                             }
                             ModelStorageKindSpec::Kubernetes(spec) => {
                                 spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await?
+                                    .await
                             }
                             ModelStorageKindSpec::ObjectStorage(spec) => {
                                 spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await?
+                                    .await
                             }
-                        };
-                        Result::<_, Error>::Ok((storage, capacity))
+                        }
+                        .unwrap_or_else(|error| {
+                            warn!("failed to get capacity: {error}");
+                            None
+                        });
+
+                        Some((storage, capacity?))
                     })
             })
             .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await?;
+            .collect::<Vec<_>>()
+            .await;
 
         let best_storage = match storage_sizes
             .into_iter()
-            .filter_map(|(storage, capacity)| capacity.map(|capacity| (storage, capacity)))
+            .flatten()
             .max_by_key(|(_, capacity)| capacity.available())
             .map(|(storage, _)| storage)
         {
