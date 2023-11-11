@@ -53,7 +53,7 @@ spec:
             - dash-controller
           env:
             - name: NATS_ACCOUNT
-              value: nats-dash-collector
+              value: nats-dash-system
             - name: NATS_ADDRS
               value: nats
             - name: NATS_PASSWORD_PATH
