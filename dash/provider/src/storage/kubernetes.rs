@@ -252,7 +252,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     status: None,
                 };
 
-                api.create(&pp, &data).await.map_err(Into::into)
+                api.create(&pp, &data).await?;
+                bail!("model has been created: {name:?}")
             }
         }
     }
