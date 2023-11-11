@@ -4,6 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
+use crate::storage::ModelStorageKind;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "dash.ulagbulag.io",
@@ -46,6 +48,7 @@ pub struct ModelClaimSpec {
     pub binding_policy: ModelClaimBindingPolicy,
     #[serde(default)]
     pub deletion_policy: ModelClaimDeletionPolicy,
+    pub storage: Option<ModelStorageKind>,
 }
 
 impl ModelClaimCrd {
@@ -58,6 +61,7 @@ impl Default for ModelClaimSpec {
             allow_replacement: Self::default_allow_replacement(),
             binding_policy: ModelClaimBindingPolicy::default(),
             deletion_policy: ModelClaimDeletionPolicy::default(),
+            storage: None,
         }
     }
 }

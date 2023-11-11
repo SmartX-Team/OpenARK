@@ -1,7 +1,6 @@
 pub mod db;
 pub mod kubernetes;
 pub mod object;
-pub mod warehouse;
 
 use chrono::{DateTime, Utc};
 use kube::CustomResource;
@@ -90,7 +89,6 @@ impl ModelStorageKindSpec {
     Deserialize,
     JsonSchema,
 )]
-#[serde(rename_all = "camelCase")]
 pub enum ModelStorageKind {
     Database,
     Kubernetes,

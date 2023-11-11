@@ -17,6 +17,7 @@ use dash_api::{
         ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
+use dash_provider_api::data::Capacity;
 use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use k8s_openapi::{
     api::{
@@ -53,7 +54,8 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Method;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use tracing::{instrument, Level};
+use tokio::try_join;
+use tracing::{info, instrument, Level};
 
 pub struct ObjectStorageClient {
     source: Option<(ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
@@ -377,6 +379,28 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
                 }
                 _ => bail!("failed to get object ({bucket_name}/{ref_name}): {error}"),
             },
+        }
+    }
+
+    pub async fn get_capacity(&self) -> Result<Option<Capacity>> {
+        let admin = self.admin();
+        let global_capacity = admin.get_capacity_global().await?;
+
+        let bucket_name = self.get_bucket_name();
+        match admin
+            .get_capacity_bucket(&bucket_name)
+            .await
+            .unwrap_or_else(|error| {
+                info!("failed to get bucket capacity: {error}");
+                None
+            }) {
+            Some(bucket_capacity) => match global_capacity {
+                Some(global_capacity) => {
+                    Ok(Some(bucket_capacity.limit_on(global_capacity.capacity)))
+                }
+                None => Ok(Some(bucket_capacity)),
+            },
+            None => Ok(global_capacity),
         }
     }
 
@@ -891,11 +915,93 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
+    async fn get_capacity_bucket(&self, bucket_name: &str) -> Result<Option<Capacity>> {
+        match try_join!(
+            self.get_capacity_bucket_capacity(bucket_name),
+            self.get_capacity_bucket_usage(bucket_name),
+        )? {
+            (Some(capacity), Some(usage)) => Ok(Some(Capacity { capacity, usage })),
+            _ => Ok(None),
+        }
+    }
+
+    async fn get_capacity_bucket_capacity(&self, bucket_name: &str) -> Result<Option<Byte>> {
+        self.execute::<&str>(
+            Method::GET,
+            "/admin/v3/get-bucket-quota",
+            &[("bucket", bucket_name)],
+            None,
+        )
+        .and_then(|resp| async move {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Data {
+                #[serde(default)]
+                quota: Option<Byte>,
+            }
+
+            let data: Data = resp.json().await?;
+            Ok(data.quota)
+        })
+        .await
+        .map_err(|error| {
+            anyhow!(
+                "failed to get total bucket capacity ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+    }
+
+    async fn get_capacity_bucket_usage(&self, _bucket_name: &str) -> Result<Option<Byte>> {
+        // NOTE(2023-11-12): minio API does not provide bucket usage in O(1)
+        Ok(None)
+    }
+
+    async fn get_capacity_global(&self) -> Result<Option<Capacity>> {
+        self.execute::<&str>(Method::GET, "/admin/v3/info", &[], None)
+            .and_then(|resp| async move {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Data {
+                    pools: BTreeMap<String, BTreeMap<String, DataPool>>,
+                }
+
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct DataPool {
+                    raw_capacity: Byte,
+                    usage: Byte,
+                }
+
+                let data: Data = resp.json().await?;
+                Ok(Some(
+                    data.pools
+                        .into_values()
+                        .flatten()
+                        .map(|(_, pool)| Capacity {
+                            capacity: pool.raw_capacity,
+                            usage: pool.usage,
+                        })
+                        .sum(),
+                ))
+            })
+            .await
+            .map_err(|error| {
+                anyhow!(
+                    "failed to get available storage capacity ({name}: {origin}): {error}",
+                    name = &self.storage.name,
+                    origin = &self.storage.endpoint,
+                )
+            })
+    }
+
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn is_site_replication_enabled(&self) -> Result<bool> {
         self.execute::<&str>(Method::GET, "/admin/v3/site-replication/info", &[], None)
             .and_then(|resp| async move {
                 #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase")]
                 struct Data {
                     enabled: bool,
                 }
@@ -1001,19 +1107,19 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
-    #[instrument(level = Level::INFO, skip(self, headers, data), fields(data.len = data.as_ref().map(|data| data.len())), err(Display))]
-    async fn execute<Header>(
+    #[instrument(level = Level::INFO, skip(self, params, data), fields(data.len = data.as_ref().map(|data| data.len())), err(Display))]
+    async fn execute<Param>(
         &self,
         method: Method,
         base_url: &str,
-        headers: &[(Header, Header)],
+        params: &[(Param, Param)],
         data: Option<&[u8]>,
     ) -> Result<::reqwest::Response, ::minio::s3::error::Error>
     where
-        Header: ToString,
+        Param: ToString,
     {
         let mut query_params = Multimap::default();
-        for (key, value) in headers {
+        for (key, value) in params {
             query_params.insert(key.to_string(), value.to_string());
         }
 

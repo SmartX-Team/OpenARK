@@ -6,11 +6,13 @@ use dash_api::{
     },
     model_claim::{ModelClaimCrd, ModelClaimState},
     model_storage_binding::{
-        ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStorageKind,
+        ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingSpec,
+        ModelStorageBindingState, ModelStorageBindingStorageKind,
     },
     storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
     task::{TaskActorSourceConfigMapRefSpec, TaskCrd, TaskState},
 };
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use itertools::Itertools;
 use k8s_openapi::{
     api::core::v1::ConfigMap,
@@ -170,6 +172,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         let api = self.api_namespaced::<ModelCrd>();
         match self.try_load_model(&api, name).await? {
             Some(_) => {
+                self.delete_model_storage_binding_by_model(name).await?;
+
                 let dp = DeleteParams::foreground();
                 api.delete(name, &dp).await.map(|_| ()).map_err(Into::into)
             }
@@ -252,8 +256,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     status: None,
                 };
 
-                api.create(&pp, &data).await?;
-                bail!("model has been created: {name:?}")
+                // skipping validating: dynamic model should be valid
+                api.create(&pp, &data).await.map_err(Into::into)
             }
         }
     }
@@ -324,6 +328,59 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
 }
 
 impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
+    pub async fn create_model_storage_binding(
+        &self,
+        field_manager: &str,
+        model_name: String,
+        storage: ModelStorageBindingStorageKind<String>,
+    ) -> Result<ModelStorageBindingCrd> {
+        let api = self.api_namespaced::<ModelStorageBindingCrd>();
+        let pp = PostParams {
+            dry_run: false,
+            field_manager: Some(field_manager.into()),
+        };
+        let data = ModelStorageBindingCrd {
+            metadata: ObjectMeta {
+                name: Some(model_name.clone()),
+                namespace: Some(self.namespace.into()),
+                labels: Some(btreemap! {
+                    "dash.ulagbulag.io/managed-by".into() => field_manager.into(),
+                }),
+                ..Default::default()
+            },
+            spec: ModelStorageBindingSpec {
+                // NOTE: deleting original data is only permitted for humans
+                deletion_policy: ModelStorageBindingDeletionPolicy::Retain,
+                model: model_name,
+                storage,
+            },
+            status: None,
+        };
+
+        api.create(&pp, &data).await.map_err(Into::into)
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn delete_model_storage_binding_by_model(&self, model_name: &str) -> Result<()> {
+        let api = self.api_namespaced::<ModelStorageBindingCrd>();
+        let dp = DeleteParams::background();
+
+        self.load_model_storage_bindings_all(&api)
+            .await?
+            .into_iter()
+            .filter(|binding| binding.spec.model == model_name)
+            .map(|binding| {
+                let api = api.clone();
+                let dp = dp.clone();
+                async move { api.delete(&binding.name_any(), &dp).await }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect::<Vec<_>>()
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
+    }
+
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn load_model_storage_bindings(
         &self,
@@ -335,6 +392,26 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         )>,
     > {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
+
+        Ok(self
+            .load_model_storage_bindings_all(&api)
+            .await?
+            .into_iter()
+            .filter(|binding| binding.spec.model == model_name)
+            .filter_map(|binding| {
+                let status = binding.status.unwrap();
+                status
+                    .storage
+                    .map(|storage| (binding.spec.storage, storage))
+            })
+            .collect())
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn load_model_storage_bindings_all(
+        &self,
+        api: &Api<ModelStorageBindingCrd>,
+    ) -> Result<Vec<ModelStorageBindingCrd>> {
         let lp = ListParams::default();
         let bindings = api.list(&lp).await?;
 
@@ -346,13 +423,6 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                     .status()
                     .map(|status| matches!(status.state, ModelStorageBindingState::Ready))
                     .unwrap_or_default()
-            })
-            .filter(|binding| binding.spec.model == model_name)
-            .filter_map(|binding| {
-                let status = binding.status.unwrap();
-                status
-                    .storage
-                    .map(|storage| (binding.spec.storage, storage))
             })
             .collect())
     }
@@ -368,18 +438,11 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         )>,
     > {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
-        let lp = ListParams::default();
-        let bindings = api.list(&lp).await?;
 
-        Ok(bindings
-            .items
+        Ok(self
+            .load_model_storage_bindings_all(&api)
+            .await?
             .into_iter()
-            .filter(|binding| {
-                binding
-                    .status()
-                    .map(|status| matches!(status.state, ModelStorageBindingState::Ready))
-                    .unwrap_or_default()
-            })
             .filter(|binding| {
                 let storage = &binding.spec.storage;
                 storage.source().map(|(name, _)| name.as_str()) == Some(storage_name)

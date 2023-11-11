@@ -1,5 +1,5 @@
 [package]
-name = "dash-provider-api"
+name = "dash-optimizer-client"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -17,7 +17,13 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-byte-unit = { workspace = true }
-k8s-openapi = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }
+dash-api = { path = "../../api" }
+dash-optimizer-api = { path = "../api" }
+dash-optimizer-fallback = { path = "../fallback" }
+dash-pipe-provider = { path = "../../pipe/provider" }
+dash-provider = { path = "../../provider" }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
+kube = { workspace = true }
+tracing = { workspace = true }

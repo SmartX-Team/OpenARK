@@ -55,5 +55,6 @@ serde_yaml = { workspace = true }
 sha2 = { workspace = true }
 sio = { workspace = true }
 tera = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

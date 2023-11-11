@@ -28,6 +28,8 @@ spec:
   permissions:
     publish:
       - dash.raw.>
+    subscribe:
+      - _inbox.>
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -49,9 +51,11 @@ metadata:
 spec:
   permissions:
     publish:
+      - _inbox.>
       - dash.optimize.>
       - dash.schedule.>
     subscribe:
+      - _inbox.>
       - dash.raw.>
 ---
 apiVersion: v1
@@ -74,8 +78,10 @@ metadata:
 spec:
   permissions:
     publish:
+      - _inbox.>
       - dash
       - dash.>
     subscribe:
+      - _inbox.>
       - dash
       - dash.>

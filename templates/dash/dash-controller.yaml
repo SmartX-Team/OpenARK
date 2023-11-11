@@ -52,6 +52,14 @@ spec:
           command:
             - dash-controller
           env:
+            - name: NATS_ACCOUNT
+              value: nats-dash-collector
+            - name: NATS_ADDRS
+              value: nats
+            - name: NATS_PASSWORD_PATH
+              value: /var/run/secrets/nats.io/token
+            - name: NATS_TLS_REQUIRED
+              value: "false"
             - name: RUST_LOG
               value: INFO
           resources:
@@ -61,3 +69,15 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
+          volumeMounts:
+            - name: nats-token
+              mountPath: /var/run/secrets/nats.io
+              readOnly: true
+      volumes:
+        - name: nats-token
+          secret:
+            secretName: nats-dash-system-nats-bound-token
+            optional: false
+            items:
+              - key: token
+                path: token
