@@ -24,6 +24,6 @@ pub struct Plugin {
 
 impl ::straw_api::plugin::PluginDaemon for Plugin {
     fn container_image(&self) -> String {
-        self.url.to_string()
+        self.url.to_string()["oci://".len()..].into()
     }
 }
