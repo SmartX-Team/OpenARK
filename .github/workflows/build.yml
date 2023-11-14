@@ -36,8 +36,7 @@ jobs:
       - name: Install dependencies
         run: >
           sudo apt-get update
-          && sudo apt-get install -y
-          yamllint
+          && sudo apt-get install -y yamllint
 
       - name: Lint
         uses: ibiqlik/action-yamllint@v3
@@ -140,6 +139,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -187,7 +191,7 @@ jobs:
       - name: Install dependencies
         run: >
           sudo apt-get update
-          && sudo apt-get install -y buildah qemu-user-static
+          && sudo apt-get install -y buildah qemu-user-static podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -233,6 +237,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -282,6 +291,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -325,6 +339,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -370,6 +389,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -413,6 +437,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -458,6 +487,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -501,6 +535,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -546,6 +585,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -589,6 +633,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -634,6 +683,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -677,6 +731,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -722,6 +781,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -765,6 +829,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
