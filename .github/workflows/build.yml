@@ -57,7 +57,6 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y
           build-essential
-          cargo
           clang
           libclang-dev
           libopencv-dev
@@ -65,6 +64,7 @@ jobs:
           mold
           nasm
           s3fs
+          && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y
 
       - name: Disable clang linker
         run: >
