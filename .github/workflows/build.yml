@@ -100,7 +100,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -151,7 +151,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -252,7 +252,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -307,7 +307,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -358,7 +358,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -409,7 +409,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -460,7 +460,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -511,7 +511,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -562,7 +562,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -613,7 +613,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -664,7 +664,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -715,7 +715,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -766,7 +766,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -817,7 +817,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -868,7 +868,7 @@ jobs:
           sudo apt-get update
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
-          && echo '{}' >/home/runner/.docker/config.json
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
