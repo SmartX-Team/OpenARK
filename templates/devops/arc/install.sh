@@ -21,15 +21,6 @@ HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 ###########################################################
-#   Check Environment Variables                           #
-###########################################################
-
-if [ "x${GITHUB_TOKEN}" == "x" ]; then
-    echo 'Skipping installation: "GITHUB_TOKEN" not set'
-    exit 0
-fi
-
-###########################################################
 #   Configure Helm Channel                                #
 ###########################################################
 
@@ -61,7 +52,6 @@ helm upgrade --install "github-actions-runner-controller" \
     "${NAMESPACE}/actions-runner-controller" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set authSecret.github_token="${GITHUB_TOKEN}" \
     --values "./values-operator.yaml"
 
 # Finished!

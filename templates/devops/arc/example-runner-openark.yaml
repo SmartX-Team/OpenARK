@@ -1,10 +1,24 @@
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arc-github-app
+  namespace: openark-devel
+immutable: true
+# TODO(user): change for your own variables
+# NOTE: https://github.com/actions/actions-runner-controller/blob/master/docs/authenticating-to-the-github-api.md#deploying-using-github-app-authentication
+stringData:
+  github_app_id: ""
+  github_app_installation_id: ""
+  github_app_private_key: ""
+---
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
 metadata:
-  name: openark-runner
+  name: ubuntu-latest
+  namespace: openark-devel
 spec:
-  replicas: 0
+  replicas: 3
   template:
     spec:
       affinity:
@@ -16,18 +30,27 @@ spec:
                     operator: In
                     values:
                       - Compute
-      repository: ulagbulag/OpenARK
+      githubAPICredentialsFrom:
+        secretRef:
+          name: arc-github-app
+      labels:
+        - ubuntu-latest
+      organization: ulagbulag
 ---
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: HorizontalRunnerAutoscaler
 metadata:
-  name: openark-runner
+  name: ubuntu-latest
+  namespace: openark-devel
 spec:
+  githubAPICredentialsFrom:
+    secretRef:
+      name: arc-github-app
   scaleDownDelaySecondsAfterScaleOut: 300
   scaleTargetRef:
-    name: openark-runner
-  minReplicas: 1
-  maxReplicas: 5
+    name: ubuntu-latest
+  minReplicas: 3
+  maxReplicas: 30
   metrics:
     - type: PercentageRunnersBusy
       scaleUpThreshold: "0.75"
