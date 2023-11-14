@@ -46,7 +46,7 @@ jobs:
   build-rust:
     needs:
       - lint-yaml
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -86,7 +86,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - lint-yaml
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       packages: write
