@@ -129,6 +129,10 @@ opentelemetry_sdk = { version = "0.21", features = [
     "rt-tokio",
     "trace",
 ] }
+or-tools = { git = "https://github.com/ulagbulag/or-tools-rs", version = "0.1", default-features = false, features = [
+    "build-native",
+    "solver-all",
+] }
 ordered-float = { version = "4.1", default-features = false, features = [
     "bytemuck",
     "schemars",
