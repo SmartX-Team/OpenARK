@@ -61,6 +61,7 @@ jobs:
           cmake
           libclang-dev
           libopencv-dev
+          libpython3-dev
           llvm-dev
           mold
           nasm
