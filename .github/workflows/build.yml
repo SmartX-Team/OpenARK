@@ -58,6 +58,7 @@ jobs:
           && sudo apt-get install -y
           build-essential
           clang
+          cmake
           libclang-dev
           libopencv-dev
           llvm-dev
