@@ -41,9 +41,12 @@ jobs:
       packages: write
 
     steps:
-      - name: Install core packages
-        run: |
-          sudo apt-get install -y curl git jq wget
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y curl git jq podman wget
+          && mkdir -p /home/runner/.docker/
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
       - name: Install package - yq
         run: |
