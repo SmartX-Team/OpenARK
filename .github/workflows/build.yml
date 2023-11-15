@@ -65,7 +65,6 @@ jobs:
           nasm
           s3fs
           && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y
-          && rustup default stable
 
       - name: Disable clang linker
         run: >
