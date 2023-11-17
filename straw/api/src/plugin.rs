@@ -68,11 +68,11 @@ pub trait PluginDaemon {
         "quay.io/ulagbulag/openark:latest-full".into()
     }
 
-    fn container_command(&self) -> Option<Vec<String>> {
+    fn container_command(&self, _env: &[EnvVar]) -> Option<Vec<String>> {
         None
     }
 
-    fn container_command_args(&self) -> Option<Vec<String>> {
+    fn container_command_args(&self, _env: &[EnvVar]) -> Option<Vec<String>> {
         None
     }
 
@@ -320,13 +320,17 @@ where
                         }),
                         containers: vec![
                             Container {
-                                args: self.container_command_args(),
-                                command: self.container_command(),
+                                args: self.container_command_args(&node.env),
+                                command: self.container_command(&node.env),
                                 env: Some(env),
                                 image: Some(self.container_image()),
                                 image_pull_policy: Some("Always".into()),
                                 name: "function".into(),
-                                resources: self.container_resources(),
+                                resources: {
+                                    let mut resources = self.container_resources();
+                                    resources.merge_from(node.resources.clone());
+                                    resources
+                                },
                                 volume_mounts: Some(vec![
                                     VolumeMount {
                                         name: nats_volume_name.into(),

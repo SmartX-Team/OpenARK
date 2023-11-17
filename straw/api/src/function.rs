@@ -1,5 +1,5 @@
 use ark_core_k8s::data::Url;
-use k8s_openapi::api::core::v1::EnvVar;
+use k8s_openapi::api::core::v1::{EnvVar, ResourceRequirements};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -16,6 +16,8 @@ pub struct StrawNode {
     pub name: String,
     #[serde(default)]
     pub env: Vec<EnvVar>,
+    #[serde(default)]
+    pub resources: Option<ResourceRequirements>,
     pub src: Url,
 }
 

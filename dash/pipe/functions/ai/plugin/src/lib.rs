@@ -68,7 +68,10 @@ impl<'a> ::straw_api::plugin::PluginDaemon for ModelLoader<'a> {
         ]
     }
 
-    fn container_command(&self) -> Option<Vec<String>> {
+    fn container_command(
+        &self,
+        _env: &[::k8s_openapi::api::core::v1::EnvVar],
+    ) -> Option<Vec<String>> {
         Some(vec!["dash-pipe-function-ai".into()])
     }
 

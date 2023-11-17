@@ -114,6 +114,7 @@ minio = { git = "https://github.com/ulagbulag/minio-rs.git", default-features = 
 ] } # not deployed to crates.io
 map-macro = { version = "0.2" }
 maplit = { version = "1.0" }
+ndarray = { version = "0.15" }
 octocrab = { version = "0.31", default-features = false, features = ["rustls"] }
 opencv = { version = "0.86", default-features = false }
 opentelemetry = { version = "0.21", features = ["logs", "metrics", "trace"] }

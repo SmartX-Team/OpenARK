@@ -17,13 +17,15 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["kafka", "lakehouse", "nats", "s3"]
+default = ["messengers", "storage"]
 
 # messengers
+messengers = ["kafka", "nats"]
 nats = ["dep:async-nats"]
 kafka = ["dep:rdkafka"]
 
 # storage
+storage = ["lakehouse", "s3"]
 lakehouse = [
     "async-recursion",
     "dash-api",
