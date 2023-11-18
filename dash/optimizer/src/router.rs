@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, time::Instant};
+use std::{
+    collections::BTreeMap,
+    time::{Duration, Instant},
+};
 
 use anyhow::{bail, Result};
 use ndarray::{Array2, Axis};
@@ -57,7 +60,7 @@ impl Router {
 
         // Instantiate the data problem.
         let num_nodes = self.num_nodes().unwrap().try_into()?;
-        let num_vehicles = 4;
+        let num_vehicles = 6;
 
         let start_index = RoutingNodeIndex::new(start.try_into()?);
         let end_index = RoutingNodeIndex::new(end.try_into()?);
@@ -138,6 +141,7 @@ impl Router {
         let mut search_parameters = RoutingSearchParameters::new();
         search_parameters
             .set_first_solution_strategy(FirstSolutionStrategy::ParallelCheapestInsertion);
+        search_parameters.set_time_limit(Duration::from_secs(1));
 
         // Solve the problem.
         let instant = Instant::now();
@@ -148,28 +152,29 @@ impl Router {
         let mut total_distance = 0;
         for vehicle_id in 0..num_vehicles {
             let mut index = routing.start(vehicle_id);
-            println!("Route for Vehicle {index}:");
+            println!("Route for Vehicle {vehicle_id}:");
 
-            print!("* Route: ");
             let mut route_distance = 0;
-            while !routing.is_end(index) {
-                print!("{} -> ", manager.index_to_node(index).value());
-                let previous_index = index;
-                index = solution.value(routing.next_var(index).unwrap());
-                route_distance +=
-                    routing.get_arc_cost_for_vehicle(previous_index, index, vehicle_id as i64);
+            if solution.is_vehicle_used(vehicle_id).unwrap_or_default() {
+                print!("* Route: ");
+                while !routing.is_end(index) {
+                    print!("{} -> ", manager.index_to_node(index).value());
+                    let previous_index = index;
+                    index = solution.value(routing.next_var(index).unwrap()).unwrap();
+                    route_distance +=
+                        routing.get_arc_cost_for_vehicle(previous_index, index, vehicle_id as i64);
+                }
+
+                println!();
+                println!("* Distance of the route: {route_distance}m");
+                total_distance += route_distance;
+            } else {
+                println!("* Unused");
             }
-            println!("{}", manager.index_to_node(index).value());
-            println!("* Distance of the route: {route_distance}m");
-            total_distance += route_distance;
         }
         println!();
         println!("Total distance of all routes: {total_distance}m");
         println!("Problem solved in {elapsed_ms}ms");
-
-        drop(routing);
-        drop(transit_callbacks);
-        drop(manager);
         Ok(())
     }
 
