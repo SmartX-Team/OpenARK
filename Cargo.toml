@@ -11,7 +11,7 @@ members = [
     "dash/controller",
     "dash/gateway",
     "dash/openapi",
-    "dash/optimizer",
+    "dash/optimizer",                       # exclude(alpine)
     "dash/optimizer/api",
     "dash/optimizer/client",
     "dash/optimizer/fallback",
