@@ -22,7 +22,8 @@ FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
 RUN apk add --no-cache bzip2-static clang-dev cmake g++ \
-    make mold musl-dev nasm openssl-dev xz-static zlib-static
+    libcrypto3 libressl-dev \
+    make mold musl-dev nasm xz-static zlib-static
 
 # Load source files
 ADD . /src
