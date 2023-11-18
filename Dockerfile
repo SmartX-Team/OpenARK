@@ -21,7 +21,7 @@ RUN apk add --no-cache libgcc s3fs-fuse
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
-RUN apk add --no-cache bzip2-static clang-dev cmake g++ \
+RUN apk add --no-cache bzip2-static clang-dev cmake git g++ \
     libcrypto3 libressl-dev \
     make mold musl-dev nasm xz-static zlib-static
 
