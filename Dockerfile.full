@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
     libclang-dev \
+    libssl-dev \
     llvm-dev \
     mold \
     nasm \

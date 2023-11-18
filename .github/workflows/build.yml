@@ -62,6 +62,7 @@ jobs:
           libclang-dev
           libopencv-dev
           libpython3-dev
+          libssl-dev
           llvm-dev
           mold
           nasm
