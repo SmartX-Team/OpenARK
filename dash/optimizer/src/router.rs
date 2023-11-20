@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use ndarray::{Array2, Axis};
+use ndarray::{ArrayView2, Axis};
 use or_tools::constraint_solver::{
     routing::RoutingModel,
     routing_enums::FirstSolutionStrategy,
@@ -15,12 +15,18 @@ use or_tools::constraint_solver::{
 };
 
 #[derive(Debug, Default)]
-pub struct Router {
-    dimensions: BTreeMap<String, Array2<i64>>,
+pub struct Router<'a> {
+    matrix: BTreeMap<String, ArrayView2<'a, i64>>,
 }
 
-impl Router {
-    pub fn add_dimension(&mut self, name: String, matrix: Array2<i64>) -> Result<()> {
+impl<'a> Router<'a> {
+    pub fn add_dimension(
+        &mut self,
+        name: impl Into<String>,
+        matrix: ArrayView2<'a, i64>,
+    ) -> Result<()> {
+        let name = name.into();
+
         if matrix.is_empty() {
             let shape = shape(&matrix);
             bail!("empty matrix: {name} is {shape}");
@@ -38,11 +44,11 @@ impl Router {
             bail!("no distance matrix: {name}");
         }
 
-        if self.dimensions.contains_key(&name) {
-            bail!("duplicated dimension: {name}");
+        if self.matrix.contains_key(&name) {
+            bail!("duplicated matrix: {name}");
         }
 
-        if let Some(old_matrix) = self.get_first_dimension() {
+        if let Some(old_matrix) = self.get_first_matrix() {
             if old_matrix.shape() != matrix.shape() {
                 let old_shape = shape(old_matrix);
                 let shape = shape(&matrix);
@@ -50,7 +56,7 @@ impl Router {
             }
         }
 
-        self.dimensions.insert(name, matrix);
+        self.matrix.insert(name, matrix);
         Ok(())
     }
 
@@ -78,7 +84,7 @@ impl Router {
 
         // Define cost of each arc.
         let transit_callbacks: BTreeMap<_, _> = self
-            .dimensions
+            .matrix
             .iter()
             .map(|(name, matrix)| {
                 let callback = Box::leak(Box::new(|from_index, to_index| {
@@ -179,12 +185,11 @@ impl Router {
     }
 
     fn num_nodes(&self) -> Option<usize> {
-        self.get_first_dimension()
-            .map(|matrix| matrix.len_of(Axis(0)))
+        self.get_first_matrix().map(|matrix| matrix.len_of(Axis(0)))
     }
 
     fn assert_node_index(&self, index: usize) -> Result<()> {
-        match self.get_first_dimension() {
+        match self.get_first_matrix() {
             Some(matrix) => {
                 let len = matrix.len_of(Axis(0));
                 if index < len {
@@ -197,12 +202,16 @@ impl Router {
         }
     }
 
-    fn get_first_dimension(&self) -> Option<&Array2<i64>> {
-        self.dimensions.first_key_value().map(|(_, value)| value)
+    fn get_first_matrix(&self) -> Option<&ArrayView2<'a, i64>> {
+        self.matrix.first_key_value().map(|(_, value)| value)
     }
 }
 
-fn shape(matrix: &Array2<i64>) -> String {
+pub trait RouterDimension {
+    fn get(&self, start: usize, end: usize) -> Option<i64>;
+}
+
+fn shape(matrix: &ArrayView2<'_, i64>) -> String {
     let rows = matrix.len_of(Axis(0));
     let cols = matrix.len_of(Axis(1));
     format!("{rows}x{cols}")

@@ -17,11 +17,19 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
+dash-optimizer-fallback = { path = "./fallback" }
 dash-pipe-provider = { path = "../pipe/provider" }
+dash-provider-api = { path = "../provider/api" }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+byte-unit = { workspace = true }
 ndarray = { workspace = true }
+kube = { workspace = true }
 or-tools = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

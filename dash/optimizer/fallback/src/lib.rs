@@ -10,12 +10,12 @@ use dash_api::{
         ModelStorageBindingCrd, ModelStorageBindingStorageKind,
         ModelStorageBindingStorageKindOwnedSpec,
     },
-    storage::{ModelStorageKind, ModelStorageKindSpec},
+    storage::{ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec},
 };
 use dash_provider::storage::KubernetesStorageClient;
 use dash_provider_api::data::Capacity;
 use futures::{stream::FuturesUnordered, StreamExt};
-use kube::ResourceExt;
+use kube::{Client, ResourceExt};
 use tracing::{instrument, warn, Level};
 
 pub struct OptimizerClient<'namespace, 'kube> {
@@ -52,25 +52,15 @@ impl<'namespace, 'kube> OptimizerClient<'namespace, 'kube> {
                     .and_then(|status| status.kind.as_ref())
                     .cloned()
                     .map(|kind| async move {
+                        let KubernetesStorageClient { namespace, kube } = self.kubernetes_storage;
                         let storage_name = storage.name_any();
-                        let capacity = match &kind {
-                            ModelStorageKindSpec::Database(spec) => {
-                                spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await
-                            }
-                            ModelStorageKindSpec::Kubernetes(spec) => {
-                                spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await
-                            }
-                            ModelStorageKindSpec::ObjectStorage(spec) => {
-                                spec.get_capacity(self.kubernetes_storage, model, storage_name)
-                                    .await
-                            }
-                        }
-                        .unwrap_or_else(|error| {
-                            warn!("failed to get capacity: {error}");
-                            None
-                        });
+                        let capacity = kind
+                            .get_capacity(kube, namespace, model, storage_name)
+                            .await
+                            .unwrap_or_else(|error| {
+                                warn!("failed to get capacity: {error}");
+                                None
+                            });
 
                         Some((storage, capacity?))
                     })
@@ -102,11 +92,115 @@ impl<'namespace, 'kube> OptimizerClient<'namespace, 'kube> {
 }
 
 #[async_trait]
-trait GetCapacity {
-    async fn get_capacity<'namespace, 'kind>(
+pub trait GetCapacity {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn get_capacity<'namespace, 'kube>(
         &self,
-        kubernetes_storage: KubernetesStorageClient<'namespace, 'kind>,
-        model: &ModelCrd,
+        kube: &'kube Client,
+        namespace: &'namespace str,
+        _model: &ModelCrd,
+        storage_name: String,
+    ) -> Result<Option<Capacity>> {
+        self.get_capacity_global(kube, namespace, storage_name)
+            .await
+    }
+
+    async fn get_capacity_global<'namespace, 'kube>(
+        &self,
+        kube: &'kube Client,
+        namespace: &'namespace str,
         storage_name: String,
     ) -> Result<Option<Capacity>>;
+}
+
+#[async_trait]
+impl GetCapacity for ModelStorageCrd {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn get_capacity<'namespace, 'kube>(
+        &self,
+        kube: &'kube Client,
+        namespace: &'namespace str,
+        model: &ModelCrd,
+        storage_name: String,
+    ) -> Result<Option<Capacity>> {
+        match self.status.as_ref().and_then(|status| status.kind.as_ref()) {
+            Some(kind) => {
+                kind.get_capacity(kube, namespace, model, storage_name)
+                    .await
+            }
+            None => Ok(None),
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn get_capacity_global<'namespace, 'kube>(
+        &self,
+        kube: &'kube Client,
+        namespace: &'namespace str,
+        storage_name: String,
+    ) -> Result<Option<Capacity>> {
+        match self.status.as_ref().and_then(|status| status.kind.as_ref()) {
+            Some(kind) => {
+                kind.get_capacity_global(kube, namespace, storage_name)
+                    .await
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+#[async_trait]
+impl GetCapacity for ModelStorageKindSpec {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn get_capacity<'namespace, 'kube>(
+        &self,
+        kube: &'kube Client,
+        namespace: &'namespace str,
+        model: &ModelCrd,
+        storage_name: String,
+    ) -> Result<Option<Capacity>> {
+        match self {
+            ModelStorageKindSpec::Database(storage) => {
+                storage
+                    .get_capacity(kube, namespace, model, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::Kubernetes(storage) => {
+                storage
+                    .get_capacity(kube, namespace, model, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                storage
+                    .get_capacity(kube, namespace, model, storage_name)
+                    .await
+            }
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn get_capacity_global<'namespace, 'kube>(
+        &self,
+        kube: &'kube Client,
+        namespace: &'namespace str,
+        storage_name: String,
+    ) -> Result<Option<Capacity>> {
+        match self {
+            ModelStorageKindSpec::Database(storage) => {
+                storage
+                    .get_capacity_global(kube, namespace, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::Kubernetes(storage) => {
+                storage
+                    .get_capacity_global(kube, namespace, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                storage
+                    .get_capacity_global(kube, namespace, storage_name)
+                    .await
+            }
+        }
+    }
 }

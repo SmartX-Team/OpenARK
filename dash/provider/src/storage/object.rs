@@ -311,6 +311,12 @@ impl<'model> ObjectStorageRef {
     pub fn fetch_provider(&self) -> Credentials {
         self.provider.fetch()
     }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn get_capacity_global(&self) -> Result<Option<Capacity>> {
+        let admin = MinioAdminClient { storage: self };
+        admin.get_capacity_global().await
+    }
 }
 
 pub struct ObjectStorageSession<'client, 'model, 'source> {
