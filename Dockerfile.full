@@ -46,15 +46,17 @@ ENV RUSTUP_HOME="/opt/rustup"
 RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
+    cmake \
     libclang-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
     libssl-dev \
     llvm-dev \
     mold \
     nasm \
+    s3fs \
     # Install rustup
-    && curl https://sh.rustup.rs -sSf >/rustup.sh \
-    && bash /rustup.sh -y \
-    && rm /rustup.sh \
+    && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 

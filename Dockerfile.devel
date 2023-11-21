@@ -21,9 +21,13 @@ WORKDIR /
 RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
+    cmake \
     docker-buildx \
     libclang-dev \
     libgtk2.0-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
+    libssl-dev \
     llvm-dev \
     mold \
     nasm \

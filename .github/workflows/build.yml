@@ -61,6 +61,8 @@ jobs:
           cmake
           libclang-dev
           libopencv-dev
+          libprotobuf-dev
+          libprotoc-dev
           libpython3-dev
           libssl-dev
           llvm-dev
