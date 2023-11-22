@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use kube::Client;
 use tokio::{
@@ -8,12 +9,23 @@ use tokio::{
     sync::{mpsc, RwLock},
     time::sleep,
 };
-use tracing::{error, instrument, Level};
+use tracing::{error, info, instrument, Level};
 
 use crate::{
     plan::Plan,
     storage::{NamespacedStorageDimension, StorageDimension},
 };
+
+#[async_trait]
+pub trait Optimizer {
+    fn new(ctx: &OptimizerContext) -> Self
+    where
+        Self: Sized;
+
+    async fn loop_forever(self) -> Result<()>
+    where
+        Self: Sized;
+}
 
 #[derive(Clone)]
 pub struct OptimizerContext {
@@ -26,6 +38,7 @@ pub struct OptimizerContext {
 impl OptimizerContext {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default() -> Result<OptimizerContext> {
+        info!("creating optimizer context");
         let (plan_tx, plan_rx) = mpsc::channel(1024);
         let ctx = Self {
             kube: Arc::new(Client::try_default().await?),
@@ -57,6 +70,40 @@ impl OptimizerContext {
 
     #[instrument(level = Level::INFO, skip_all)]
     #[must_use]
+    pub async fn exists_storage(&self, namespace: &str, name: &str) -> bool {
+        let storage_session = self.storage.read().await;
+        match storage_session.get(namespace) {
+            Some(storage) => {
+                drop(storage_session);
+                storage.read().await.exists(name)
+            }
+            None => false,
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all)]
+    #[must_use]
+    pub async fn solve_next_model_storage_binding(
+        &self,
+        namespace: &str,
+        name: &str,
+        policy: ModelClaimBindingPolicy,
+    ) -> Option<String> {
+        let storage_session = self.storage.read().await;
+        match storage_session.get(namespace) {
+            Some(storage) => {
+                drop(storage_session);
+                storage
+                    .read()
+                    .await
+                    .solve_next_model_storage_binding(name, policy)
+            }
+            None => None,
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all)]
+    #[must_use]
     pub async fn solve_next_storage(
         &self,
         namespace: &str,
@@ -64,8 +111,12 @@ impl OptimizerContext {
         policy: ModelClaimBindingPolicy,
         timeout: Option<Duration>,
     ) -> Option<Arc<ModelStorageCrd>> {
+        if !self.exists_storage(namespace, name).await {
+            return None;
+        }
+
         match self.wait_storage(namespace, name, timeout).await {
-            Some(storage) => storage.read().await.solve_next(name, policy),
+            Some(storage) => storage.read().await.solve_next_storage(name, policy),
             None => None,
         }
     }

@@ -55,6 +55,7 @@ chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 ctrlc = { workspace = true }
 deltalake = { workspace = true, optional = true, features = ["json", "s3"] }
+derivative = { workspace = true }
 futures = { workspace = true }
 gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }

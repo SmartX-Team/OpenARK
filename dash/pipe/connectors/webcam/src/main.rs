@@ -84,7 +84,7 @@ pub struct Function {
 
 pub type FunctionOutput = ::dash_openapi::image::Image;
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ::dash_pipe_provider::FunctionBuilder for Function {
     type Args = FunctionArgs;
 
@@ -119,7 +119,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ::dash_pipe_provider::Function for Function {
     type Input = ();
     type Output = ::dash_openapi::image::Image;

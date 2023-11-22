@@ -98,6 +98,11 @@ fn init_once_opentelemetry() {
 }
 
 pub fn init_once() {
+    // Skip init if has been set
+    if dispatcher::has_been_set() {
+        return;
+    }
+
     // set default tracing level
     if ::std::env::var_os(KEY).is_none() {
         ::std::env::set_var(KEY, "INFO");
@@ -107,6 +112,11 @@ pub fn init_once() {
 }
 
 pub fn init_once_with(level: impl AsRef<OsStr>) {
+    // Skip init if has been set
+    if dispatcher::has_been_set() {
+        return;
+    }
+
     // set custom tracing level
     ::std::env::set_var(KEY, level);
 

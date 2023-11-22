@@ -43,7 +43,7 @@ pub struct Function {
     tick: PyObject,
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ::dash_pipe_provider::FunctionBuilder for Function {
     type Args = FunctionArgs;
 
@@ -71,7 +71,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ::dash_pipe_provider::Function for Function {
     type Input = Value;
     type Output = Value;

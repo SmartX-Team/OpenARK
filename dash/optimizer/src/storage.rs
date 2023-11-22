@@ -1,16 +1,89 @@
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use byte_unit::Byte;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
+use dash_optimizer_api::{optimize, ObjectMetadata};
 use dash_optimizer_fallback::GetCapacity;
-use kube::{api::ListParams, Api, Client, ResourceExt};
+use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, RemoteFunction};
+use futures::{stream::FuturesOrdered, TryStreamExt};
+use itertools::Itertools;
+use kube::{api::ListParams, Api, ResourceExt};
 use ndarray::{Array0, Array1, Array2, Axis, DataMut, RawData, ViewRepr};
 use tokio::sync::RwLock;
 use tracing::{info, instrument, warn, Level};
 
 use crate::{ctx::OptimizerContext, plan::Plan};
+
+#[derive(Clone)]
+pub struct Optimizer {
+    ctx: OptimizerContext,
+}
+
+#[async_trait]
+impl crate::ctx::Optimizer for Optimizer {
+    fn new(ctx: &OptimizerContext) -> Self {
+        Self { ctx: ctx.clone() }
+    }
+
+    async fn loop_forever(self) -> Result<()> {
+        info!("creating messenger: storage optimizer");
+
+        let pipe = PipeArgs::with_function(self)?
+            .with_ignore_sigint(true)
+            .with_model_in(optimize::storage::model_in()?)
+            .with_model_out(optimize::storage::model_out()?);
+        pipe.loop_forever_async().await
+    }
+}
+
+#[async_trait]
+impl RemoteFunction for Optimizer {
+    type Input = optimize::storage::Request;
+    type Output = optimize::storage::Response;
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn call(
+        &self,
+        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        inputs
+            .into_vec()
+            .into_iter()
+            .map(|input| {
+                let function = self.clone();
+                async move { function.call_one(input).await }
+            })
+            .collect::<FuturesOrdered<_>>()
+            .try_collect()
+            .await
+            .map(|outputs| PipeMessages::Batch(outputs))
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn call_one(
+        &self,
+        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
+        let optimize::storage::Request {
+            policy,
+            storage: ObjectMetadata { name, namespace },
+        } = &input.value;
+
+        match self
+            .ctx
+            .solve_next_storage(namespace, &name, *policy, None)
+            .await
+        {
+            Some(target) => {
+                let value = target.name_any().clone();
+                Ok(PipeMessage::with_request(&input, vec![], Some(value)))
+            }
+            None => Ok(PipeMessage::with_request(&input, vec![], None)),
+        }
+    }
+}
 
 pub struct StorageLoader<'a> {
     ctx: &'a OptimizerContext,
@@ -23,6 +96,7 @@ impl<'a> StorageLoader<'a> {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn load(&self) -> Result<()> {
+        info!("loading storage info");
         let kube = &*self.ctx.kube;
         let api = Api::<ModelStorageCrd>::all(kube.clone());
         let lp = ListParams::default();
@@ -31,8 +105,11 @@ impl<'a> StorageLoader<'a> {
         let mut plans = Vec::with_capacity(crds.len());
         {
             let mut storage = self.ctx.storage.write().await;
-            for crd in crds {
-                if let Some(plan) = storage.add_storage(kube, crd).await? {
+            for crd in crds
+                .into_iter()
+                .sorted_by_key(|crd| crd.creation_timestamp())
+            {
+                if let Some(plan) = storage.add_storage(crd).await? {
                     plans.push(plan);
                 }
             }
@@ -47,7 +124,7 @@ impl<'a> StorageLoader<'a> {
 
 #[derive(Clone, Debug, Default)]
 pub struct StorageDimension {
-    dimensions: HashMap<String, Arc<RwLock<NamespacedStorageDimension>>>,
+    dimensions: BTreeMap<String, Arc<RwLock<NamespacedStorageDimension>>>,
 }
 
 impl StorageDimension {
@@ -57,17 +134,13 @@ impl StorageDimension {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     #[must_use]
-    pub async fn add_storage(
-        &mut self,
-        kube: &Client,
-        crd: ModelStorageCrd,
-    ) -> Result<Option<StoragePlan>> {
+    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<StoragePlan>> {
         let namespace = crd
             .namespace()
             .ok_or_else(|| anyhow!("storage namespace should be exist"))?;
 
         let storage = self.dimensions.entry(namespace.clone()).or_default();
-        storage.write().await.add_storage(kube, namespace, crd)
+        storage.write().await.add_storage(namespace, crd)
     }
 }
 
@@ -77,12 +150,16 @@ pub struct NamespacedStorageDimension {
     crds: Vec<Arc<ModelStorageCrd>>,
     latency_ms: Array2<i64>,
     map: Array2<bool>,
-    names: HashMap<String, usize>,
+    names: BTreeMap<String, usize>,
     throughput_per_sec: Array2<i64>,
     usage: Array1<i64>,
 }
 
 impl NamespacedStorageDimension {
+    pub fn exists(&self, name: &str) -> bool {
+        self.names.contains_key(name)
+    }
+
     pub fn is_ready(&self, name: &str) -> bool {
         self.names
             .get(name)
@@ -95,11 +172,10 @@ impl NamespacedStorageDimension {
     #[must_use]
     fn add_storage(
         &mut self,
-        kube: &Client,
         namespace: String,
         crd: ModelStorageCrd,
     ) -> Result<Option<StoragePlan>> {
-        let metadata = StorageMetadata {
+        let metadata = ObjectMetadata {
             name: crd.name_any(),
             namespace,
         };
@@ -134,9 +210,27 @@ impl NamespacedStorageDimension {
         }
     }
 
-    #[instrument(level = Level::INFO, skip_all)]
     #[must_use]
-    pub fn solve_next(
+    pub fn solve_next_model_storage_binding(
+        &self,
+        name: &str,
+        policy: ModelClaimBindingPolicy,
+    ) -> Option<String> {
+        self.names
+            .keys()
+            .zip(
+                self.capacity
+                    .iter()
+                    .copied()
+                    .zip(self.usage.iter().copied())
+                    .map(|(capacity, usage)| usage - capacity),
+            )
+            .max_by_key(|(_, available)| *available)
+            .map(|(storage, _)| storage.clone())
+    }
+
+    #[must_use]
+    pub fn solve_next_storage(
         &self,
         name: &str,
         policy: ModelClaimBindingPolicy,
@@ -147,19 +241,27 @@ impl NamespacedStorageDimension {
             ModelClaimBindingPolicy::LowestCopy => |start, end| -((start + end) as i64),
             ModelClaimBindingPolicy::LowestLatency => |start, end| -((start + end) as i64),
         };
+        let try_get_score = |start, end| {
+            if self.map[(start, end)] {
+                get_score(start, end)
+            } else {
+                0
+            }
+        };
 
         let start = self.names.get(name).copied()?;
         let next = (0..self.names.len())
             .filter(|&end| start != end)
             .filter(|&index| self.map[(index, index)])
-            .max_by_key(|&end| get_score(start, end))?;
+            .rev()
+            .max_by_key(|&end| try_get_score(start, end))?;
         self.crds.get(next).cloned()
     }
 }
 
 #[derive(Debug)]
 pub enum StoragePlan {
-    Discover { metadata: StorageMetadata },
+    Discover { metadata: ObjectMetadata },
 }
 
 #[async_trait]
@@ -168,7 +270,7 @@ impl Plan for StoragePlan {
     async fn exec(&self, ctx: &OptimizerContext) -> Result<()> {
         match self {
             Self::Discover { metadata } => {
-                let StorageMetadata { name, namespace } = metadata;
+                let ObjectMetadata { name, namespace } = metadata;
                 let storage = match ctx.storage.read().await.dimensions.get(namespace).cloned() {
                     Some(storage) => storage,
                     None => {
@@ -206,19 +308,6 @@ impl Plan for StoragePlan {
                 Ok(())
             }
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StorageMetadata {
-    name: String,
-    namespace: String,
-}
-
-impl fmt::Display for StorageMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { name, namespace } = self;
-        write!(f, "{namespace}/{name}")
     }
 }
 

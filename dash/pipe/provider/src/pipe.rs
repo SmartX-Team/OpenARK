@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     process::exit,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -10,7 +11,8 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use ark_core_k8s::data::Name;
-use clap::{ArgAction, Parser};
+use clap::{ArgAction, Args, Parser};
+use derivative::Derivative;
 use futures::Future;
 use opentelemetry::global;
 use schemars::JsonSchema;
@@ -25,14 +27,21 @@ use tokio::{
 use tracing::{debug, error, info, instrument, warn, Level};
 
 use crate::{
-    function::{Function, FunctionBuilder, FunctionContext},
-    message::{Codec, PipeMessages},
+    function::{
+        Function, FunctionBuilder, FunctionContext, OwnedFunctionBuilder, OwnedFunctionBuilderArgs,
+        RemoteFunction,
+    },
+    message::{Codec, PipeMessage, PipeMessages, PipePayload},
     messengers::{init_messenger, MessengerArgs, Publisher, PublisherExt, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
-    PipeMessage, PipePayload,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+#[derive(Derivative, Serialize, Deserialize, Parser)]
+#[derivative(
+    Clone(bound = "<F as FunctionBuilder>::Args: Clone"),
+    Debug(bound = "<F as FunctionBuilder>::Args: fmt::Debug")
+)]
+#[serde(bound = "<F as FunctionBuilder>::Args: Serialize + DeserializeOwned")]
 pub struct PipeArgs<F>
 where
     F: FunctionBuilder,
@@ -61,6 +70,10 @@ where
     #[command(flatten)]
     function_args: <F as FunctionBuilder>::Args,
 
+    #[arg(long, env = "PIPE_IGNORE_SIGINT", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    ignore_sigint: bool,
+
     #[arg(long, env = "RUST_LOG")]
     #[serde(default)]
     log_level: Option<String>,
@@ -88,11 +101,28 @@ where
     storage: crate::storage::StorageArgs,
 }
 
+impl<F> PipeArgs<OwnedFunctionBuilder<F>>
+where
+    F: Send + Sync + RemoteFunction,
+    <F as RemoteFunction>::Input: fmt::Debug + DeserializeOwned + JsonSchema,
+    <F as RemoteFunction>::Output: fmt::Debug + Serialize + JsonSchema,
+{
+    pub fn with_function(function: F) -> Result<Self> {
+        Ok(Self {
+            function_args: OwnedFunctionBuilderArgs::new(function),
+            ..Self::try_parse()?
+        })
+    }
+}
+
 impl<F> PipeArgs<F>
 where
     F: FunctionBuilder,
 {
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Self
+    where
+        <F as FunctionBuilder>::Args: Args,
+    {
         Self::parse()
     }
 
@@ -120,6 +150,11 @@ where
         self
     }
 
+    pub fn with_ignore_sigint(mut self, ignore_sigint: bool) -> Self {
+        self.ignore_sigint = ignore_sigint;
+        self
+    }
+
     pub fn with_model_in(mut self, model_in: Name) -> Self {
         self.model_in = Some(model_in);
         self
@@ -135,13 +170,15 @@ impl<F> PipeArgs<F>
 where
     F: FunctionBuilder,
 {
-    #[instrument(level = Level::INFO, err(Display))]
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
         let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Task Context");
         let mut function_context = FunctionContext::new(messenger.messenger_type());
-        function_context.clone().trap_on_sigint()?;
+        if !self.ignore_sigint {
+            function_context.clone().trap_on_sigint()?;
+        }
 
         // Do not load payloads on writer mode
         if self.model_in.is_none() {
@@ -272,12 +309,12 @@ where
     }
 
     pub fn loop_forever(&self) {
-        match ::tokio::runtime::Builder::new_multi_thread()
+        let runtime = ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
-            .expect("failed to init tokio runtime")
-            .block_on(self.loop_forever_async())
-        {
+            .expect("failed to init tokio runtime");
+
+        match runtime.block_on(self.loop_forever_async()) {
             Ok(()) => {
                 info!("Terminated.");
                 global::shutdown_tracer_provider();
@@ -290,7 +327,7 @@ where
         }
     }
 
-    async fn loop_forever_async(&self) -> Result<()> {
+    pub async fn loop_forever_async(&self) -> Result<()> {
         match &self.log_level {
             Some(level) => ::ark_core::tracer::init_once_with(level),
             None => ::ark_core::tracer::init_once(),
@@ -506,7 +543,7 @@ where
         {
             Some(input) => {
                 if self.function_context.is_disabled_load() || input.payloads.is_empty() {
-                    send_one(&self.tx, input.load_payloads_as_empty()).await
+                    send_one(&self.tx, input.drop_payloads()).await
                 } else {
                     let storage = self.storage.clone();
                     let tx = self.tx.clone();
@@ -562,7 +599,7 @@ impl WriteContext {
                 self.atomic_session
                     .alloc(async {
                         let outputs = if self.function_context.is_disabled_store() {
-                            messages.load_payloads_as_empty()
+                            messages.drop_payloads()
                         } else {
                             messages
                                 .dump_payloads(&self.storage, input_payloads)

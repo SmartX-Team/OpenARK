@@ -19,6 +19,7 @@ version = { workspace = true }
 [dependencies]
 ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
+dash-optimizer-api = { path = "./api" }
 dash-optimizer-fallback = { path = "./fallback" }
 dash-pipe-provider = { path = "../pipe/provider" }
 dash-provider-api = { path = "../provider/api" }
@@ -26,8 +27,12 @@ dash-provider-api = { path = "../provider/api" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 byte-unit = { workspace = true }
-ndarray = { workspace = true }
+clap = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
 kube = { workspace = true }
+ndarray = { workspace = true }
+opentelemetry = { workspace = true }
 or-tools = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }

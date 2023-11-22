@@ -1,35 +1,31 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use clap::Parser;
 use dash_api::{
     model::ModelCrd, model_claim::ModelClaimBindingPolicy,
     model_storage_binding::ModelStorageBindingCrd, storage::ModelStorageKind,
 };
-use dash_optimizer_api::{
-    optimize::{Request, Response},
-    topics,
-};
+use dash_optimizer_api::optimize;
 use dash_pipe_provider::{
-    messengers::{init_messenger, MessengerArgs, Publisher},
-    PipeMessage,
+    messengers::{init_messenger, MessengerArgs},
+    PipeMessage, RemoteFunction, StatelessRemoteFunction,
 };
 use dash_provider::storage::KubernetesStorageClient;
 use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
 pub struct OptimizerClient {
-    publisher: Arc<dyn Publisher>,
+    function: StatelessRemoteFunction<optimize::model::Request, optimize::model::Response>,
 }
 
 impl OptimizerClient {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default() -> Result<Self> {
         let args = MessengerArgs::try_parse()?;
-        let messenger = init_messenger::<()>(&args).await?;
+        let messenger = init_messenger(&args).await?;
 
         Ok(Self {
-            publisher: messenger.publish(topics::optimize_model_in()?).await?,
+            function: StatelessRemoteFunction::try_new(&messenger, optimize::model::model_in()?)
+                .await?,
         })
     }
 
@@ -44,17 +40,16 @@ impl OptimizerClient {
     ) -> Result<Option<ModelStorageBindingCrd>> {
         let request = PipeMessage::<_, ()>::new(
             vec![],
-            Request {
+            optimize::model::Request {
                 model: Some(model.clone()),
-                policy: Some(policy),
+                policy,
                 storage,
             },
         );
         match self
-            .publisher
-            .request_one((&request).try_into()?)
+            .function
+            .call_one(request)
             .await
-            .and_then(PipeMessage::<Response, ()>::try_from)
             .map(|message| message.value)
         {
             Ok(Some(storage_binding)) => kubernetes_storage

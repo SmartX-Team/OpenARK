@@ -59,6 +59,8 @@ spec:
     subscribe:
       - _inbox.*
       - _INBOX.>
+      - dash.optimize.>
+      - dash.schedule.>
       - dash.raw.>
 ---
 apiVersion: v1

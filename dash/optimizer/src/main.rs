@@ -1,31 +1,50 @@
-use ark_core::tracer;
-
 mod ctx;
+mod model;
 mod plan;
 mod router;
 mod storage;
+
+use std::process::exit;
+
+use anyhow::Result;
+use ark_core::tracer;
+use opentelemetry::global;
+use tokio::try_join;
+use tracing::{error, info, instrument, Level};
+
+use self::ctx::Optimizer;
+
+#[instrument(level = Level::INFO, skip_all, err(Display))]
+async fn try_main() -> Result<()> {
+    // init optimizer context
+    let ctx = self::ctx::OptimizerContext::try_default().await.unwrap();
+
+    // load optimizer data
+    let loader = self::storage::StorageLoader::new(&ctx);
+    loader.load().await.unwrap();
+
+    // spawn handlers
+    try_join!(
+        self::model::Optimizer::new(&ctx).loop_forever(),
+        self::storage::Optimizer::new(&ctx).loop_forever(),
+    )?;
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() {
     tracer::init_once();
 
-    let ctx = self::ctx::OptimizerContext::try_default().await.unwrap();
-
-    let loader = self::storage::StorageLoader::new(&ctx);
-    loader.load().await.unwrap();
-
-    if let Some(next) = ctx
-        .solve_next_storage(
-            "tenant-d",
-            "tenant-a",
-            ::dash_api::model_claim::ModelClaimBindingPolicy::LowestCopy,
-            None,
-        )
-        .await
-    {
-        dbg!(&next.metadata.name);
-    } else {
-        panic!();
+    match try_main().await {
+        Ok(()) => {
+            info!("Terminated.");
+            global::shutdown_tracer_provider();
+        }
+        Err(error) => {
+            error!("{error}");
+            global::shutdown_tracer_provider();
+            exit(1)
+        }
     }
 
     // use ndarray::Array2;

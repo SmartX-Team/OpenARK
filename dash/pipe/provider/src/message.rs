@@ -62,17 +62,17 @@ where
         }
     }
 
-    pub(crate) fn load_payloads_as_empty<P>(self) -> PipeMessages<Value, P>
+    pub(crate) fn drop_payloads<P>(self) -> PipeMessages<Value, P>
     where
         P: Default + JsonSchema,
     {
         match self {
             PipeMessages::None => PipeMessages::None,
-            PipeMessages::Single(value) => PipeMessages::Single(value.load_payloads_as_empty()),
+            PipeMessages::Single(value) => PipeMessages::Single(value.drop_payloads()),
             PipeMessages::Batch(values) => PipeMessages::Batch(
                 values
                     .into_iter()
-                    .map(|value| value.load_payloads_as_empty())
+                    .map(|value| value.drop_payloads())
                     .collect(),
             ),
         }
@@ -379,6 +379,23 @@ where
         }
     }
 
+    pub fn with_request<P, V>(
+        request: &PipeMessage<V, P>,
+        payloads: Vec<PipePayload<Payload>>,
+        value: Value,
+    ) -> Self
+    where
+        P: Default + JsonSchema,
+        V: Default,
+    {
+        Self {
+            payloads,
+            timestamp: Utc::now(),
+            reply: request.reply.clone(),
+            value,
+        }
+    }
+
     pub(crate) fn with_reply_inbox(mut self, inbox: String) -> Self {
         self.reply = Some(PipeReply {
             inbox,
@@ -418,7 +435,7 @@ where
         })
     }
 
-    pub(crate) fn load_payloads_as_empty<P>(self) -> PipeMessage<Value, P>
+    pub(crate) fn drop_payloads<P>(self) -> PipeMessage<Value, P>
     where
         P: Default + JsonSchema,
     {
@@ -426,7 +443,7 @@ where
             payloads: self
                 .payloads
                 .into_iter()
-                .map(|payload| payload.load_as_empty())
+                .map(|payload| payload.drop())
                 .collect(),
             reply: self.reply,
             timestamp: self.timestamp,
@@ -550,7 +567,7 @@ where
         })
     }
 
-    fn load_as_empty<T>(self) -> PipePayload<T>
+    fn drop<T>(self) -> PipePayload<T>
     where
         T: Default + JsonSchema,
     {
@@ -643,8 +660,8 @@ pub struct PipeReply {
     JsonSchema,
 )]
 pub enum Codec {
-    Json,
     #[default]
+    Json,
     MessagePack,
 }
 

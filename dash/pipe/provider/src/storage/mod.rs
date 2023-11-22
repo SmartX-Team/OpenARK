@@ -199,7 +199,7 @@ where
         let mut list = self.list_metadata().await?;
         Ok(try_stream! {
             while let Some(message) = list.try_next().await? {
-                yield message.load_payloads_as_empty();
+                yield message.drop_payloads();
             }
         }
         .boxed())

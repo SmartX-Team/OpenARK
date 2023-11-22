@@ -55,6 +55,73 @@ pub trait Messenger<Value = ::serde_json::Value> {
 }
 
 #[async_trait]
+impl<T, Value> Messenger<Value> for &T
+where
+    T: Send + Sync + Messenger<Value>,
+{
+    fn messenger_type(&self) -> MessengerType {
+        <T as Messenger<Value>>::messenger_type(*self)
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
+        <T as Messenger<Value>>::publish(*self, topic).await
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
+    where
+        Value: Send + Default + DeserializeOwned,
+    {
+        <T as Messenger<Value>>::subscribe(*self, topic).await
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn subscribe_queued(
+        &self,
+        topic: Name,
+        queue_group: Name,
+    ) -> Result<Box<dyn Subscriber<Value>>>
+    where
+        Value: Send + Default + DeserializeOwned,
+    {
+        <T as Messenger<Value>>::subscribe_queued(*self, topic, queue_group).await
+    }
+}
+
+#[async_trait]
+impl<Value> Messenger<Value> for Box<dyn Send + Sync + Messenger<Value>> {
+    fn messenger_type(&self) -> MessengerType {
+        self.as_ref().messenger_type()
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
+        self.as_ref().publish(topic).await
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
+    where
+        Value: Send + Default + DeserializeOwned,
+    {
+        self.as_ref().subscribe(topic).await
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn subscribe_queued(
+        &self,
+        topic: Name,
+        queue_group: Name,
+    ) -> Result<Box<dyn Subscriber<Value>>>
+    where
+        Value: Send + Default + DeserializeOwned,
+    {
+        self.as_ref().subscribe_queued(topic, queue_group).await
+    }
+}
+
+#[async_trait]
 pub trait Publisher
 where
     Self: Send + Sync,

@@ -7,17 +7,17 @@ use std::{
     },
 };
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, bail, Error, Result};
 use ark_core_k8s::data::Name;
 use async_trait::async_trait;
-use clap::Args;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{info, instrument, Level};
 
 use crate::{
-    message::PipeMessages,
+    message::{PipeMessage, PipeMessages},
     messengers::{Messenger, MessengerType, Publisher},
     storage::StorageIO,
 };
@@ -107,8 +107,96 @@ pub mod deltalake {
     }
 }
 
+#[derive(Clone)]
+pub struct OwnedFunctionBuilder<F>(Arc<F>);
+
+impl<F> fmt::Debug for OwnedFunctionBuilder<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("OwnedFunctionBuilder").finish()
+    }
+}
+
 #[async_trait]
-pub trait RemoteFunction {
+impl<F> FunctionBuilder for OwnedFunctionBuilder<F>
+where
+    F: Send + Sync + RemoteFunction,
+    <F as RemoteFunction>::Input: fmt::Debug + DeserializeOwned + JsonSchema,
+    <F as RemoteFunction>::Output: fmt::Debug + Serialize + JsonSchema,
+{
+    type Args = OwnedFunctionBuilderArgs<F>;
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn try_new(
+        OwnedFunctionBuilderArgs(f): &<Self as FunctionBuilder>::Args,
+        _ctx: &mut FunctionContext,
+        _storage: &Arc<StorageIO>,
+    ) -> Result<Self> {
+        match f {
+            Some(f) => Ok(Self(f.clone())),
+            None => bail!("cannot create empty owned function"),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct OwnedFunctionBuilderArgs<F>(Option<Arc<F>>);
+
+impl<F> OwnedFunctionBuilderArgs<F> {
+    pub(crate) fn new(function: F) -> Self {
+        Self(Some(Arc::new(function)))
+    }
+}
+
+impl<F> FromArgMatches for OwnedFunctionBuilderArgs<F> {
+    fn from_arg_matches(_matches: &ArgMatches) -> Result<Self, ::clap::Error> {
+        Ok(Self(None))
+    }
+
+    fn update_from_arg_matches(&mut self, _matches: &ArgMatches) -> Result<(), ::clap::Error> {
+        Ok(())
+    }
+}
+
+impl<F> Args for OwnedFunctionBuilderArgs<F> {
+    fn augment_args(cmd: Command) -> Command {
+        cmd
+    }
+
+    fn augment_args_for_update(cmd: Command) -> Command {
+        cmd
+    }
+}
+
+#[async_trait]
+impl<F> RemoteFunction for OwnedFunctionBuilder<F>
+where
+    F: RemoteFunction,
+{
+    type Input = <F as RemoteFunction>::Input;
+    type Output = <F as RemoteFunction>::Output;
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn call(
+        &self,
+        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        self.0.call(inputs).await
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn call_one(
+        &self,
+        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
+        self.0.call_one(input).await
+    }
+}
+
+#[async_trait]
+pub trait RemoteFunction
+where
+    Self: Send + Sync,
+{
     type Input: 'static + Send + Sync + Default + Serialize;
     type Output: 'static + Send + Sync + Default + DeserializeOwned;
 
@@ -116,6 +204,11 @@ pub trait RemoteFunction {
         &self,
         inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
     ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>>;
+
+    async fn call_one(
+        &self,
+        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>>;
 }
 
 pub type GenericStatelessRemoteFunction =
@@ -130,8 +223,9 @@ pub struct StatelessRemoteFunction<Input, Output> {
 
 impl<Input, Output> StatelessRemoteFunction<Input, Output> {
     #[instrument(level = Level::INFO, skip(messenger), err(Display))]
-    pub async fn try_new(messenger: &dyn Messenger<Output>, model_in: Name) -> Result<Self>
+    pub async fn try_new<M>(messenger: M, model_in: Name) -> Result<Self>
     where
+        M: Send + Sync + Messenger<Output>,
         Output: Send + Default + DeserializeOwned,
     {
         Ok(Self {
@@ -189,14 +283,26 @@ where
             .await
             .map(|outputs| PipeMessages::Batch(outputs))
     }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn call_one(
+        &self,
+        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
+        let publisher = self.publisher.clone();
+        publisher
+            .request_one((&input).try_into()?)
+            .await
+            .and_then(|outputs| outputs.try_into())
+    }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait FunctionBuilder
 where
     Self: fmt::Debug + Function,
 {
-    type Args: Clone + fmt::Debug + Serialize + DeserializeOwned + Args;
+    type Args: Send + Args;
 
     async fn try_new(
         args: &<Self as FunctionBuilder>::Args,
@@ -207,7 +313,7 @@ where
         Self: Sized;
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl<T> Function for T
 where
     T: RemoteFunction,
@@ -220,15 +326,15 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn tick(
         &mut self,
-        inputs: PipeMessages<<Self as RemoteFunction>::Input>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output>> {
-        self.call(inputs.load_payloads_as_empty())
+        inputs: PipeMessages<<Self as Function>::Input>,
+    ) -> Result<PipeMessages<<Self as Function>::Output>> {
+        self.call(inputs.drop_payloads())
             .await
-            .map(|outputs| outputs.load_payloads_as_empty())
+            .map(|outputs| outputs.drop_payloads())
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Function {
     type Input: 'static + Send + Sync + Default + fmt::Debug + DeserializeOwned + JsonSchema;
     type Output: 'static + Send + Sync + Default + fmt::Debug + Serialize + JsonSchema;
