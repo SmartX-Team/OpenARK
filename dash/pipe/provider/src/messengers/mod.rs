@@ -18,9 +18,7 @@ use tracing::{debug, instrument, Level};
 use crate::message::{PipeMessage, PipeReply};
 
 #[instrument(level = Level::INFO, skip_all, err(Display))]
-pub async fn init_messenger<Value>(
-    args: &MessengerArgs,
-) -> Result<Box<dyn Send + Sync + Messenger<Value>>> {
+pub async fn init_messenger<Value>(args: &MessengerArgs) -> Result<Box<dyn Messenger<Value>>> {
     debug!("Initializing Messenger IO");
 
     Ok(match args.default_messenger {
@@ -32,7 +30,10 @@ pub async fn init_messenger<Value>(
 }
 
 #[async_trait]
-pub trait Messenger<Value = ::serde_json::Value> {
+pub trait Messenger<Value = ::serde_json::Value>
+where
+    Self: Send + Sync,
+{
     fn messenger_type(&self) -> MessengerType;
 
     async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>>;
@@ -57,7 +58,7 @@ pub trait Messenger<Value = ::serde_json::Value> {
 #[async_trait]
 impl<T, Value> Messenger<Value> for &T
 where
-    T: Send + Sync + Messenger<Value>,
+    T: ?Sized + Messenger<Value>,
 {
     fn messenger_type(&self) -> MessengerType {
         <T as Messenger<Value>>::messenger_type(*self)
@@ -90,7 +91,7 @@ where
 }
 
 #[async_trait]
-impl<Value> Messenger<Value> for Box<dyn Send + Sync + Messenger<Value>> {
+impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
     fn messenger_type(&self) -> MessengerType {
         self.as_ref().messenger_type()
     }

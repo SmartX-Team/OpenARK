@@ -36,10 +36,7 @@ impl DashFunctionTemplate {
     }
 
     #[instrument(level = Level::INFO, skip(self, messenger), fields(function = %self), err(Display))]
-    pub(crate) async fn try_into_udf(
-        self,
-        messenger: &(dyn Send + Sync + Messenger),
-    ) -> Result<ScalarUDF> {
+    pub(crate) async fn try_into_udf(self, messenger: &dyn Messenger) -> Result<ScalarUDF> {
         let info = self.to_string();
 
         let Self {

@@ -225,7 +225,7 @@ impl<Input, Output> StatelessRemoteFunction<Input, Output> {
     #[instrument(level = Level::INFO, skip(messenger), err(Display))]
     pub async fn try_new<M>(messenger: M, model_in: Name) -> Result<Self>
     where
-        M: Send + Sync + Messenger<Output>,
+        M: Messenger<Output>,
         Output: Send + Default + DeserializeOwned,
     {
         Ok(Self {
