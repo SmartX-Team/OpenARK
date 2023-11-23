@@ -2,19 +2,39 @@
 #   Desktop Deployment                                    #
 ###########################################################
 ---
+{% if spec.persistence %}
+apiVersion: apps/v1
+kind: Deployment
+{% else %}
 apiVersion: batch/v1
 kind: Job
+{% endif %}
 metadata:
-  name: "desktop-{{ spec.node.metadata.name }}"
+  name: desktop
   namespace: "{{ metadata.namespace }}"
+  labels:
+    name: desktop
+    node: "{{ spec.node.metadata.name }}"
 spec:
+{% if spec.persistence %}
+  replicas: 1
+  selector:
+    matchLabels:
+      name: desktop
+      node: "{{ spec.node.metadata.name }}"
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+{% else %}
   backoffLimit: 1
   suspend: false
   ttlSecondsAfterFinished: 1
+{% endif %}
   template:
     metadata:
       labels:
         name: desktop
+        node: "{{ spec.node.metadata.name }}"
     spec:
       affinity:
         nodeAffinity:
@@ -199,7 +219,9 @@ spec:
 {% else %}
       hostname: "desktop-{{ metadata.namespace }}"
 {% endif %}
+{% if not spec.persistence %}
       restartPolicy: Never
+{% endif %}
       securityContext:
 {% if spec.boxQuota.desktop.context.root or spec.boxQuota.desktop.context.sudo %}
         runAsNonRoot: false
@@ -314,8 +336,11 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "novnc-{{ spec.node.metadata.name }}"
+  name: novnc
   namespace: "{{ metadata.namespace }}"
+  labels:
+    name: novnc
+    node: "{{ spec.node.metadata.name }}"
 spec:
   replicas: 1
   strategy:
@@ -323,11 +348,13 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: "novnc-{{ spec.node.metadata.name }}"
+      name: novnc
+      node: "{{ spec.node.metadata.name }}"
   template:
     metadata:
       labels:
-        name: "novnc-{{ spec.node.metadata.name }}"
+        name: novnc
+        node: "{{ spec.node.metadata.name }}"
     spec:
       affinity:
         nodeAffinity:
@@ -404,11 +431,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: "novnc-{{ spec.node.metadata.name }}"
+  name: novnc
   namespace: "{{ metadata.namespace }}"
+  labels:
+    name: novnc
+    node: "{{ spec.node.metadata.name }}"
 spec:
   selector:
-    name: "novnc-{{ spec.node.metadata.name }}"
+    name: novnc
+    node: "{{ spec.node.metadata.name }}"
   ports:
     # - name: vnc
     #   port: 5900
@@ -422,7 +453,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: "novnc-{{ spec.node.metadata.name }}"
+  name: novnc
   namespace: "{{ metadata.namespace }}"
   annotations:
     cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
@@ -437,6 +468,9 @@ metadata:
     vine.ulagbulag.io/is-service-public: "false"
     vine.ulagbulag.io/is-service-system: "true"
     vine.ulagbulag.io/service-kind: noVNC ({{ spec.node.metadata.name }})
+  labels:
+    name: novnc
+    node: "{{ spec.node.metadata.name }}"
 spec:
   rules:
     - host: ingress-nginx-controller.vine.svc.ops.openark
@@ -446,21 +480,21 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: "novnc-{{ spec.node.metadata.name }}"
+                name: novnc
                 port:
                   number: 80
           # - path: "/box/{{ spec.node.metadata.name }}/vnc(/|$)(.*)"
           #   pathType: Prefix
           #   backend:
           #     service:
-          #       name: "novnc-{{ spec.node.metadata.name }}"
+          #       name: novnc
           #       port:
           #         number: 5900
           - path: "/user/{{ spec.userName }}/vnc(/|$)(.*)"
             pathType: Prefix
             backend:
               service:
-                name: "novnc-{{ spec.node.metadata.name }}"
+                name: novnc
                 port:
                   number: 80
 ###########################################################
@@ -473,6 +507,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: desktop
   namespace: "{{ metadata.namespace }}"
+  labels:
+    name: desktop
+    node: "{{ spec.node.metadata.name }}"
 spec:
   accessModes:
     - ReadWriteOnce
