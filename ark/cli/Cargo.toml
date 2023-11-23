@@ -25,11 +25,19 @@ ark-core = { path = "../core" }
 ark-core-k8s = { path = "../core/k8s", features = ["data"] }
 dash-pipe-api = { path = "../../dash/pipe/api" }
 dash-query-cli = { path = "../../dash/query/cli" }
+vine-api = { path = "../../vine/api" }
+vine-rbac = { path = "../../vine/rbac" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
 itertools = { workspace = true }
 procfs = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
