@@ -337,12 +337,17 @@ impl SessionManager {
         };
 
         let node_name = node.name_any();
+        let persistence = node
+            .labels()
+            .get(::ark_api::consts::LABEL_BIND_PERSISTENT)
+            .and_then(|value| value.parse().ok())
+            .unwrap_or_default();
         let patch = Patch::Apply(json!({
             "apiVersion": K::api_version(&()),
             "kind": K::kind(&()),
             "metadata": {
                 "name": name,
-                "labels": get_label(&node_name, user_name),
+                "labels": get_label(&node_name, user_name, persistence),
             },
         }));
         api.patch(name, &pp, &patch)
@@ -515,12 +520,12 @@ pub struct SessionContextSpec<'a> {
     pub user_name: &'a str,
 }
 
-fn get_label(node_name: &str, user_name: Option<&str>) -> Value {
+fn get_label(node_name: &str, user_name: Option<&str>, persistent: bool) -> Value {
     json!({
         ::ark_api::consts::LABEL_BIND_BY_USER: user_name,
         ::ark_api::consts::LABEL_BIND_NAMESPACE: user_name.map(UserCrd::user_namespace_with),
         ::ark_api::consts::LABEL_BIND_NODE: node_name,
-        ::ark_api::consts::LABEL_BIND_PERSISTENT: "false",
+        ::ark_api::consts::LABEL_BIND_PERSISTENT: persistent.to_string(),
         ::ark_api::consts::LABEL_BIND_STATUS: user_name.is_some().to_string(),
         ::ark_api::consts::LABEL_BIND_TIMESTAMP: user_name.map(|_| Utc::now().timestamp_millis().to_string()),
     })
