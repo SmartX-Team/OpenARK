@@ -54,6 +54,10 @@ until curl --max-time 1 --silent "${VINE_BASTION_ENTRYPOINT}" 2>/dev/null; do
     sleep 1
 done
 
+# Mark as connected
+chown "$(id -u):$(id -g)" /tmp/.vine 2>/dev/null || sudo chown "$(id -u):$(id -g)" /tmp/.vine
+touch /tmp/.vine/.login-shell
+
 while :; do
     echo "Waiting until logged out..."
     until kubectl get node "${NODENAME}" \

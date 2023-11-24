@@ -538,7 +538,7 @@ echo "Starting Xorg display server ..."
 PID_DISPLAY=\$!
 
 # Skip installation if already done
-if [ -d "/tmp/.vine" ]; then
+if [ -f "/tmp/.vine/.login-shell" ]; then
     exec sleep infinity
 fi
 
@@ -555,21 +555,21 @@ SCREEN_HEIGHT="480"
 # Configure screen size
 function update_screen_size() {
     echo "Finding displays..."
-    screens="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
-    if [ "x${screens}" == "x" ]; then
+    screens="\$(xrandr --current | grep ' connected ' | awk '{print \$1}')"
+    if [ "x\${screens}" == "x" ]; then
         echo 'Display not found!'
         exit 1
     fi
 
-    for screen in $(echo -en "${screens}"); do
-        echo "Fixing screen size (${screen})..."
-        until [ "$(
+    for screen in \$(echo -en "\${screens}"); do
+        echo "Fixing screen size (\${screen})..."
+        until [ "\$(
             xrandr --current |
                 grep ' connected' |
                 grep -Po '[0-9]+x[0-9]+' |
                 head -n1
-        )" == "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" ]; do
-            xrandr --output "${screen}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
+        )" == "\${SCREEN_WIDTH}x\${SCREEN_HEIGHT}" ]; do
+            xrandr --output "\${screen}" --mode "\${SCREEN_WIDTH}x\${SCREEN_HEIGHT}"
             sleep 1
         done
     done
@@ -586,6 +586,11 @@ function update_window() {
 }
 
 update_screen_size
+
+# Wait some times to get network connection
+until curl --max-time 1 --silent "\${VINE_BASTION_ENTRYPOINT}" 2>/dev/null; do
+    sleep 1
+done
 
 echo "Executing a welcome shell..."
 firefox \
@@ -605,7 +610,7 @@ echo "Resizing window to fullscreen..."
 update_window 'Navigator'
 
 echo "Waiting until installation is succeeded..."
-until [ -d "/tmp/.vine" ]; do
+until [ -f "/tmp/.vine/.login-shell" ]; do
     sleep 1
 done
 
@@ -626,7 +631,7 @@ if [[ "\${XDG_SESSION_TYPE}" == "tty" && "\$(id -u)" == "2000" ]]; then
     TTY="\$(tty)"
     if [[ "\${TTY/\/dev\/tty}" == "1" ]]; then
     unset TTY
-    sudo rm -rf /tmp/.vine || true
+    rm -rf /tmp/.vine || true
     exec /usr/local/bin/xinit
     fi
     unset TTY
