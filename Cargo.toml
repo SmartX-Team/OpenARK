@@ -53,7 +53,7 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
-description = "Kubernetes Is Simple, Stupid which a part of OpenARK"
+description = "Deploy & Integrate & Manage your own Converged K8S Edge Clusters"
 documentation = "https://docs.rs/kiss-api"
 edition = "2021"
 include = ["src/**/*.rs", "Cargo.toml"]
