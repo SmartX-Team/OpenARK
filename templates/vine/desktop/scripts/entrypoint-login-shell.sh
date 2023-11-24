@@ -77,7 +77,7 @@ while :; do
         --output jsonpath \
         --template 'x{.metadata.labels.ark\.ulagbulag\.io/bind\.persistent}' 2>/dev/null |
         grep -Poq '^xtrue$'; then
-        REFRESH="false"
+        REFRESH="true"
         URL="${VINE_BASTION_ENTRYPOINT}/print/reserved"
     else
         REFRESH="true"
