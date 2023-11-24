@@ -1,11 +1,8 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use kube::Client;
 use tracing::{info, instrument, Level};
-use vine_api::{
-    user::UserSpec,
-    user_auth::{UserSessionError, UserSessionResponse},
-};
+use vine_api::{user::UserSpec, user_auth::UserSessionResponse};
 
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Command {
@@ -44,29 +41,7 @@ impl Command {
                 info!("Ok ({name})");
                 Ok(())
             }
-            UserSessionResponse::Error(error) => match error {
-                UserSessionError::AlreadyLoggedInByNode { node_name } => {
-                    bail!("The user is already logged in to {node_name:?}")
-                }
-                UserSessionError::AlreadyLoggedInByUser { user_name } => {
-                    bail!("The box is already logged in by {user_name:?}")
-                }
-                UserSessionError::AuthError(error) => bail!("Auth Error: {error}"),
-                UserSessionError::Deny {
-                    user:
-                        UserSpec {
-                            name,
-                            contact: _,
-                            detail: _,
-                        },
-                } => bail!("Denied ({name})"),
-                UserSessionError::NodeNotFound => {
-                    bail!("No such box")
-                }
-                UserSessionError::NodeNotInCluster => {
-                    bail!("No such box in the cluster")
-                }
-            },
+            UserSessionResponse::Error(error) => Err(error.into()),
         }
     }
 }

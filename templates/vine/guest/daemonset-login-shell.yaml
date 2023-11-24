@@ -105,8 +105,10 @@ spec:
               mountPath: /tmp/.X11-unix
       hostIPC: true
       securityContext:
+        runAsGroup: 2000
         runAsUser: 2000
         fsGroup: 2000
+        fsGroupChangePolicy: Always
       serviceAccount: vine-guest-system
       terminationGracePeriodSeconds: 5
       volumes:

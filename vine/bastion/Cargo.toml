@@ -33,6 +33,8 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 opentelemetry = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+tera = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

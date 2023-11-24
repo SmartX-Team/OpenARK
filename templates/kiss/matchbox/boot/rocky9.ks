@@ -626,6 +626,7 @@ if [[ "\${XDG_SESSION_TYPE}" == "tty" && "\$(id -u)" == "2000" ]]; then
     TTY="\$(tty)"
     if [[ "\${TTY/\/dev\/tty}" == "1" ]]; then
     unset TTY
+    sudo rm -rf /tmp/.vine || true
     exec /usr/local/bin/xinit
     fi
     unset TTY

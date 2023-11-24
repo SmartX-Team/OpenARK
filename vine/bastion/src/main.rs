@@ -10,6 +10,7 @@ use anyhow::Result;
 use ark_core::{env::infer, tracer};
 use kube::Client;
 use opentelemetry::global;
+use tera::Tera;
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO)]
@@ -26,10 +27,19 @@ async fn main() {
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
         let client = Data::new(Client::try_default().await?);
 
+        // Initialize tera
+        let mut tera = Tera::default();
+        tera.add_raw_template(
+            crate::routes::r#box::login::TEMPLATE_NAME,
+            crate::routes::r#box::login::TEMPLATE_CONTENT,
+        )?;
+        let tera = Data::new(tera);
+
         // Start web server
         HttpServer::new(move || {
             App::new()
                 .app_data(Data::clone(&client))
+                .app_data(Data::clone(&tera))
                 .service(health)
                 .service(crate::routes::auth::get)
                 .service(crate::routes::r#box::login::get)

@@ -4,7 +4,7 @@ use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use strum::Display;
+use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
@@ -121,14 +121,20 @@ impl From<UserAuthError> for UserSessionResponse {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Error, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserSessionError {
+    #[error("This user is already logged in to {node_name:?}")]
     AlreadyLoggedInByNode { node_name: String },
+    #[error("This node is already logged in by {user_name:?}")]
     AlreadyLoggedInByUser { user_name: String },
+    #[error("{0}")]
     AuthError(UserAuthError),
+    #[error("The user {user_name:?} has no permission to sign in. Please contact the administrator.", user_name = &user.name)]
     Deny { user: UserSpec },
+    #[error("This node is not registered. Please contact the administrator.")]
     NodeNotFound,
+    #[error("This node is not permitted. Please contact the administrator.")]
     NodeNotInCluster,
 }
 
@@ -138,13 +144,19 @@ impl From<UserAuthError> for UserSessionError {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Error, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserAuthError {
+    #[error("Malformed authorization token. Please contact the administrator.")]
     AuthorizationTokenMalformed,
+    #[error("Missing authorization token. Please contact the administrator.")]
     AuthorizationTokenNotFound,
+    #[error("This user has no permission to sign in. Please contact the administrator.")]
     NamespaceNotAllowed,
+    #[error("Missing namespace token. Please contact the administrator.")]
     NamespaceTokenMalformed,
+    #[error("Malformed primary key. Please contact the administrator.")]
     PrimaryKeyMalformed,
+    #[error("This user is not registered. Please contact the administrator.")]
     UserNotRegistered,
 }

@@ -49,6 +49,11 @@ function update_window() {
     update_screen_size
 }
 
+# Wait some times to get network connection
+until curl --max-time 1 --silent "${VINE_BASTION_ENTRYPOINT}" 2>/dev/null; do
+    sleep 1
+done
+
 while :; do
     echo "Waiting until logged out..."
     until kubectl get node "${NODENAME}" \
@@ -68,8 +73,10 @@ while :; do
         --output jsonpath \
         --template 'x{.metadata.labels.ark\.ulagbulag\.io/bind\.persistent}' 2>/dev/null |
         grep -Poq '^xtrue$'; then
+        REFRESH="false"
         URL="${VINE_BASTION_ENTRYPOINT}/print/reserved"
     else
+        REFRESH="true"
         URL="${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login"
     fi
 
@@ -100,9 +107,11 @@ while :; do
         # Session Timeout
         NOW=$(date -u +%s)
         TIMEOUT_SECS="300" # 5 minutes
-        if ((NOW - TIMESTAMP > TIMEOUT_SECS)); then
-            echo "Session timeout ($(date))"
-            break
+        if [ "x${REFRESH}" = 'xtrue' ]; then
+            if ((NOW - TIMESTAMP > TIMEOUT_SECS)); then
+                echo "Session timeout ($(date))"
+                break
+            fi
         fi
 
         sleep 1

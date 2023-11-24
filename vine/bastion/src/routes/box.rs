@@ -5,15 +5,21 @@ pub mod login {
         HttpRequest, HttpResponse, Responder,
     };
     use kube::Client;
-    use tracing::{error, instrument, Level};
+    use serde::Serialize;
+    use tera::{Context, Tera};
+    use tracing::{error, instrument, warn, Level};
     use uuid::Uuid;
     use vine_api::user_auth::UserSessionResponse;
 
-    #[instrument(level = Level::INFO, skip(request, client))]
+    pub const TEMPLATE_NAME: &str = "box_error.html";
+    pub const TEMPLATE_CONTENT: &str = include_str!("../../templates/box_error.html.j2");
+
+    #[instrument(level = Level::INFO, skip(request, client, tera))]
     #[get("/box/{box_name}/login")]
     pub async fn get(
         request: HttpRequest,
         client: Data<Client>,
+        tera: Data<Tera>,
         box_name: Path<Uuid>,
     ) -> impl Responder {
         match {
@@ -28,9 +34,38 @@ pub mod login {
                 .temporary()
                 .respond_to(&request)
                 .map_into_boxed_body(),
-            Ok(response) => HttpResponse::Forbidden().json(response),
-            Err(e) => {
-                error!("failed to login: {e}");
+            Ok(UserSessionResponse::Error(error)) => {
+                warn!("denied to login: {error}");
+                create_error_html(tera, error)
+            }
+            Err(error) => {
+                error!("failed to login: {error}");
+                create_error_html(
+                    tera,
+                    "Internal server error. Please contact the administrator.",
+                )
+            }
+        }
+    }
+
+    fn create_error_html(tera: Data<Tera>, error: impl ToString) -> HttpResponse {
+        #[derive(Serialize)]
+        struct Value {
+            error: String,
+        }
+
+        let value = Value {
+            error: error.to_string(),
+        };
+
+        match Context::from_serialize(value)
+            .and_then(|context| tera.render(TEMPLATE_NAME, &context))
+        {
+            Ok(body) => HttpResponse::Ok()
+                .content_type("text/html; charset=utf-8")
+                .body(body),
+            Err(error) => {
+                error!("failed to render box error: {error}");
                 HttpResponse::InternalServerError().finish()
             }
         }
