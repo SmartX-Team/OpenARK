@@ -63,12 +63,22 @@ while :; do
 
     update_screen_size
 
+    # Do not show the login page if it's persistent node
+    if kubectl get node "${NODENAME}" \
+        --output jsonpath \
+        --template 'x{.metadata.labels.ark\.ulagbulag\.io/bind\.persistent}' 2>/dev/null |
+        grep -Poq '^xtrue$'; then
+        URL="${VINE_BASTION_ENTRYPOINT}/print/reserved"
+    else
+        URL="${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login"
+    fi
+
     echo "Executing a login shell..."
     firefox \
         --first-startup \
         --private \
         --window-size "${SCREEN_WIDTH},${SCREEN_HEIGHT}" \
-        --kiosk "${VINE_BASTION_ENTRYPOINT}/box/${NODENAME}/login" &
+        --kiosk "${URL}" &
     PID=$!
     TIMESTAMP=$(date -u +%s)
 

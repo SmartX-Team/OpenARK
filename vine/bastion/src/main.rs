@@ -34,6 +34,7 @@ async fn main() {
                 .service(crate::routes::auth::get)
                 .service(crate::routes::r#box::login::get)
                 .service(crate::routes::install_os::get)
+                .service(crate::routes::reserved::get)
                 .service(crate::routes::welcome::get)
                 .wrap(RequestMetrics::default())
                 .wrap(RequestTracing::default())
