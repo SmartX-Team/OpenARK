@@ -77,6 +77,7 @@ impl SessionManager {
                 let spec = SessionContextSpec {
                     box_quota: None,
                     node,
+                    persistence: is_persistent(node),
                     role: None,
                     user_name: &user_name,
                 };
@@ -496,6 +497,7 @@ pub type SessionContext<'a> = ::dash_provider_api::SessionContext<&'a SessionCon
 pub struct SessionContextSpecOwned {
     pub box_quota: Option<UserBoxQuotaSpec>,
     pub node: Node,
+    pub persistence: bool,
     pub role: Option<UserRoleSpec>,
     pub user_name: String,
 }
@@ -505,6 +507,7 @@ impl SessionContextSpecOwned {
         SessionContextSpec {
             box_quota: self.box_quota.as_ref(),
             node: &self.node,
+            persistence: self.persistence,
             role: self.role.as_ref(),
             user_name: &self.user_name,
         }
@@ -516,8 +519,16 @@ impl SessionContextSpecOwned {
 pub struct SessionContextSpec<'a> {
     pub box_quota: Option<&'a UserBoxQuotaSpec>,
     pub node: &'a Node,
+    pub persistence: bool,
     pub role: Option<&'a UserRoleSpec>,
     pub user_name: &'a str,
+}
+
+pub fn is_persistent(node: &Node) -> bool {
+    node.labels()
+        .get(::ark_api::consts::LABEL_BIND_PERSISTENT)
+        .and_then(|value| value.parse().ok())
+        .unwrap_or_default()
 }
 
 fn get_label(node_name: &str, user_name: Option<&str>, persistent: bool) -> Value {

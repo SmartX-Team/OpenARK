@@ -14,7 +14,7 @@ use vine_api::{
     user_role::UserRoleCrd,
     user_role_binding::UserRoleBindingCrd,
 };
-use vine_session::{AllocationState, SessionContextSpecOwned, SessionManager};
+use vine_session::{is_persistent, AllocationState, SessionContextSpecOwned, SessionManager};
 
 #[instrument(level = Level::INFO, skip(client, f), err(Display))]
 pub async fn execute_with<'f, Fut>(
@@ -165,9 +165,12 @@ where
             let namespace = UserCrd::user_namespace_with(user_name);
             let session_manager =
                 SessionManager::try_new(namespace.clone(), client.clone()).await?;
+
+            let persistence = is_persistent(&node);
             let spec = SessionContextSpecOwned {
                 box_quota: box_quota.clone(),
                 node,
+                persistence,
                 role: Some(role),
                 user_name: user_name.into(),
             };
