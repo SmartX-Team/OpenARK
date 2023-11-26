@@ -124,14 +124,10 @@ EOF
 # Get OS Version
 VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
 
-# Installation Source Configuration
-cat <<EOF >>/tmp/kiss-config
-url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-BaseOS-${VERSION_ID}&arch=$(uname -m)"
-EOF
-
 # Repository Information
 cat <<EOF >>/tmp/kiss-config
 repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/AppStream/$(uname -m)/os/"
+repo --name=BaseOS --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/BaseOS/$(uname -m)/os/"
 repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/extras/$(uname -m)/os/"
 EOF
 
@@ -139,7 +135,6 @@ EOF
 cat <<EOF >>/tmp/kiss-config
 reboot
 EOF
-fi
 
 %end
 
