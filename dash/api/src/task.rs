@@ -31,7 +31,7 @@ use crate::model::{ModelFieldKindNativeSpec, ModelFieldKindSpec, ModelFieldsSpec
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "task version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

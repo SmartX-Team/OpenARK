@@ -81,7 +81,7 @@ impl BoxCrd {
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "box version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

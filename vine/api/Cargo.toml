@@ -21,7 +21,6 @@ ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 
 anyhow = { workspace = true }
 chrono = { workspace = true }
-email_address = { workspace = true }
 inflector = { workspace = true }
 ipnet = { workspace = true }
 k8s-openapi = { workspace = true }

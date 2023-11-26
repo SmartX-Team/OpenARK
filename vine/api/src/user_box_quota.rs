@@ -27,7 +27,7 @@ use strum::{Display, EnumString};
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "quota version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

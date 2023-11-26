@@ -20,6 +20,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
     fn get_subcrds() -> Vec<CustomResourceDefinition> {
         vec![
+            ::vine_api::display::DisplayCrd::crd(),
             ::vine_api::user::UserCrd::crd(),
             ::vine_api::user_auth::UserAuthCrd::crd(),
             ::vine_api::user_auth_binding::UserAuthBindingCrd::crd(),

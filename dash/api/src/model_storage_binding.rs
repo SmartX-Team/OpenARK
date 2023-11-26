@@ -36,7 +36,7 @@ use crate::{model::ModelSpec, storage::ModelStorageSpec};
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "binding version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

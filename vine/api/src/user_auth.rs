@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use ark_core_k8s::data::Url;
+use ark_core_k8s::data::{EmailAddress, Url};
 use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -8,9 +8,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    user::{EmailAddress, UserSpec},
-    user_box_binding::UserBoxBindingSpec,
-    user_box_quota::UserBoxQuotaSpec,
+    user::UserSpec, user_box_binding::UserBoxBindingSpec, user_box_quota::UserBoxQuotaSpec,
     user_box_quota_binding::UserBoxQuotaBindingSpec,
 };
 
@@ -30,7 +28,7 @@ use crate::{
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "user auth version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

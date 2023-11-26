@@ -32,7 +32,7 @@ use crate::model::ModelFieldsNativeSpec;
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "function version",
         "jsonPath": ".metadata.generation"
     }"#
 )]

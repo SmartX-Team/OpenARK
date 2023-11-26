@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, collections::BTreeMap, ops::Deref, str::FromStr};
+use std::collections::BTreeMap;
 
+use ark_core_k8s::data::EmailAddress;
 use chrono::{DateTime, Utc};
 use kube::{CustomResource, ResourceExt};
 use schemars::JsonSchema;
@@ -40,7 +41,7 @@ use serde::{Deserialize, Serialize};
     printcolumn = r#"{
         "name": "version",
         "type": "integer",
-        "description": "model version",
+        "description": "user version",
         "jsonPath": ".metadata.generation"
     }"#
 )]
@@ -79,50 +80,4 @@ pub struct UserContact {
     pub tel_phone: Option<String>,
     #[serde(default)]
     pub tel_office: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct EmailAddress(pub ::email_address::EmailAddress);
-
-impl FromStr for EmailAddress {
-    type Err = <::email_address::EmailAddress as FromStr>::Err;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        <::email_address::EmailAddress as FromStr>::from_str(s).map(Self)
-    }
-}
-
-impl Deref for EmailAddress {
-    type Target = ::email_address::EmailAddress;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl PartialOrd for EmailAddress {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(<Self as Ord>::cmp(self, other))
-    }
-}
-
-impl Ord for EmailAddress {
-    fn cmp(&self, other: &Self) -> Ordering {
-        <str as Ord>::cmp(self.0.as_str(), other.0.as_str())
-    }
-}
-
-impl JsonSchema for EmailAddress {
-    fn is_referenceable() -> bool {
-        false
-    }
-
-    fn schema_name() -> String {
-        "EmailAddress".into()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
-    }
 }

@@ -29,6 +29,7 @@ ark-core = { path = ".." }
 anyhow = { workspace = true, optional = true }
 async-nats = { workspace = true, optional = true }
 async-trait = { workspace = true, optional = true }
+email_address = { workspace = true }
 futures = { workspace = true, optional = true }
 k8s-openapi = { workspace = true, optional = true }
 kube = { workspace = true, optional = true, features = [
