@@ -64,10 +64,10 @@ spec:
                       - Desktop
       containers:
         - name: login-shell
+          command:
+            - /opt/scripts/entrypoint-desktop.sh
           image: quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux
           imagePullPolicy: Always
-          command:
-            - /opt/scripts/entrypoint-login-shell.sh
           env:
             - name: DISPLAY
               value: ":0"
@@ -94,9 +94,12 @@ spec:
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
+            - name: logs
+              mountPath: /var/log/journal
             - name: scripts
-              mountPath: /opt/scripts
+              mountPath: /opt/scripts/entrypoint-desktop.sh
               readOnly: true
+              subPath: entrypoint-login-shell.sh
             - name: tmp
               mountPath: /tmp
             - name: vine
@@ -110,6 +113,7 @@ spec:
         fsGroup: 2000
         fsGroupChangePolicy: Always
       serviceAccount: vine-guest-system
+      shareProcessNamespace: true
       terminationGracePeriodSeconds: 5
       volumes:
         - name: home
@@ -122,6 +126,8 @@ spec:
           hostPath:
             path: /tmp/.ICE-unix
             type: DirectoryOrCreate
+        - name: logs
+          emptyDir: {}
         - name: scripts
           configMap:
             name: vine-desktop-scripts

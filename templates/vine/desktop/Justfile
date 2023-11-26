@@ -3,22 +3,25 @@ export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.19')
 export K8S_VERSION := env_var_or_default('K8S_VERSION', '1.27.4')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
+export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/amd64')
 
 default:
-  @just build 'rockylinux'
+  @just push 'rockylinux'
 
 build DIST NVIDIA_IMAGE_NAME='cuda':
-  docker build \
+  docker buildx build \
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --build-arg "K8S_VERSION=${K8S_VERSION}" \
     --build-arg "NVIDIA_IMAGE_NAME={{ NVIDIA_IMAGE_NAME }}" \
     --file "./Dockerfile.{{ DIST }}" \
+    --platform "${OCI_PLATFORMS}" \
     --progress 'plain' \
+    --pull \
+    --push \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}" \
     .
 
 push DIST NVIDIA_IMAGE_NAME='cuda': (build DIST NVIDIA_IMAGE_NAME)
-  docker push "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}"
 
 push-all:
   for src_file in Dockerfile.*; do true \

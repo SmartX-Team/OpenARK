@@ -13,7 +13,7 @@ export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/a
 
 export AWS_REGION := env_var_or_default('AWS_REGION', 'us-east-1')
 export AWS_SECURE_TLS := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'false' } else { 'true' }
-export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'dash-cli')
+export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'ark-cli')
 export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
 
 default:

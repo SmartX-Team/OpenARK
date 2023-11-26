@@ -29,11 +29,14 @@ STOPSIGNAL SIGRTMIN+3
 # Client Configuration
 WORKDIR /root/
 ENTRYPOINT [ "/usr/bin/env" ]
-CMD [ "/usr/bin/firefox" ]
+CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--system" ]
 
 # Volumes Configuration
 ## home.user
 VOLUME [ "/home/${USER_NAME}" ]
+
+# Disable generating pycache
+ENV PYTHONDONTWRITEBYTECODE="1"
 
 # Update locale
 RUN echo 'override_install_langs=en_US' >>/etc/yum.conf
@@ -62,6 +65,38 @@ RUN dnf install -y \
     xdotool \
     xprop \
     yum-utils \
+    # Cleanup
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+# Install init program
+ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
+ARG PYTHON_VERSION="3.11"
+ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
+ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+RUN dnf install -y \
+    curl \
+    procps \
+    python3 \
+    "python${PYTHON_VERSION}" \
+    "python${PYTHON_VERSION}-pip" \
+    && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
+    && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
+    && rm -rf '/etc/systemd/system/multi-user.target.wants' \
+    && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
+    && ln -sf \
+    '/usr/lib/systemd/system/vine-desktop.service' \
+    '/etc/systemd/system/multi-user.target.wants/vine-desktop.service' \
+    && mkdir -p '/opt/scripts' \
+    && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
+    && chmod a+x /opt/scripts/* \
+    # Configure default python version
+    && alternatives --install /usr/bin/pip pip "/usr/bin/pip${PYTHON_VERSION}" 1 \
+    && alternatives --install /usr/bin/pip3 pip3 "/usr/bin/pip${PYTHON_VERSION}" 1 \
+    && alternatives --set python "/usr/bin/python${PYTHON_VERSION}" \
+    && alternatives --set python3 "/usr/bin/python${PYTHON_VERSION}" \
+    && ln -sf "/usr/bin/pip${PYTHON_VERSION}" '/usr/bin/pip' \
+    && ln -sf "/usr/bin/pip${PYTHON_VERSION}" '/usr/bin/pip3' \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -120,8 +155,11 @@ RUN yum check-update -y \
 RUN rpm --setcaps shadow-utils 2>/dev/null \
     && dnf install -y --enablerepo kubernetes \
     "@Development Tools" \
+    cmake \
     crun \
+    fuse \
     fuse-overlayfs \
+    gcc \
     git \
     kubectl \
     nano \
@@ -130,8 +168,8 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     openssh-clients \
     pciutils \
     podman-docker \
-    python3 \
-    python3-pip \
+    "python${PYTHON_VERSION}" \
+    "python${PYTHON_VERSION}-pip" \
     sudo \
     "${USER_SHELL}" \
     vim \
@@ -214,10 +252,20 @@ ARG BLUEMAN_REPO="https://github.com/blueman-project/blueman/releases/download"
 ARG BLUEMAN_VERSION="2.2.1"
 RUN dnf install -y \
     bluez-libs-devel \
+    cairo-devel \
+    cairo-gobject-devel \
+    dbus-devel \
+    glibc-devel \
+    gobject-introspection-devel \
     iproute \
     pygobject3-devel \
-    python3-Cython \
-    python3-devel \
+    "python${PYTHON_VERSION}-Cython" \
+    "python${PYTHON_VERSION}-devel" \
+    && "pip${PYTHON_VERSION}" install \
+    'pygobject<3.45' \
+    # Configure default cython version
+    && alternatives --install /usr/bin/cython cython "/usr/bin/cython-${PYTHON_VERSION}" 1 \
+    && alternatives --install /usr/bin/cythonize cythonize "/usr/bin/cythonize-${PYTHON_VERSION}" 1 \
     # Download
     && BLUEMAN_SRC_FILENAME="blueman-${BLUEMAN_VERSION}.tar.xz" \
     && BLUEMAN_SRC_FILE="/opt/${BLUEMAN_SRC_FILENAME}.tar.xz" \
@@ -243,13 +291,17 @@ RUN dnf install -y \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install AI dev build dependencies - Force update glibc & libstdc++
-RUN BIN_DIR="/opt/tmp-updates" \
+RUN ARCH="$(uname -m)" \
+    && ARCH_WIN32='i686' \
+    && BIN_DIR="/opt/tmp-updates" \
     && mkdir -p "${BIN_DIR}" \
     && pushd "${BIN_DIR}" \
     # Download
-    && dnf download --quiet --arch "$(uname -m)" --releasever 9 --repo baseos \
-    glibc \
-    libstdc++ \
+    && dnf download --quiet --releasever 9 --repo baseos \
+    "glibc.${ARCH}" \
+    "glibc.${ARCH_WIN32}" \
+    "libstdc++.${ARCH}" \
+    "libstdc++.${ARCH_WIN32}" \
     # Decompress the downloaded files
     && for file in *.rpm; do true \
     && rpm2cpio "${file}" | cpio -idmv -D "/" \
@@ -336,20 +388,22 @@ RUN ARCH_WIN32='i686' \
     && dnf install -y \
     # Games (Lutris)
     "gnutls.${ARCH_WIN32}" \
+    libunwind \
     "mesa-dri-drivers.${ARCH_WIN32}" \
     "mesa-libEGL.${ARCH_WIN32}" \
     "mesa-libGLU.${ARCH_WIN32}" \
-    python3-certifi \
-    python3-distro \
-    python3-gobject \
-    python3-lxml \
-    python3-pillow \
-    python3-pyyaml \
-    python3-requests \
+    "python${PYTHON_VERSION}-lxml" \
+    "python${PYTHON_VERSION}-pyyaml" \
+    "python${PYTHON_VERSION}-requests" \
     "vulkan-loader.${ARCH_WIN32}" \
     webkit2gtk3 \
     wine \
     winetricks \
+    && "pip${PYTHON_VERSION}" install \
+    certifi \
+    dbus-python \
+    distro \
+    pillow \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -371,7 +425,7 @@ RUN true \
     exit 1 \
     ;; \
     esac \
-    && WINE_VERSION="8.1" \
+    && WINE_VERSION="8.21" \
     # Download
     && WINE_OBJ_NAME="wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}" \
     && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
@@ -412,13 +466,11 @@ RUN true \
     && rm -rf "${LUTRIS_OBJ_FILE}"
 
 # # Install utilities - AI Dev - Training
-# RUN python3 -m pip install --no-cache-dir \
+# RUN "python${PYTHON_VERSION}" -m pip install --no-cache-dir \
 #     # PyTorch
 #     torch \
 #     torchaudio \
-#     torchvision \
-#     # Cleanup
-#     && find / -type d -name '*__pycache__' -prune -exec rm -rf {} \;
+#     torchvision
 
 # Install utilities - Custom
 ARG ADDONS_HOME="/opt/openark/vdi/desktop"
@@ -461,3 +513,6 @@ RUN ldconfig \
     && echo -e "${USER_GID}:2001:65535" > /etc/subgid
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
+
+# Disable generating pycache
+ENV PYTHONDONTWRITEBYTECODE="0"

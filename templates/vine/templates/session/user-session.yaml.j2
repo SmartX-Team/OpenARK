@@ -192,6 +192,8 @@ spec:
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
+            - name: logs
+              mountPath: /var/log/journal
             - name: runtime-dbus
               mountPath: /run/dbus
             - name: runtime-user
@@ -232,6 +234,7 @@ spec:
         runAsUser: {{ spec.boxQuota.desktop.context.uid | json_encode() | safe }}
 {% endif %}
       serviceAccount: account
+      shareProcessNamespace: true
       terminationGracePeriodSeconds: 5
       volumes:
         - name: dev
@@ -302,6 +305,8 @@ spec:
           hostPath:
             path: /tmp/.ICE-unix
             type: DirectoryOrCreate
+        - name: logs
+          emptyDir: {}
         - name: runtime-dbus
           hostPath:
             path: /run/dbus

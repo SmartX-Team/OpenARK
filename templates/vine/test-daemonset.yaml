@@ -30,8 +30,6 @@ spec:
         - name: desktop-environment
           image: quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux
           imagePullPolicy: Always
-          command:
-            - /opt/scripts/entrypoint-desktop.sh
           env:
             - name: DISPLAY
               value: ":0"

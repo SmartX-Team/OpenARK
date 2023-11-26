@@ -1,0 +1,13 @@
+[Unit]
+Description=Create a new OpenARK VINE session.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env /opt/scripts/entrypoint-desktop.sh
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
