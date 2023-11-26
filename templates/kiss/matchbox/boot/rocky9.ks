@@ -131,8 +131,8 @@ EOF
 
 # Repository Information
 cat <<EOF >>/tmp/kiss-config
-repo --name=AppStream --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
-repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
+repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
+repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
 EOF
 
 # Reboot after Installation

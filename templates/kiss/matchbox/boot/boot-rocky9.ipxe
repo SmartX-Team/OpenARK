@@ -5,13 +5,14 @@
 
 :init
 set arch ${buildarch}
+set os_ver 9.2
 iseq ${buildarch} arm64 && set arch aarch64 ||
 iseq ${buildarch} i386 && set arch x86_64 ||
 
 :kernel
-kernel http://download.rockylinux.org/pub/rocky/9/BaseOS/${arch}/os/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=http://download.rockylinux.org/pub/rocky/9/BaseOS/${arch}/os/ inst.ks=http://matchbox.kiss.svc.ops.openark/assets/boot/rocky9.ks || goto kernel
+kernel http://dl.rockylinux.org/vault/rocky/${os_ver}/BaseOS/${arch}/os/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=http://dl.rockylinux.org/vault/rocky/${os_ver}/BaseOS/${arch}/os/ inst.ks=http://matchbox.kiss.svc.ops.openark/assets/boot/rocky9.ks || goto kernel
 
 :initrd
-initrd http://download.rockylinux.org/pub/rocky/9/BaseOS/${arch}/os/images/pxeboot/initrd.img || goto initrd
+initrd http://dl.rockylinux.org/vault/rocky/${os_ver}/BaseOS/${arch}/os/images/pxeboot/initrd.img || goto initrd
 
 boot

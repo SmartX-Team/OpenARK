@@ -14,7 +14,7 @@ set -e -o pipefail
 CONTAINER_RUNTIME_DEFAULT="docker"
 INSTLLAER_TYPE_DEFAULT="container" # One of: container (default), iso
 IPCALC_IMAGE_DEFAULT="docker.io/debber/ipcalc:latest"
-ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/$(uname -m)/os/images/boot.iso"
+ISO_BASE_URL_DEFAULT="https://dl.rockylinux.org/vault/rocky/9.2/BaseOS/$(uname -m)/os/images/boot.iso"
 KISS_BOOTSTRAPPER_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh"
 KISS_CONFIG_PATH_DEFAULT="$(pwd)/config/kiss-config.yaml"
 KISS_CONFIG_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/kiss-config.yaml"
