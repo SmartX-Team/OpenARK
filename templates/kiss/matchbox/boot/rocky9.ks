@@ -131,8 +131,8 @@ EOF
 
 # Repository Information
 cat <<EOF >>/tmp/kiss-config
-repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
-repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
+repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/AppStream/$(uname -m)/os/"
+repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/extras/$(uname -m)/os/"
 EOF
 
 # Reboot after Installation
@@ -149,6 +149,9 @@ fi
 set -e
 # Verbose
 set -x
+
+# Get OS Version
+VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
 
 # Pre-Hook
 ## Desktop Environment Configuration
@@ -226,7 +229,7 @@ EOF
 
             rpm --import "https://www.elrepo.org/RPM-GPG-KEY-elrepo.org"
             dnf install -y \
-                "https://www.elrepo.org/elrepo-release-$(rpm -E %rhel).el$(rpm -E %rhel).elrepo.noarch.rpm"
+                "https://www.elrepo.org/elrepo-release-${VERSION_ID}.el${VERSION_ID}.elrepo.noarch.rpm"
             dnf --enablerepo=elrepo-kernel install -y \
                 dnf-plugin-nvidia \
                 egl-wayland \
@@ -327,7 +330,7 @@ if lspci | grep 'NVIDIA'; then
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
             dnf install -y kernel-devel kernel-headers
-            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
+            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel${VERSION_ID}/${ARCH_SBSA}/cuda-rhel${VERSION_ID}.repo"
             # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
             # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
             #dnf module install -y "nvidia-driver:latest-dkms"
