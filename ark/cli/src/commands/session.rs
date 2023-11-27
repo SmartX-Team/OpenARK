@@ -69,10 +69,10 @@ impl LoginArgs {
 
 #[derive(Clone, Debug, Parser)]
 pub(crate) struct LogoutArgs {
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, env = "VINE_SESSION_BOX", value_name = "NAME")]
     r#box: String,
 
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, env = "VINE_SESSION_USER", value_name = "NAME")]
     user: String,
 }
 
