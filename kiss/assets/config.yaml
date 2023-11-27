@@ -14,5 +14,3 @@ sites:
     host: https://get.helm.sh/
   - name: rocky9
     host: https://download.rockylinux.org/pub/rocky/9/BaseOS/
-  - name: rocky9.2
-    host: http://dl.rockylinux.org/vault/rocky/9.2/BaseOS/

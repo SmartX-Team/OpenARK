@@ -124,11 +124,18 @@ EOF
 # Get OS Version
 VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
 
+# Installation Source Configuration
+cat <<EOF >>/tmp/kiss-config
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-AppStream-${VERSION_ID}&arch=$(uname -m)"
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-BaseOS-${VERSION_ID}&arch=$(uname -m)"
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-extras-${VERSION_ID}&arch=$(uname -m)"
+EOF
+
 # Repository Information
 cat <<EOF >>/tmp/kiss-config
-repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/AppStream/$(uname -m)/os/"
-repo --name=BaseOS --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/BaseOS/$(uname -m)/os/"
-repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/${VERSION_ID}/extras/$(uname -m)/os/"
+repo --name=AppStream --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
+repo --name=BaseOS --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/BaseOS/$(uname -m)/os/"
+repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
 EOF
 
 # Reboot after Installation
@@ -271,27 +278,27 @@ EOF
             SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort | tail -n1)"
             dkms autoinstall -k "${SRC_KERNEL_VERSION}"
         fi
-    fi
 
-    ## Install Manual RealTek Driver
-    ### Install dependencies
-    dnf install -y dkms
-    ### Download
-    SRC_DRIVER="rtl8188eus"
-    SRC_HOME="/usr/src/${SRC_DRIVER}"
-    SRC_REPO="https://github.com/ulagbulag/${SRC_DRIVER}.git"
-    git clone "${SRC_REPO}" "${SRC_HOME}"
-    ### Specify Version
-    pushd "${SRC_HOME}"
-    SRC_VERSION="$(git branch | awk '{print $2}' | grep -Po '^v\K.*')"
-    SRC_HOME_VERSION="${SRC_HOME}-${SRC_VERSION}"
-    popd
-    mv "${SRC_HOME}" "${SRC_HOME_VERSION}"
-    ### Install
-    SRC_KERNEL_VERSION="$(ls '/lib/modules/' | head -1)"
-    dkms add -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
-    dkms build -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
-    dkms install -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+        ## Install Manual RealTek Driver
+        ### Install dependencies
+        dnf install -y dkms
+        ### Download
+        SRC_DRIVER="rtl8188eus"
+        SRC_HOME="/usr/src/${SRC_DRIVER}"
+        SRC_REPO="https://github.com/ulagbulag/${SRC_DRIVER}.git"
+        git clone "${SRC_REPO}" "${SRC_HOME}"
+        ### Specify Version
+        pushd "${SRC_HOME}"
+        SRC_VERSION="$(git branch | awk '{print $2}' | grep -Po '^v\K.*')"
+        SRC_HOME_VERSION="${SRC_HOME}-${SRC_VERSION}"
+        popd
+        mv "${SRC_HOME}" "${SRC_HOME_VERSION}"
+        ### Install
+        SRC_KERNEL_VERSION="$(ls '/lib/modules/' | head -1)"
+        dkms add -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+        dkms build -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+        dkms install -m "${SRC_DRIVER}" -v "${SRC_VERSION}" -k "${SRC_KERNEL_VERSION}"
+    fi
 fi
 
 ## Fix CoreDNS timeout
