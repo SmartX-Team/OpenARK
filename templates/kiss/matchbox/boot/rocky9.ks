@@ -325,7 +325,7 @@ if lspci | grep 'NVIDIA'; then
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
             dnf install -y kernel-devel kernel-headers
-            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel${VERSION_ID}/${ARCH_SBSA}/cuda-rhel${VERSION_ID}.repo"
+            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
             # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
             # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
             #dnf module install -y "nvidia-driver:latest-dkms"
