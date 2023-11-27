@@ -85,8 +85,7 @@ class Connection:
 
     def connect(self, nm_connection: str) -> None:
         _run_shell(
-            # f'nmcli connection modify --temporary {nm_connection} 802-11-wireless.bssid "{self._bssid}"'
-            f'nmcli connection modify {nm_connection} 802-11-wireless.bssid "{self._bssid}" '
+            f'nmcli connection modify --temporary {nm_connection} 802-11-wireless.bssid "{self._bssid}"'
             '&& systemctl restart NetworkManager '
             '&& sleep 10'
         )
