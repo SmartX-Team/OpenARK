@@ -58,5 +58,13 @@ toolkit:
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
 
+validator:
+  # NOTE: NVIDIA gpu-operator bug when using pre-installed driver
+  # SEE: https://github.com/NVIDIA/gpu-operator/issues/569
+  driver:
+    env:
+      - name: DISABLE_DEV_CHAR_SYMLINK_CREATION
+        value: "true"
+
 vgpuManager:
   enabled: false
