@@ -162,6 +162,10 @@ spec:
               mountPath: /dev/dri
             - name: dev-fuse
               mountPath: /dev/fuse
+{% if not spec.boxQuota.desktop.host.ipc %}
+            - name: dev-shm
+              mountPath: /dev/shm
+{% endif %}
             - name: egl-icd-loader
               mountPath: /etc/glvnd/egl_vendor.d
               readOnly: true
@@ -249,6 +253,11 @@ spec:
           hostPath:
             path: /dev/fuse
             type: CharDevice
+{% if not spec.boxQuota.desktop.host.ipc %}
+        - name: dev-shm
+          emptyDir:
+            medium: Memory
+{% endif %}
         - name: egl-icd-loader
           hostPath:
             path: /usr/share/glvnd/egl_vendor.d
