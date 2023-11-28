@@ -44,7 +44,22 @@ RUN true \
     # Regard as normal dist
     && sed -i 's/^#\?\(NoExtract\)/#\1/g' /etc/pacman.conf
 
+# Update default mirrorlist
+RUN pacman -Sy --needed --noconfirm \
+    reflector \
+    && reflector \
+    --country 'Japan,South Korea' \
+    --latest '5' \
+    --protocol 'https' \
+    --save '/etc/pacman.d/mirrorlist' \
+    --sort 'rate' \
+    # Cleanup
+    && pacman -Scc --noconfirm \
+    && rm -r /var/lib/pacman/sync/*
+
 # Add AUR package manager
+ARG PACKAGE_MANAGER="paru"
+ARG PACKAGE_MANAGER_DEPENDENCIES="binutils cargo fakeroot gcc make pacman pkg-config sudo"
 RUN pacman -Sy --needed --noconfirm \
     "curl" \
     "devtools" \
@@ -55,34 +70,39 @@ RUN pacman -Sy --needed --noconfirm \
     && BUILDER_GID="999" \
     && BUILDER_UID="999" \
     && BUILDER_NAME="builder" \
+    && BUILDER_HOME="/var/lib/builder" \
     && BUILDER_SHELL="sh" \
     && groupadd -g "${BUILDER_GID}" -o "${BUILDER_NAME}" \
     && useradd -u "${BUILDER_UID}" -g "${BUILDER_GID}" \
-    -s "/bin/${BUILDER_SHELL}" -m -o "${BUILDER_NAME}" \
-    # Install YAY (AUR package manager)
-    && ARCH_YAY_SNAPSHOP_URL="https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz" \
-    && ARCH_YAY_SNAPSHOP_FILENAME="/tmp/${ARCH_YAY_SNAPSHOP_URL##*/}" \
-    && ARCH_YAY_SNAPSHOP_PKGDIR="${ARCH_YAY_SNAPSHOP_FILENAME%%.*}" \
-    && ARCH_YAY_SNAPSHOP_DEPENDENCIES="binutils fakeroot gcc make go" \
-    && curl -s "${ARCH_YAY_SNAPSHOP_URL}" -o "${ARCH_YAY_SNAPSHOP_FILENAME}" \
-    && tar -x -C "$(dirname "${ARCH_YAY_SNAPSHOP_PKGDIR}")" -f "${ARCH_YAY_SNAPSHOP_FILENAME}" \
-    && pushd "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
+    -d "${BUILDER_HOME}" -s "/bin/${BUILDER_SHELL}" \
+    -m -o "${BUILDER_NAME}" \
+    && mkdir -p "${BUILDER_HOME}" \
+    && chmod -R 750 "${BUILDER_HOME}" \
+    && chown -R "${BUILDER_UID}:${BUILDER_GID}" "${BUILDER_HOME}" \
+    # Install AUR package manager
+    && ARCH_AUR_PKG_SNAPSHOP_URL="https://aur.archlinux.org/cgit/aur.git/snapshot/${PACKAGE_MANAGER}.tar.gz" \
+    && ARCH_AUR_PKG_SNAPSHOP_FILENAME="/tmp/${ARCH_AUR_PKG_SNAPSHOP_URL##*/}" \
+    && ARCH_AUR_PKG_SNAPSHOP_PKGDIR="${ARCH_AUR_PKG_SNAPSHOP_FILENAME%%.*}" \
+    && curl -s "${ARCH_AUR_PKG_SNAPSHOP_URL}" -o "${ARCH_AUR_PKG_SNAPSHOP_FILENAME}" \
+    && tar -x -C "$(dirname "${ARCH_AUR_PKG_SNAPSHOP_PKGDIR}")" -f "${ARCH_AUR_PKG_SNAPSHOP_FILENAME}" \
+    && pushd "${ARCH_AUR_PKG_SNAPSHOP_PKGDIR}" \
     && chown -R "${BUILDER_UID}:${BUILDER_GID}" . \
-    && pacman -S --needed --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
+    && pacman -S --needed --noconfirm ${PACKAGE_MANAGER_DEPENDENCIES} \
     && su "${BUILDER_NAME}" bash -c 'makepkg -s' \
     && pacman -U --noconfirm ./*.pkg.tar.zst \
-    && pacman -Rcns --noconfirm ${ARCH_YAY_SNAPSHOP_DEPENDENCIES} \
     && popd \
-    && rm -rf "${ARCH_YAY_SNAPSHOP_FILENAME}" "${ARCH_YAY_SNAPSHOP_PKGDIR}" \
-    # Remove the build-only user
-    && userdel "${BUILDER_NAME}" \
+    && rm -rf "${ARCH_AUR_PKG_SNAPSHOP_FILENAME}" "${ARCH_AUR_PKG_SNAPSHOP_PKGDIR}" \
+    # Allow passwordless sudo command
+    && echo "builder ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/10-wheel-builder \
+    && chmod 440 /etc/sudoers.d/10-wheel-builder \
     # Cleanup
-    && rm -rf "/home/${BUILDER_NAME}" \
     && pacman -Scc --noconfirm \
     && rm -r /var/lib/pacman/sync/*
+ARG PACKAGE_MANAGER_INSTALL="${PACKAGE_MANAGER} -Sy --noconfirm"
+USER builder
 
 # Install core dependencies
-RUN yay -Sy --needed --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     lib32-vulkan-icd-loader \
     libglvnd \
     mesa \
@@ -94,17 +114,18 @@ RUN yay -Sy --needed --noconfirm \
     xorg-xprop \
     xorg-xset \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install init program
 ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
 ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
 ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-RUN yay -Sy --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     curl \
     procps \
     python3 \
+    systemd-sysvcompat \
     && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
     && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
     && rm -rf '/etc/systemd/system/multi-user.target.wants' \
@@ -115,36 +136,48 @@ RUN yay -Sy --noconfirm \
     && mkdir -p '/opt/scripts' \
     && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
     && chmod a+x /opt/scripts/* \
+    # Remove unneeded systemd targets
+    && cd /lib/systemd/system/sysinit.target.wants/ \
+    ; for i in *; do \
+    [ $i == systemd-tmpfiles-setup.service ] || sudo rm -f $i ; done \
+    && sudo rm -f \
+    /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/basic.target.wants/* \
+    /lib/systemd/system/anaconda.target.wants/* \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install locale dependencies
-RUN yay -Sy --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} \
     glibc \
-    && echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen \
-    && echo 'ko_KR.EUC-KR EUC-KR' >/etc/locale.gen \
-    && echo 'ko_KR.UTF-8 UTF-8' >/etc/locale.gen \
-    && locale-gen \
-    && echo 'LANG=en_US.UTF-8' >/etc/locale.conf \
-    && echo 'LC_ADDRESS=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_COLLATE=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_CTYPE=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_IDENTIFICATION=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_MEASUREMENT=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_MESSAGES=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_MONETARY=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_NAME=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_NUMERIC=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_PAPER=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_TELEPHONE=ko_KR.UTF-8' >>/etc/locale.conf \
-    && echo 'LC_TIME=ko_KR.UTF-8' >>/etc/locale.conf \
+    && echo 'en_US.UTF-8 UTF-8' | sudo tee /etc/locale.gen \
+    && echo 'ko_KR.EUC-KR EUC-KR' | sudo tee /etc/locale.gen \
+    && echo 'ko_KR.UTF-8 UTF-8' | sudo tee /etc/locale.gen \
+    && sudo locale-gen \
+    && echo 'LANG=en_US.UTF-8' | sudo tee /etc/locale.conf \
+    && echo 'LC_ADDRESS=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_COLLATE=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_CTYPE=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_IDENTIFICATION=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_MEASUREMENT=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_MESSAGES=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_MONETARY=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_NAME=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_NUMERIC=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_PAPER=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_TELEPHONE=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
+    && echo 'LC_TIME=ko_KR.UTF-8' | sudo tee -a /etc/locale.conf \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install AI dev core dependencies
-RUN yay -Sy --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     cuda \
     ffmpeg \
     gstreamer \
@@ -159,12 +192,21 @@ RUN yay -Sy --noconfirm \
     openssl \
     util-linux-libs \
     yaml-cpp \
+    # Environment Variables Configuration
+    && echo '# NVIDIA CUDA binary path registration' | sudo tee /etc/profile.d/path-nvidia-cuda-bin.sh \
+    && echo '# NVIDIA CUDA library path registration' | sudo tee /etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    && for cuda_home in /usr/local/cuda\-[0-9]*.[0-9]*; do true \
+    && echo "export PATH=\${PATH}:${cuda_home}/bin" | sudo tee -a /etc/profile.d/path-nvidia-cuda-bin.sh \
+    && echo "${cuda_home}/lib" | sudo tee -a /etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    && echo "${cuda_home}/lib64" | sudo tee -a /etc/ld.so.conf.d/900-nvidia-cuda.conf \
+    ; done \
+    && sudo ldconfig \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install development environment dependencies
-RUN yay -Sy --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     binutils \
     crun \
     fakeroot \
@@ -177,13 +219,12 @@ RUN yay -Sy --noconfirm \
     make \
     nano \
     nodejs \
-    nvidia-container-toolkit-base \
-    openssh-clients \
+    openssh \
+    patch \
     pciutils \
     podman-docker \
-    python3 \
-    python3-pip \
-    rustup \
+    python \
+    python-pip \
     screen \
     sudo \
     "${USER_SHELL}" \
@@ -192,46 +233,46 @@ RUN yay -Sy --noconfirm \
     zip \
     # Allow passwordless sudo command
     && if [ "x${USER_SUDO}" == "xtrue" ]; then \
-    echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
-    && chmod 440 /etc/sudoers.d/10-wheel \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/10-wheel \
+    && sudo chmod 440 /etc/sudoers.d/10-wheel \
     ; fi \
     # Docker (Podman) Configuration
-    && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
-    && systemctl enable podman \
-    && touch /etc/containers/nodocker \
+    && sudo chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
+    && sudo systemctl enable podman \
+    && sudo touch /etc/containers/nodocker \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
-    && sed -i \
+    && sudo sed -i \
     -e 's|^#mount_program|mount_program|g' \
     -e '/additionalimage.*/a "/var/lib/shared",' \
     -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
     /etc/containers/storage.conf \
-    && mkdir -p \
+    && sudo mkdir -p \
     /var/lib/shared/overlay-images \
     /var/lib/shared/overlay-layers \
     /var/lib/shared/vfs-images \
     /var/lib/shared/vfs-layers \
-    && touch /var/lib/shared/overlay-images/images.lock \
-    && touch /var/lib/shared/overlay-layers/layers.lock \
-    && touch /var/lib/shared/vfs-images/images.lock \
-    && touch /var/lib/shared/vfs-layers/layers.lock \
+    && sudo touch /var/lib/shared/overlay-images/images.lock \
+    && sudo touch /var/lib/shared/overlay-layers/layers.lock \
+    && sudo touch /var/lib/shared/vfs-images/images.lock \
+    && sudo touch /var/lib/shared/vfs-layers/layers.lock \
     ## generate a CDI specification that refers to all NVIDIA devices
-    && mkdir -p /etc/cdi/ \
-    && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
+    && sudo mkdir -p /etc/cdi/ \
+    && sudo chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
     # Environment Variables Configuration
-    && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
-    && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
-    && echo 'export PATH=${PATH}:/opt/bin' >>/etc/profile.d/path-local-bin.sh \
-    && ln -sf /usr/local/bin /opt/bin \
-    && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && ldconfig \
+    && echo '# local binary path registration' | sudo tee /etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/usr/local/bin' | sudo tee -a /etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/opt/bin' | sudo tee -a /etc/profile.d/path-local-bin.sh \
+    && sudo ln -sf /usr/local/bin /opt/bin \
+    && echo '# local library path registration' | sudo tee /etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib' | sudo tee -a /etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib64' | sudo tee -a /etc/ld.so.conf.d/100-path-local-lib.conf \
+    && sudo ldconfig \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install desktop environment dependencies
-RUN yay -Sy --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     blueman \
     bluez \
     code \
@@ -254,18 +295,60 @@ RUN yay -Sy --noconfirm \
     xfconf xfdesktop xfwm4 \
     xmlstarlet \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install internet browsers
-RUN yay -Sy --needed --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     firefox \
+    google-chrome \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
+
+# Install AI dev dependencies
+ARG DEEPSTREAM_DOCKERFILE_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/x86_64/Makefile_x86_triton"
+ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
+ARG DEEPSTREAM_VERSION_MAJOR="6"
+ARG DEEPSTREAM_VERSION_MINOR="2"
+ARG DEEPSTREAM_VERSION_PATCH="0"
+ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
+RUN true \
+    # Get the latest version
+    && DEEPSTREAM_VERSION=$( \
+    curl -s "${DEEPSTREAM_VERSION_URL}" \
+    | grep -Po '^version\=\K[0-9\.]+$' \
+    ) \
+    # Parse the version information
+    && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
+    && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION_MAJOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')"}" \
+    && DEEPSTREAM_VERSION_MINOR="${DEEPSTREAM_VERSION_MINOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $2}')"}" \
+    && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION_PATCH:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')"}" \
+    && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
+    && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
+    # Download
+    && DEEPSTREAM_SDK_FILE="/opt/deepstream-sdk.tbz2" \
+    && sudo wget -qO "${DEEPSTREAM_SDK_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/DeepStream_${DEEPSTREAM_VERSION_RELEASE}/deepstream_sdk_v${DEEPSTREAM_VERSION_FULL}_$(uname -m).tbz2" \
+    # Decompress the downloaded file
+    && sudo tar -x -C '/' -f "${DEEPSTREAM_SDK_FILE}" \
+    # Download the latest configuration files
+    && DEEPSTREAM_MODELS_DIR="${DEEPSTREAM_HOME}/samples/configs/tao_pretrained_models" \
+    && DEEPSTREAM_SAMPLE_HOME="/opt/deepstream_reference_apps" \
+    && sudo git clone "${DEEPSTREAM_REFERENCES_REPO_URL}" "${DEEPSTREAM_SAMPLE_HOME}" \
+    && cd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
+    && sudo cp -a * "${DEEPSTREAM_MODELS_DIR}" \
+    # Download the models
+    && cd "${DEEPSTREAM_MODELS_DIR}" \
+    && sudo ./download_models.sh \
+    # Change permissions for user-level modification
+    && sudo chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
+    # Cleanup
+    && sudo rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
+    && sudo rm -f "${DEEPSTREAM_SDK_FILE}"
 
 # Install utility
-RUN yay -Sy --needed --noconfirm \
+RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     # Games (Lutris)
     lib32-gnutls \
     lib32-mesa \
@@ -277,22 +360,23 @@ RUN yay -Sy --needed --noconfirm \
     python-pillow \
     python-pyyaml \
     python-requests \
+    steam \
     webkit2gtk \
     wine \
     winetricks \
     # Cleanup
-    && yay -Scc --noconfirm \
-    && rm -r /var/lib/pacman/sync/*
+    && "${PACKAGE_MANAGER}" -Scc --noconfirm \
+    && sudo rm -r /var/lib/pacman/sync/*
 
 # Install utilities - Custom
 ARG ADDONS_HOME="/opt/openark/vdi/desktop"
 ADD ./addons "${ADDONS_HOME}"
-RUN chmod -R a+x "${ADDONS_HOME}/bin" \
+RUN sudo chmod -R a+x "${ADDONS_HOME}/bin" \
     && for file in ${ADDONS_HOME}/share/applications/*.desktop; do true \
-    && ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
+    && sudo ln -s "${file}" "/usr/share/applications/$(basename "${file}")" \
     ; done \
     && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
-    && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
+    && sudo ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
 
 # Install utilities - Podman
@@ -300,7 +384,7 @@ ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/libpod/master/cont
 ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
 ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
 ENV _CONTAINERS_USERNS_CONFIGURED=""
-RUN chmod 644 \
+RUN sudo chmod 644 \
     /etc/containers/containers.conf \
     /etc/containers/podman-containers.conf
 
@@ -309,19 +393,19 @@ ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
 ADD ./browser/firefox/firefox.cfg /usr/lib64/firefox/
 
 # Add read-only shared directory
-RUN mkdir -p /opt/public/ \
-    && chown -R "${USER_UID}:${USER_GID}" /opt/public/
+RUN sudo mkdir -p /opt/public/ \
+    && sudo chown -R "${USER_UID}:${USER_GID}" /opt/public/
 
 # Add scripts
 ADD ./scripts /opt/scripts/
-RUN chmod 0555 /opt/scripts/*
+RUN sudo chmod 0555 /opt/scripts/*
 
 # Add a user
-RUN ldconfig \
-    && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
-    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \
+RUN sudo ldconfig \
+    && sudo groupadd -g "${USER_GID}" -o "${USER_NAME}" \
+    && sudo useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,input,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
-    && echo -e "${USER_UID}:2001:65535" > /etc/subuid \
-    && echo -e "${USER_GID}:2001:65535" > /etc/subgid
+    && echo -e "${USER_UID}:2001:65535" | sudo tee /etc/subuid \
+    && echo -e "${USER_GID}:2001:65535" | sudo tee /etc/subgid
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
