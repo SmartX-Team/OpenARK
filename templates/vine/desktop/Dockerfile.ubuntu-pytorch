@@ -133,6 +133,7 @@ RUN apt-get update && apt-get install -y \
     podman-docker \
     python3 \
     python3-pip \
+    screen \
     sudo \
     "${USER_SHELL}" \
     vim \

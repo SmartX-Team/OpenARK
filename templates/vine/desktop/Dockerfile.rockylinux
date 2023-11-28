@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG ROCKYLINUX_VERSION="8"
+ARG ROCKYLINUX_VERSION="9"
 
 # Configure user-specific environment variables
 ARG USER_GID="2000"
@@ -47,9 +47,11 @@ RUN dnf install -y \
     epel-release \
     "https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm" \
     "https://pkgs.dyn.su/el$(rpm -E %rhel)/base/x86_64/raven-release.el$(rpm -E %rhel).noarch.rpm" \
-    && dnf config-manager --set-enabled powertools \
+    "https://repo.almalinux.org/almalinux/almalinux-release-synergy-latest-$(rpm -E %rhel).noarch.rpm" \
+    && dnf config-manager --set-enabled crb \
     && dnf config-manager --set-disabled raven raven-extras raven-modular raven-multimedia raven-testing \
-    && curl "https://nvidia.github.io/nvidia-docker/centos$(rpm -E %rhel)/nvidia-docker.repo" > /etc/yum.repos.d/nvidia-docker.repo \
+    # symlinks to centos8
+    && curl "https://nvidia.github.io/nvidia-docker/centos8/nvidia-docker.repo" > /etc/yum.repos.d/nvidia-docker.repo \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -71,13 +73,11 @@ RUN dnf install -y \
 
 # Install init program
 ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
-ARG PYTHON_VERSION="3.11"
 ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
 ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-RUN dnf install -y \
-    curl \
+RUN PYTHON_VERSION="$(readlink '/usr/bin/python3' | grep -Po '^python\K[0-9\.]+')" \
+    && dnf install -y \
     procps \
-    python3 \
     "python${PYTHON_VERSION}" \
     "python${PYTHON_VERSION}-pip" \
     && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
@@ -93,8 +93,8 @@ RUN dnf install -y \
     # Configure default python version
     && alternatives --install /usr/bin/pip pip "/usr/bin/pip${PYTHON_VERSION}" 1 \
     && alternatives --install /usr/bin/pip3 pip3 "/usr/bin/pip${PYTHON_VERSION}" 1 \
-    && alternatives --set python "/usr/bin/python${PYTHON_VERSION}" \
-    && alternatives --set python3 "/usr/bin/python${PYTHON_VERSION}" \
+    && alternatives --install /usr/bin/python python "/usr/bin/python${PYTHON_VERSION}" 1 \
+    && alternatives --install /usr/bin/python3 python3 "/usr/bin/python${PYTHON_VERSION}" 1 \
     && ln -sf "/usr/bin/pip${PYTHON_VERSION}" '/usr/bin/pip' \
     && ln -sf "/usr/bin/pip${PYTHON_VERSION}" '/usr/bin/pip3' \
     # Cleanup
@@ -133,9 +133,7 @@ RUN yum check-update -y \
     "libcublas-devel-${CUDA_VERSION}" \
     "$(dnf list 'libcublas-devel-[0-9-]*' -q | grep -Po 'libcublas-devel-[0-9-]*' | tail -n 1)" \
     "libnpp-devel-${CUDA_VERSION}" \
-    libuuid \
     opencv \
-    openssl \
     tensorrt \
     yaml-cpp \
     # Environment Variables Configuration
@@ -168,8 +166,7 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     openssh-clients \
     pciutils \
     podman-docker \
-    "python${PYTHON_VERSION}" \
-    "python${PYTHON_VERSION}-pip" \
+    screen \
     sudo \
     "${USER_SHELL}" \
     vim \
@@ -216,13 +213,19 @@ RUN rpm --setcaps shadow-utils 2>/dev/null \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
 # Install desktop environment dependencies
-RUN dnf install -y --enablerepo raven \
+RUN ARCH_WIN32='i686' \
+    && dnf install -y --enablerepo raven \
     bluez \
     code \
     dbus-x11 \
     file-roller \
+    glibc \
+    "glibc.${ARCH_WIN32}" \
+    glibc-devel \
     gnome-bluetooth \
     ibus-hangul \
+    'libstdc++' \
+    "libstdc++.${ARCH_WIN32}" \
     NetworkManager-bluetooth \
     NetworkManager-tui \
     NetworkManager-wifi \
@@ -230,7 +233,6 @@ RUN dnf install -y --enablerepo raven \
     nm-connection-editor \
     openssh-askpass \
     picom \
-    plank \
     s3fs-fuse \
     sqlite \
     Thunar thunar-archive-plugin thunar-volman \
@@ -259,13 +261,8 @@ RUN dnf install -y \
     gobject-introspection-devel \
     iproute \
     pygobject3-devel \
-    "python${PYTHON_VERSION}-Cython" \
-    "python${PYTHON_VERSION}-devel" \
-    && "pip${PYTHON_VERSION}" install \
-    'pygobject<3.45' \
-    # Configure default cython version
-    && alternatives --install /usr/bin/cython cython "/usr/bin/cython-${PYTHON_VERSION}" 1 \
-    && alternatives --install /usr/bin/cythonize cythonize "/usr/bin/cythonize-${PYTHON_VERSION}" 1 \
+    python3-Cython \
+    python3-devel \
     # Download
     && BLUEMAN_SRC_FILENAME="blueman-${BLUEMAN_VERSION}.tar.xz" \
     && BLUEMAN_SRC_FILE="/opt/${BLUEMAN_SRC_FILENAME}.tar.xz" \
@@ -282,6 +279,27 @@ RUN dnf install -y \
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
+# Install plank dependencies
+ARG PLANK_REPO="https://git.launchpad.net/plank"
+ARG PLANK_VERSION="master"
+RUN dnf install -y \
+    bamf-devel \
+    gnome-menus-devel \
+    libgee-devel \
+    libwnck3-devel \
+    vala \
+    # Download
+    && PLANK_SRC_HOME="/opt/plank" \
+    && git clone -b "${PLANK_VERSION}" "${PLANK_REPO}" "${PLANK_SRC_HOME}" \
+    # Build
+    && pushd "${PLANK_SRC_HOME}" \
+    && ./autogen.sh && make && make install \
+    && popd \
+    # Cleanup
+    && rm -rf "${PLANK_SRC_HOME}" \
+    && dnf clean all \
+    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
 # Install internet browsers
 RUN dnf install -y \
     firefox \
@@ -290,59 +308,14 @@ RUN dnf install -y \
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
-# Install AI dev build dependencies - Force update glibc & libstdc++
-RUN ARCH="$(uname -m)" \
-    && ARCH_WIN32='i686' \
-    && BIN_DIR="/opt/tmp-updates" \
-    && mkdir -p "${BIN_DIR}" \
-    && pushd "${BIN_DIR}" \
-    # Download
-    && dnf download --quiet --releasever 9 --repo baseos \
-    "glibc.${ARCH}" \
-    "glibc.${ARCH_WIN32}" \
-    "libstdc++.${ARCH}" \
-    "libstdc++.${ARCH_WIN32}" \
-    # Decompress the downloaded files
-    && for file in *.rpm; do true \
-    && rpm2cpio "${file}" | cpio -idmv -D "/" \
-    ; done \
-    && ldconfig \
-    # Cleanup
-    && popd \
-    && rm -rf "${BIN_DIR}" \
-    && dnf clean all \
-    && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
-
-# Install AI dev build dependencies - `gst-rtsp-server-devel`
-ARG GST_RTSP_SERVER_FILENAME="gst-rtsp-server-1.14.5.tar.xz"
-ARG GST_RTSP_SERVER_REPO="https://gstreamer.freedesktop.org/src/gst-rtsp-server"
-RUN true \
-    ## Get the latest version
-    #&& GST_RTSP_SERVER_FILENAME=$( \
-    #curl -s "${GST_RTSP_SERVER_REPO}/" \
-    #| grep -Po 'a href="\Kgst-rtsp-server-[0-9.]+.tar.xz' \
-    #| tail -n 1 \
-    #) \
-    # Download
-    && GST_RTSP_SERVER_SRC_FILE="/opt/gst-rtsp-server.tar.xz" \
-    && GST_RTSP_SERVER_SRC_HOME="/opt/${GST_RTSP_SERVER_FILENAME%.tar.xz}" \
-    && wget -qO "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_REPO}/${GST_RTSP_SERVER_FILENAME}" \
-    # Decompress the downloaded file
-    && tar -x -C "$(dirname "${GST_RTSP_SERVER_SRC_HOME}")" -f "${GST_RTSP_SERVER_SRC_FILE}" \
-    # Build
-    && pushd "${GST_RTSP_SERVER_SRC_HOME}" \
-    && ./configure && make && make install \
-    && popd \
-    # Cleanup
-    && rm -rf "${GST_RTSP_SERVER_SRC_FILE}" "${GST_RTSP_SERVER_SRC_HOME}"
-
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
 ARG DEEPSTREAM_VERSION_MAJOR="6"
 ARG DEEPSTREAM_VERSION_MINOR="2"
 ARG DEEPSTREAM_VERSION_PATCH="0"
-RUN true \
+RUN dnf install -y \
+    gstreamer1-rtsp-server \
     # Get the latest version
     && DEEPSTREAM_VERSION=$( \
     curl -s "${DEEPSTREAM_VERSION_URL}" \
@@ -389,21 +362,20 @@ RUN ARCH_WIN32='i686' \
     # Games (Lutris)
     "gnutls.${ARCH_WIN32}" \
     libunwind \
+    lutris \
     "mesa-dri-drivers.${ARCH_WIN32}" \
     "mesa-libEGL.${ARCH_WIN32}" \
     "mesa-libGLU.${ARCH_WIN32}" \
-    "python${PYTHON_VERSION}-lxml" \
-    "python${PYTHON_VERSION}-pyyaml" \
-    "python${PYTHON_VERSION}-requests" \
+    python3-certifi \
+    python3-dbus \
+    python3-distro \
+    python3-lxml \
+    python3-pillow \
+    python3-pyyaml \
+    python3-requests \
     "vulkan-loader.${ARCH_WIN32}" \
     webkit2gtk3 \
     wine \
-    winetricks \
-    && "pip${PYTHON_VERSION}" install \
-    certifi \
-    dbus-python \
-    distro \
-    pillow \
     # Cleanup
     && dnf clean all \
     && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
@@ -438,35 +410,8 @@ RUN true \
     # Cleanup
     && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
 
-# Install utilities - Games - Lutris
-ARG LUTRIS_REPO="https://lutris.net/releases"
-RUN true \
-    # Get the latest version
-    && LUTRIS_VERSION=$( \
-    curl -s "${LUTRIS_REPO}/" \
-    | grep -Po 'lutris\_[0-9\.]+\.tar\.xz' \
-    | sort -V \
-    | tail -n 1 \
-    ) \
-    # Download
-    && LUTRIS_HOME="/opt/lutris" \
-    && LUTRIS_OBJ_FILE="/opt/lutris.tar.xz" \
-    && wget -qO "${LUTRIS_OBJ_FILE}" "${LUTRIS_REPO}/${LUTRIS_VERSION}" \
-    # Decompress the downloaded file
-    && tar -x -C "$(dirname "${LUTRIS_HOME}")" -f "${LUTRIS_OBJ_FILE}" \
-    # Environment Variables Configuration
-    && echo '# Lutris binary path registration' >/etc/profile.d/path-games-lutris-bin.sh \
-    && echo "export PATH=\${PATH}:${LUTRIS_HOME}/bin" >>/etc/profile.d/path-games-lutris-bin.sh \
-    && ln -sf /usr/local/bin /opt/bin \
-    && echo '# Lutris library path registration' >/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
-    && echo "${LUTRIS_HOME}/lib" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
-    && echo "${LUTRIS_HOME}/lib64" >>/etc/ld.so.conf.d/900-path-games-lutris-lib.conf \
-    && ldconfig \
-    # Cleanup
-    && rm -rf "${LUTRIS_OBJ_FILE}"
-
 # # Install utilities - AI Dev - Training
-# RUN "python${PYTHON_VERSION}" -m pip install --no-cache-dir \
+# RUN python3 -m pip install --no-cache-dir \
 #     # PyTorch
 #     torch \
 #     torchaudio \
