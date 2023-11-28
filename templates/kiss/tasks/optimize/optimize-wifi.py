@@ -83,11 +83,9 @@ class Connection:
             return (False, 0)
         return True, self._quality - base._quality
 
-    def connect(self, nm_connection: str) -> None:
+    def connect(self) -> None:
         _run_shell(
-            f'nmcli connection modify --temporary {nm_connection} 802-11-wireless.bssid "{self._bssid}"'
-            '&& systemctl restart NetworkManager '
-            '&& sleep 10'
+            f'nmcli device wifi connect "{self._bssid}"'
         )
 
     def __repr__(self) -> str:
@@ -174,11 +172,17 @@ class ConnectionDatabase:
             best, _ = candidates_score_sorted[0]
             print(f'Current: {current}')
             print(f'Switching to: {best}', flush=True)
-            best.connect(self._nm_connection)
+            best.connect()
             return True
         elif is_updated:
             print(f'Current: {current}')
         return False
+
+    def update_tc(self) -> None:
+        return _run_shell(
+            'tc qdisc replace dev master root fq_codel '
+            'limit 102400 interval 1000ms memory_limit 256Mb ecn'
+        )
 
 
 if __name__ == '__main__':
@@ -187,6 +191,8 @@ if __name__ == '__main__':
         print('Cannot find Wireless Interface')
         exit(0)
     connections.reset()
+
+    connections.update_tc()
 
     is_updated = True
     while True:
