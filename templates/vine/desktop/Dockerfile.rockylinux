@@ -361,6 +361,8 @@ RUN ARCH_WIN32='i686' \
     && dnf install -y \
     # Games (Lutris)
     "gnutls.${ARCH_WIN32}" \
+    libnsl \
+    "libnsl.${ARCH_WIN32}" \
     libunwind \
     lutris \
     "mesa-dri-drivers.${ARCH_WIN32}" \
