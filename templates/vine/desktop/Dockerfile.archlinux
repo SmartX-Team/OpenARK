@@ -67,8 +67,8 @@ RUN pacman -Sy --needed --noconfirm \
     "fakeroot" \
     "git" \
     # Add a build-only user
-    && BUILDER_GID="999" \
-    && BUILDER_UID="999" \
+    && BUILDER_GID="$((USER_GID + 1))" \
+    && BUILDER_UID="$((USER_UID + 1))" \
     && BUILDER_NAME="builder" \
     && BUILDER_HOME="/var/lib/builder" \
     && BUILDER_SHELL="sh" \
