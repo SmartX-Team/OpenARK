@@ -203,7 +203,16 @@ where
     async fn call(
         &self,
         inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>>;
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        inputs
+            .into_vec()
+            .into_iter()
+            .map(|input| async move { self.call_one(input).await })
+            .collect::<FuturesOrdered<_>>()
+            .try_collect()
+            .await
+            .map(PipeMessages::Batch)
+    }
 
     async fn call_one(
         &self,

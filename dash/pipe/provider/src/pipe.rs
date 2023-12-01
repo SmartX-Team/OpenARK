@@ -33,18 +33,28 @@ use crate::{
     },
     message::{Codec, PipeMessage, PipeMessages, PipePayload},
     messengers::{init_messenger, MessengerArgs, Publisher, PublisherExt, Subscriber},
-    storage::{MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
+    storage::{DummyStorageArgs, MetadataStorageArgs, MetadataStorageType, StorageIO, StorageSet},
 };
 
 #[derive(Derivative, Serialize, Deserialize, Parser)]
 #[derivative(
-    Clone(bound = "<F as FunctionBuilder>::Args: Clone"),
-    Debug(bound = "<F as FunctionBuilder>::Args: fmt::Debug")
+    Clone(bound = "
+        <F as FunctionBuilder>::Args: Clone,
+        S: Clone,
+    "),
+    Debug(bound = "
+        <F as FunctionBuilder>::Args: fmt::Debug,
+        S: fmt::Debug,
+    ")
 )]
-#[serde(bound = "<F as FunctionBuilder>::Args: Serialize + DeserializeOwned")]
-pub struct PipeArgs<F>
+#[serde(bound = "
+    <F as FunctionBuilder>::Args: Serialize + DeserializeOwned,
+    S: Serialize + DeserializeOwned,
+")]
+pub struct PipeArgs<F, S = crate::storage::StorageArgs>
 where
     F: FunctionBuilder,
+    S: Args,
 {
     #[arg(long, env = "PIPE_BATCH_SIZE", value_name = "BATCH_SIZE")]
     #[serde(default)]
@@ -98,14 +108,15 @@ where
     queue_group: bool,
 
     #[command(flatten)]
-    storage: crate::storage::StorageArgs,
+    storage: S,
 }
 
-impl<F> PipeArgs<OwnedFunctionBuilder<F>>
+impl<F, S> PipeArgs<OwnedFunctionBuilder<F>, S>
 where
     F: Send + Sync + RemoteFunction,
     <F as RemoteFunction>::Input: fmt::Debug + DeserializeOwned + JsonSchema,
     <F as RemoteFunction>::Output: fmt::Debug + Serialize + JsonSchema,
+    S: Args,
 {
     pub fn with_function(function: F) -> Result<Self> {
         Ok(Self {
@@ -115,9 +126,10 @@ where
     }
 }
 
-impl<F> PipeArgs<F>
+impl<F, S> PipeArgs<F, S>
 where
     F: FunctionBuilder,
+    S: Args,
 {
     pub fn from_env() -> Self
     where
@@ -155,13 +167,27 @@ where
         self
     }
 
-    pub fn with_model_in(mut self, model_in: Name) -> Self {
-        self.model_in = Some(model_in);
+    pub fn with_model_in(mut self, model_in: Option<Name>) -> Self {
+        self.model_in = model_in;
         self
     }
 
-    pub fn with_model_out(mut self, model_out: Name) -> Self {
-        self.model_out = Some(model_out);
+    pub fn with_model_out(mut self, model_out: Option<Name>) -> Self {
+        self.model_out = model_out;
+        self
+    }
+
+    pub fn with_storage(mut self, storage: S) -> Self {
+        self.storage = storage;
+        self
+    }
+}
+
+impl<F> PipeArgs<F, DummyStorageArgs>
+where
+    F: FunctionBuilder,
+{
+    pub const fn with_dummy_storage(self) -> Self {
         self
     }
 }

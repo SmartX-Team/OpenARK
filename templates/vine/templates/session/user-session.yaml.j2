@@ -441,6 +441,34 @@ spec:
             path: /tmp/.X11-unix
             type: Directory
 {% endif %}
+{% if spec.boxQuota.desktop.container.ports | length > 0 %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desktop
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    name: desktop
+    node: "{{ spec.node.metadata.name }}"
+spec:
+  selector:
+    name: desktop
+    node: "{{ spec.node.metadata.name }}"
+  ports:
+{% for port in spec.boxQuota.desktop.container.ports %}
+    -
+{% if port is containing("name") %}
+      name: {{ port.name | json_encode() | safe }}
+{% endif %}
+{% if port is containing("containerPort") %}
+      port: {{ port.containerPort | json_encode() | safe }}
+{% endif %}
+{% if port is containing("protocol") %}
+      protocol: {{ port.protocol | json_encode() | safe }}
+{% endif %}
+{% endfor %}
+{% endif %}
 ---
 apiVersion: v1
 kind: Service

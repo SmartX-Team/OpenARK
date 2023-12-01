@@ -13,6 +13,7 @@ pub async fn execute(
         client,
         box_name,
         user_name,
+        true,
         |session_manager, spec| async move { session_manager.try_create(&spec.as_ref()).await },
     )
     .await

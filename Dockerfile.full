@@ -93,7 +93,11 @@ COPY --from=builder /out/lib/* /usr/local/lib/
 COPY --from=builder /LICENSE /usr/share/licenses/${PACKAGE}/LICENSE
 
 # Link 3rd-party binary
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64"
 RUN true \
+    # Common
+    && echo '/usr/local/lib' >/etc/ld.so.conf.d/100-path-local-lib.conf \
+    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
     # CUDA :: NVIDIA
     && for file in /usr/local/lib/python*/dist-packages/nvidia/*/lib/*.so*; do true \
     && ln -sf "${file}" "/usr/local/lib/$(basename "${file}")" \
@@ -101,7 +105,9 @@ RUN true \
     # CUDA :: PyTorch
     && for file in /usr/local/lib/python*/dist-packages/torch/lib/*.so*; do true \
     && ln -sf "${file}" "/usr/local/lib/$(basename "${file}")" \
-    ; done
+    ; done \
+    # Apply
+    && ldconfig
 
 # # Link onnxruntime CAPI binary
 # RUN ORT_DYLIB_PATH="$(python3 -c 'import inspect,os; import onnxruntime; print(f"{os.path.dirname(inspect.getfile(onnxruntime))}/capi")')" \

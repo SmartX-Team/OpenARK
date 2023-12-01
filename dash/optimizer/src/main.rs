@@ -1,6 +1,7 @@
 mod ctx;
 mod model;
 mod plan;
+mod raw;
 mod router;
 mod storage;
 
@@ -12,7 +13,7 @@ use opentelemetry::global;
 use tokio::try_join;
 use tracing::{error, info, instrument, Level};
 
-use self::ctx::Optimizer;
+use self::ctx::OptimizerService;
 
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn try_main() -> Result<()> {
@@ -26,6 +27,8 @@ async fn try_main() -> Result<()> {
     // spawn handlers
     try_join!(
         self::model::Optimizer::new(&ctx).loop_forever(),
+        self::raw::metrics::Reader::new(&ctx).loop_forever(),
+        self::raw::trace::Reader::new(&ctx).loop_forever(),
         self::storage::Optimizer::new(&ctx).loop_forever(),
     )?;
     Ok(())

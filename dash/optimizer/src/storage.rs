@@ -6,8 +6,7 @@ use byte_unit::Byte;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_optimizer_api::{optimize, ObjectMetadata};
 use dash_optimizer_fallback::GetCapacity;
-use dash_pipe_provider::{PipeArgs, PipeMessage, PipeMessages, RemoteFunction};
-use futures::{stream::FuturesOrdered, TryStreamExt};
+use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
 use itertools::Itertools;
 use kube::{api::ListParams, Api, ResourceExt};
 use ndarray::{Array0, Array1, Array2, Axis, DataMut, RawData, ViewRepr};
@@ -22,7 +21,7 @@ pub struct Optimizer {
 }
 
 #[async_trait]
-impl crate::ctx::Optimizer for Optimizer {
+impl crate::ctx::OptimizerService for Optimizer {
     fn new(ctx: &OptimizerContext) -> Self {
         Self { ctx: ctx.clone() }
     }
@@ -32,8 +31,8 @@ impl crate::ctx::Optimizer for Optimizer {
 
         let pipe = PipeArgs::with_function(self)?
             .with_ignore_sigint(true)
-            .with_model_in(optimize::storage::model_in()?)
-            .with_model_out(optimize::storage::model_out()?);
+            .with_model_in(Some(optimize::storage::model_in()?))
+            .with_model_out(Some(optimize::storage::model_out()?));
         pipe.loop_forever_async().await
     }
 }
@@ -42,24 +41,6 @@ impl crate::ctx::Optimizer for Optimizer {
 impl RemoteFunction for Optimizer {
     type Input = optimize::storage::Request;
     type Output = optimize::storage::Response;
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn call(
-        &self,
-        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
-        inputs
-            .into_vec()
-            .into_iter()
-            .map(|input| {
-                let function = self.clone();
-                async move { function.call_one(input).await }
-            })
-            .collect::<FuturesOrdered<_>>()
-            .try_collect()
-            .await
-            .map(|outputs| PipeMessages::Batch(outputs))
-    }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call_one(

@@ -21,6 +21,7 @@ pub async fn execute_with<'f, Fut>(
     client: &Client,
     box_name: &str,
     user_name: &str,
+    check_resources: bool,
     f: impl FnOnce(SessionManager, SessionContextSpecOwned) -> Fut,
 ) -> Result<UserSessionResponse>
 where
@@ -64,10 +65,13 @@ where
     };
 
     // get available resources
-    let available_resources = node
-        .status
-        .as_ref()
-        .and_then(|status| status.allocatable.as_ref());
+    let available_resources = node.status.as_ref().and_then(|status| {
+        if check_resources {
+            status.allocatable.as_ref()
+        } else {
+            status.capacity.as_ref()
+        }
+    });
 
     // parse box quota
     let box_quota = {

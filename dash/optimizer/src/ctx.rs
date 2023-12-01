@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[async_trait]
-pub trait Optimizer {
+pub trait OptimizerService {
     fn new(ctx: &OptimizerContext) -> Self
     where
         Self: Sized;

@@ -291,6 +291,9 @@ pub struct StorageArgs {
     s3: ::dash_pipe_api::storage::StorageS3Args,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+pub struct DummyStorageArgs {}
+
 pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;
 
 mod name {

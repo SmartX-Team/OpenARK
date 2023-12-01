@@ -52,6 +52,20 @@ spec:
           command:
             - dash-optimizer
           env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-user-0
+                  key: CONSOLE_ACCESS_KEY
+            - name: AWS_ENDPOINT_URL
+              value: http://minio
+            - name: AWS_REGION
+              value: us-east-1
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-user-0
+                  key: CONSOLE_SECRET_KEY
             - name: NATS_ACCOUNT
               value: nats-dash-scheduler
             - name: NATS_ADDRS
@@ -81,3 +95,17 @@ spec:
             items:
               - key: token
                 path: token
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: optimizer
+  namespace: dash
+spec:
+  objectStorage:
+    owned:
+      resources:
+        requests:
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4

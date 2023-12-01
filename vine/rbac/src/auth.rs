@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use ark_api::SessionRef;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -82,7 +82,7 @@ impl AuthUserSession for UserSessionRef {
                 metadata,
                 namespace,
             })
-            .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
+            .map_err(|error| anyhow!("failed to get user namespace: {error}"))
     }
 }
 
@@ -132,11 +132,11 @@ impl AuthUserSession for UserSessionMetadata {
         Self: Sized,
     {
         let user_name = get_user_name_with_timestamp(request, now)
-            .map_err(|error| ::anyhow::anyhow!("failed to get user name: {error}"))?;
+            .map_err(|error| anyhow!("failed to get user name: {error}"))?;
 
         let role = get_user_role(client, &user_name, now)
             .await
-            .map_err(|error| ::anyhow::anyhow!("failed to get user role: {error}"))?;
+            .map_err(|error| anyhow!("failed to get user role: {error}"))?;
 
         execute_with_timestamp(client, &user_name, now)
             .await
@@ -161,7 +161,7 @@ impl AuthUserSessionMetadata for UserSessionMetadata {
                 metadata: self.clone(),
                 namespace,
             })
-            .map_err(|error| ::anyhow::anyhow!("failed to get user namespace: {error}"))
+            .map_err(|error| anyhow!("failed to get user namespace: {error}"))
     }
 }
 

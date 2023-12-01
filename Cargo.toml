@@ -195,4 +195,9 @@ uuid = { version = "1.5", features = ["js", "serde", "v4"] }
 which = { version = "5.0" }
 
 [patch.crates-io]
+opentelemetry = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
+opentelemetry-otlp = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
+opentelemetry-proto = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
+opentelemetry_sdk = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
 schemars = { git = "https://github.com/ulagbulag/schemars" }
+tracing-opentelemetry = { git = "https://github.com/ulagbulag/tracing-opentelemetry", branch = "chore/histogram" }

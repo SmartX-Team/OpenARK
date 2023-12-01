@@ -16,6 +16,14 @@ version = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["metrics"]
+
+# telemetry pillars and functions
+logs = ["opentelemetry-proto/logs"]
+metrics = ["opentelemetry-proto/metrics"]
+trace = ["opentelemetry-proto/trace"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
@@ -33,8 +41,11 @@ itertools = { workspace = true }
 kube = { workspace = true }
 ndarray = { workspace = true }
 opentelemetry = { workspace = true }
+opentelemetry-proto = { workspace = true, features = ["with-schemars"] }
 or-tools = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+serde_json = { workspace = true }
