@@ -441,6 +441,7 @@ spec:
             path: /tmp/.X11-unix
             type: Directory
 {% endif %}
+{% if spec.boxQuota is object and spec.boxQuota.desktop is object %}
 {% if spec.boxQuota.desktop.container.ports | length > 0 %}
 ---
 apiVersion: v1
@@ -468,6 +469,7 @@ spec:
       protocol: {{ port.protocol | json_encode() | safe }}
 {% endif %}
 {% endfor %}
+{% endif %}
 {% endif %}
 ---
 apiVersion: v1
