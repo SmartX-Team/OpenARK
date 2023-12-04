@@ -172,6 +172,10 @@ else
     ARCH_SBSA="$(uname -m)"
 fi
 
+# Increase package manager timeout
+echo 'retries=0' >>/etc/dnf/dnf.conf
+echo 'timeout=300' >>/etc/dnf/dnf.conf
+
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 ## Wireless - WIFI
