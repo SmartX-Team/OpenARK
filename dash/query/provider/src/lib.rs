@@ -18,11 +18,12 @@ pub use dash_pipe_provider::{deltalake, Name};
 use dash_pipe_provider::{
     deltalake::{
         arrow::{compute::concat_batches, datatypes::Schema, record_batch::RecordBatch},
+        datafusion::execution::context::SessionContext,
         DeltaTable,
     },
     messengers::{init_messenger, MessengerArgs},
     storage::{
-        lakehouse::{decoder::TryIntoTableDecoder, StorageContext},
+        lakehouse::{decoder::TryIntoTableDecoder, StorageSessionContext, StorageTableState},
         Stream,
     },
 };
@@ -47,7 +48,7 @@ pub struct QueryClientArgs {
 
 #[derive(Clone)]
 pub struct QueryClient {
-    ctx: StorageContext,
+    ctx: SessionContext,
     tables: BTreeMap<String, Arc<DeltaTable>>,
 }
 
@@ -62,7 +63,7 @@ impl QueryClient {
             .as_deref()
             .unwrap_or(kube.default_namespace());
 
-        let ctx = StorageContext::default();
+        let ctx = SessionContext::default();
         let mut tables = BTreeMap::default();
 
         // load messenger
@@ -76,20 +77,26 @@ impl QueryClient {
 
             info!("Loading model: {model}");
             let args = args.await?;
-            let (name, table, has_inited) =
-                ctx.register_table_with_name(args, &model, None).await?;
+            let (name, table, state) = ctx.register_table_with_name(&args, &model, None).await?;
 
-            if has_inited {
-                tables.insert(name, table);
-            } else {
-                warn!("Model {model:?} is not inited yet on {storage:?}; skipping...");
+            match state {
+                StorageTableState::Inited => {
+                    tables.insert(name, table);
+                }
+                StorageTableState::Uninited => {
+                    warn!("Model {model:?} is not inited yet on {storage:?}; skipping...");
+                }
             }
         }
 
         // load functions after loading models
         for function in load_functions(&kube, &tables, namespace).await? {
             info!("Loading function: {function}");
-            ctx.register_udf(function.try_into_udf(messenger.as_ref()).await?);
+            ctx.register_udf(
+                function
+                    .try_into_udf(namespace.into(), messenger.as_ref())
+                    .await?,
+            );
         }
 
         Ok(Self { ctx, tables })

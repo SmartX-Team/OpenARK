@@ -1,16 +1,15 @@
 use std::{env, ffi::OsStr};
 
-#[cfg(feature = "opentelemetry-otlp")]
+#[cfg(feature = "otlp")]
 use opentelemetry_otlp as otlp;
-use opentelemetry_sdk::runtime;
 use tracing::{dispatcher, Subscriber};
-use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::{
     layer::SubscriberExt, registry::LookupSpan, util::SubscriberInitExt, Layer, Registry,
 };
 
 fn init_once_opentelemetry() {
-    use runtime::Tokio as Runtime;
+    #[cfg(feature = "otlp")]
+    use opentelemetry_sdk::runtime::Tokio as Runtime;
 
     // Skip init if has been set
     if dispatcher::has_been_set() {
@@ -27,7 +26,7 @@ fn init_once_opentelemetry() {
         }
     }
 
-    #[cfg(feature = "opentelemetry-otlp")]
+    #[cfg(feature = "otlp")]
     fn init_otlp_pipeline() -> otlp::TonicExporterBuilder {
         otlp::new_exporter().tonic()
     }
@@ -46,7 +45,7 @@ fn init_once_opentelemetry() {
         ::tracing_subscriber::fmt::layer()
     }
 
-    // #[cfg(feature = "opentelemetry-otlp")]
+    // #[cfg(feature = "otlp")]
     // fn init_layer_otlp_logger<S>() -> impl Layer<S>
     // where
     //     S: Subscriber + for<'span> LookupSpan<'span>,
@@ -59,7 +58,7 @@ fn init_once_opentelemetry() {
     //         .expect("failed to init a logger")
     // }
 
-    #[cfg(feature = "opentelemetry-otlp")]
+    #[cfg(feature = "otlp")]
     fn init_layer_otlp_metrics<S>() -> impl Layer<S>
     where
         S: Subscriber + for<'span> LookupSpan<'span>,
@@ -68,11 +67,11 @@ fn init_once_opentelemetry() {
             .metrics(Runtime)
             .with_exporter(init_otlp_pipeline())
             .build()
-            .map(MetricsLayer::new)
+            .map(::tracing_opentelemetry::MetricsLayer::new)
             .expect("failed to init a metrics")
     }
 
-    #[cfg(feature = "opentelemetry-otlp")]
+    #[cfg(feature = "otlp")]
     fn init_layer_otlp_tracer<S>() -> impl Layer<S>
     where
         S: Subscriber + for<'span> LookupSpan<'span>,
@@ -81,7 +80,7 @@ fn init_once_opentelemetry() {
             .tracing()
             .with_exporter(init_otlp_pipeline())
             .install_batch(Runtime)
-            .map(OpenTelemetryLayer::new)
+            .map(::tracing_opentelemetry::OpenTelemetryLayer::new)
             .expect("failed to init a tracer")
     }
 
@@ -89,7 +88,7 @@ fn init_once_opentelemetry() {
         .with(init_layer_env_filter())
         .with(init_layer_stdfmt());
 
-    #[cfg(feature = "opentelemetry-otlp")]
+    #[cfg(feature = "otlp")]
     let layer = layer
         .with(init_layer_otlp_metrics())
         .with(init_layer_otlp_tracer());

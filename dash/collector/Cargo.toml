@@ -20,9 +20,9 @@ version = { workspace = true }
 default = ["exporter-messenger", "grpc", "http", "logs", "metrics", "trace"]
 
 # telemetry pillars and functions
-logs = ["opentelemetry-proto?/logs"]
-metrics = ["opentelemetry-proto?/metrics"]
-trace = ["opentelemetry-proto?/trace"]
+logs = ["kube", "opentelemetry-proto?/logs"]
+metrics = ["kube", "opentelemetry-proto?/metrics"]
+trace = ["kube", "opentelemetry-proto?/trace"]
 
 # grpc using tonic
 grpc = [
@@ -59,6 +59,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+kube = { workspace = true, optional = true }
 opentelemetry-proto = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }

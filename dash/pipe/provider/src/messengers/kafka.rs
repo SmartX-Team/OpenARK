@@ -39,9 +39,10 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
+    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.config.create()?,
+            namespace,
             topic,
         }))
     }
@@ -61,6 +62,7 @@ impl<Value> super::Messenger<Value> for Messenger {
 
 pub struct Publisher {
     client: FutureProducer,
+    namespace: String,
     topic: Name,
 }
 
@@ -70,17 +72,17 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = _data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn reply_one(&self, _data: Bytes, _inbox: String) -> Result<()> {
         bail!("cannot reply with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = _data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn request_one(&self, _data: Bytes) -> Result<Bytes> {
         bail!("cannot request with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .send(
@@ -101,6 +103,7 @@ where
     Self: Send + Sync,
     Value: Send + Default + DeserializeOwned,
 {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
         self.recv()
             .await

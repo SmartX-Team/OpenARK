@@ -15,5 +15,19 @@ set -x
 echo "- Installing Opentelemetry ... "
 pushd "opentelemetry" && ./install.sh && popd
 
+###########################################################
+#   Install ETCD Cluster                                  #
+###########################################################
+
+echo "- Installing ETCD Cluster ... "
+pushd "etcd" && ./install.sh && popd
+
+###########################################################
+#   Install Greptime TSDB                                 #
+###########################################################
+
+echo "- Installing Greptime TSDB Cluster ... "
+pushd "greptime" && ./install.sh && popd
+
 # Finished!
 echo "Installed!"

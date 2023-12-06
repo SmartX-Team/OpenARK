@@ -71,6 +71,7 @@
   with_items: "{{ results.files }}"
 
 - name: Restart NetworkManager
+  when: kiss_allow_pruning_network_interfaces | default(False)
   systemd:
     name: NetworkManager.service
     state: restarted

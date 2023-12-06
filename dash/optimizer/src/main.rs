@@ -1,9 +1,10 @@
 mod ctx;
+mod metric;
 mod model;
 mod plan;
 mod raw;
-mod router;
-mod storage;
+// mod router;
+mod dimension;
 
 use std::process::exit;
 
@@ -21,15 +22,14 @@ async fn try_main() -> Result<()> {
     let ctx = self::ctx::OptimizerContext::try_default().await.unwrap();
 
     // load optimizer data
-    let loader = self::storage::StorageLoader::new(&ctx);
+    let loader = self::dimension::StorageLoader::new(&ctx);
     loader.load().await.unwrap();
 
     // spawn handlers
     try_join!(
         self::model::Optimizer::new(&ctx).loop_forever(),
-        self::raw::metrics::Reader::new(&ctx).loop_forever(),
         self::raw::trace::Reader::new(&ctx).loop_forever(),
-        self::storage::Optimizer::new(&ctx).loop_forever(),
+        self::dimension::Optimizer::new(&ctx).loop_forever(),
     )?;
     Ok(())
 }

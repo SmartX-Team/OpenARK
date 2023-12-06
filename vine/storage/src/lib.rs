@@ -50,7 +50,7 @@ pub async fn get_or_create_shared_pvcs(
     }
 }
 
-#[instrument(level = Level::INFO, skip(kube), fields(pvc.name = pvc.name_any(), pvc.namespace = pvc.namespace()), err(Display))]
+#[instrument(level = Level::INFO, skip(kube), fields(pvc.name = %pvc.name_any(), pvc.namespace = pvc.namespace()), err(Display))]
 async fn clone_pvc(
     kube: &Client,
     source_namespace: &str,
@@ -223,7 +223,7 @@ async fn clone_pv(
         .map_err(|error| anyhow!("failed to create a PV ({source_name} => {target_name}): {error}"))
 }
 
-#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = pv.name_any()), err(Display))]
+#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = %pv.name_any()), err(Display))]
 async fn release_pv(
     api: &Api<PersistentVolume>,
     mut pv: PersistentVolume,
@@ -251,7 +251,7 @@ async fn release_pv(
 /// to avoid it from being deleted when you will delete PVCs.
 ///
 /// Don't forget to change it back to `Delete` when you want to remove the shared volume.
-#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = pv.name_any()), err(Display))]
+#[instrument(level = Level::INFO, skip(api, pp), fields(pv.name = %pv.name_any()), err(Display))]
 async fn retain_pv_on_delete(
     api: &Api<PersistentVolume>,
     mut pv: PersistentVolume,
@@ -280,7 +280,7 @@ async fn retain_pv_on_delete(
     }
 }
 
-#[instrument(level = Level::INFO, skip(kube, pp), fields(pv.name = pv.name_any()), err(Display))]
+#[instrument(level = Level::INFO, skip(kube, pp), fields(pv.name = %pv.name_any()), err(Display))]
 async fn get_or_create_user_level_cephfs_secret(
     kube: &Client,
     pv: &PersistentVolume,

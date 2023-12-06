@@ -24,7 +24,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::kiss_api::consts::NAMESPACE;
 
-    #[instrument(level = Level::INFO, skip_all, fields(name = data.name_any(), namespace = data.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(name = %data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,

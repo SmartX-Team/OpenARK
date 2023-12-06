@@ -6,7 +6,7 @@ use dash_api::{
 };
 use dash_optimizer_api::optimize;
 use dash_pipe_provider::{
-    messengers::{init_messenger, MessengerArgs},
+    messengers::{init_messenger, Messenger, MessengerArgs},
     PipeMessage, RemoteFunction, StatelessRemoteFunction,
 };
 use dash_provider::storage::KubernetesStorageClient;
@@ -14,7 +14,7 @@ use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
 pub struct OptimizerClient {
-    function: StatelessRemoteFunction<optimize::model::Request, optimize::model::Response>,
+    messenger: Box<dyn Messenger<optimize::model::Response>>,
 }
 
 impl OptimizerClient {
@@ -23,10 +23,7 @@ impl OptimizerClient {
         let args = MessengerArgs::try_parse()?;
         let messenger = init_messenger(&args).await?;
 
-        Ok(Self {
-            function: StatelessRemoteFunction::try_new(&messenger, optimize::model::model_in()?)
-                .await?,
-        })
+        Ok(Self { messenger })
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
@@ -46,8 +43,16 @@ impl OptimizerClient {
                 storage,
             },
         );
-        match self
-            .function
+
+        let namespace = kubernetes_storage.namespace.to_string();
+        let function = StatelessRemoteFunction::try_new(
+            namespace,
+            &self.messenger,
+            optimize::model::model_in()?,
+        )
+        .await?;
+
+        match function
             .call_one(request)
             .await
             .map(|message| message.value)

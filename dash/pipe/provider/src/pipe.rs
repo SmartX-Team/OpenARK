@@ -14,6 +14,7 @@ use ark_core_k8s::data::Name;
 use clap::{ArgAction, Args, Parser};
 use derivative::Derivative;
 use futures::Future;
+use kube::Client;
 use opentelemetry::global;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -198,10 +199,17 @@ where
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
+        let namespace = Client::try_default()
+            .await
+            .map_err(|error| anyhow!("failed to init kubernetes client: {error}"))?
+            .default_namespace()
+            .to_string();
+
         let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Task Context");
-        let mut function_context = FunctionContext::new(messenger.messenger_type());
+        let mut function_context =
+            FunctionContext::new(messenger.messenger_type(), namespace.clone());
         if !self.ignore_sigint {
             function_context.clone().trap_on_sigint()?;
         }
@@ -306,7 +314,7 @@ where
             function_context: function_context.clone(),
             storage: storage.output.clone(),
             stream: match self.model_out.as_ref() {
-                Some(model) => Some(messenger.publish(model.clone()).await?),
+                Some(model) => Some(messenger.publish(namespace, model.clone()).await?),
                 None => None,
             },
         };
@@ -317,8 +325,8 @@ where
             function,
             function_context,
             reader,
-            writer,
             storage,
+            writer,
         })
     }
 
@@ -449,7 +457,7 @@ where
 
     let input_payloads = inputs.get_payloads_ref();
 
-    #[instrument(level = Level::INFO, skip(function), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call_function<F>(
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
@@ -535,11 +543,13 @@ where
     async fn loop_forever(mut self) -> JoinHandle<()> {
         spawn(async move {
             loop {
+                // yield per every loop
+                yield_now().await;
+
                 match self.read_input_one().await {
-                    Ok(()) => yield_now().await,
+                    Ok(()) => continue,
                     Err(error) => {
                         warn!("failed to read inputs: {error}");
-                        yield_now().await;
                     }
                 }
             }

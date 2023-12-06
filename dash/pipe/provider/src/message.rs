@@ -17,8 +17,7 @@ use crate::storage::{StorageSet, StorageType};
 #[serde(untagged)]
 pub enum PipeMessages<Value = DynValue, Payload = Bytes>
 where
-    Payload: Default + JsonSchema,
-    Value: Default,
+    Payload: JsonSchema,
 {
     None,
     Single(PipeMessage<Value, Payload>),
@@ -29,7 +28,7 @@ where
 impl From<PipeMessages> for Vec<PyPipeMessage> {
     fn from(value: PipeMessages) -> Self {
         match value {
-            PipeMessages::None => Default::default(),
+            PipeMessages::None => Self::default(),
             PipeMessages::Single(value) => {
                 vec![value.into()]
             }
@@ -40,12 +39,11 @@ impl From<PipeMessages> for Vec<PyPipeMessage> {
 
 impl<Value, Payload> PipeMessages<Value, Payload>
 where
-    Payload: Default + JsonSchema,
-    Value: Default,
+    Payload: JsonSchema,
 {
     pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
         match self {
-            PipeMessages::None => Default::default(),
+            PipeMessages::None => HashMap::default(),
             PipeMessages::Single(value) => value.get_payloads_ref().collect(),
             PipeMessages::Batch(values) => values
                 .iter()
@@ -56,7 +54,7 @@ where
 
     pub fn into_vec(self) -> Vec<PipeMessage<Value, Payload>> {
         match self {
-            Self::None => Default::default(),
+            Self::None => Vec::default(),
             Self::Single(value) => vec![value],
             Self::Batch(values) => values,
         }
@@ -79,10 +77,7 @@ where
     }
 }
 
-impl<Value> PipeMessages<Value>
-where
-    Value: Default,
-{
+impl<Value> PipeMessages<Value> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn dump_payloads(
         self,
@@ -112,6 +107,7 @@ where
 pub struct PyPipeMessage {
     payloads: Vec<PipePayload>,
     timestamp: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     reply: Option<PipeReply>,
     value: DynValue,
 }
@@ -201,9 +197,7 @@ impl PyPipeMessage {
         Ok(Self {
             payloads: payloads
                 .into_iter()
-                .map(|(key, value)| {
-                    PipePayload::new(key, value.map(Into::into).unwrap_or_default())
-                })
+                .map(|(key, value)| PipePayload::new(key, value.map(Into::into)))
                 .collect(),
             reply: reply.map(|(inbox, target)| PipeReply {
                 inbox,
@@ -215,7 +209,7 @@ impl PyPipeMessage {
     }
 
     #[getter]
-    fn get_payloads(&self) -> Vec<(&str, &[u8])> {
+    fn get_payloads(&self) -> Vec<(&str, Option<&[u8]>)> {
         self.payloads
             .iter()
             .map(
@@ -224,7 +218,7 @@ impl PyPipeMessage {
                      model: _,
                      storage: _,
                      value,
-                 }| { (key.as_str(), value as &[u8]) },
+                 }| { (key.as_str(), value.as_deref()) },
             )
             .collect()
     }
@@ -301,22 +295,19 @@ impl PyPipeMessage {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PipeMessage<Value = DynValue, Payload = Bytes>
 where
-    Payload: Default + JsonSchema,
-    Value: Default,
+    Payload: JsonSchema,
 {
-    #[serde(default)]
     pub payloads: Vec<PipePayload<Payload>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) reply: Option<PipeReply>,
     timestamp: DateTime<Utc>,
-    #[serde(default)]
     pub value: Value,
 }
 
 impl<Value, Payload> TryFrom<&[u8]> for PipeMessage<Value, Payload>
 where
-    Payload: Default + DeserializeOwned + JsonSchema,
-    Value: Default + DeserializeOwned,
+    Payload: DeserializeOwned + JsonSchema,
+    Value: DeserializeOwned,
 {
     type Error = Error;
 
@@ -324,6 +315,7 @@ where
         match value.first().copied().map(Into::into) {
             None | Some(OpCode::AsciiEnd) => ::serde_json::from_slice(value).map_err(Into::into),
             Some(OpCode::MessagePack) => ::rmp_serde::from_slice(&value[1..]).map_err(Into::into),
+            Some(OpCode::Cbor) => ::serde_cbor::from_slice(&value[1..]).map_err(Into::into),
             Some(OpCode::Unsupported) => bail!("cannot infer serde opcode"),
         }
     }
@@ -331,8 +323,8 @@ where
 
 impl<Value, Payload> TryFrom<Bytes> for PipeMessage<Value, Payload>
 where
-    Payload: Default + DeserializeOwned + JsonSchema,
-    Value: Default + DeserializeOwned,
+    Payload: DeserializeOwned + JsonSchema,
+    Value: DeserializeOwned,
 {
     type Error = Error;
 
@@ -343,8 +335,8 @@ where
 
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
-    Payload: Default + Serialize + JsonSchema,
-    Value: Default + Serialize,
+    Payload: Serialize + JsonSchema,
+    Value: Serialize,
 {
     type Error = Error;
 
@@ -355,8 +347,8 @@ where
 
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for DynValue
 where
-    Payload: Default + Serialize + JsonSchema,
-    Value: Default + Serialize,
+    Payload: Serialize + JsonSchema,
+    Value: Serialize,
 {
     type Error = Error;
 
@@ -367,8 +359,7 @@ where
 
 impl<Value, Payload> PipeMessage<Value, Payload>
 where
-    Payload: Default + JsonSchema,
-    Value: Default,
+    Payload: JsonSchema,
 {
     pub fn new(payloads: Vec<PipePayload<Payload>>, value: Value) -> Self {
         Self {
@@ -385,8 +376,7 @@ where
         value: Value,
     ) -> Self
     where
-        P: Default + JsonSchema,
-        V: Default,
+        P: JsonSchema,
     {
         Self {
             payloads,
@@ -410,6 +400,11 @@ where
                 reply.target = target.clone();
             }
         }
+        self
+    }
+
+    pub(crate) fn drop_reply(mut self) -> Self {
+        self.reply = None;
         self
     }
 
@@ -472,14 +467,19 @@ where
                     .map(|()| buf.into())
                     .map_err(Into::into)
             }
+            Codec::Cbor => {
+                // opcode
+                let mut buf = vec![OpCode::Cbor as u8];
+
+                ::serde_cbor::to_writer(&mut buf, self)
+                    .map(|()| buf.into())
+                    .map_err(Into::into)
+            }
         }
     }
 }
 
-impl<Value> PipeMessage<Value>
-where
-    Value: Default,
-{
+impl<Value> PipeMessage<Value> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn dump_payloads(
         self,
@@ -504,22 +504,21 @@ where
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PipePayload<Value = Bytes>
 where
-    Value: Default + JsonSchema,
+    Value: JsonSchema,
 {
     key: String,
     #[serde(default)]
     model: Option<Name>,
     #[serde(default)]
     storage: Option<StorageType>,
-    #[serde(default)]
-    value: Value,
+    value: Option<Value>,
 }
 
 impl<Value> PipePayload<Value>
 where
-    Value: Default + JsonSchema,
+    Value: JsonSchema,
 {
-    pub fn new(key: String, value: Value) -> Self {
+    pub fn new(key: String, value: Option<Value>) -> Self {
         Self {
             key,
             model: None,
@@ -558,7 +557,9 @@ where
 
         Ok(PipePayload {
             value: match model.as_ref().zip(storage_type) {
-                Some((model, storage_type)) => storage.get(storage_type).get(model, &key).await?,
+                Some((model, storage_type)) => {
+                    storage.get(storage_type).get(model, &key).await.map(Some)?
+                }
                 None => bail!("storage type not defined"),
             },
             key,
@@ -586,8 +587,8 @@ where
         }
     }
 
-    pub const fn value(&self) -> &Value {
-        &self.value
+    pub const fn value(&self) -> Option<&Value> {
+        self.value.as_ref()
     }
 }
 
@@ -620,7 +621,10 @@ impl PipePayload {
             // do not restore the payloads to the same storage
             (key, last_model)
         } else if let Some(next_model) = storage.get_default().model().cloned() {
-            let key = storage.get_default().put(&key, value).await?;
+            let key = match value {
+                Some(value) => storage.get_default().put(&key, value).await?,
+                None => key,
+            };
             (key, Some(next_model))
         } else {
             (key, None)
@@ -630,7 +634,7 @@ impl PipePayload {
             key,
             model,
             storage: Some(next_storage),
-            value: (),
+            value: None,
         })
     }
 }
@@ -639,7 +643,9 @@ impl PipePayload {
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 pub struct PipeReply {
+    #[serde(default)]
     pub inbox: String,
+    #[serde(default)]
     pub target: Option<Name>,
 }
 
@@ -663,6 +669,7 @@ pub enum Codec {
     #[default]
     Json,
     MessagePack,
+    Cbor,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -675,6 +682,7 @@ enum OpCode {
 
     // NOTE: The opcodes for binary serde should be in extended ASCII
     MessagePack = 0x80,
+    Cbor = 0x81,
 }
 
 impl From<u8> for OpCode {
@@ -682,6 +690,7 @@ impl From<u8> for OpCode {
         match value {
             value if value <= Self::AsciiEnd as u8 => Self::AsciiEnd,
             value if value == Self::MessagePack as u8 => Self::MessagePack,
+            value if value == Self::Cbor as u8 => Self::Cbor,
             _ => Self::Unsupported,
         }
     }

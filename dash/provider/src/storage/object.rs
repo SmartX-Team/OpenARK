@@ -671,7 +671,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         Ok(false)
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(bucket = bucket, command = command), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(bucket = %bucket, command = %command), err(Display))]
     async fn get_or_create_bucket_job(
         &self,
         bucket: &str,

@@ -167,7 +167,7 @@ impl DashClient {
 }
 
 impl DashClient {
-    #[instrument(level = Level::INFO, skip_all, fields(path = path.as_ref()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(path = %path.as_ref()), err(Display))]
     async fn delete<Res>(&self, path: impl AsRef<str>) -> Result<Res>
     where
         Res: DeserializeOwned,
@@ -175,7 +175,7 @@ impl DashClient {
         self.request::<(), _>(Method::DELETE, path, None).await
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(path = path.as_ref()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(path = %path.as_ref()), err(Display))]
     async fn get<Res>(&self, path: impl AsRef<str>) -> Result<Res>
     where
         Res: DeserializeOwned,
@@ -183,7 +183,7 @@ impl DashClient {
         self.request::<(), _>(Method::GET, path, None).await
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(path = path.as_ref()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(path = %path.as_ref()), err(Display))]
     async fn post<Req, Res>(&self, path: impl AsRef<str>, data: Option<&Req>) -> Result<Res>
     where
         Req: ?Sized + Serialize,
@@ -192,7 +192,7 @@ impl DashClient {
         self.request(Method::POST, path, data).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, method, data), fields(path = path.as_ref()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, method, data), fields(path = %path.as_ref()), err(Display))]
     async fn request<Req, Res>(
         &self,
         method: Method,

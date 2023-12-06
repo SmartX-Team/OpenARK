@@ -23,9 +23,12 @@ macro_rules! init_exporter {
                 let args = MessengerArgs::parse();
                 let messenger = init_messenger::<Value>(&args).await?;
 
+                let kube = ::kube::Client::try_default().await?;
+                let namespace = || kube.default_namespace().to_string();
+
                 Ok(Self {
                     $(
-                        $signal: Arc::new(messenger.publish(super::topics::$signal()?).await?),
+                        $signal: Arc::new(messenger.publish(namespace(), super::topics::$signal()?).await?),
                     )*
                 })
             }

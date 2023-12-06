@@ -1,49 +1,148 @@
 pub mod decoder;
 pub mod schema;
 
-use std::{collections::HashMap, io::Cursor, ops, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    io::Cursor,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, bail, Result};
 use ark_core_k8s::data::Name;
-use async_recursion::async_recursion;
 use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
     arrow::json::reader::infer_json_schema_from_seekable,
-    datafusion::prelude::SessionContext,
+    datafusion::execution::context::SessionContext,
     kernel::StructField,
+    operations::create::CreateBuilder,
     protocol::SaveMode,
     writer::{DeltaWriter, JsonWriter},
-    DeltaOps, DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError,
+    DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError,
 };
 use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::json;
-use tokio::sync::Mutex;
-use tracing::{debug, info, instrument, Level};
+use serde_json::{json, Value};
+use tokio::sync::{Mutex, RwLock};
+use tracing::{debug, instrument, Level};
 
 use crate::message::PipeMessage;
 
 use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
+#[async_trait]
+pub trait StorageSessionContext {
+    type Table;
+
+    async fn register_table_with_name(
+        &self,
+        args: &StorageS3Args,
+        model: &str,
+        fields: Option<RootSchema>,
+    ) -> Result<(
+        String,
+        <Self as StorageSessionContext>::Table,
+        StorageTableState,
+    )>;
+}
+
+#[async_trait]
+impl StorageSessionContext for SessionContext {
+    type Table = Arc<DeltaTable>;
+
+    async fn register_table_with_name(
+        &self,
+        args: &StorageS3Args,
+        model: &str,
+        fields: Option<RootSchema>,
+    ) -> Result<(
+        String,
+        <Self as StorageSessionContext>::Table,
+        StorageTableState,
+    )> {
+        let (model, table, state) = load_table(args, model, fields).await?;
+        let table = Arc::new(table);
+
+        self.register_table(&model, table.clone())?;
+        Ok((model, table, state))
+    }
+}
+
+#[derive(Clone)]
+pub struct GlobalStorageContext {
+    args: StorageS3Args,
+    flush: Option<Duration>,
+    namespace: String,
+    storages: Arc<RwLock<BTreeMap<String, StorageContext>>>,
+}
+
+impl GlobalStorageContext {
+    pub fn new(args: StorageS3Args, flush: Option<Duration>, namespace: String) -> Self {
+        Self {
+            args,
+            flush,
+            namespace,
+            storages: Arc::default(),
+        }
+    }
+}
+
+impl GlobalStorageContext {
+    pub async fn get_table(&self, model: &str) -> Result<StorageContext> {
+        let storages = self.storages.read().await;
+        match storages.get(model).cloned() {
+            Some(ctx) => {
+                drop(storages);
+                Ok(ctx)
+            }
+            None => {
+                drop(storages);
+
+                let ctx = StorageContext::try_new::<Value>(
+                    &self.args,
+                    self.namespace.clone(),
+                    model,
+                    self.flush,
+                )
+                .await?;
+
+                self.storages
+                    .write()
+                    .await
+                    .insert(model.into(), ctx.clone());
+                Ok(ctx)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Storage {
-    session: Arc<Mutex<MaybeStorageTable>>,
+    inner: Option<StorageContext>,
 }
 
 impl Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
+    pub async fn try_new<Value>(
+        args: &StorageS3Args,
+        namespace: String,
+        model: Option<&Name>,
+        flush: Option<Duration>,
+    ) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        debug!("Initializing Storage Set ({model:?}) - DeltaLake");
-        MaybeStorageTable::try_new::<Value>(args, model)
-            .await
-            .map(|session| Self {
-                session: Arc::new(Mutex::new(session)),
-            })
+        Ok(Self {
+            inner: match model {
+                Some(model) => Some(
+                    StorageContext::try_new::<Value>(args, namespace, model.storage(), flush)
+                        .await?,
+                ),
+                None => None,
+            },
+        })
     }
 }
 
@@ -54,7 +153,12 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     where
         Value: 'static + Send + Default + DeserializeOwned,
     {
-        super::MetadataStorageMut::list_metadata(&mut *self.session.lock().await).await
+        match self.inner.as_ref() {
+            Some(inner) => {
+                <StorageContext as super::MetadataStorage<Value>>::list_metadata(inner).await
+            }
+            None => bail!("cannot init dataframe from uninited DeltaLake table"),
+        }
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
@@ -62,110 +166,61 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
     {
-        if values.is_empty() {
-            return Ok(());
+        match self.inner.as_ref() {
+            Some(inner) => {
+                <StorageContext as super::MetadataStorage<Value>>::put_metadata(inner, values).await
+            }
+            None => Ok(()),
         }
-
-        super::MetadataStorageMut::put_metadata(&mut *self.session.lock().await, values).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn flush(&self) -> Result<()> {
-        super::MetadataStorageMut::<Value>::flush(&mut *self.session.lock().await).await
-    }
-}
-
-#[derive(Default)]
-struct MaybeStorageTable {
-    inner: Option<StorageTable>,
-}
-
-impl MaybeStorageTable {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn try_new<Value>(args: &StorageS3Args, model: Option<&Name>) -> Result<Self>
-    where
-        Value: Default + JsonSchema,
-    {
-        Ok(Self {
-            inner: match model {
-                Some(model) => Some(StorageTable::try_new::<Value>(args, model).await?),
-                None => None,
-            },
-        })
-    }
-}
-
-#[async_trait]
-impl<Value> super::MetadataStorageMut<Value> for MaybeStorageTable {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn list_metadata(&mut self) -> Result<super::Stream<PipeMessage<Value, ()>>>
-    where
-        Value: 'static + Send + Default + DeserializeOwned,
-    {
-        match self.inner.as_mut() {
-            Some(inner) => {
-                <StorageTable as super::MetadataStorageMut<Value>>::list_metadata(inner).await
-            }
-            None => bail!("cannot init dataframe from uninited DeltaLake table"),
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
-    where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
-    {
-        match self.inner.as_mut() {
-            Some(inner) => {
-                <StorageTable as super::MetadataStorageMut<Value>>::put_metadata(inner, values)
-                    .await
-            }
-            None => Ok(()),
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn flush(&mut self) -> Result<()> {
-        match self.inner.as_mut() {
-            Some(inner) => <StorageTable as super::MetadataStorageMut<Value>>::flush(inner).await,
+        match self.inner.as_ref() {
+            Some(inner) => <StorageContext as super::MetadataStorage<Value>>::flush(inner).await,
             None => Ok(()),
         }
     }
 }
 
-pub struct StorageTable {
-    ctx: StorageContext,
+#[derive(Clone)]
+pub struct StorageContext {
     model: String,
-    table: Arc<DeltaTable>,
-    writer: Option<JsonWriter>,
+    namespace: String,
+    table: Arc<RwLock<DeltaTable>>,
+    writer: Arc<Mutex<StorageTableWriter>>,
 }
 
-impl StorageTable {
-    #[instrument(level = Level::INFO, err(Display))]
-    pub async fn try_new<Value>(args: &StorageS3Args, model: &Name) -> Result<Self>
+impl StorageContext {
+    #[instrument(level = Level::INFO, skip(args), err(Display))]
+    pub async fn try_new<Value>(
+        args: &StorageS3Args,
+        namespace: String,
+        model: &str,
+        flush: Option<Duration>,
+    ) -> Result<Self>
     where
         Value: Default + JsonSchema,
     {
-        let ctx = StorageContext::default();
-
         // get or create a table
-        let (model, table, has_writer) = ctx
-            .register_table_with_name(
-                args.clone(),
-                model.storage(),
-                Some(::schemars::schema_for!(PipeMessage<Value, ()>)),
-            )
-            .await?;
+        let (model, table, state) = load_table(
+            args,
+            model,
+            Some(::schemars::schema_for!(PipeMessage<Value, ()>)),
+        )
+        .await?;
 
-        let writer = if has_writer {
-            Some(init_writer(&table)?)
-        } else {
-            None
+        let writer = match state {
+            StorageTableState::Inited => Some(init_writer(&table)?),
+            StorageTableState::Uninited => None,
         };
 
+        let table = Arc::new(RwLock::new(table));
+        let writer = StorageTableWriter::new(table.clone(), writer, flush);
+
         Ok(Self {
-            ctx,
             model,
+            namespace,
             table,
             writer,
         })
@@ -173,219 +228,235 @@ impl StorageTable {
 }
 
 #[async_trait]
-impl<Value> super::MetadataStorageMut<Value> for StorageTable {
-    #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn list_metadata(&mut self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+impl<Value> super::MetadataStorage<Value> for StorageContext {
+    #[instrument(level = Level::INFO, skip_all, fields(data.namespace = %self.namespace), err(Display))]
+    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + Default + DeserializeOwned,
     {
-        let df = self
-            .ctx
-            .session
-            .table(self.model.as_str())
-            .await
-            .map_err(|error| {
-                anyhow!("failed to get object metadata list from DeltaLake object store: {error}")
-            })?;
+        let old_table = self.table.read().await;
+        let mut table = DeltaTable::new(
+            old_table.log_store(),
+            DeltaTableConfig {
+                require_tombstones: old_table.config.require_tombstones,
+                require_files: old_table.config.require_files,
+                log_buffer_size: old_table.config.log_buffer_size,
+            },
+        );
+        table.state = old_table.state.clone();
+        drop(old_table);
+
+        let session = SessionContext::default();
+        session.register_table(&self.model, Arc::new(table))?;
+
+        let df = session.table(&self.model).await.map_err(|error| {
+            anyhow!("failed to get object metadata list from DeltaLake object store: {error}")
+        })?;
 
         df.try_into_decoder().await.map_err(|error| {
             anyhow!("failed to get object metadata from DeltaLake object store: {error}")
         })
     }
 
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = %values.len(), data.namespace = %self.namespace), err(Display))]
+    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
     {
-        self.put_metadata_impl(values).await
+        self.writer
+            .lock()
+            .await
+            .write(values.iter().map(|value| json!(value)).collect())
+            .await
     }
 
-    #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn flush(&mut self) -> Result<()> {
-        match self.writer.as_mut() {
-            Some(writer) => {
-                let mut table = DeltaTable::new(
-                    self.table.object_store(),
-                    DeltaTableConfig {
-                        ..self.table.config
-                    },
-                );
-                table.load().await.map_err(|error| {
-                    anyhow!("failed to reload metadata table from DeltaLake object store: {error}")
-                })?;
-
-                writer
-                    .flush_and_commit(&mut table)
-                    .await
-                    .map(|_| info!("commited object metadata"))
-                    .map_err(|error| {
-                        anyhow!(
-                            "failed to flush object metadata into DeltaLake object store: {error}"
-                        )
-                    })
-            }
-            None => Ok(()),
-        }
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn flush(&self) -> Result<()> {
+        self.writer.lock().await.flush().await
     }
 }
 
-impl StorageTable {
-    #[async_recursion]
+struct StorageTableWriter {
+    dirty: bool,
+    flush: Option<Duration>,
+    inner: Option<JsonWriter>,
+    last_flushed: Instant,
+    table: Arc<RwLock<DeltaTable>>,
+}
+
+impl StorageTableWriter {
+    fn new(
+        table: Arc<RwLock<DeltaTable>>,
+        inner: Option<JsonWriter>,
+        flush: Option<Duration>,
+    ) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            dirty: false,
+            flush,
+            inner,
+            last_flushed: Instant::now(),
+            table,
+        }))
+    }
+
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn put_metadata_impl<Value>(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
-    where
-        Value: Send + Sync + Default + Serialize + JsonSchema,
-    {
+    async fn get(&mut self, values: &[Value]) -> Result<&mut JsonWriter> {
         const MAX_READ_RECORDS: usize = 1_000;
 
-        match self.writer.as_mut() {
-            Some(writer) => writer
-                .write(values.iter().map(|value| json!(value)).collect())
-                .await
-                .map_err(|error| {
-                    anyhow!("failed to put object metadata into DeltaLake object store: {error}")
-                }),
-            // dynamic table schema inferring
-            None => {
-                let reader = Cursor::new(
-                    values
-                        .iter()
-                        .filter_map(|value| ::serde_json::to_vec(value).ok())
-                        .flatten()
-                        .collect::<Vec<_>>(),
-                );
-                let schema = infer_json_schema_from_seekable(reader, Some(MAX_READ_RECORDS))
-                    .map_err(|error| anyhow!("failed to infer object metadata schema: {error}"))?;
-                let columns = schema.to_data_columns().map_err(|error| {
-                    anyhow!(
-                        "failed to convert inferred object metadata schema into parquet: {error}"
-                    )
+        // dynamic table schema inferring
+        if self.inner.is_none() {
+            let reader = Cursor::new(
+                values
+                    .iter()
+                    .filter_map(|value| ::serde_json::to_vec(value).ok())
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            );
+            let schema = infer_json_schema_from_seekable(reader, Some(MAX_READ_RECORDS))
+                .map_err(|error| anyhow!("failed to infer object metadata schema: {error}"))?;
+            let columns = schema.to_data_columns().map_err(|error| {
+                anyhow!("failed to convert inferred object metadata schema into parquet: {error}")
+            })?;
+
+            // assert ACID by acquiring WRITE access for ctx
+            let mut table = self.table.write().await;
+            *table = create_table(&table, columns).await?;
+            self.inner = Some(init_writer(&table)?);
+        }
+
+        self.inner.as_mut().ok_or_else(|| anyhow!("empty schema"))
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn write(&mut self, values: Vec<Value>) -> Result<()> {
+        self.dirty = true;
+        match self.get(&values).await {
+            Ok(writer) => {
+                writer.write(values).await.map_err(|error| {
+                    anyhow!("failed to put metadata into DeltaLake table: {error}")
                 })?;
 
-                self.table = Arc::new(create_table(clone_table(&self.table), columns).await?);
-                self.writer = Some(init_writer(&self.table)?);
-
-                self.put_metadata_impl(values).await
+                if let Some(interval) = self.flush {
+                    if self.last_flushed.elapsed() >= interval {
+                        self.flush().await?;
+                    }
+                }
+                Ok(())
             }
+            Err(error) => bail!("failed to init DeltaLake writer: {error}"),
         }
     }
-}
 
-#[derive(Clone, Default)]
-pub struct StorageContext {
-    session: SessionContext,
-}
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn flush(&mut self) -> Result<()> {
+        if self.flush.is_some() && self.dirty {
+            self.dirty = false;
+            self.last_flushed = Instant::now();
 
-impl ops::Deref for StorageContext {
-    type Target = SessionContext;
-
-    fn deref(&self) -> &Self::Target {
-        &self.session
-    }
-}
-
-impl ops::DerefMut for StorageContext {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.session
-    }
-}
-
-impl StorageContext {
-    #[instrument(level = Level::INFO, skip_all, fields(model = model), err(Display))]
-    pub async fn register_table_with_name(
-        &self,
-        StorageS3Args {
-            access_key,
-            s3_endpoint,
-            region,
-            secret_key,
-        }: StorageS3Args,
-        model: &str,
-        fields: Option<RootSchema>,
-    ) -> Result<(String, Arc<DeltaTable>, bool)> {
-        let mut table = {
-            let allow_http = s3_endpoint.scheme() == "http";
-            let table_uri = format!(
-                "s3a://{bucket_name}/{kind}/",
-                bucket_name = model,
-                kind = super::name::KIND_METADATA,
-            );
-
-            let mut backend_config: HashMap<String, String> = HashMap::new();
-            backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key);
-            backend_config.insert("AWS_ENDPOINT_URL".to_string(), {
-                let mut endpoint = s3_endpoint.to_string();
-                if endpoint.ends_with('/') {
-                    endpoint.pop();
-                }
-                endpoint
-            });
-            backend_config.insert("AWS_REGION".to_string(), region);
-            backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key);
-            backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
-
-            DeltaTableBuilder::from_uri(table_uri)
-                .with_allow_http(allow_http)
-                .with_storage_options(backend_config)
-                .build()
-                .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))?
-        };
-
-        // get or create a table
-        let (table, has_inited) = match table.load().await {
-            Ok(()) => {
-                debug!("DeltaLake table schema: loaded");
-                (table, true)
-            }
-            Err(DeltaTableError::NotATable(_)) => {
-                let columns = fields
-                    .map(|fields| {
-                        fields.to_data_columns().map_err(|error| {
-                            anyhow!("failed to convert metadata columns into parquet: {error}")
+            match self.inner.as_mut() {
+                Some(writer) => {
+                    // assert ACID by acquiring WRITE access for table
+                    let mut table = self.table.write().await;
+                    writer.flush_and_commit(&mut table)
+                        .await
+                        .map(|_| debug!("commited object metadata"))
+                        .map_err(|error| {
+                            anyhow!(
+                                "failed to flush object metadata into DeltaLake object store: {error}"
+                            )
                         })
-                    })
-                    .transpose()?
-                    .unwrap_or_default();
-
-                if columns.is_empty() {
-                    debug!("DeltaLake table schema: lazy-inferring dynamically");
-                    (table, false)
-                } else {
-                    debug!("DeltaLake table schema: creating statically");
-                    let table = create_table(table, columns).await?;
-                    (table, true)
                 }
+                None => Ok(()),
             }
-            Err(error) => {
-                bail!("failed to load metadata table from DeltaLake object store: {error}")
-            }
-        };
-
-        let model = model.to_snake_case();
-        let table = Arc::new(table);
-
-        if has_inited {
-            self.session
-                .register_table(&model, table.clone())
-                .map_err(|error| anyhow!("failed to load DeltaLake metadata session: {error}"))?;
+        } else {
+            Ok(())
         }
-
-        Ok((model, table, has_inited))
     }
 }
 
-fn clone_table(table: &DeltaTable) -> DeltaTable {
-    DeltaTable::new(table.object_store(), DeltaTableConfig { ..table.config })
+#[instrument(level = Level::INFO, skip_all, err(Display))]
+async fn load_table(
+    StorageS3Args {
+        access_key,
+        s3_endpoint,
+        region,
+        secret_key,
+    }: &StorageS3Args,
+    model: &str,
+    fields: Option<RootSchema>,
+) -> Result<(String, DeltaTable, StorageTableState)> {
+    let allow_http = s3_endpoint.scheme() == "http";
+    let table_uri = format!(
+        "s3a://{bucket_name}/{kind}/",
+        bucket_name = model,
+        kind = super::name::KIND_METADATA,
+    );
+
+    let mut backend_config: HashMap<String, String> = HashMap::new();
+    backend_config.insert("AWS_ACCESS_KEY_ID".to_string(), access_key.clone());
+    backend_config.insert("AWS_ENDPOINT_URL".to_string(), {
+        let mut endpoint = s3_endpoint.to_string();
+        if endpoint.ends_with('/') {
+            endpoint.pop();
+        }
+        endpoint
+    });
+    backend_config.insert("AWS_REGION".to_string(), region.clone());
+    backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key.clone());
+    backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
+
+    let mut table = DeltaTableBuilder::from_uri(table_uri)
+        .with_allow_http(allow_http)
+        .with_storage_options(backend_config)
+        .build()
+        .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))?;
+
+    let model = model.to_snake_case();
+
+    // get or create a table
+    match table.load().await {
+        Ok(()) => {
+            debug!("DeltaLake table schema: loaded");
+            Ok((model, table, StorageTableState::Inited))
+        }
+        Err(DeltaTableError::NotATable(_)) => {
+            let columns = fields
+                .map(|fields| {
+                    fields.to_data_columns().map_err(|error| {
+                        anyhow!("failed to convert metadata columns into parquet: {error}")
+                    })
+                })
+                .transpose()?
+                .unwrap_or_default();
+
+            if columns.is_empty() {
+                debug!("DeltaLake table schema: lazy-inferring dynamically");
+                Ok((model, table, StorageTableState::Uninited))
+            } else {
+                debug!("DeltaLake table schema: creating statically");
+                let table = create_table(&table, columns).await?;
+                Ok((model, table, StorageTableState::Inited))
+            }
+        }
+        Err(error) => {
+            bail!("failed to load metadata table from DeltaLake object store: {error}")
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StorageTableState {
+    Inited,
+    Uninited,
 }
 
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn create_table(
-    table: DeltaTable,
+    table: &DeltaTable,
     columns: impl IntoIterator<Item = impl Into<StructField>>,
 ) -> Result<DeltaTable> {
-    DeltaOps::from(table)
-        .create()
+    CreateBuilder::default()
+        .with_log_store(table.log_store())
         .with_columns(columns)
         .with_save_mode(SaveMode::Append)
         .await

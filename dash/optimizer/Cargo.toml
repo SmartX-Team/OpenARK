@@ -29,6 +29,7 @@ ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
 dash-optimizer-api = { path = "./api" }
 dash-optimizer-fallback = { path = "./fallback" }
+dash-pipe-api = { path = "../pipe/api" }
 dash-pipe-provider = { path = "../pipe/provider" }
 dash-provider-api = { path = "../provider/api" }
 

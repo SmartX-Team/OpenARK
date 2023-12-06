@@ -112,7 +112,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
@@ -159,7 +159,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -173,7 +173,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_kubernetes(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
@@ -190,7 +190,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage, model), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn get_by_storage_with_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
@@ -296,7 +296,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_database(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageDatabaseSpec>,
@@ -309,7 +309,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_kubernetes(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageKubernetesSpec>,
@@ -325,7 +325,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, storage), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_by_storage_with_object(
         &self,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
@@ -338,7 +338,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(model.name = model.name_any(), model.namespace = model.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self), fields(model.name = %model.name_any(), model.namespace = model.namespace()), err(Display))]
     async fn list_custom_resource(
         &self,
         model: &ModelCrd,

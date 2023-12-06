@@ -4,6 +4,7 @@ use anyhow::{bail, Result};
 use ark_core::env::infer;
 use octocrab::Octocrab;
 use semver::Version;
+use tokio::task::yield_now;
 use tracing::{instrument, warn, Level};
 
 pub struct Handler {
@@ -32,6 +33,9 @@ impl Handler {
     pub async fn get_version(&self) -> Result<Version> {
         // request the latest release info
         let release = 'load_release: loop {
+            // yield per every loop
+            yield_now().await;
+
             for retry in 0..Self::MAX_RETRY {
                 match self
                     .instance

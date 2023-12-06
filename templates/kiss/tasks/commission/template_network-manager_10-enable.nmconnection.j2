@@ -23,6 +23,9 @@ method=disabled
 
 [proxy]
 
+[tc]
+qdisc.root={{ item.qdisc }}
+
 {% if kiss_network_wireless_wifi_ssid != "" %}
 [wifi]
 mode=infrastructure

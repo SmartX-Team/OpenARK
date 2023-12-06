@@ -54,7 +54,7 @@ impl RemoteFunction for Optimizer {
 
         match self
             .ctx
-            .solve_next_storage(namespace, &name, *policy, None)
+            .solve_next_storage(namespace, name, *policy, None)
             .await
         {
             Some(target) => {
@@ -85,7 +85,7 @@ impl<'a> StorageLoader<'a> {
 
         let mut plans = Vec::with_capacity(crds.len());
         {
-            let mut storage = self.ctx.storage.write().await;
+            let mut storage = self.ctx.dimension.write().await;
             for crd in crds
                 .into_iter()
                 .sorted_by_key(|crd| crd.creation_timestamp())
@@ -103,19 +103,19 @@ impl<'a> StorageLoader<'a> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct StorageDimension {
-    dimensions: BTreeMap<String, Arc<RwLock<NamespacedStorageDimension>>>,
+#[derive(Clone, Default)]
+pub struct Dimension {
+    dimensions: BTreeMap<String, Arc<RwLock<NamespacedDimension>>>,
 }
 
-impl StorageDimension {
-    pub fn get(&self, namespace: &str) -> Option<Arc<RwLock<NamespacedStorageDimension>>> {
+impl Dimension {
+    pub fn get(&self, namespace: &str) -> Option<Arc<RwLock<NamespacedDimension>>> {
         self.dimensions.get(namespace).cloned()
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     #[must_use]
-    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<StoragePlan>> {
+    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<DimensionPlan>> {
         let namespace = crd
             .namespace()
             .ok_or_else(|| anyhow!("storage namespace should be exist"))?;
@@ -126,7 +126,7 @@ impl StorageDimension {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct NamespacedStorageDimension {
+pub struct NamespacedDimension {
     capacity: Array1<i64>,
     crds: Vec<Arc<ModelStorageCrd>>,
     latency_ms: Array2<i64>,
@@ -136,7 +136,7 @@ pub struct NamespacedStorageDimension {
     usage: Array1<i64>,
 }
 
-impl NamespacedStorageDimension {
+impl NamespacedDimension {
     pub fn exists(&self, name: &str) -> bool {
         self.names.contains_key(name)
     }
@@ -155,7 +155,7 @@ impl NamespacedStorageDimension {
         &mut self,
         namespace: String,
         crd: ModelStorageCrd,
-    ) -> Result<Option<StoragePlan>> {
+    ) -> Result<Option<DimensionPlan>> {
         let metadata = ObjectMetadata {
             name: crd.name_any(),
             namespace,
@@ -173,7 +173,7 @@ impl NamespacedStorageDimension {
                     /* skip changing names index */
                     set_matrix_default(&mut self.throughput_per_sec, index);
                     set_vector_default(&mut self.usage, index);
-                    Ok(Some(StoragePlan::Discover { metadata }))
+                    Ok(Some(DimensionPlan::Discover { metadata }))
                 }
             }
             None => {
@@ -186,7 +186,7 @@ impl NamespacedStorageDimension {
                 self.names.insert(metadata.name.clone(), index);
                 grow_matrix_default(&mut self.throughput_per_sec)?;
                 grow_vector_default(&mut self.usage)?;
-                Ok(Some(StoragePlan::Discover { metadata }))
+                Ok(Some(DimensionPlan::Discover { metadata }))
             }
         }
     }
@@ -241,18 +241,25 @@ impl NamespacedStorageDimension {
 }
 
 #[derive(Debug)]
-pub enum StoragePlan {
+pub enum DimensionPlan {
     Discover { metadata: ObjectMetadata },
 }
 
 #[async_trait]
-impl Plan for StoragePlan {
+impl Plan for DimensionPlan {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn exec(&self, ctx: &OptimizerContext) -> Result<()> {
         match self {
             Self::Discover { metadata } => {
                 let ObjectMetadata { name, namespace } = metadata;
-                let storage = match ctx.storage.read().await.dimensions.get(namespace).cloned() {
+                let storage = match ctx
+                    .dimension
+                    .read()
+                    .await
+                    .dimensions
+                    .get(namespace)
+                    .cloned()
+                {
                     Some(storage) => storage,
                     None => {
                         warn!("storage namespace has been removed: {namespace}");

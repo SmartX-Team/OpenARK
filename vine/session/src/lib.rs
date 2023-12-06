@@ -59,7 +59,7 @@ impl SessionManager {
 
     const THRESHOLD_SESSION_TIMEOUT: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
-    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = %spec.node.name_any(), user_name = %spec.user_name), err(Display))]
     pub async fn try_create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         match self.create(spec).await {
             Ok(()) => Ok(()),
@@ -70,7 +70,7 @@ impl SessionManager {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     pub async fn try_delete(&self, node: &Node) -> Result<Option<String>> {
         match node.get_session_ref() {
             Ok(SessionRef { user_name, .. }) => {
@@ -120,7 +120,7 @@ impl SessionManager {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = %spec.node.name_any(), user_name = %spec.user_name), err(Display))]
     async fn create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx = self.get_context(spec);
 
@@ -133,7 +133,7 @@ impl SessionManager {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = spec.node.name_any(), user_name = spec.user_name), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = %spec.node.name_any(), user_name = %spec.user_name), err(Display))]
     pub async fn delete(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
         let ctx = self.get_context(spec);
 
@@ -258,13 +258,13 @@ impl SessionManager {
             .map_err(Into::into)
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     async fn try_label_box(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
         let name = node.name_any();
         self.try_label::<BoxCrd>(&name, node, user_name).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     async fn try_label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
     where
         K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
@@ -299,19 +299,19 @@ impl SessionManager {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     async fn label_node(&self, node: &Node, user_name: Option<&str>) -> Result<()> {
         let name = node.name_any();
         self.label::<Node>(&name, node, user_name).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     async fn label_user(&self, node: &Node, user_name: &str, create: bool) -> Result<()> {
         self.label::<UserCrd>(user_name, node, if create { Some(user_name) } else { None })
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     async fn label<K>(&self, name: &str, node: &Node, user_name: Option<&str>) -> Result<()>
     where
         K: Clone + fmt::Debug + DeserializeOwned + Resource<DynamicType = ()>,
@@ -320,7 +320,7 @@ impl SessionManager {
         self.label_with_api(api, name, node, user_name).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, api, node), fields(node_name = node.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, api, node), fields(node_name = %node.name_any()), err(Display))]
     async fn label_with_api<K>(
         &self,
         api: Api<K>,

@@ -54,7 +54,7 @@ impl<'a> DashProviderClient<'a> {
         self.create_raw(&task, value).await
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(task_name = task.name_any()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(task_name = %task.name_any()), err(Display))]
     pub async fn create_raw(
         &self,
         task: &TaskCrd,

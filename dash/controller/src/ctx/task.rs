@@ -29,7 +29,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
 
-    #[instrument(level = Level::INFO, skip_all, fields(name = data.name_any(), namespace = data.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(name = %data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
         manager: Arc<Manager<Self>>,
         data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,

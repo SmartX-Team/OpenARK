@@ -67,6 +67,9 @@ impl ::dash_pipe_provider::Function for Function {
 }
 
 fn pack_payload(mut message: PipeMessage<Value>) -> Result<PipeMessage<Value>> {
-    message.payloads = vec![PipePayload::new("test".into(), (&message).try_into()?)];
+    message.payloads = vec![PipePayload::new(
+        "test".into(),
+        Some((&message).try_into()?),
+    )];
     Ok(message)
 }

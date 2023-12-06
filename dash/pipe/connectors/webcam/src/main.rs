@@ -197,7 +197,7 @@ impl ::dash_pipe_provider::Function for Function {
                 "images/{frame_idx:06}{ext}",
                 ext = self.camera_encoder.as_extension(),
             ),
-            frame,
+            Some(frame),
         )];
         let value = FunctionOutput {
             width,

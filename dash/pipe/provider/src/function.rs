@@ -54,7 +54,7 @@ pub mod deltalake {
             inputs: &[ColumnarValue],
         ) -> Result<ColumnarValue, DataFusionError> {
             let inputs = match inputs.len() {
-                1 => inputs[0].clone().into_array(1),
+                1 => inputs[0].clone().into_array(1)?,
                 _ => {
                     let num_rows = inputs
                         .iter()
@@ -71,7 +71,7 @@ pub mod deltalake {
                     let arrays: Vec<_> = inputs
                         .iter()
                         .map(|input| input.clone().into_array(num_rows))
-                        .collect();
+                        .collect::<Result<_, _>>()?;
 
                     Arc::new(StructArray::new(self.input.fields().clone(), arrays, None))
                 }
@@ -232,7 +232,7 @@ pub struct StatelessRemoteFunction<Input, Output> {
 
 impl<Input, Output> StatelessRemoteFunction<Input, Output> {
     #[instrument(level = Level::INFO, skip(messenger), err(Display))]
-    pub async fn try_new<M>(messenger: M, model_in: Name) -> Result<Self>
+    pub async fn try_new<M>(namespace: String, messenger: M, model_in: Name) -> Result<Self>
     where
         M: Messenger<Output>,
         Output: Send + Default + DeserializeOwned,
@@ -240,7 +240,7 @@ impl<Input, Output> StatelessRemoteFunction<Input, Output> {
         Ok(Self {
             _input: PhantomData,
             _output: PhantomData,
-            publisher: messenger.publish(model_in).await?,
+            publisher: messenger.publish(namespace, model_in).await?,
         })
     }
 }
@@ -361,16 +361,18 @@ pub struct FunctionContext {
     is_disabled_store_metadata: bool,
     is_terminating: Arc<AtomicBool>,
     messenger_type: MessengerType,
+    namespace: String,
 }
 
 impl FunctionContext {
-    pub(crate) fn new(messenger_type: MessengerType) -> Self {
+    pub(crate) fn new(messenger_type: MessengerType, namespace: String) -> Self {
         Self {
             is_disabled_load: Default::default(),
             is_disabled_store: Default::default(),
             is_disabled_store_metadata: Default::default(),
             is_terminating: Default::default(),
             messenger_type,
+            namespace,
         }
     }
 
@@ -400,6 +402,10 @@ impl FunctionContext {
 
     pub const fn messenger_type(&self) -> MessengerType {
         self.messenger_type
+    }
+
+    pub fn namespace(&self) -> &str {
+        &self.namespace
     }
 }
 

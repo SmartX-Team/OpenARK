@@ -26,14 +26,7 @@ kafka = ["dep:rdkafka"]
 
 # storage
 storage = ["lakehouse", "s3"]
-lakehouse = [
-    "async-recursion",
-    "dash-api",
-    "deltalake",
-    "inflector",
-    "kube",
-    "map-macro",
-]
+lakehouse = ["dash-api", "deltalake", "inflector", "map-macro"]
 s3 = ["chrono", "minio"]
 
 [dependencies]
@@ -47,7 +40,6 @@ dash-pipe-api = { path = "../api" }
 
 anyhow = { workspace = true }
 async-nats = { workspace = true, optional = true }
-async-recursion = { workspace = true, optional = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
@@ -59,7 +51,7 @@ derivative = { workspace = true }
 futures = { workspace = true }
 gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }
-kube = { workspace = true, optional = true }
+kube = { workspace = true, features = ["client", "rustls-tls"] }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 opentelemetry = { workspace = true }
@@ -68,6 +60,7 @@ rdkafka = { workspace = true, optional = true }
 rmp-serde = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
+serde_cbor = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

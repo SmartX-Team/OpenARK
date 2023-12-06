@@ -109,7 +109,7 @@ impl TaskActorJobClient {
         self.namespace.as_str()
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn exists<Spec>(&self, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
@@ -117,7 +117,7 @@ impl TaskActorJobClient {
         self.exists_named(&self.name, input).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn exists_named<Spec>(&self, name: &str, input: &SessionContext<Spec>) -> Result<bool>
     where
         Spec: Serialize,
@@ -131,7 +131,7 @@ impl TaskActorJobClient {
         Ok(true)
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn create<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
@@ -139,7 +139,7 @@ impl TaskActorJobClient {
         self.create_named(&self.name, input).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn create_named<Spec>(
         &self,
         name: &str,
@@ -151,7 +151,7 @@ impl TaskActorJobClient {
         self.execute_with(name, input, try_create).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn delete<Spec>(&self, input: &SessionContext<Spec>) -> Result<TaskChannelKindJob>
     where
         Spec: Serialize,
@@ -159,7 +159,7 @@ impl TaskActorJobClient {
         self.delete_named(&self.name, input).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     pub async fn delete_named<Spec>(
         &self,
         name: &str,
@@ -171,7 +171,7 @@ impl TaskActorJobClient {
         self.execute_with(name, input, try_delete).await
     }
 
-    #[instrument(level = Level::INFO, skip(self, input, f), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input, f), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     async fn execute_with<Spec, F, Fut>(
         &self,
         name: &str,
@@ -199,7 +199,7 @@ impl TaskActorJobClient {
         Ok(result)
     }
 
-    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = input.metadata.name, metadata.namespace = input.metadata.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, input), fields(metadata.name = %input.metadata.name, metadata.namespace = %input.metadata.namespace), err(Display))]
     async fn load_template<Spec>(
         &self,
         name: &str,

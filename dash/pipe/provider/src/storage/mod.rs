@@ -3,7 +3,7 @@ pub mod lakehouse;
 #[cfg(feature = "s3")]
 pub mod s3;
 
-use std::{marker::PhantomData, pin::Pin, sync::Arc};
+use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Result};
 use ark_core_k8s::data::Name;
@@ -63,6 +63,7 @@ impl StorageSet {
             Some(true) => StorageType::PERSISTENT,
             Some(false) | None => StorageType::TEMPORARY,
         };
+        let namespace = || ctx.namespace().to_string();
         let pipe_name = args
             .pipe_name
             .clone()
@@ -78,12 +79,19 @@ impl StorageSet {
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "lakehouse")]
             lakehouse: if persistence_metadata {
-                self::lakehouse::Storage::try_new::<Value>(&args.s3, model).await?
+                // TODO: to be implemented!
+                let flush = if ctx.is_disabled_store_metadata() {
+                    None
+                } else {
+                    Some(Duration::from_secs(10))
+                };
+                self::lakehouse::Storage::try_new::<Value>(&args.s3, namespace(), model, flush)
+                    .await?
             } else {
                 self::lakehouse::Storage::default()
             },
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name)?,
+            s3: self::s3::Storage::try_new(&args.s3, namespace(), model, &pipe_name)?,
         })
     }
 
@@ -217,19 +225,6 @@ pub trait MetadataStorage<Value = ()> {
         Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
 
     async fn flush(&self) -> Result<()>;
-}
-
-#[async_trait]
-pub trait MetadataStorageMut<Value = ()> {
-    async fn list_metadata(&mut self) -> Result<Stream<PipeMessage<Value, ()>>>
-    where
-        Value: 'static + Send + Default + DeserializeOwned;
-
-    async fn put_metadata(&mut self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
-    where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
-
-    async fn flush(&mut self) -> Result<()>;
 }
 
 #[derive(

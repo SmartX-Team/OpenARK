@@ -73,9 +73,10 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
+    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.client.clone(),
+            namespace,
             topic,
         }))
     }
@@ -113,6 +114,7 @@ impl<Value> super::Messenger<Value> for Messenger {
 
 pub struct Publisher {
     client: Arc<Client>,
+    namespace: String,
     topic: Name,
 }
 
@@ -122,7 +124,7 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()> {
         self.client
             .publish(inbox, data)
@@ -130,7 +132,7 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to reply data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn request_one(&self, data: Bytes) -> Result<Bytes> {
         self.client
             .request(&self.topic, data)
@@ -139,7 +141,7 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = data.len()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .publish(&self.topic, data)
@@ -169,7 +171,7 @@ where
                     .try_into()
                     .map(|input: PipeMessage<_, _>| match message.reply {
                         Some(inbox) => input.with_reply_inbox(inbox.to_string()),
-                        None => input,
+                        None => input.drop_reply(),
                     })
             })
             .transpose()

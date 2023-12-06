@@ -36,7 +36,7 @@ where
 {
     fn messenger_type(&self) -> MessengerType;
 
-    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>>;
+    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>>;
 
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
@@ -65,8 +65,8 @@ where
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
-        <T as Messenger<Value>>::publish(*self, topic).await
+    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>> {
+        <T as Messenger<Value>>::publish(*self, namespace, topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
@@ -97,8 +97,8 @@ impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
-        self.as_ref().publish(topic).await
+    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>> {
+        self.as_ref().publish(namespace, topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]

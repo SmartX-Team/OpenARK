@@ -168,7 +168,10 @@ impl Function {
 
     fn create_payload(&self) -> Vec<PipePayload> {
         match self.metric.payload_size {
-            Some(size) => vec![PipePayload::new("payload".into(), create_data(size).into())],
+            Some(size) => vec![PipePayload::new(
+                "payload".into(),
+                Some(create_data(size).into()),
+            )],
             None => Default::default(),
         }
     }
@@ -256,7 +259,7 @@ impl MetricData {
         let payload_bytes = message
             .payloads
             .iter()
-            .map(|payload| payload.value().len() as u128)
+            .filter_map(|payload| payload.value().map(|value| value.len() as u128))
             .sum::<u128>();
         self.num_sent_payload_bytes += payload_bytes;
         self.total_sent_payload_bytes += payload_bytes;
