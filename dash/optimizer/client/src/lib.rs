@@ -35,14 +35,11 @@ impl OptimizerClient {
         policy: ModelClaimBindingPolicy,
         storage: Option<ModelStorageKind>,
     ) -> Result<Option<ModelStorageBindingCrd>> {
-        let request = PipeMessage::<_, ()>::new(
-            vec![],
-            optimize::model::Request {
-                model: Some(model.clone()),
-                policy,
-                storage,
-            },
-        );
+        let request = PipeMessage::<_, ()>::new(optimize::model::Request {
+            model: Some(model.clone()),
+            policy,
+            storage,
+        });
 
         let namespace = kubernetes_storage.namespace.to_string();
         let function = StatelessRemoteFunction::try_new(

@@ -205,7 +205,9 @@ impl ::dash_pipe_provider::Function for Function {
             index: frame_idx,
         };
 
-        Ok(PipeMessages::Single(PipeMessage::new(payloads, value)))
+        Ok(PipeMessages::Single(PipeMessage::with_payloads(
+            payloads, value,
+        )))
     }
 }
 

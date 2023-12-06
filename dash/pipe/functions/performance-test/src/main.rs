@@ -163,7 +163,7 @@ impl Function {
     }
 
     fn create_packet(&self) -> PipeMessage<<Self as ::dash_pipe_provider::Function>::Output> {
-        PipeMessage::new(self.create_payload(), self.create_value())
+        PipeMessage::with_payloads(self.create_payload(), self.create_value())
     }
 
     fn create_payload(&self) -> Vec<PipePayload> {
@@ -291,7 +291,7 @@ impl MetricData {
 
     fn flush(&mut self, storage: Arc<StorageSet>, verbose: bool) {
         {
-            let metric = PipeMessage::new(
+            let metric = PipeMessage::with_payloads(
                 Default::default(),
                 Metric {
                     data: *self,

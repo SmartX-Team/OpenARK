@@ -4,7 +4,10 @@ pub mod schema;
 use std::{
     collections::{BTreeMap, HashMap},
     io::Cursor,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::{Duration, Instant},
 };
 
@@ -25,7 +28,10 @@ use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
-use tokio::sync::{Mutex, RwLock};
+use tokio::{
+    sync::{Mutex, RwLock},
+    time::sleep,
+};
 use tracing::{debug, instrument, Level};
 
 use crate::message::PipeMessage;
@@ -75,6 +81,7 @@ pub struct GlobalStorageContext {
     args: StorageS3Args,
     flush: Option<Duration>,
     namespace: String,
+    lock_table: Arc<AtomicBool>,
     storages: Arc<RwLock<BTreeMap<String, StorageContext>>>,
 }
 
@@ -84,6 +91,7 @@ impl GlobalStorageContext {
             args,
             flush,
             namespace,
+            lock_table: Arc::default(),
             storages: Arc::default(),
         }
     }
@@ -91,28 +99,44 @@ impl GlobalStorageContext {
 
 impl GlobalStorageContext {
     pub async fn get_table(&self, model: &str) -> Result<StorageContext> {
-        let storages = self.storages.read().await;
-        match storages.get(model).cloned() {
-            Some(ctx) => {
-                drop(storages);
-                Ok(ctx)
+        loop {
+            {
+                let storages = self.storages.read().await;
+                if let Some(ctx) = storages.get(model).cloned() {
+                    break Ok(ctx);
+                }
             }
-            None => {
-                drop(storages);
 
-                let ctx = StorageContext::try_new::<Value>(
-                    &self.args,
-                    self.namespace.clone(),
-                    model,
-                    self.flush,
-                )
-                .await?;
+            // wait for other table operations to be finished
+            if self.lock_table.swap(true, Ordering::SeqCst) {
+                sleep(Duration::from_millis(10)).await;
+                continue;
+            }
+            let release = || self.lock_table.store(false, Ordering::SeqCst);
 
-                self.storages
-                    .write()
-                    .await
-                    .insert(model.into(), ctx.clone());
-                Ok(ctx)
+            // load or create a table
+            let bucket_name = "optimizer";
+            match StorageContext::try_new::<Value>(
+                &self.args,
+                self.namespace.clone(),
+                &format!("{bucket_name}/{model}"),
+                self.flush,
+            )
+            .await
+            {
+                Ok(ctx) => {
+                    self.storages
+                        .write()
+                        .await
+                        .insert(model.into(), ctx.clone());
+
+                    release();
+                    break Ok(ctx);
+                }
+                Err(error) => {
+                    release();
+                    break Err(error);
+                }
             }
         }
     }
@@ -132,7 +156,7 @@ impl Storage {
         flush: Option<Duration>,
     ) -> Result<Self>
     where
-        Value: Default + JsonSchema,
+        Value: JsonSchema,
     {
         Ok(Self {
             inner: match model {
@@ -151,7 +175,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned,
+        Value: 'static + Send + DeserializeOwned,
     {
         match self.inner.as_ref() {
             Some(inner) => {
@@ -164,7 +188,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
+        Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
     {
         match self.inner.as_ref() {
             Some(inner) => {
@@ -200,7 +224,7 @@ impl StorageContext {
         flush: Option<Duration>,
     ) -> Result<Self>
     where
-        Value: Default + JsonSchema,
+        Value: JsonSchema,
     {
         // get or create a table
         let (model, table, state) = load_table(
@@ -232,7 +256,7 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
     #[instrument(level = Level::INFO, skip_all, fields(data.namespace = %self.namespace), err(Display))]
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned,
+        Value: 'static + Send + DeserializeOwned,
     {
         let old_table = self.table.read().await;
         let mut table = DeltaTable::new(
@@ -261,7 +285,7 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
     #[instrument(level = Level::INFO, skip_all, fields(data.len = %values.len(), data.namespace = %self.namespace), err(Display))]
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema,
+        Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
     {
         self.writer
             .lock()
@@ -318,7 +342,7 @@ impl StorageTableWriter {
                 anyhow!("failed to convert inferred object metadata schema into parquet: {error}")
             })?;
 
-            // assert ACID by acquiring WRITE access for ctx
+            // assert ACID by acquiring WRITE access for table
             let mut table = self.table.write().await;
             *table = create_table(&table, columns).await?;
             self.inner = Some(init_writer(&table)?);

@@ -84,7 +84,7 @@ impl<Value> super::Messenger<Value> for Messenger {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         Ok(Box::new(
             self.client
@@ -101,7 +101,7 @@ impl<Value> super::Messenger<Value> for Messenger {
         queue_group: Name,
     ) -> Result<Box<dyn super::Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         Ok(Box::new(
             self.client
@@ -158,7 +158,7 @@ pub struct Subscriber {
 impl<Value> super::Subscriber<Value> for Subscriber
 where
     Self: Send + Sync,
-    Value: Send + Default + DeserializeOwned,
+    Value: Send + DeserializeOwned,
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {

@@ -62,7 +62,7 @@ where
 
     pub(crate) fn drop_payloads<P>(self) -> PipeMessages<Value, P>
     where
-        P: Default + JsonSchema,
+        P: JsonSchema,
     {
         match self {
             PipeMessages::None => PipeMessages::None,
@@ -361,7 +361,16 @@ impl<Value, Payload> PipeMessage<Value, Payload>
 where
     Payload: JsonSchema,
 {
-    pub fn new(payloads: Vec<PipePayload<Payload>>, value: Value) -> Self {
+    pub fn new(value: Value) -> Self {
+        Self {
+            payloads: Vec::default(),
+            timestamp: Utc::now(),
+            reply: None,
+            value,
+        }
+    }
+
+    pub fn with_payloads(payloads: Vec<PipePayload<Payload>>, value: Value) -> Self {
         Self {
             payloads,
             timestamp: Utc::now(),
@@ -432,7 +441,7 @@ where
 
     pub(crate) fn drop_payloads<P>(self) -> PipeMessage<Value, P>
     where
-        P: Default + JsonSchema,
+        P: JsonSchema,
     {
         PipeMessage {
             payloads: self
@@ -529,7 +538,7 @@ where
 
     fn get_ref<T>(&self) -> PipePayload<T>
     where
-        T: Default + JsonSchema,
+        T: JsonSchema,
     {
         let Self {
             key,
@@ -542,7 +551,7 @@ where
             key: key.clone(),
             model: model.clone(),
             storage: *storage,
-            value: Default::default(),
+            value: None,
         }
     }
 
@@ -570,7 +579,7 @@ where
 
     fn drop<T>(self) -> PipePayload<T>
     where
-        T: Default + JsonSchema,
+        T: JsonSchema,
     {
         let Self {
             key,
@@ -583,7 +592,7 @@ where
             key,
             model,
             storage,
-            value: Default::default(),
+            value: None,
         }
     }
 

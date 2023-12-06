@@ -408,10 +408,7 @@ where
     async fn recv_one<Value>(
         function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
-    ) -> Result<Option<PipeMessage<Value>>>
-    where
-        Value: Default,
-    {
+    ) -> Result<Option<PipeMessage<Value>>> {
         loop {
             select! {
                 input = reader.rx.recv() => break Ok(input),
@@ -517,18 +514,12 @@ where
     writer: WriteContext,
 }
 
-struct ReadContext<Value>
-where
-    Value: Default,
-{
+struct ReadContext<Value> {
     _job: JoinHandle<()>,
     rx: Receiver<PipeMessage<Value>>,
 }
 
-struct ReadSession<Value>
-where
-    Value: Default,
-{
+struct ReadSession<Value> {
     function_context: FunctionContext,
     model_out: Option<Name>,
     storage: Arc<StorageSet>,
@@ -538,7 +529,7 @@ where
 
 impl<Value> ReadSession<Value>
 where
-    Value: 'static + Send + Sync + Default + DeserializeOwned,
+    Value: 'static + Send + Sync + DeserializeOwned,
 {
     async fn loop_forever(mut self) -> JoinHandle<()> {
         spawn(async move {
@@ -562,10 +553,7 @@ where
         async fn send_one<Value>(
             tx: &Sender<PipeMessage<Value>>,
             input: PipeMessage<Value>,
-        ) -> Result<()>
-        where
-            Value: Default,
-        {
+        ) -> Result<()> {
             tx.send(input)
                 .await
                 .map_err(|error| anyhow!("failed to send input: {error}"))
@@ -614,7 +602,7 @@ impl WriteContext {
         input_payloads: &HashMap<String, PipePayload<()>>,
         messages: PipeMessages<Value>,
     ) where
-        Value: Send + Sync + Default + Serialize + JsonSchema,
+        Value: Send + Sync + Serialize + JsonSchema,
     {
         if let Err(error) = self.try_write_outputs(input_payloads, messages).await {
             error!("{error}");
@@ -628,7 +616,7 @@ impl WriteContext {
         messages: PipeMessages<Value>,
     ) -> Result<()>
     where
-        Value: Send + Sync + Default + Serialize + JsonSchema,
+        Value: Send + Sync + Serialize + JsonSchema,
     {
         match self.stream.as_ref() {
             Some(stream) => {

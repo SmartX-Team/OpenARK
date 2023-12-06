@@ -197,8 +197,8 @@ pub trait RemoteFunction
 where
     Self: Send + Sync,
 {
-    type Input: 'static + Send + Sync + Default + Serialize;
-    type Output: 'static + Send + Sync + Default + DeserializeOwned;
+    type Input: 'static + Send + Sync + Serialize;
+    type Output: 'static + Send + Sync + DeserializeOwned;
 
     async fn call(
         &self,
@@ -235,7 +235,7 @@ impl<Input, Output> StatelessRemoteFunction<Input, Output> {
     pub async fn try_new<M>(namespace: String, messenger: M, model_in: Name) -> Result<Self>
     where
         M: Messenger<Output>,
-        Output: Send + Default + DeserializeOwned,
+        Output: Send + DeserializeOwned,
     {
         Ok(Self {
             _input: PhantomData,
@@ -264,8 +264,8 @@ impl StatelessRemoteFunction<::serde_json::Value, ::serde_json::Value> {
 #[async_trait]
 impl<Input, Output> RemoteFunction for StatelessRemoteFunction<Input, Output>
 where
-    Input: 'static + Send + Sync + Default + Serialize,
-    Output: 'static + Send + Sync + Default + DeserializeOwned,
+    Input: 'static + Send + Sync + Serialize,
+    Output: 'static + Send + Sync + DeserializeOwned,
 {
     type Input = Input;
     type Output = Output;
@@ -345,8 +345,8 @@ where
 
 #[async_trait]
 pub trait Function {
-    type Input: 'static + Send + Sync + Default + fmt::Debug + DeserializeOwned + JsonSchema;
-    type Output: 'static + Send + Sync + Default + fmt::Debug + Serialize + JsonSchema;
+    type Input: 'static + Send + Sync + fmt::Debug + DeserializeOwned + JsonSchema;
+    type Output: 'static + Send + Sync + fmt::Debug + Serialize + JsonSchema;
 
     async fn tick(
         &mut self,
@@ -420,18 +420,12 @@ impl FunctionContext {
         self.is_terminating.store(true, Ordering::SeqCst)
     }
 
-    pub fn terminate_ok<T>(&self) -> Result<PipeMessages<T>>
-    where
-        T: Default,
-    {
+    pub fn terminate_ok<T>(&self) -> Result<PipeMessages<T>> {
         self.terminate();
         Ok(PipeMessages::None)
     }
 
-    pub fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>>
-    where
-        T: Default,
-    {
+    pub fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>> {
         self.terminate();
         Err(error.into())
     }

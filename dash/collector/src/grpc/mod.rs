@@ -44,7 +44,7 @@ where
     {
         match ::serde_json::to_value(request.into_parts().2) {
             Ok(value) => {
-                let message = ::dash_pipe_provider::PipeMessage::new(vec![], value);
+                let message = ::dash_pipe_provider::PipeMessage::new(value);
 
                 let exporter = self.clone();
                 ::tokio::task::spawn(async move { exporter.export(&message).await });

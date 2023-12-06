@@ -50,7 +50,7 @@ impl StorageSet {
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
     where
-        Value: Default + JsonSchema,
+        Value: JsonSchema,
     {
         debug!("Initializing Storage Set ({model:?})");
 
@@ -171,11 +171,11 @@ pub enum MetadataStorageType {
 pub trait MetadataStorageExt<Value> {
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned;
+        Value: 'static + Send + DeserializeOwned;
 
     async fn list_as_empty(&self) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned;
+        Value: 'static + Send + DeserializeOwned;
 }
 
 #[async_trait]
@@ -186,7 +186,7 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list(&self, storage: &Arc<StorageSet>) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned,
+        Value: 'static + Send + DeserializeOwned,
     {
         let mut list = self.list_metadata().await?;
 
@@ -202,7 +202,7 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn list_as_empty(&self) -> Result<Stream<PipeMessage<Value>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned,
+        Value: 'static + Send + DeserializeOwned,
     {
         let mut list = self.list_metadata().await?;
         Ok(try_stream! {
@@ -218,11 +218,11 @@ where
 pub trait MetadataStorage<Value = ()> {
     async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
     where
-        Value: 'static + Send + Default + DeserializeOwned;
+        Value: 'static + Send + DeserializeOwned;
 
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Default + Serialize + JsonSchema;
+        Value: 'async_trait + Send + Sync + Serialize + JsonSchema;
 
     async fn flush(&self) -> Result<()>;
 }

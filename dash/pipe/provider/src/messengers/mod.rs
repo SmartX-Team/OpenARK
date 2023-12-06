@@ -40,7 +40,7 @@ where
 
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned;
+        Value: Send + DeserializeOwned;
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
@@ -49,7 +49,7 @@ where
         _queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         self.subscribe(topic).await
     }
@@ -72,7 +72,7 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         <T as Messenger<Value>>::subscribe(*self, topic).await
     }
@@ -84,7 +84,7 @@ where
         queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         <T as Messenger<Value>>::subscribe_queued(*self, topic, queue_group).await
     }
@@ -104,7 +104,7 @@ impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         self.as_ref().subscribe(topic).await
     }
@@ -116,7 +116,7 @@ impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
         queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
-        Value: Send + Default + DeserializeOwned,
+        Value: Send + DeserializeOwned,
     {
         self.as_ref().subscribe_queued(topic, queue_group).await
     }
@@ -165,7 +165,7 @@ impl PublisherExt for Arc<dyn Publisher> {
 pub trait Subscriber<Value>
 where
     Self: Send,
-    Value: Send + Default + DeserializeOwned,
+    Value: Send + DeserializeOwned,
 {
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>>;
 }

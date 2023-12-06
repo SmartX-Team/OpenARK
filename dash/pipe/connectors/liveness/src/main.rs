@@ -77,13 +77,10 @@ impl ::dash_pipe_provider::Function for Function {
             }
         }
 
-        Ok(PipeMessages::Single(PipeMessage::new(
-            Default::default(),
-            Ping {
-                index,
-                timestamp: Some(Utc::now()),
-            },
-        )))
+        Ok(PipeMessages::Single(PipeMessage::new(Ping {
+            index,
+            timestamp: Some(Utc::now()),
+        })))
     }
 }
 

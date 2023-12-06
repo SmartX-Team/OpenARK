@@ -5,7 +5,13 @@ use async_trait::async_trait;
 use clap::Parser;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_pipe_api::storage::StorageS3Args;
-use dash_pipe_provider::storage::lakehouse::{GlobalStorageContext, StorageContext};
+use dash_pipe_provider::{
+    storage::{
+        lakehouse::{GlobalStorageContext, StorageContext},
+        MetadataStorage,
+    },
+    PipeMessage,
+};
 use kube::Client;
 use tokio::{
     spawn,
@@ -200,6 +206,7 @@ impl OptimizerContext {
     }
 
     pub(crate) async fn write_metric(&self, span: MetricSpan<'_>) -> Result<()> {
-        todo!()
+        let table = self.get_table("metric").await?;
+        table.put_metadata(&[&PipeMessage::new(span)]).await
     }
 }
