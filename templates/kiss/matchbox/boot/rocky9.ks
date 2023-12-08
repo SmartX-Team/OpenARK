@@ -73,6 +73,8 @@ clearpart --all --initlabel
 %include /tmp/kiss-config
 %pre
 
+# TODO: auth & import from main cluster!
+
 # Prehibit errors
 set -e
 # Verbose
@@ -138,6 +140,64 @@ repo --name=BaseOS --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E 
 repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
 EOF
 
+# Advanced Network configuration
+mkdir -p /etc/NetworkManager/system-connections/
+## Wireless - WIFI
+if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
+    ## Disable all other interfaces to enforce WIFI
+    for interface in $(
+        ip addr show |
+            grep 'state UP' |
+            grep -Po '^[0-9]+: +\K[0-9a-z]+'
+    ); do
+        ip link set "${interface}" down
+    done
+
+    ## Disable Power Saving Mode on NetworkManager
+    mkdir -p /etc/NetworkManager/conf.d/
+    cat <<EOF >/etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
+[connection]
+wifi.powersave = 2
+EOF
+
+    for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
+        _IS_DESKTOP=true
+        cat <<EOF >/etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
+[connection]
+id=10-kiss-enable-$interface
+uuid=$(python3 -c 'import uuid; print(uuid.uuid4())')
+type=wifi
+interface-name=$interface
+
+[ipv4]
+method=auto
+route-metric=10
+
+[ipv6]
+addr-gen-mode=default
+method=disabled
+
+[wifi]
+mode=infrastructure
+ssid=NETWORK_WIRELESS_WIFI_SSID
+
+[wifi-security]
+auth-log=open
+key-mgmt=NETWORK_WIRELESS_WIFI_KEY_MGMT
+psk=NETWORK_WIRELESS_WIFI_KEY_PSK
+
+[proxy]
+EOF
+        chmod 600 /etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
+
+        ## Reload NetworkManager
+        nmcli connection reload
+
+        ## Enable WIFI Connection
+        nmcli connection up "10-kiss-enable-$interface"
+    done
+fi
+
 # Reboot after Installation
 cat <<EOF >>/tmp/kiss-config
 reboot
@@ -146,6 +206,8 @@ EOF
 %end
 
 %post --erroronfail
+
+# TODO: auth & import from main cluster!
 
 # Prehibit errors
 set -e
@@ -176,16 +238,20 @@ fi
 echo 'retries=0' >>/etc/dnf/dnf.conf
 echo 'timeout=300' >>/etc/dnf/dnf.conf
 
+# Improve package downloading speed
+echo 'fastestmirror=True' >>/etc/dnf/dnf.conf
+echo 'max_parallel_downloads=5' >>/etc/dnf/dnf.conf
+
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 ## Wireless - WIFI
 if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
     for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
         _IS_DESKTOP=true
-        cat <<EOF >/etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
+        cat <<EOF >/etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
 [connection]
-id=wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID
-uuid=$(uuidgen $interface)
+id=10-kiss-enable-$interface
+uuid=$(python3 -c 'import uuid; print(uuid.uuid4())')
 type=wifi
 interface-name=$interface
 
@@ -208,7 +274,8 @@ psk=NETWORK_WIRELESS_WIFI_KEY_PSK
 
 [proxy]
 EOF
-        chmod 600 /etc/NetworkManager/system-connections/wireless-wifi-$interface-NETWORK_WIRELESS_WIFI_SSID.nmconnection
+        chmod 600 /etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
+        nmcli connection up "10-kiss-enable-$interface"
     done
 
     ## Disable Power Saving Mode (iwlmvm)
@@ -341,11 +408,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c " \
-    ADDRESS=\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1) ;\
-    UUID=\$(cat /sys/class/dmi/id/product_uuid) ;\
-    curl --retry 5 --retry-delay 5 \"http://gateway.kiss.svc.ops.openark/new?address=\$ADDRESS&uuid=\$UUID\" ;\
-"
+ExecStart=/usr/local/bin/notify-new-box.sh
 Restart=on-failure
 RestartSec=30
 
@@ -353,6 +416,33 @@ RestartSec=30
 WantedBy=multi-user.target
 EOF
 ln -sf /etc/systemd/system/notify-new-box.service /etc/systemd/system/multi-user.target.wants/notify-new-box.service
+
+## KISS Notifier Script
+cat <<EOF >/usr/local/bin/notify-new-box.sh
+#!/bin/bash
+# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+# Prehibit errors
+set -e -o pipefail
+
+# Enable primary interface if possible
+for connection in \$(
+    sudo nmcli connection show |
+        grep -Po '^10-kiss-enable-[0-9a-z]+'
+); do
+    sudo nmcli connection up "\${connection}" || true
+done
+
+# Collect node info
+ADDRESS="\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1)"
+UUID="\$(cat /sys/class/dmi/id/product_uuid)"
+
+# Submit to KISS Cluster
+exec curl --retry 5 --retry-delay 5 "http://gateway.kiss.svc.ops.openark/new?address=\${ADDRESS}&uuid=\${UUID}"
+EOF
+chmod 550 /usr/local/bin/notify-new-box.sh
 
 # Network Configuration
 mkdir -p /etc/systemd/system/multi-user.target.wants/
@@ -373,7 +463,7 @@ if
         grep -Po '^connection\.type\: *802\-11\-wireless\$' >dev/null
 then
     nmcli connection modify '10-kiss-enable-master' -802-11-wireless.bssid ""
-    systemctl restart NetworkManager
+    nmcli connection reload
 fi
 
 # Finished!

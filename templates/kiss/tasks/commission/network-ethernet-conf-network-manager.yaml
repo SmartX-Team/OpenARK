@@ -70,12 +70,9 @@
     force: true
   with_items: "{{ results.files }}"
 
-- name: Restart NetworkManager
+- name: Reload NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
-  systemd:
-    name: NetworkManager.service
-    state: restarted
-    daemon_reload: true
+  command: nmcli connection reload
 
 - name: Enable primary interfaces now | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)

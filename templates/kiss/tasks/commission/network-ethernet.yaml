@@ -127,15 +127,55 @@
 - name: Select the fastest interface as Primary
   when: interfaces | length > 0
   set_fact:
+    interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
+    interface_primary_is_current: "{{ False }}"
+    interface_primary_name: "{{ interfaces[0].name }}"
+    interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
+
+- name: Update the primary interface's name
+  when: interfaces | length > 0
+  set_fact:
     interface_primary: >
       {{
         interfaces[0] | combine({
           'name': 'master',
         })
       }}
-    interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
-    interface_primary_is_current: "{{ False }}"
-    interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
+
+- name: Collect physical MAC Address
+  when:
+    - interfaces | length > 0
+    - interface_primary is defined
+    - not interface_primary_is_current
+    - kiss_network_service == 'NetworkManager'
+  shell: >
+    ip addr show dev "{{ interface_primary_name }}"
+    | grep -Po 'permaddr \K[0-9a-f:]+'
+    || ip addr show dev "{{ interface_primary_name }}"
+    | grep -Po 'link/ether \K[0-9a-f:]+'
+  register: interface_primary_mac_address
+
+- name: Update the primary interface's mac address
+  when:
+    - interfaces | length > 0
+    - interface_primary is defined
+    - interface_primary_mac_address.rc == 0
+    - not interface_primary_is_current
+    - kiss_network_service == 'NetworkManager'
+  set_fact:
+    interface_primary: >
+      {{
+        interfaces[0] | combine({
+          'macaddress': interface_primary_mac_address.stdout,
+        })
+      }}
+
+- name: Show about the primary inteface
+  when:
+    - interfaces | length > 0
+    - interface_primary is defined
+  debug:
+    var: interface_primary
 
 - name: Configure network interfaces | NetworkManager
   when:
@@ -172,13 +212,6 @@
     - interface_primary_address_ipv4 is defined
   set_fact:
     ansible_ssh_host: "{{ interface_primary_address_ipv4 }}"
-
-- name: Show about the primary inteface
-  when:
-    - interfaces | length > 0
-    - interface_primary is defined
-  debug:
-    var: interface_primary
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
   when:
@@ -241,25 +274,3 @@
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
   include: network-ethernet-conf-network-manager-post.yaml
-
-- name: Restart NetworkManager
-  when:
-    - interfaces | length > 0
-    - interface_primary is defined
-    - not interface_primary_is_current
-    - kiss_network_service == 'NetworkManager'
-  systemd:
-    name: NetworkManager.service
-    state: restarted
-    daemon_reload: true
-
-- name: Restart systemd-networkd
-  when:
-    - interfaces | length > 0
-    - interface_primary is defined
-    - not interface_primary_is_current
-    - kiss_network_service == 'systemd-networkd'
-  systemd:
-    name: systemd-networkd.service
-    state: restarted
-    daemon_reload: true

@@ -127,7 +127,7 @@ class ConnectionDatabase:
     def reset(self) -> None:
         return _run_shell(
             f'nmcli connection modify {self._nm_connection} -802-11-wireless.bssid "" '
-            '&& systemctl restart NetworkManager '
+            '&& nmcli connection reload '
             '&& sleep 10'
         )
 
