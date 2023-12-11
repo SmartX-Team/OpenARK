@@ -113,7 +113,7 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelClaim
 metadata:
-  name: optimizer
+  name: optimizer-metric
   namespace: dash
 spec:
   allowReplacement: true

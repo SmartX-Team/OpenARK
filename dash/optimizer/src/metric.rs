@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 pub struct MetricSpan<'a> {
+    #[serde(flatten)]
     pub duration: MetricDuration,
+    #[serde(flatten)]
     pub kind: MetricSpanKind<'a>,
     pub namespace: Cow<'a, str>,
     pub len: usize,
@@ -28,15 +30,19 @@ pub struct MetricDuration {
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
+#[serde(tag = "kind")]
 pub enum MetricSpanKind<'a> {
     Messenger {
         topic: Cow<'a, str>,
+        #[serde(rename = "type")]
         type_: MessengerType,
     },
     MetadataStorage {
+        #[serde(rename = "type")]
         type_: MetadataStorageType,
     },
     Storage {
+        #[serde(rename = "type")]
         type_: StorageType,
     },
 }

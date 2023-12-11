@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
     arrow::json::reader::infer_json_schema_from_seekable,
-    datafusion::execution::context::SessionContext,
+    datafusion::{dataframe::DataFrame, execution::context::SessionContext},
     kernel::StructField,
     operations::create::CreateBuilder,
     protocol::SaveMode,
@@ -115,11 +115,10 @@ impl GlobalStorageContext {
             let release = || self.lock_table.store(false, Ordering::SeqCst);
 
             // load or create a table
-            let bucket_name = "optimizer";
             match StorageContext::try_new::<Value>(
                 &self.args,
                 self.namespace.clone(),
-                &format!("{bucket_name}/{model}"),
+                model,
                 self.flush,
             )
             .await
@@ -249,16 +248,34 @@ impl StorageContext {
             writer,
         })
     }
-}
 
-#[async_trait]
-impl<Value> super::MetadataStorage<Value> for StorageContext {
-    #[instrument(level = Level::INFO, skip_all, fields(data.namespace = %self.namespace), err(Display))]
-    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
-    where
-        Value: 'static + Send + DeserializeOwned,
-    {
+    pub async fn is_ready(&self) -> bool {
+        let table = self.table.read().await;
+        table.get_state().schema().is_some()
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    pub async fn sql(&self, sql: &str) -> Result<DataFrame> {
+        let session = self.get_session().await?;
+        session.sql(sql).await.map_err(|error| {
+            anyhow!("failed to query object metadata from DeltaLake object store: {error}")
+        })
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn get_session(&self) -> Result<SessionContext> {
+        self.try_get_session()
+            .await
+            .and_then(|option| option.ok_or_else(|| anyhow!("no metadata")))
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn try_get_session(&self) -> Result<Option<SessionContext>> {
         let old_table = self.table.read().await;
+        if old_table.get_state().schema().is_none() {
+            return Ok(None);
+        }
+
         let mut table = DeltaTable::new(
             old_table.log_store(),
             DeltaTableConfig {
@@ -272,7 +289,18 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
 
         let session = SessionContext::default();
         session.register_table(&self.model, Arc::new(table))?;
+        Ok(Some(session))
+    }
+}
 
+#[async_trait]
+impl<Value> super::MetadataStorage<Value> for StorageContext {
+    #[instrument(level = Level::INFO, skip_all, fields(data.namespace = %self.namespace), err(Display))]
+    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+    where
+        Value: 'static + Send + DeserializeOwned,
+    {
+        let session = self.get_session().await?;
         let df = session.table(&self.model).await.map_err(|error| {
             anyhow!("failed to get object metadata list from DeltaLake object store: {error}")
         })?;
@@ -435,7 +463,7 @@ async fn load_table(
         .build()
         .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))?;
 
-    let model = model.to_snake_case();
+    let model = model.split('/').last().unwrap().to_snake_case();
 
     // get or create a table
     match table.load().await {

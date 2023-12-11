@@ -23,7 +23,7 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     dimension::{Dimension, NamespacedDimension},
-    metric::MetricSpan,
+    metric::{MetricDuration, MetricSpan, MetricSpanKind},
     plan::Plan,
 };
 
@@ -82,6 +82,29 @@ impl OptimizerContext {
                 Err(error) => {
                     error!("failed to spawn plan: {error}");
                 }
+            }
+
+            loop {
+                let instant = ::std::time::SystemTime::now()
+                    .duration_since(::std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u64;
+
+                if let Err(error) = self
+                    .get_metric(
+                        MetricSpanKind::MetadataStorage {
+                            type_: dash_pipe_provider::storage::MetadataStorageType::LakeHouse,
+                        },
+                        MetricDuration {
+                            begin_ns: instant - 2 * 10_000_000_000,
+                            end_ns: instant,
+                        },
+                    )
+                    .await
+                {
+                    error!("{error}")
+                }
+                sleep(Duration::from_secs(10)).await;
             }
         }
     }
@@ -205,8 +228,41 @@ impl OptimizerContext {
         self.storage.get_table(name).await
     }
 
+    pub(crate) async fn get_metric(
+        &self,
+        kind: MetricSpanKind<'_>,
+        duration: MetricDuration,
+    ) -> Result<()> {
+        let condition = match kind {
+            MetricSpanKind::Messenger { topic, type_ } => {
+                format!("value.kind = 'Messenger' AND value.topic = '{topic}' AND value.type = '{type_}'")
+            }
+            MetricSpanKind::MetadataStorage { type_ } => {
+                format!("value.kind = 'MetadataStorage' AND value.type = '{type_}'")
+            }
+            MetricSpanKind::Storage { type_ } => {
+                format!("value.kind = 'Storage' AND value.type = '{type_}'")
+            }
+        };
+
+        let MetricDuration { begin_ns, end_ns } = duration;
+        let condition =
+            format!("{condition} AND value.begin_ns >= {begin_ns} AND value.end_ns < {end_ns}");
+
+        let sql = format!("SELECT * FROM optimizer_metric WHERE {condition} LIMIT 1");
+        info!("SQL = {sql}");
+        self.query_metric(&sql).await
+    }
+
+    async fn query_metric(&self, sql: &str) -> Result<()> {
+        let table = self.get_table("optimizer-metric").await?;
+        let df = table.sql(sql).await?;
+        df.show().await?;
+        Ok(())
+    }
+
     pub(crate) async fn write_metric(&self, span: MetricSpan<'_>) -> Result<()> {
-        let table = self.get_table("metric").await?;
+        let table = self.get_table("optimizer-metric").await?;
         table.put_metadata(&[&PipeMessage::new(span)]).await
     }
 }
