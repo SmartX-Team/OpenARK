@@ -36,6 +36,15 @@ subjects:
     name: vine-guest-system
     namespace: vine-guest
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: login-shell
+  namespace: vine-guest
+data:
+  machine-id: >+
+    ffffffffffffffffffffffffffffffff
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -91,6 +100,7 @@ spec:
               mountPath: /home/user
             - name: machine-id
               mountPath: /etc/machine-id
+              subPath: machine-id
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
@@ -119,9 +129,12 @@ spec:
         - name: home
           emptyDir: {}
         - name: machine-id
-          hostPath:
-            path: /etc/machine-id
-            type: File
+          configMap:
+            defaultMode: 365
+            name: login-shell
+            items:
+              - key: machine-id
+                path: machine-id
         - name: ice
           hostPath:
             path: /tmp/.ICE-unix

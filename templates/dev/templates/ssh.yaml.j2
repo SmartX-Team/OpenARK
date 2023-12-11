@@ -82,6 +82,7 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+      shareProcessNamespace: true
       terminationGracePeriodSeconds: 30
       volumes:
         - name: home

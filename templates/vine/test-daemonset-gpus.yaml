@@ -84,6 +84,7 @@ spec:
               mountPath: /home/user
             - name: machine-id
               mountPath: /etc/machine-id
+              subPath: machine-id
               readOnly: true
             - name: tmp
               mountPath: /tmp
@@ -110,8 +111,11 @@ spec:
         - name: home
           emptyDir: {}
         - name: machine-id
-          hostPath:
-            path: /etc/machine-id
-            type: File
+          configMap:
+            defaultMode: 365
+            name: login-shell
+            items:
+              - key: machine-id
+                path: machine-id
         - name: tmp
           emptyDir: {}

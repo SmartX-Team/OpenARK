@@ -42,4 +42,4 @@ function update_screen() {
 update_screen
 
 # Run desktop environment
-exec /usr/bin/dbus-launch xfce4-session
+exec sudo -u "$(whoami)" /usr/bin/dbus-launch --auto-syntax xfce4-session

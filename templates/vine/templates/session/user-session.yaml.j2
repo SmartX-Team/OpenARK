@@ -2,6 +2,15 @@
 #   Desktop Deployment                                    #
 ###########################################################
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: desktop
+  namespace: "{{ metadata.namespace }}"
+data:
+  machine-id: >+
+    ffffffffffffffffffffffffffffffff
+---
 {% if spec.persistence %}
 apiVersion: apps/v1
 kind: Deployment
@@ -26,7 +35,7 @@ spec:
     rollingUpdate:
       maxUnavailable: 1
 {% else %}
-  backoffLimit: 1
+  backoffLimit: 0
   suspend: false
   ttlSecondsAfterFinished: 1
 {% endif %}
@@ -68,6 +77,11 @@ spec:
                 '/mnt/public'
               sudo chmod 700 "${HOME}"
               sudo chmod 777 '/mnt/public'
+              sudo cp /opt/group-src /opt/group-dst/group
+              sudo sed -i 's/^kiss.*$//g' /opt/group-dst/group
+              sudo sed -i 's/:kiss$/:/g' /opt/group-dst/group
+              sudo sed -i 's/^tenant:/user:/g' /opt/group-dst/group
+              sudo sed -i 's/:tenant$/:user/g' /opt/group-dst/group
               exec true
           env:
             - name: HOME
@@ -80,6 +94,10 @@ spec:
             privileged: true
           workingDir: /
           volumeMounts:
+            - name: group-src
+              mountPath: /opt/group-src
+            - name: group-dst
+              mountPath: /opt/group-dst
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root
@@ -169,6 +187,9 @@ spec:
             - name: egl-icd-loader
               mountPath: /etc/glvnd/egl_vendor.d
               readOnly: true
+            - name: group-dst
+              mountPath: /etc/group
+              subPath: group
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: {{ "/home/user" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
@@ -193,6 +214,7 @@ spec:
               readOnly: true
             - name: machine-id
               mountPath: /etc/machine-id
+              subPath: machine-id
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
@@ -262,6 +284,12 @@ spec:
           hostPath:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
+        - name: group-src
+          hostPath:
+            path: /etc/group
+            type: File
+        - name: group-dst
+          emptyDir: {}
         - name: home
 {% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
           hostPath:
@@ -307,9 +335,12 @@ spec:
           emptyDir: {}
 {% endif %}
         - name: machine-id
-          hostPath:
-            path: /etc/machine-id
-            type: File
+          configMap:
+            defaultMode: 365
+            name: desktop
+            items:
+              - key: machine-id
+                path: machine-id
         - name: ice
           hostPath:
             path: /tmp/.ICE-unix

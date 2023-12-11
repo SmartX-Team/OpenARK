@@ -113,7 +113,7 @@ spec:
           image: quay.io/ulagbulag/openark:latest-devel
           imagePullPolicy: Always
           env:
-            # FIXME: change your own style!
+            # TODO(user): change your own style!
             # - name: USER_PASSWORD
             #   value: my-ssh-password!
             - name: USER_SHELL
@@ -149,6 +149,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccount: admin
+      shareProcessNamespace: true
       volumes:
         - name: home
           persistentVolumeClaim:

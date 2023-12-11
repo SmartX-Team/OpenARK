@@ -77,6 +77,7 @@ spec:
               mountPath: /home/user
             - name: machine-id
               mountPath: /etc/machine-id
+              subPath: machine-id
               readOnly: true
             - name: ice
               mountPath: /tmp/.ICE-unix
@@ -123,9 +124,12 @@ spec:
             path: /opt/vdi/tenants/remote/guest/
             type: Directory
         - name: machine-id
-          hostPath:
-            path: /etc/machine-id
-            type: File
+          configMap:
+            defaultMode: 365
+            name: desktop
+            items:
+              - key: machine-id
+                path: machine-id
         - name: ice
           hostPath:
             path: /tmp/.ICE-unix
