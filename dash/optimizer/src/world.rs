@@ -7,13 +7,17 @@ use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_optimizer_api::{optimize, ObjectMetadata};
 use dash_optimizer_fallback::GetCapacity;
 use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
+use futures::FutureExt;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, ResourceExt};
 use maplit::btreemap;
 use tokio::sync::RwLock;
 use tracing::{info, instrument, warn, Level};
 
-use crate::{ctx::OptimizerContext, plan::Plan};
+use crate::{
+    ctx::{OptimizerContext, Timeout},
+    plan::Plan,
+};
 
 #[derive(Clone)]
 pub struct Optimizer {
@@ -54,7 +58,13 @@ impl RemoteFunction for Optimizer {
 
         match self
             .ctx
-            .solve_next_storage(namespace, name, *policy, None)
+            .get(namespace, name, Timeout::Unlimited)
+            .then(|option| async {
+                match option {
+                    Some(namespace) => namespace.read().await.solve_next_storage(name, *policy),
+                    None => None,
+                }
+            })
             .await
         {
             Some(target) => {
@@ -85,7 +95,7 @@ impl<'a> StorageLoader<'a> {
 
         let mut plans = Vec::with_capacity(crds.len());
         {
-            let mut storage = self.ctx.dimension.write().await;
+            let mut storage = self.ctx.world.write().await;
             for crd in crds
                 .into_iter()
                 .sorted_by_key(|crd| crd.creation_timestamp())
@@ -104,34 +114,34 @@ impl<'a> StorageLoader<'a> {
 }
 
 #[derive(Clone, Default)]
-pub struct Dimension {
-    dimensions: BTreeMap<String, Arc<RwLock<NamespacedDimension>>>,
+pub struct World {
+    namespaces: BTreeMap<String, Arc<RwLock<Namespace>>>,
 }
 
-impl Dimension {
-    pub fn get(&self, namespace: &str) -> Option<Arc<RwLock<NamespacedDimension>>> {
-        self.dimensions.get(namespace).cloned()
+impl World {
+    pub fn get(&self, namespace: &str) -> Option<Arc<RwLock<Namespace>>> {
+        self.namespaces.get(namespace).cloned()
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     #[must_use]
-    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<DimensionPlan>> {
+    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<NamespacePlan>> {
         let namespace = crd
             .namespace()
             .ok_or_else(|| anyhow!("storage namespace should be exist"))?;
 
-        let storage = self.dimensions.entry(namespace.clone()).or_default();
+        let storage = self.namespaces.entry(namespace.clone()).or_default();
         storage.write().await.add_storage(namespace, crd)
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct NamespacedDimension {
+pub struct Namespace {
     names: BTreeMap<String, usize>,
     nodes: Vec<NodeStatus>,
 }
 
-impl NamespacedDimension {
+impl Namespace {
     pub fn exists(&self, name: &str) -> bool {
         self.names.contains_key(name)
     }
@@ -149,7 +159,7 @@ impl NamespacedDimension {
         &mut self,
         namespace: String,
         crd: ModelStorageCrd,
-    ) -> Result<Option<DimensionPlan>> {
+    ) -> Result<Option<NamespacePlan>> {
         let metadata = ObjectMetadata {
             name: crd.name_any(),
             namespace,
@@ -165,7 +175,7 @@ impl NamespacedDimension {
                         node.edges.remove(&index);
                     }
                     self.nodes[index] = NodeStatus::new(crd, index);
-                    Ok(Some(DimensionPlan::Discover { metadata }))
+                    Ok(Some(NamespacePlan::Discover { metadata }))
                 }
             }
             None => {
@@ -173,7 +183,7 @@ impl NamespacedDimension {
 
                 self.names.insert(metadata.name.clone(), index);
                 self.nodes.push(NodeStatus::new(crd, index));
-                Ok(Some(DimensionPlan::Discover { metadata }))
+                Ok(Some(NamespacePlan::Discover { metadata }))
             }
         }
     }
@@ -228,25 +238,18 @@ impl NamespacedDimension {
 }
 
 #[derive(Debug)]
-pub enum DimensionPlan {
+pub enum NamespacePlan {
     Discover { metadata: ObjectMetadata },
 }
 
 #[async_trait]
-impl Plan for DimensionPlan {
+impl Plan for NamespacePlan {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn exec(&self, ctx: &OptimizerContext) -> Result<()> {
         match self {
             Self::Discover { metadata } => {
                 let ObjectMetadata { name, namespace } = metadata;
-                let storage = match ctx
-                    .dimension
-                    .read()
-                    .await
-                    .dimensions
-                    .get(namespace)
-                    .cloned()
-                {
+                let storage = match ctx.world.read().await.namespaces.get(namespace).cloned() {
                     Some(storage) => storage,
                     None => {
                         warn!("storage namespace has been removed: {namespace}");

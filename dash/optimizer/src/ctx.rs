@@ -6,7 +6,6 @@ use std::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_pipe_api::storage::StorageS3Args;
 use dash_pipe_provider::{
     deltalake::{arrow::array::Int64Array, datafusion::dataframe::DataFrame},
@@ -26,9 +25,9 @@ use tokio::{
 use tracing::{debug, error, info, instrument, Level};
 
 use crate::{
-    dimension::{Dimension, NamespacedDimension, NodeMetric},
     metric::{MetricDuration, MetricSpan, MetricSpanKind},
     plan::Plan,
+    world::{Namespace, NodeMetric, World},
 };
 
 #[async_trait]
@@ -44,10 +43,10 @@ pub trait OptimizerService {
 
 #[derive(Clone)]
 pub struct OptimizerContext {
-    pub(crate) dimension: Arc<RwLock<Dimension>>,
     pub(crate) kube: Arc<Client>,
     plan_tx: Arc<mpsc::Sender<Box<dyn Plan>>>,
     storage: GlobalStorageContext,
+    pub(crate) world: Arc<RwLock<World>>,
 }
 
 /// Init
@@ -61,10 +60,10 @@ impl OptimizerContext {
 
         let flush = Some(Duration::from_secs(10));
         let ctx = Self {
-            dimension: Arc::default(),
             kube: Arc::new(kube),
             plan_tx: Arc::new(plan_tx),
             storage: GlobalStorageContext::new(StorageS3Args::try_parse()?, flush, namespace),
+            world: Arc::default(),
         };
 
         spawn({
@@ -111,7 +110,7 @@ impl OptimizerContext {
     }
 }
 
-/// Dimension
+/// Plans
 impl OptimizerContext {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn add_plan<P>(&self, plan: P) -> Result<()>
@@ -122,104 +121,6 @@ impl OptimizerContext {
             .send(Box::new(plan))
             .await
             .map_err(|error| anyhow!("failed to add plan: {error}"))
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    #[must_use]
-    pub async fn exists_storage(&self, namespace: &str, name: &str) -> bool {
-        let storage_session = self.dimension.read().await;
-        match storage_session.get(namespace) {
-            Some(storage) => {
-                drop(storage_session);
-                storage.read().await.exists(name)
-            }
-            None => false,
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    #[must_use]
-    pub async fn solve_next_model_storage_binding(
-        &self,
-        namespace: &str,
-        name: &str,
-        policy: ModelClaimBindingPolicy,
-    ) -> Option<String> {
-        let storage_session = self.dimension.read().await;
-        match storage_session.get(namespace) {
-            Some(storage) => {
-                drop(storage_session);
-                storage
-                    .read()
-                    .await
-                    .solve_next_model_storage_binding(name, policy)
-            }
-            None => None,
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    #[must_use]
-    pub async fn solve_next_storage(
-        &self,
-        namespace: &str,
-        name: &str,
-        policy: ModelClaimBindingPolicy,
-        timeout: Option<Duration>,
-    ) -> Option<Arc<ModelStorageCrd>> {
-        if !self.exists_storage(namespace, name).await {
-            return None;
-        }
-
-        match self.wait_storage(namespace, name, timeout).await {
-            Some(storage) => storage.read().await.solve_next_storage(name, policy),
-            None => None,
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    #[must_use]
-    pub async fn wait_storage(
-        &self,
-        namespace: &str,
-        name: &str,
-        timeout: Option<Duration>,
-    ) -> Option<Arc<RwLock<NamespacedDimension>>> {
-        const INTERVAL: Duration = Duration::from_millis(100);
-
-        let mut elapsed = Duration::default();
-        let is_timeout = || async move {
-            elapsed += INTERVAL;
-            sleep(INTERVAL).await;
-
-            matches!(timeout, Some(timeout) if timeout <= elapsed)
-        };
-
-        let storage = loop {
-            let storage_session = self.dimension.read().await;
-            match storage_session.get(namespace) {
-                Some(storage) => break storage,
-                None => {
-                    drop(storage_session);
-                    if is_timeout().await {
-                        return None;
-                    }
-                }
-            }
-        };
-
-        loop {
-            let storage_session = storage.read().await;
-            if storage_session.is_ready(name) {
-                drop(storage_session);
-                break Some(storage);
-            } else {
-                drop(storage_session);
-                if is_timeout().await {
-                    return None;
-                }
-            }
-        }
     }
 }
 
@@ -317,4 +218,84 @@ impl OptimizerContext {
         let table = self.get_table("optimizer-metric").await?;
         table.put_metadata(&[&PipeMessage::new(span)]).await
     }
+}
+
+/// World
+impl OptimizerContext {
+    #[instrument(level = Level::INFO, skip_all)]
+    #[must_use]
+    pub async fn get(
+        &self,
+        namespace: &str,
+        name: &str,
+        timeout: Timeout,
+    ) -> Option<Arc<RwLock<Namespace>>> {
+        const INTERVAL: Duration = Duration::from_millis(100);
+
+        let timeout = match timeout {
+            Timeout::Duration(timeout) => Some(timeout),
+            Timeout::Unlimited => None,
+            Timeout::Instant => {
+                if self.exists(namespace, name).await {
+                    None
+                } else {
+                    return None;
+                }
+            }
+        };
+
+        let mut elapsed = Duration::default();
+        let is_timeout = || async move {
+            elapsed += INTERVAL;
+            sleep(INTERVAL).await;
+
+            matches!(timeout, Some(timeout) if timeout <= elapsed)
+        };
+
+        let storage = loop {
+            let storage_session = self.world.read().await;
+            match storage_session.get(namespace) {
+                Some(storage) => break storage,
+                None => {
+                    drop(storage_session);
+                    if is_timeout().await {
+                        return None;
+                    }
+                }
+            }
+        };
+
+        loop {
+            let storage_session = storage.read().await;
+            if storage_session.is_ready(name) {
+                drop(storage_session);
+                break Some(storage);
+            } else {
+                drop(storage_session);
+                if is_timeout().await {
+                    return None;
+                }
+            }
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all)]
+    #[must_use]
+    async fn exists(&self, namespace: &str, name: &str) -> bool {
+        let world_session = self.world.read().await;
+        match world_session.get(namespace) {
+            Some(namespace) => {
+                drop(world_session);
+                namespace.read().await.exists(name)
+            }
+            None => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Timeout {
+    Duration(Duration),
+    Instant,
+    Unlimited,
 }

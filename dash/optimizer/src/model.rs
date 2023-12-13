@@ -1,14 +1,18 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use dash_api::model_storage_binding::{
-    ModelStorageBindingStorageKind, ModelStorageBindingStorageKindOwnedSpec,
+use dash_api::{
+    model_storage_binding::{
+        ModelStorageBindingStorageKind, ModelStorageBindingStorageKindOwnedSpec,
+    },
+    storage::ModelStorageKind,
 };
 use dash_optimizer_api::optimize;
 use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
+use futures::FutureExt;
 use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
-use crate::ctx::OptimizerContext;
+use crate::ctx::{OptimizerContext, Timeout};
 
 #[derive(Clone)]
 pub struct Optimizer {
@@ -48,32 +52,47 @@ impl RemoteFunction for Optimizer {
             storage,
         } = &input.value;
 
+        let fail = || Ok(PipeMessage::with_request(&input, vec![], None));
+
         let model = match model {
             Some(model) => model,
-            None => return Ok(PipeMessage::with_request(&input, vec![], None)),
+            None => return fail(),
         };
         let name = model.name_any();
         let namespace = match model.namespace() {
             Some(namespace) => namespace,
-            None => return Ok(PipeMessage::with_request(&input, vec![], None)),
+            None => return fail(),
         };
         let storage = match storage {
             Some(storage) => storage,
-            None => return Ok(PipeMessage::with_request(&input, vec![], None)),
+            None => return fail(),
         };
 
-        match self
-            .ctx
-            .solve_next_model_storage_binding(&namespace, &name, *policy)
-            .await
-        {
-            Some(target) => {
-                let value = ModelStorageBindingStorageKind::Owned(
-                    ModelStorageBindingStorageKindOwnedSpec { target },
-                );
-                Ok(PipeMessage::with_request(&input, vec![], Some(value)))
-            }
-            None => Ok(PipeMessage::with_request(&input, vec![], None)),
+        match storage {
+            ModelStorageKind::ObjectStorage => match self
+                .ctx
+                .get(&namespace, &name, Timeout::Unlimited)
+                .then(|option| async {
+                    match option {
+                        Some(namespace) => namespace
+                            .read()
+                            .await
+                            .solve_next_model_storage_binding(&name, *policy),
+                        None => None,
+                    }
+                })
+                .await
+            {
+                Some(target) => {
+                    let value = ModelStorageBindingStorageKind::Owned(
+                        ModelStorageBindingStorageKindOwnedSpec { target },
+                    );
+                    Ok(PipeMessage::with_request(&input, vec![], Some(value)))
+                }
+                None => Ok(PipeMessage::with_request(&input, vec![], None)),
+            },
+            // does not supported yet
+            ModelStorageKind::Database | ModelStorageKind::Kubernetes => fail(),
         }
     }
 }

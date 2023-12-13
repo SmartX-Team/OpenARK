@@ -4,7 +4,7 @@ mod model;
 mod plan;
 mod raw;
 // mod router;
-mod dimension;
+mod world;
 
 use std::process::exit;
 
@@ -22,14 +22,14 @@ async fn try_main() -> Result<()> {
     let ctx = self::ctx::OptimizerContext::try_default().await.unwrap();
 
     // load optimizer data
-    let loader = self::dimension::StorageLoader::new(&ctx);
+    let loader = self::world::StorageLoader::new(&ctx);
     loader.load().await.unwrap();
 
     // spawn handlers
     try_join!(
         self::model::Optimizer::new(&ctx).loop_forever(),
         self::raw::trace::Reader::new(&ctx).loop_forever(),
-        self::dimension::Optimizer::new(&ctx).loop_forever(),
+        self::world::Optimizer::new(&ctx).loop_forever(),
     )?;
     Ok(())
 }
