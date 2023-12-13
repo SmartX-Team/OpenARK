@@ -45,20 +45,20 @@ fn init_once_opentelemetry() {
         ::tracing_subscriber::fmt::layer()
     }
 
-    // #[cfg(feature = "otlp")]
-    // fn init_layer_otlp_logger<S>() -> impl Layer<S>
-    // where
-    //     S: Subscriber + for<'span> LookupSpan<'span>,
-    // {
-    //     otlp::new_pipeline()
-    //         .logging()
-    //         .with_exporter(init_otlp_pipeline())
-    //         .install_batch(Runtime)
-    //         .map(|_| todo!())
-    //         .expect("failed to init a logger")
-    // }
+    #[cfg(feature = "logs")]
+    fn init_layer_otlp_logger<S>() -> impl Layer<S>
+    where
+        S: Subscriber + for<'span> LookupSpan<'span>,
+    {
+        otlp::new_pipeline()
+            .logging()
+            .with_exporter(init_otlp_pipeline())
+            .install_batch(Runtime)
+            .map(|_| todo!())
+            .expect("failed to init a logger")
+    }
 
-    #[cfg(feature = "otlp")]
+    #[cfg(feature = "metrics")]
     fn init_layer_otlp_metrics<S>() -> impl Layer<S>
     where
         S: Subscriber + for<'span> LookupSpan<'span>,
@@ -71,7 +71,7 @@ fn init_once_opentelemetry() {
             .expect("failed to init a metrics")
     }
 
-    #[cfg(feature = "otlp")]
+    #[cfg(feature = "trace")]
     fn init_layer_otlp_tracer<S>() -> impl Layer<S>
     where
         S: Subscriber + for<'span> LookupSpan<'span>,
@@ -88,10 +88,12 @@ fn init_once_opentelemetry() {
         .with(init_layer_env_filter())
         .with(init_layer_stdfmt());
 
-    #[cfg(feature = "otlp")]
-    let layer = layer
-        .with(init_layer_otlp_metrics())
-        .with(init_layer_otlp_tracer());
+    #[cfg(feature = "logs")]
+    let layer = layer.with(init_layer_otlp_logger());
+    #[cfg(feature = "metrics")]
+    let layer = layer.with(init_layer_otlp_metrics());
+    #[cfg(feature = "trace")]
+    let layer = layer.with(init_layer_otlp_tracer());
 
     layer.init()
 }

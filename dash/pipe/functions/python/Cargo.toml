@@ -25,5 +25,4 @@ clap = { workspace = true }
 derivative = { workspace = true }
 pyo3 = { workspace = true, features = ["auto-initialize"] }
 serde = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }

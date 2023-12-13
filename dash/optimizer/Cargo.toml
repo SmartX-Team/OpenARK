@@ -40,7 +40,7 @@ clap = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 kube = { workspace = true }
-ndarray = { workspace = true }
+maplit = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-proto = { workspace = true, features = ["with-schemars"] }
 or-tools = { workspace = true }

@@ -9,7 +9,7 @@ use dash_optimizer_fallback::GetCapacity;
 use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
 use itertools::Itertools;
 use kube::{api::ListParams, Api, ResourceExt};
-use ndarray::{Array0, Array1, Array2, Axis, DataMut, RawData, ViewRepr};
+use maplit::btreemap;
 use tokio::sync::RwLock;
 use tracing::{info, instrument, warn, Level};
 
@@ -127,13 +127,8 @@ impl Dimension {
 
 #[derive(Clone, Debug, Default)]
 pub struct NamespacedDimension {
-    capacity: Array1<i64>,
-    crds: Vec<Arc<ModelStorageCrd>>,
-    latency_ms: Array2<i64>,
-    map: Array2<bool>,
     names: BTreeMap<String, usize>,
-    throughput_per_sec: Array2<i64>,
-    usage: Array1<i64>,
+    nodes: Vec<NodeStatus>,
 }
 
 impl NamespacedDimension {
@@ -144,8 +139,7 @@ impl NamespacedDimension {
     pub fn is_ready(&self, name: &str) -> bool {
         self.names
             .get(name)
-            .copied()
-            .and_then(|index| self.map.get((index, index)).copied())
+            .and_then(|index| self.nodes.get(*index).map(|node| node.discovered))
             .unwrap_or_default()
     }
 
@@ -163,29 +157,22 @@ impl NamespacedDimension {
 
         match self.names.get(&metadata.name).copied() {
             Some(index) => {
-                if self.crds[index].metadata == crd.metadata {
+                if self.nodes[index].crd.metadata == crd.metadata {
                     Ok(None)
                 } else {
-                    set_vector_default(&mut self.capacity, index);
-                    self.crds[index] = Arc::new(crd);
-                    set_matrix_default(&mut self.latency_ms, index);
-                    set_matrix_default(&mut self.map, index);
-                    /* skip changing names index */
-                    set_matrix_default(&mut self.throughput_per_sec, index);
-                    set_vector_default(&mut self.usage, index);
+                    // remove node
+                    for node in &mut self.nodes {
+                        node.edges.remove(&index);
+                    }
+                    self.nodes[index] = NodeStatus::new(crd, index);
                     Ok(Some(DimensionPlan::Discover { metadata }))
                 }
             }
             None => {
                 let index = self.names.len();
 
-                grow_vector_default(&mut self.capacity)?;
-                self.crds.push(Arc::new(crd));
-                grow_matrix_default(&mut self.latency_ms)?;
-                grow_matrix_default(&mut self.map)?;
                 self.names.insert(metadata.name.clone(), index);
-                grow_matrix_default(&mut self.throughput_per_sec)?;
-                grow_vector_default(&mut self.usage)?;
+                self.nodes.push(NodeStatus::new(crd, index));
                 Ok(Some(DimensionPlan::Discover { metadata }))
             }
         }
@@ -199,15 +186,9 @@ impl NamespacedDimension {
     ) -> Option<String> {
         self.names
             .keys()
-            .zip(
-                self.capacity
-                    .iter()
-                    .copied()
-                    .zip(self.usage.iter().copied())
-                    .map(|(capacity, usage)| usage - capacity),
-            )
+            .zip(self.nodes.iter().map(|node| node.available_quota()))
             .max_by_key(|(_, available)| *available)
-            .map(|(storage, _)| storage.clone())
+            .map(|(name, _)| name.clone())
     }
 
     #[must_use]
@@ -222,8 +203,13 @@ impl NamespacedDimension {
             ModelClaimBindingPolicy::LowestCopy => |start, end| -((start + end) as i64),
             ModelClaimBindingPolicy::LowestLatency => |start, end| -((start + end) as i64),
         };
-        let try_get_score = |start, end| {
-            if self.map[(start, end)] {
+        let try_get_score = |start: usize, end: usize| {
+            if self
+                .nodes
+                .get(start)
+                .map(|node| node.edges.contains_key(&end))
+                .unwrap_or_default()
+            {
                 get_score(start, end)
             } else {
                 0
@@ -231,12 +217,13 @@ impl NamespacedDimension {
         };
 
         let start = self.names.get(name).copied()?;
-        let next = (0..self.names.len())
+        (0..self.names.len())
             .filter(|&end| start != end)
-            .filter(|&index| self.map[(index, index)])
+            .filter_map(|index| self.nodes.get(index).map(|node| (index, node)))
+            .filter(|(_, node)| node.discovered)
             .rev()
-            .max_by_key(|&end| try_get_score(start, end))?;
-        self.crds.get(next).cloned()
+            .max_by_key(|(end, _)| try_get_score(start, *end))
+            .map(|(_, node)| node.crd.clone())
     }
 }
 
@@ -281,15 +268,30 @@ impl Plan for DimensionPlan {
                 // todo!();
 
                 {
-                    let crd = storage.read().await.crds[index].clone();
+                    let crd = match storage
+                        .read()
+                        .await
+                        .nodes
+                        .get(index)
+                        .map(|node| &node.crd)
+                        .cloned()
+                    {
+                        Some(crd) => crd,
+                        None => {
+                            warn!("node has been removed: {metadata}");
+                            return Ok(());
+                        }
+                    };
                     if let Some(capacity) = crd
                         .get_capacity_global(&ctx.kube, namespace, name.clone())
                         .await?
                     {
                         let mut storage = storage.write().await;
-                        storage.capacity[index] = parse_byte(capacity.capacity)?;
-                        storage.map[(index, index)] = true;
-                        storage.usage[index] = parse_byte(capacity.usage)?;
+                        if let Some(node) = storage.nodes.get_mut(index) {
+                            node.discovered = true;
+                            node.capacity = parse_byte(capacity.capacity)?;
+                            node.usage = parse_byte(capacity.usage)?;
+                        }
                     }
                 }
 
@@ -299,78 +301,53 @@ impl Plan for DimensionPlan {
     }
 }
 
+#[derive(Clone, Debug)]
+struct NodeStatus {
+    capacity: i64,
+    crd: Arc<ModelStorageCrd>,
+    discovered: bool,
+    edges: BTreeMap<usize, EdgeMetric>,
+    metric: NodeMetric,
+    usage: i64,
+}
+
+impl NodeStatus {
+    fn new(crd: impl Into<Arc<ModelStorageCrd>>, index: usize) -> Self {
+        Self {
+            capacity: 0,
+            crd: crd.into(),
+            discovered: false,
+            edges: btreemap!(
+                index => EdgeMetric::default(),
+            ),
+            metric: NodeMetric::default(),
+            usage: 0,
+        }
+    }
+
+    fn available_quota(&self) -> i64 {
+        self.capacity
+            .checked_sub(self.usage)
+            .unwrap_or_default()
+            .max(0)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct NodeMetric {
+    pub elapsed_ns: i64,
+    pub payloads: i64,
+    pub len: i64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct EdgeMetric {
+    pub latency_ms: i64,
+    pub throughput_per_sec: i64,
+}
+
 fn parse_byte(byte: Byte) -> Result<i64> {
     byte.get_bytes()
         .try_into()
         .map_err(|error| anyhow!("failed to parse capacity byte: {error}"))
-}
-
-fn grow_vector_default<T>(vector: &mut Array1<T>) -> Result<()>
-where
-    T: Copy + Default,
-{
-    grow_vector(vector, <T as Default>::default())
-}
-
-fn grow_vector<T>(vector: &mut Array1<T>, value: T) -> Result<()>
-where
-    T: Copy,
-{
-    let axis = Axis(0);
-    let elem = Array0::from_elem((), value);
-
-    vector.push(axis, elem.view())?;
-    Ok(())
-}
-
-fn grow_matrix_default<T>(matrix: &mut Array2<T>) -> Result<()>
-where
-    T: Copy + Default,
-{
-    grow_matrix(matrix, <T as Default>::default())
-}
-
-fn grow_matrix<T>(matrix: &mut Array2<T>, value: T) -> Result<()>
-where
-    T: Copy,
-{
-    let axis = Axis(0);
-    let len = matrix.len_of(axis) + 1;
-    let vector = Array1::from_elem((len,), value);
-
-    matrix.push_row(vector.slice_axis(axis, (0..(len - 1)).into()))?;
-    matrix.push_column(vector.view())?;
-    Ok(())
-}
-
-fn set_vector_default<T>(vector: &mut Array1<T>, index: usize)
-where
-    T: Default,
-    for<'v> ViewRepr<&'v mut T>: DataMut + RawData<Elem = T>,
-{
-    set_vector(vector, index, <T as Default>::default())
-}
-
-fn set_vector<T>(vector: &mut Array1<T>, index: usize, value: T)
-where
-    for<'v> ViewRepr<&'v mut T>: DataMut + RawData<Elem = T>,
-{
-    vector[index] = value;
-}
-
-fn set_matrix_default<T>(matrix: &mut Array2<T>, index: usize)
-where
-    T: Copy + Default,
-    for<'v> ViewRepr<&'v mut T>: DataMut + RawData<Elem = T>,
-{
-    set_matrix(matrix, index, <T as Default>::default())
-}
-
-fn set_matrix<T>(matrix: &mut Array2<T>, index: usize, value: T)
-where
-    T: Copy,
-    for<'v> ViewRepr<&'v mut T>: DataMut + RawData<Elem = T>,
-{
-    matrix.index_axis_mut(Axis(0), index).fill(value);
-    matrix.index_axis_mut(Axis(1), index).fill(value);
 }

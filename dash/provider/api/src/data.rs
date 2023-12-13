@@ -15,7 +15,7 @@ impl Capacity {
         let usage = self.usage.get_bytes();
 
         if usage <= capacity {
-            Byte::from_bytes(usage - capacity)
+            Byte::from_bytes(capacity - usage)
         } else {
             Byte::from_bytes(0)
         }
@@ -33,14 +33,10 @@ impl Capacity {
         let capacity = self.capacity.get_bytes();
         let usage = self.usage.get_bytes();
 
-        if capacity > 0 {
-            if usage <= capacity {
-                usage as f64 / capacity as f64
-            } else {
-                1.0
-            }
+        if capacity > 0 && usage <= capacity {
+            usage as f64 / capacity as f64
         } else {
-            0.0
+            1.0
         }
     }
 }

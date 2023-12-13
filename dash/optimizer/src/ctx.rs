@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -6,6 +9,7 @@ use clap::Parser;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_pipe_api::storage::StorageS3Args;
 use dash_pipe_provider::{
+    deltalake::{arrow::array::Int64Array, datafusion::dataframe::DataFrame},
     storage::{
         lakehouse::{GlobalStorageContext, StorageContext},
         MetadataStorage,
@@ -19,10 +23,10 @@ use tokio::{
     task::yield_now,
     time::sleep,
 };
-use tracing::{error, info, instrument, Level};
+use tracing::{debug, error, info, instrument, Level};
 
 use crate::{
-    dimension::{Dimension, NamespacedDimension},
+    dimension::{Dimension, NamespacedDimension, NodeMetric},
     metric::{MetricDuration, MetricSpan, MetricSpanKind},
     plan::Plan,
 };
@@ -85,24 +89,21 @@ impl OptimizerContext {
             }
 
             loop {
-                let instant = ::std::time::SystemTime::now()
-                    .duration_since(::std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as u64;
-
-                if let Err(error) = self
-                    .get_metric(
+                match self
+                    .get_metric_with_last(
                         MetricSpanKind::MetadataStorage {
                             type_: dash_pipe_provider::storage::MetadataStorageType::LakeHouse,
                         },
-                        MetricDuration {
-                            begin_ns: instant - 2 * 10_000_000_000,
-                            end_ns: instant,
-                        },
+                        Duration::from_secs(2 * 10),
                     )
                     .await
                 {
-                    error!("{error}")
+                    Ok(data) => {
+                        dbg!(data);
+                    }
+                    Err(error) => {
+                        error!("{error}")
+                    }
                 }
                 sleep(Duration::from_secs(10)).await;
             }
@@ -232,33 +233,84 @@ impl OptimizerContext {
         &self,
         kind: MetricSpanKind<'_>,
         duration: MetricDuration,
-    ) -> Result<()> {
+    ) -> Result<NodeMetric> {
         let condition = match kind {
             MetricSpanKind::Messenger { topic, type_ } => {
-                format!("value.kind = 'Messenger' AND value.topic = '{topic}' AND value.type = '{type_}'")
+                format!("kind = 'Messenger' AND topic = '{topic}' AND type = '{type_}'")
             }
             MetricSpanKind::MetadataStorage { type_ } => {
-                format!("value.kind = 'MetadataStorage' AND value.type = '{type_}'")
+                format!("kind = 'MetadataStorage' AND type = '{type_}'")
             }
             MetricSpanKind::Storage { type_ } => {
-                format!("value.kind = 'Storage' AND value.type = '{type_}'")
+                format!("kind = 'Storage' AND type = '{type_}'")
             }
         };
 
         let MetricDuration { begin_ns, end_ns } = duration;
-        let condition =
-            format!("{condition} AND value.begin_ns >= {begin_ns} AND value.end_ns < {end_ns}");
+        let condition = format!("{condition} AND begin_ns >= {begin_ns} AND end_ns < {end_ns}");
 
-        let sql = format!("SELECT * FROM optimizer_metric WHERE {condition} LIMIT 1");
-        info!("SQL = {sql}");
-        self.query_metric(&sql).await
+        let columns = "sum(end_ns - begin_ns) as elapsed_ns, sum(len) as payloads, count(1) as len";
+        let sql = format!("SELECT {columns} FROM optimizer_metric WHERE {condition}");
+        debug!("SQL = {sql}");
+
+        let df = self.query_metric(&sql).await?;
+        let data = df
+            .collect()
+            .await?
+            .pop()
+            .ok_or_else(|| anyhow!("empty row"))?;
+
+        let get_value = |name| {
+            data.column_by_name(name)
+                .map(|array| {
+                    array
+                        .as_any()
+                        .downcast_ref::<Int64Array>()
+                        .map(|array| array.iter().next().flatten())
+                        .ok_or_else(|| anyhow!("cannot parse column: {name}"))
+                })
+                .transpose()
+                .map(Option::flatten)
+                .map(Option::unwrap_or_default)
+        };
+
+        Ok(NodeMetric {
+            elapsed_ns: get_value("elapsed_ns")?,
+            payloads: get_value("payloads")?,
+            len: get_value("len")?,
+        })
     }
 
-    async fn query_metric(&self, sql: &str) -> Result<()> {
+    pub(crate) async fn get_metric_with_last(
+        &self,
+        kind: MetricSpanKind<'_>,
+        duration: Duration,
+    ) -> Result<NodeMetric> {
+        fn parse_ns(duration: Duration) -> Result<u64> {
+            duration
+                .as_nanos()
+                .try_into()
+                .map_err(|error| anyhow!("failed to convert duration: {error}"))
+        }
+
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let begin = now
+            .checked_sub(duration)
+            .ok_or_else(|| anyhow!("too large duration"))?;
+        let end = now;
+
+        let duration = MetricDuration {
+            begin_ns: parse_ns(begin)?,
+            end_ns: parse_ns(end)?,
+        };
+
+        self.get_metric(kind, duration).await
+    }
+
+    async fn query_metric(&self, sql: &str) -> Result<DataFrame> {
         let table = self.get_table("optimizer-metric").await?;
         let df = table.sql(sql).await?;
-        df.show().await?;
-        Ok(())
+        Ok(df)
     }
 
     pub(crate) async fn write_metric(&self, span: MetricSpan<'_>) -> Result<()> {

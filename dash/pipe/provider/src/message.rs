@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value as DynValue;
+pub use serde_json::Value as DynValue;
 use strum::{Display, EnumString};
 use tracing::{instrument, Level};
 
@@ -105,10 +105,13 @@ impl<Value> PipeMessages<Value> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[::pyo3::pyclass]
 pub struct PyPipeMessage {
+    #[serde(default, rename = "__payloads")]
     payloads: Vec<PipePayload>,
-    timestamp: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
     reply: Option<PipeReply>,
+    #[serde(rename = "__timestamp")]
+    timestamp: DateTime<Utc>,
+    #[serde(flatten)]
     value: DynValue,
 }
 
@@ -297,10 +300,13 @@ pub struct PipeMessage<Value = DynValue, Payload = Bytes>
 where
     Payload: JsonSchema,
 {
+    #[serde(rename = "__payloads")]
     pub payloads: Vec<PipePayload<Payload>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
     pub(crate) reply: Option<PipeReply>,
+    #[serde(rename = "__timestamp")]
     timestamp: DateTime<Utc>,
+    #[serde(flatten)]
     pub value: Value,
 }
 
@@ -652,9 +658,9 @@ impl PipePayload {
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 pub struct PipeReply {
-    #[serde(default)]
+    #[serde(default, rename = "__reply_inbox")]
     pub inbox: String,
-    #[serde(default)]
+    #[serde(default, rename = "__reply_target")]
     pub target: Option<Name>,
 }
 

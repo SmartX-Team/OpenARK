@@ -25,5 +25,4 @@ clap = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true, features = ["time"] }

@@ -27,14 +27,14 @@ use deltalake::{
 use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use tokio::{
     sync::{Mutex, RwLock},
     time::sleep,
 };
 use tracing::{debug, instrument, Level};
 
-use crate::message::PipeMessage;
+use crate::message::{DynValue, PipeMessage};
 
 use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
 
@@ -115,7 +115,7 @@ impl GlobalStorageContext {
             let release = || self.lock_table.store(false, Ordering::SeqCst);
 
             // load or create a table
-            match StorageContext::try_new::<Value>(
+            match StorageContext::try_new::<DynValue>(
                 &self.args,
                 self.namespace.clone(),
                 model,
@@ -225,13 +225,16 @@ impl StorageContext {
     where
         Value: JsonSchema,
     {
+        // parse fields
+        let fields = if ::schemars::schema_for!(Value) == ::schemars::schema_for!(DynValue) {
+            // do not infer types with dynamic types
+            None
+        } else {
+            Some(::schemars::schema_for!(PipeMessage<Value, ()>))
+        };
+
         // get or create a table
-        let (model, table, state) = load_table(
-            args,
-            model,
-            Some(::schemars::schema_for!(PipeMessage<Value, ()>)),
-        )
-        .await?;
+        let (model, table, state) = load_table(args, model, fields).await?;
 
         let writer = match state {
             StorageTableState::Inited => Some(init_writer(&table)?),
@@ -249,12 +252,14 @@ impl StorageContext {
         })
     }
 
+    #[must_use]
     pub async fn is_ready(&self) -> bool {
         let table = self.table.read().await;
         table.get_state().schema().is_some()
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
+    #[must_use]
     pub async fn sql(&self, sql: &str) -> Result<DataFrame> {
         let session = self.get_session().await?;
         session.sql(sql).await.map_err(|error| {
@@ -263,6 +268,7 @@ impl StorageContext {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
+    #[must_use]
     async fn get_session(&self) -> Result<SessionContext> {
         self.try_get_session()
             .await
@@ -270,6 +276,7 @@ impl StorageContext {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
+    #[must_use]
     async fn try_get_session(&self) -> Result<Option<SessionContext>> {
         let old_table = self.table.read().await;
         if old_table.get_state().schema().is_none() {
@@ -352,9 +359,7 @@ impl StorageTableWriter {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn get(&mut self, values: &[Value]) -> Result<&mut JsonWriter> {
-        const MAX_READ_RECORDS: usize = 1_000;
-
+    async fn get(&mut self, values: &[DynValue]) -> Result<&mut JsonWriter> {
         // dynamic table schema inferring
         if self.inner.is_none() {
             let reader = Cursor::new(
@@ -364,7 +369,7 @@ impl StorageTableWriter {
                     .flatten()
                     .collect::<Vec<_>>(),
             );
-            let schema = infer_json_schema_from_seekable(reader, Some(MAX_READ_RECORDS))
+            let schema = infer_json_schema_from_seekable(reader, None)
                 .map_err(|error| anyhow!("failed to infer object metadata schema: {error}"))?;
             let columns = schema.to_data_columns().map_err(|error| {
                 anyhow!("failed to convert inferred object metadata schema into parquet: {error}")
@@ -376,11 +381,13 @@ impl StorageTableWriter {
             self.inner = Some(init_writer(&table)?);
         }
 
-        self.inner.as_mut().ok_or_else(|| anyhow!("empty schema"))
+        self.inner
+            .as_mut()
+            .ok_or_else(|| unreachable!("empty schema"))
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn write(&mut self, values: Vec<Value>) -> Result<()> {
+    async fn write(&mut self, values: Vec<DynValue>) -> Result<()> {
         self.dirty = true;
         match self.get(&values).await {
             Ok(writer) => {

@@ -4,10 +4,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
-    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
+    storage::StorageIO, DynValue, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -43,8 +42,8 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
 #[async_trait]
 impl ::dash_pipe_provider::Function for Function {
-    type Input = Value;
-    type Output = Value;
+    type Input = DynValue;
+    type Output = DynValue;
 
     async fn tick(
         &mut self,
@@ -66,7 +65,7 @@ impl ::dash_pipe_provider::Function for Function {
     }
 }
 
-fn pack_payload(mut message: PipeMessage<Value>) -> Result<PipeMessage<Value>> {
+fn pack_payload(mut message: PipeMessage<DynValue>) -> Result<PipeMessage<DynValue>> {
     message.payloads = vec![PipePayload::new(
         "test".into(),
         Some((&message).try_into()?),

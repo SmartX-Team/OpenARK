@@ -5,12 +5,11 @@ use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
     storage::{MetadataStorageExt, StorageIO, Stream},
-    DefaultModelIn, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
+    DefaultModelIn, DynValue, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
 };
 use derivative::Derivative;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::time::{sleep, Instant};
 
 fn main() {
@@ -33,7 +32,7 @@ pub struct Function {
     ctx: FunctionContext,
     instant: Instant,
     #[derivative(Debug = "ignore")]
-    items: Stream<PipeMessage<Value>>,
+    items: Stream<PipeMessage<DynValue>>,
     iteration: RangeInclusive<u64>,
 }
 
@@ -63,8 +62,8 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
 #[async_trait]
 impl ::dash_pipe_provider::Function for Function {
-    type Input = Value;
-    type Output = Value;
+    type Input = DynValue;
+    type Output = DynValue;
 
     async fn tick(
         &mut self,

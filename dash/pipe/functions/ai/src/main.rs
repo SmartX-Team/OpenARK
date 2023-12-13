@@ -6,12 +6,11 @@ use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_function_ai_plugin::PluginBuilder;
 use dash_pipe_provider::{
-    storage::StorageIO, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
+    storage::StorageIO, DynValue, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
 };
 use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use strum::{Display, EnumString};
 
 fn main() {
@@ -73,8 +72,8 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
 #[async_trait]
 impl ::dash_pipe_provider::Function for Function {
-    type Input = Value;
-    type Output = Value;
+    type Input = DynValue;
+    type Output = DynValue;
 
     async fn tick(
         &mut self,
