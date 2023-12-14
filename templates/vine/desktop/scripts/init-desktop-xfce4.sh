@@ -41,5 +41,8 @@ function update_screen() {
 # Apply
 update_screen
 
+# Remove caches
+rm -rf "${HOME}/.cache" || true
+
 # Run desktop environment
-exec sudo -u "$(whoami)" /usr/bin/dbus-launch --auto-syntax xfce4-session
+exec sudo -E -u "$(whoami)" /usr/bin/dbus-launch --auto-syntax xfce4-session

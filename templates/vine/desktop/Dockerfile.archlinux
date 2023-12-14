@@ -281,6 +281,7 @@ RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     networkmanager \
     network-manager-applet \
     nm-connection-editor \
+    pavucontrol \
     picom \
     plank \
     s3fs-fuse \
