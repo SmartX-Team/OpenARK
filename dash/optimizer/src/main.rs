@@ -19,7 +19,11 @@ use self::ctx::OptimizerService;
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn try_main() -> Result<()> {
     // init optimizer context
-    let ctx = self::ctx::OptimizerContext::try_default().await.unwrap();
+    let (ctx, plan_rx) = self::ctx::OptimizerContext::try_default().await.unwrap();
+
+    // init daemon tasks
+    ctx.spawn_task(|ctx| ctx.loop_forever_plan(plan_rx));
+    ctx.spawn_task(|ctx| ctx.loop_forever_sync_metrics());
 
     // load optimizer data
     let loader = self::world::StorageLoader::new(&ctx);

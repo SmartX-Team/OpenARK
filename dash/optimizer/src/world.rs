@@ -339,8 +339,8 @@ impl NodeStatus {
 #[derive(Clone, Debug, Default)]
 pub struct NodeMetric {
     pub elapsed_ns: i64,
-    pub payloads: i64,
     pub len: i64,
+    pub total_bytes: i64,
 }
 
 #[derive(Clone, Debug, Default)]

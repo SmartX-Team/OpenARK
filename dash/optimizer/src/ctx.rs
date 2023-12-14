@@ -15,14 +15,15 @@ use dash_pipe_provider::{
     },
     PipeMessage,
 };
+use futures::Future;
 use kube::Client;
 use tokio::{
     spawn,
     sync::{mpsc, RwLock},
-    task::yield_now,
+    task::JoinHandle,
     time::sleep,
 };
-use tracing::{debug, error, info, instrument, Level};
+use tracing::{debug, info, instrument, Level};
 
 use crate::{
     metric::{MetricDuration, MetricSpan, MetricSpanKind},
@@ -52,7 +53,7 @@ pub struct OptimizerContext {
 /// Init
 impl OptimizerContext {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn try_default() -> Result<OptimizerContext> {
+    pub async fn try_default() -> Result<(OptimizerContext, mpsc::Receiver<Box<dyn Plan>>)> {
         info!("creating optimizer context");
         let (plan_tx, plan_rx) = mpsc::channel(1024);
         let kube = Client::try_default().await?;
@@ -66,61 +67,7 @@ impl OptimizerContext {
             world: Arc::default(),
         };
 
-        spawn({
-            let ctx = ctx.clone();
-            async move { ctx.loop_forever_plan(plan_rx).await }
-        });
-
-        Ok(ctx)
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    async fn loop_forever_plan(self, mut rx: mpsc::Receiver<Box<dyn Plan>>) {
-        while let Some(plan) = rx.recv().await {
-            // yield per every loop
-            yield_now().await;
-
-            match plan.exec(&self).await {
-                Ok(()) => continue,
-                Err(error) => {
-                    error!("failed to spawn plan: {error}");
-                }
-            }
-
-            loop {
-                match self
-                    .get_metric_with_last(
-                        MetricSpanKind::MetadataStorage {
-                            type_: dash_pipe_provider::storage::MetadataStorageType::LakeHouse,
-                        },
-                        Duration::from_secs(2 * 10),
-                    )
-                    .await
-                {
-                    Ok(data) => {
-                        dbg!(data);
-                    }
-                    Err(error) => {
-                        error!("{error}")
-                    }
-                }
-                sleep(Duration::from_secs(10)).await;
-            }
-        }
-    }
-}
-
-/// Plans
-impl OptimizerContext {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn add_plan<P>(&self, plan: P) -> Result<()>
-    where
-        P: Plan,
-    {
-        self.plan_tx
-            .send(Box::new(plan))
-            .await
-            .map_err(|error| anyhow!("failed to add plan: {error}"))
+        Ok((ctx, plan_rx))
     }
 }
 
@@ -150,7 +97,7 @@ impl OptimizerContext {
         let MetricDuration { begin_ns, end_ns } = duration;
         let condition = format!("{condition} AND begin_ns >= {begin_ns} AND end_ns < {end_ns}");
 
-        let columns = "sum(end_ns - begin_ns) as elapsed_ns, sum(len) as payloads, count(1) as len";
+        let columns = "sum(end_ns - begin_ns) as elapsed_ns, sum(len) as bytes, count(1) as len";
         let sql = format!("SELECT {columns} FROM optimizer_metric WHERE {condition}");
         debug!("SQL = {sql}");
 
@@ -177,8 +124,8 @@ impl OptimizerContext {
 
         Ok(NodeMetric {
             elapsed_ns: get_value("elapsed_ns")?,
-            payloads: get_value("payloads")?,
             len: get_value("len")?,
+            total_bytes: get_value("bytes")?,
         })
     }
 
@@ -217,6 +164,28 @@ impl OptimizerContext {
     pub(crate) async fn write_metric(&self, span: MetricSpan<'_>) -> Result<()> {
         let table = self.get_table("optimizer-metric").await?;
         table.put_metadata(&[&PipeMessage::new(span)]).await
+    }
+}
+
+/// Tasks
+impl OptimizerContext {
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn add_plan<P>(&self, plan: P) -> Result<()>
+    where
+        P: Plan,
+    {
+        self.plan_tx
+            .send(Box::new(plan))
+            .await
+            .map_err(|error| anyhow!("failed to add plan: {error}"))
+    }
+
+    pub fn spawn_task<F, Fut>(&self, f: F) -> JoinHandle<()>
+    where
+        F: FnOnce(Self) -> Fut,
+        Fut: 'static + Send + Future<Output = ()>,
+    {
+        spawn(f(self.clone()))
     }
 }
 
@@ -293,6 +262,7 @@ impl OptimizerContext {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Timeout {
     Duration(Duration),
