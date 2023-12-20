@@ -20,7 +20,6 @@ version = { workspace = true }
 ark-core = { path = "../../ark/core" }
 dash-api = { path = "../api" }
 dash-collector-api = { path = "../collector/api" }
-dash-collector-converter = { path = "../collector/converter" }
 dash-collector-world = { path = "../collector/world" }
 dash-optimizer-api = { path = "./api" }
 dash-pipe-api = { path = "../pipe/api" }

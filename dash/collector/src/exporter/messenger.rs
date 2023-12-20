@@ -4,6 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use dash_pipe_provider::{messengers::Publisher, PipeMessage};
 use tracing::{instrument, Level};
+
 macro_rules! init_exporter {
     [ $( $signal:ident with feature $signal_feature:expr , )* ] => {
         pub struct Exporters {
@@ -20,11 +21,12 @@ macro_rules! init_exporter {
                 use dash_pipe_provider::messengers::{init_messenger, MessengerArgs};
                 use serde_json::Value;
 
-                let args = MessengerArgs::parse();
-                let messenger = init_messenger::<Value>(&args).await?;
+                let args = StorageS3Args::parse();
 
                 let kube = ::kube::Client::try_default().await?;
                 let namespace = || kube.default_namespace().to_string();
+
+                let messenger = init_messenger::<Value>(&args).await?;
 
                 Ok(Self {
                     $(

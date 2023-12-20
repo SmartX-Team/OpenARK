@@ -28,7 +28,10 @@ impl World {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     #[must_use]
-    pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<NamespacePlan>> {
+    pub(crate) async fn add_storage(
+        &mut self,
+        crd: ModelStorageCrd,
+    ) -> Result<Option<NamespacePlan>> {
         let namespace = crd
             .namespace()
             .ok_or_else(|| anyhow!("world namespace should be exist"))?;
@@ -96,7 +99,7 @@ impl World {
         Ok(())
     }
 
-    pub async fn update_metrics<'a>(&mut self, metrics: Vec<MetricRow<'a>>) {
+    pub(crate) async fn update_metrics<'a>(&mut self, metrics: Vec<MetricRow<'a>>) {
         for MetricRow {
             metadata: ObjectMetadata { name, namespace },
             value,
@@ -244,7 +247,7 @@ impl Plan for NamespacePlan {
                     .get(namespace.as_ref())
                     .cloned()
                 {
-                    Some(namespace) => namespace,
+                    Some(storage) => storage,
                     None => {
                         warn!("world namespace has been removed: {namespace}");
                         return Ok(());

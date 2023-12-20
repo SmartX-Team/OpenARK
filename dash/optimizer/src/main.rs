@@ -24,7 +24,6 @@ async fn try_main() -> Result<()> {
 
     // spawn services
     try_join!(
-        ::dash_collector_converter::trace::Reader::new(ctx.clone()).loop_forever(),
         ::dash_collector_world::plan::PlanRunner::new(ctx.clone(), plan_rx).loop_forever(),
         ::dash_collector_world::syncer::MetricSyncer::new(ctx.clone()).loop_forever(),
         self::model::Service::new(ctx.clone()).loop_forever(),

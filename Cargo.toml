@@ -10,7 +10,6 @@ members = [
     "dash/collector",
     "dash/collector/api",
     "dash/collector/client",
-    "dash/collector/converter",
     "dash/collector/world",
     "dash/controller",
     "dash/gateway",

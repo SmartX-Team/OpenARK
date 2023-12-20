@@ -7,7 +7,9 @@ use tonic::{Request, Response, Status};
 use tracing::{instrument, Level};
 
 pub fn init(
-    #[cfg(feature = "exporter")] exporter: ::std::sync::Arc<dyn crate::exporter::Exporter>,
+    #[cfg(feature = "exporter")] exporter: ::std::sync::Arc<
+        dyn crate::exporter::Exporter<ExportLogsServiceRequest, ExportLogsServiceResponse>,
+    >,
 ) -> Server {
     Server::new(Service {
         #[cfg(feature = "exporter")]
@@ -19,7 +21,9 @@ pub type Server = LogsServiceServer<Service>;
 
 pub struct Service {
     #[cfg(feature = "exporter")]
-    exporter: ::std::sync::Arc<dyn crate::exporter::Exporter>,
+    exporter: ::std::sync::Arc<
+        dyn crate::exporter::Exporter<ExportLogsServiceRequest, ExportLogsServiceResponse>,
+    >,
 }
 
 #[async_trait]

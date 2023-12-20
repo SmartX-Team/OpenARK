@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use dash_collector_api::metrics::MetricSpan;
 use opentelemetry_proto::tonic::collector::trace::v1::{
     trace_service_server::{TraceService, TraceServiceServer},
     ExportTracePartialSuccess, ExportTraceServiceRequest, ExportTraceServiceResponse,
@@ -7,7 +8,9 @@ use tonic::{Request, Response, Status};
 use tracing::{instrument, Level};
 
 pub fn init(
-    #[cfg(feature = "exporter")] exporter: ::std::sync::Arc<dyn crate::exporter::Exporter>,
+    #[cfg(feature = "exporter")] exporter: ::std::sync::Arc<
+        dyn crate::exporter::Exporter<ExportTraceServiceRequest, MetricSpan<'static>>,
+    >,
 ) -> Server {
     Server::new(Service {
         #[cfg(feature = "exporter")]
@@ -19,7 +22,9 @@ pub type Server = TraceServiceServer<Service>;
 
 pub struct Service {
     #[cfg(feature = "exporter")]
-    exporter: ::std::sync::Arc<dyn crate::exporter::Exporter>,
+    exporter: ::std::sync::Arc<
+        dyn crate::exporter::Exporter<ExportTraceServiceRequest, MetricSpan<'static>>,
+    >,
 }
 
 #[async_trait]

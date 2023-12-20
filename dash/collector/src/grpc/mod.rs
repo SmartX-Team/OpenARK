@@ -34,27 +34,25 @@ init_signals! [
 ];
 
 #[cfg(feature = "exporter")]
-trait ExportRequest
+trait ExportRequest<Req, Res>
 where
-    Self: 'static + Clone + crate::exporter::Exporter,
+    Self: 'static + Clone + crate::exporter::Exporter<Req, Res>,
+    Req: 'static + Send + ::serde::Serialize,
+    Res: 'static + Send + ::serde::Serialize,
 {
-    fn export_request<T>(&self, request: ::tonic::Request<T>)
-    where
-        T: Send + ::serde::Serialize,
-    {
-        match ::serde_json::to_value(request.into_parts().2) {
-            Ok(value) => {
-                let message = ::dash_pipe_provider::PipeMessage::new(value);
+    fn export_request(&self, request: ::tonic::Request<Req>) {
+        let value = request.into_parts().2;
+        let message = ::dash_pipe_provider::PipeMessage::new(value);
 
-                let exporter = self.clone();
-                ::tokio::task::spawn(async move { exporter.export(&message).await });
-            }
-            Err(error) => {
-                ::tracing::warn!("failed to parse request as JSON: {error}")
-            }
-        }
+        let exporter = self.clone();
+        ::tokio::task::spawn(async move { exporter.export(&message).await });
     }
 }
 
 #[cfg(feature = "exporter")]
-impl ExportRequest for ::std::sync::Arc<dyn crate::exporter::Exporter> {}
+impl<Req, Res> ExportRequest<Req, Res> for ::std::sync::Arc<dyn crate::exporter::Exporter<Req, Res>>
+where
+    Req: 'static + Send + Sync + ::serde::Serialize,
+    Res: 'static + Send + Sync + ::serde::Serialize,
+{
+}

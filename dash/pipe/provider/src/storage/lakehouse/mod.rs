@@ -303,6 +303,17 @@ impl StorageContext {
         session.register_table(&self.model, Arc::new(table))?;
         Ok(Some(session))
     }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    #[must_use]
+    pub async fn update(&self) -> Result<()> {
+        self.table
+            .write()
+            .await
+            .update()
+            .await
+            .map_err(|error| anyhow!("failed to update table: {error}"))
+    }
 }
 
 #[async_trait]

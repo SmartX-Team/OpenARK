@@ -5,15 +5,11 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use dash_collector_api::metrics::{MetricDuration, MetricRow, MetricSpan};
+use dash_collector_api::metrics::{MetricDuration, MetricRow};
 use dash_pipe_api::storage::StorageS3Args;
 use dash_pipe_provider::{
     deltalake::{arrow::json::ArrayWriter, datafusion::dataframe::DataFrame},
-    storage::{
-        lakehouse::{GlobalStorageContext, StorageContext},
-        MetadataStorage,
-    },
-    PipeMessage,
+    storage::lakehouse::{GlobalStorageContext, StorageContext},
 };
 use inflector::Inflector;
 use kube::Client;
@@ -84,7 +80,7 @@ impl WorldContext {
         self.storage.get_table(name).await
     }
 
-    pub async fn get_all_metrics(
+    async fn get_all_metrics(
         &self,
         duration: Option<MetricDuration>,
     ) -> Result<Vec<MetricRow<'static>>> {
@@ -121,7 +117,7 @@ impl WorldContext {
         }
     }
 
-    pub async fn get_all_metrics_with_last(
+    async fn get_all_metrics_with_last(
         &self,
         duration: Duration,
     ) -> Result<Vec<MetricRow<'static>>> {
@@ -152,9 +148,13 @@ impl WorldContext {
         Ok(df)
     }
 
-    pub async fn write_metric(&self, span: MetricSpan<'_>) -> Result<()> {
+    pub async fn update_metrics(&self, duration: Duration) -> Result<()> {
         let table = self.get_table(&self.model).await?;
-        table.put_metadata(&[&PipeMessage::new(span)]).await
+        table.update().await?;
+
+        let metrics = self.get_all_metrics_with_last(duration).await?;
+        self.data.write().await.update_metrics(metrics).await;
+        Ok(())
     }
 }
 

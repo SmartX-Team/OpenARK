@@ -83,7 +83,7 @@ impl StorageSet {
                 let flush = if ctx.is_disabled_store_metadata() {
                     None
                 } else {
-                    Some(Duration::from_millis(args.flush_ms))
+                    args.flush()
                 };
                 self::lakehouse::Storage::try_new::<Value>(&args.s3, namespace(), model, flush)
                     .await?
@@ -286,7 +286,21 @@ pub struct StorageArgs {
 
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
-    s3: ::dash_pipe_api::storage::StorageS3Args,
+    pub s3: ::dash_pipe_api::storage::StorageS3Args,
+}
+
+impl StorageArgs {
+    pub const fn flush(&self) -> Option<Duration> {
+        Self::parse_flush_ms(self.flush_ms)
+    }
+
+    pub const fn parse_flush_ms(flush_ms: u64) -> Option<Duration> {
+        if flush_ms > 0 {
+            Some(Duration::from_millis(flush_ms))
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]

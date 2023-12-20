@@ -4,7 +4,7 @@ use dash_api::{
     model::ModelCrd, model_claim::ModelClaimBindingPolicy,
     model_storage_binding::ModelStorageBindingCrd, storage::ModelStorageKind,
 };
-use dash_optimizer_api::optimize;
+use dash_optimizer_api::model;
 use dash_pipe_provider::{
     messengers::{init_messenger, Messenger, MessengerArgs},
     PipeMessage, RemoteFunction, StatelessRemoteFunction,
@@ -14,7 +14,7 @@ use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
 pub struct OptimizerClient {
-    messenger: Box<dyn Messenger<optimize::model::Response>>,
+    messenger: Box<dyn Messenger<model::Response>>,
 }
 
 impl OptimizerClient {
@@ -35,19 +35,16 @@ impl OptimizerClient {
         policy: ModelClaimBindingPolicy,
         storage: Option<ModelStorageKind>,
     ) -> Result<Option<ModelStorageBindingCrd>> {
-        let request = PipeMessage::<_, ()>::new(optimize::model::Request {
+        let request = PipeMessage::<_, ()>::new(model::Request {
             model: Some(model.clone()),
             policy,
             storage,
         });
 
         let namespace = kubernetes_storage.namespace.to_string();
-        let function = StatelessRemoteFunction::try_new(
-            namespace,
-            &self.messenger,
-            optimize::model::model_in()?,
-        )
-        .await?;
+        let function =
+            StatelessRemoteFunction::try_new(namespace, &self.messenger, model::model_in()?)
+                .await?;
 
         match function
             .call_one(request)

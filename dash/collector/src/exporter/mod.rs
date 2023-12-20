@@ -3,10 +3,17 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use dash_pipe_provider::PipeMessage;
+use opentelemetry_proto::tonic::collector;
 use tracing::{instrument, Level};
 
 macro_rules! init_exporters {
-    [ $( $signal:ident with feature $signal_feature:expr , )* ] => {
+    [ $(
+            $signal:ident {
+            feature : $signal_feature:expr ,
+            request : $signal_request:ty ,
+            response : $signal_response:ty ,
+        } ,
+    )* ] => {
         #[async_trait]
         pub trait Exporters
         where
@@ -18,7 +25,7 @@ macro_rules! init_exporters {
 
             $(
                 #[cfg(feature = $signal_feature)]
-                fn $signal(&self) -> Arc<dyn Exporter>;
+                fn $signal(&self) -> Arc<dyn Exporter<$signal_request, $signal_response>>;
             )*
         }
 
@@ -35,10 +42,22 @@ macro_rules! init_exporters {
     };
 }
 
-init_exporters! [
-    logs with feature "logs",
-    metrics with feature "metrics",
-    trace with feature "trace",
+init_exporters![
+    logs {
+        feature: "logs",
+        request: collector::logs::v1::ExportLogsServiceRequest,
+        response: collector::logs::v1::ExportLogsServiceResponse,
+    },
+    metrics {
+        feature: "metrics",
+        request: collector::metrics::v1::ExportMetricsServiceRequest,
+        response: collector::metrics::v1::ExportMetricsServiceResponse,
+    },
+    trace {
+        feature: "trace",
+        request: collector::trace::v1::ExportTraceServiceRequest,
+        response: ::dash_collector_api::metrics::MetricSpan<'static>,
+    },
 ];
 
 macro_rules! init_exporter_impls {
@@ -67,46 +86,53 @@ macro_rules! init_exporter_impls {
 }
 
 init_exporter_impls! [
-    messenger with feature "exporter-messenger",
+    // messenger with feature "exporter-messenger",
+    storage with feature "exporter-storage",
 ];
 
 #[async_trait]
-pub trait Exporter
+pub trait Exporter<Req, Res>
 where
     Self: Send + Sync,
 {
-    async fn export(&self, message: &PipeMessage) -> Result<()>;
+    async fn export(&self, message: &PipeMessage<Req, ()>) -> Result<()>;
 }
 
 #[async_trait]
-impl<T> Exporter for &T
+impl<Req, Res, T> Exporter<Req, Res> for &T
 where
-    T: ?Sized + Exporter,
+    Req: Sync,
+    Res: Sync,
+    T: ?Sized + Exporter<Req, Res>,
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn export(&self, message: &PipeMessage) -> Result<()> {
-        <T as Exporter>::export(*self, message).await
+    async fn export(&self, message: &PipeMessage<Req, ()>) -> Result<()> {
+        <T as Exporter<Req, Res>>::export(*self, message).await
     }
 }
 
 #[async_trait]
-impl<T> Exporter for Box<T>
+impl<Req, Res, T> Exporter<Req, Res> for Box<T>
 where
-    T: ?Sized + Exporter,
+    Req: Sync,
+    Res: Sync,
+    T: ?Sized + Exporter<Req, Res>,
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn export(&self, message: &PipeMessage) -> Result<()> {
-        <T as Exporter>::export(self, message).await
+    async fn export(&self, message: &PipeMessage<Req, ()>) -> Result<()> {
+        <T as Exporter<Req, Res>>::export(self, message).await
     }
 }
 
 #[async_trait]
-impl<T> Exporter for Arc<T>
+impl<Req, Res, T> Exporter<Req, Res> for Arc<T>
 where
-    T: ?Sized + Exporter,
+    Req: Sync,
+    Res: Sync,
+    T: ?Sized + Exporter<Req, Res>,
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn export(&self, message: &PipeMessage) -> Result<()> {
-        <T as Exporter>::export(self, message).await
+    async fn export(&self, message: &PipeMessage<Req, ()>) -> Result<()> {
+        <T as Exporter<Req, Res>>::export(self, message).await
     }
 }

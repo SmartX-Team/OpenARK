@@ -17,12 +17,12 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["exporter-messenger", "grpc", "http", "logs", "metrics", "trace"]
+default = ["exporter-storage", "grpc", "http", "logs", "metrics", "trace"]
 
 # telemetry pillars and functions
 logs = ["kube", "opentelemetry-proto?/logs"]
 metrics = ["kube", "opentelemetry-proto?/metrics"]
-trace = ["kube", "opentelemetry-proto?/trace"]
+trace = ["dash-collector-api/metrics", "kube", "opentelemetry-proto?/trace"]
 
 # grpc using tonic
 grpc = [
@@ -32,14 +32,14 @@ grpc = [
     "serde_json",
     "tonic",
 ]
-grpc-tls = ["tonic/tls"]
-grpc-tls-roots = ["grpc-tls", "tonic/tls-roots"]
+grpc-tls = ["grpc", "tonic/tls"]
+grpc-tls-roots = ["grpc", "grpc-tls", "tonic/tls-roots"]
 
 # http binary
 http = []
 
 # exporters
-exporter = ["ark-core-k8s", "async-trait", "exporter-messenger"]
+exporter = ["ark-core-k8s", "async-trait"]
 exporter-messenger = [
     "clap",
     "dash-pipe-provider",
@@ -47,18 +47,31 @@ exporter-messenger = [
     "futures",
     "serde_json",
 ]
+exporter-storage = [
+    "clap",
+    "dash-pipe-api",
+    "dash-pipe-provider",
+    "exporter",
+    "opentelemetry-proto/with-schemars",
+]
+
+# kubernetes
+kube = ["k8s-openapi", "dep:kube"]
 
 [dependencies]
 ark-core = { path = "../../ark/core" }
 ark-core-k8s = { path = "../../ark/core/k8s", optional = true, features = [
     "data",
 ] }
+dash-collector-api = { path = "./api", optional = true }
+dash-pipe-api = { path = "../pipe/api", optional = true }
 dash-pipe-provider = { path = "../pipe/provider", optional = true }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+k8s-openapi = { workspace = true, optional = true }
 kube = { workspace = true, optional = true }
 opentelemetry-proto = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }

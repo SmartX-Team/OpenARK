@@ -27,14 +27,8 @@ impl crate::service::Service for MetricSyncer {
         const INTERVAL_COLLECT: Duration = Duration::from_secs(5 * 60);
 
         loop {
-            match self.ctx.get_all_metrics_with_last(INTERVAL_COLLECT).await {
-                Ok(metrics) => {
-                    let mut world = self.ctx.data.write().await;
-                    world.update_metrics(metrics).await
-                }
-                Err(error) => {
-                    error!("{error}")
-                }
+            if let Err(error) = self.ctx.update_metrics(INTERVAL_COLLECT).await {
+                error!("{error}")
             }
             sleep(INTERVAL_SYNC).await;
         }
