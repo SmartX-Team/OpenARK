@@ -4,114 +4,17 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use byte_unit::Byte;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
-use dash_optimizer_api::{optimize, ObjectMetadata};
+use dash_collector_api::{
+    metadata::ObjectMetadata,
+    metrics::{edge::EdgeMetric, node::NodeMetric, MetricRow},
+};
 use dash_optimizer_fallback::GetCapacity;
-use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
-use futures::FutureExt;
-use itertools::Itertools;
-use kube::{api::ListParams, Api, ResourceExt};
+use kube::{Client, ResourceExt};
 use maplit::btreemap;
 use tokio::sync::RwLock;
 use tracing::{info, instrument, warn, Level};
 
-use crate::{
-    ctx::{OptimizerContext, Timeout},
-    plan::Plan,
-};
-
-#[derive(Clone)]
-pub struct Optimizer {
-    ctx: OptimizerContext,
-}
-
-#[async_trait]
-impl crate::ctx::OptimizerService for Optimizer {
-    fn new(ctx: &OptimizerContext) -> Self {
-        Self { ctx: ctx.clone() }
-    }
-
-    async fn loop_forever(self) -> Result<()> {
-        info!("creating messenger: storage optimizer");
-
-        let pipe = PipeArgs::with_function(self)?
-            .with_ignore_sigint(true)
-            .with_model_in(Some(optimize::storage::model_in()?))
-            .with_model_out(Some(optimize::storage::model_out()?));
-        pipe.loop_forever_async().await
-    }
-}
-
-#[async_trait]
-impl RemoteFunction for Optimizer {
-    type Input = optimize::storage::Request;
-    type Output = optimize::storage::Response;
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn call_one(
-        &self,
-        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
-        let optimize::storage::Request {
-            policy,
-            storage: ObjectMetadata { name, namespace },
-        } = &input.value;
-
-        match self
-            .ctx
-            .get(namespace, name, Timeout::Unlimited)
-            .then(|option| async {
-                match option {
-                    Some(namespace) => namespace.read().await.solve_next_storage(name, *policy),
-                    None => None,
-                }
-            })
-            .await
-        {
-            Some(target) => {
-                let value = target.name_any().clone();
-                Ok(PipeMessage::with_request(&input, vec![], Some(value)))
-            }
-            None => Ok(PipeMessage::with_request(&input, vec![], None)),
-        }
-    }
-}
-
-pub struct StorageLoader<'a> {
-    ctx: &'a OptimizerContext,
-}
-
-impl<'a> StorageLoader<'a> {
-    pub fn new(ctx: &'a OptimizerContext) -> Self {
-        Self { ctx }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn load(&self) -> Result<()> {
-        info!("loading storage info");
-        let kube = &*self.ctx.kube;
-        let api = Api::<ModelStorageCrd>::all(kube.clone());
-        let lp = ListParams::default();
-        let crds = api.list(&lp).await?.items;
-
-        let mut plans = Vec::with_capacity(crds.len());
-        {
-            let mut storage = self.ctx.world.write().await;
-            for crd in crds
-                .into_iter()
-                .sorted_by_key(|crd| crd.creation_timestamp())
-            {
-                if let Some(plan) = storage.add_storage(crd).await? {
-                    plans.push(plan);
-                }
-            }
-        }
-
-        for plan in plans {
-            self.ctx.add_plan(plan).await?;
-        }
-        Ok(())
-    }
-}
+use crate::{ctx::WorldContext, plan::Plan};
 
 #[derive(Clone, Default)]
 pub struct World {
@@ -128,10 +31,83 @@ impl World {
     pub async fn add_storage(&mut self, crd: ModelStorageCrd) -> Result<Option<NamespacePlan>> {
         let namespace = crd
             .namespace()
-            .ok_or_else(|| anyhow!("storage namespace should be exist"))?;
+            .ok_or_else(|| anyhow!("world namespace should be exist"))?;
 
         let storage = self.namespaces.entry(namespace.clone()).or_default();
         storage.write().await.add_storage(namespace, crd)
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn discover_storage<'a>(
+        &self,
+        kube: &Client,
+        metadata: &ObjectMetadata<'a>,
+    ) -> Result<()> {
+        let ObjectMetadata { name, namespace } = metadata;
+        let storage = match self.namespaces.get(namespace.as_ref()).cloned() {
+            Some(storage) => storage,
+            None => {
+                warn!("storage namespace has been removed: {namespace}");
+                return Ok(());
+            }
+        };
+        let index = match storage.read().await.names.get(name.as_ref()).copied() {
+            Some(index) => {
+                info!("discovering storage: {metadata}");
+                index
+            }
+            None => {
+                warn!("storage has been removed: {metadata}");
+                return Ok(());
+            }
+        };
+
+        // TODO: estimate latency / bandwidth test
+        // todo!();
+
+        {
+            let crd = match storage
+                .read()
+                .await
+                .nodes
+                .get(index)
+                .map(|node| &node.crd)
+                .cloned()
+            {
+                Some(crd) => crd,
+                None => {
+                    warn!("node has been removed: {metadata}");
+                    return Ok(());
+                }
+            };
+            if let Some(capacity) = crd
+                .get_capacity_global(kube, namespace, name.to_string())
+                .await?
+            {
+                let mut storage = storage.write().await;
+                if let Some(node) = storage.nodes.get_mut(index) {
+                    node.discovered = true;
+                    node.capacity = parse_byte(capacity.capacity)?;
+                    node.usage = parse_byte(capacity.usage)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_metrics<'a>(&mut self, metrics: Vec<MetricRow<'a>>) {
+        for MetricRow {
+            metadata: ObjectMetadata { name, namespace },
+            value,
+        } in metrics
+        {
+            let storage = self.namespaces.entry(namespace.to_string()).or_default();
+            storage
+                .write()
+                .await
+                .update_node_metric(name.as_ref(), value)
+        }
     }
 }
 
@@ -161,11 +137,11 @@ impl Namespace {
         crd: ModelStorageCrd,
     ) -> Result<Option<NamespacePlan>> {
         let metadata = ObjectMetadata {
-            name: crd.name_any(),
-            namespace,
+            name: crd.name_any().into(),
+            namespace: namespace.into(),
         };
 
-        match self.names.get(&metadata.name).copied() {
+        match self.names.get(metadata.name.as_ref()).copied() {
             Some(index) => {
                 if self.nodes[index].crd.metadata == crd.metadata {
                     Ok(None)
@@ -181,10 +157,21 @@ impl Namespace {
             None => {
                 let index = self.names.len();
 
-                self.names.insert(metadata.name.clone(), index);
+                self.names.insert(metadata.name.to_string(), index);
                 self.nodes.push(NodeStatus::new(crd, index));
                 Ok(Some(NamespacePlan::Discover { metadata }))
             }
+        }
+    }
+
+    fn update_node_metric(&mut self, name: &str, value: NodeMetric) {
+        if let Some(status) = self
+            .names
+            .get(name)
+            .copied()
+            .and_then(|id| self.nodes.get_mut(id))
+        {
+            status.metric = value;
         }
     }
 
@@ -239,30 +226,37 @@ impl Namespace {
 
 #[derive(Debug)]
 pub enum NamespacePlan {
-    Discover { metadata: ObjectMetadata },
+    Discover { metadata: ObjectMetadata<'static> },
 }
 
 #[async_trait]
 impl Plan for NamespacePlan {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn exec(&self, ctx: &OptimizerContext) -> Result<()> {
+    async fn exec(&self, ctx: &WorldContext) -> Result<()> {
         match self {
             Self::Discover { metadata } => {
                 let ObjectMetadata { name, namespace } = metadata;
-                let storage = match ctx.world.read().await.namespaces.get(namespace).cloned() {
-                    Some(storage) => storage,
+                let storage = match ctx
+                    .data
+                    .read()
+                    .await
+                    .namespaces
+                    .get(namespace.as_ref())
+                    .cloned()
+                {
+                    Some(namespace) => namespace,
                     None => {
-                        warn!("storage namespace has been removed: {namespace}");
+                        warn!("world namespace has been removed: {namespace}");
                         return Ok(());
                     }
                 };
-                let index = match storage.read().await.names.get(name).copied() {
+                let index = match storage.read().await.names.get(name.as_ref()).copied() {
                     Some(index) => {
                         info!("discovering storage: {metadata}");
                         index
                     }
                     None => {
-                        warn!("storage has been removed: {metadata}");
+                        warn!("world namespace has been removed: {metadata}");
                         return Ok(());
                     }
                 };
@@ -286,7 +280,7 @@ impl Plan for NamespacePlan {
                         }
                     };
                     if let Some(capacity) = crd
-                        .get_capacity_global(&ctx.kube, namespace, name.clone())
+                        .get_capacity_global(&ctx.kube, namespace, name.to_string())
                         .await?
                     {
                         let mut storage = storage.write().await;
@@ -334,19 +328,6 @@ impl NodeStatus {
             .unwrap_or_default()
             .max(0)
     }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct NodeMetric {
-    pub elapsed_ns: i64,
-    pub len: i64,
-    pub total_bytes: i64,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct EdgeMetric {
-    pub latency_ms: i64,
-    pub throughput_per_sec: i64,
 }
 
 fn parse_byte(byte: Byte) -> Result<i64> {

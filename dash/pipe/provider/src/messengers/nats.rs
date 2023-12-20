@@ -124,7 +124,7 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()> {
         self.client
             .publish(inbox, data)
@@ -132,7 +132,7 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to reply data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn request_one(&self, data: Bytes) -> Result<Bytes> {
         self.client
             .request(&self.topic, data)
@@ -141,7 +141,7 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .publish(&self.topic, data)

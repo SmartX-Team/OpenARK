@@ -4,3 +4,5 @@ pub mod data;
 pub mod domain;
 #[cfg(feature = "manager")]
 pub mod manager;
+#[cfg(feature = "name")]
+pub mod name;

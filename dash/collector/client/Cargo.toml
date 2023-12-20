@@ -1,5 +1,5 @@
 [package]
-name = "dash-optimizer-api"
+name = "dash-collector-client"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -14,13 +14,4 @@ homepage = { workspace = true }
 repository = { workspace = true }
 version = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
-dash-api = { path = "../../api" }
-dash-collector-api = { path = "../../collector/api" }
-
-anyhow = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }

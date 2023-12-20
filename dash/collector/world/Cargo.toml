@@ -1,5 +1,5 @@
 [package]
-name = "dash-optimizer"
+name = "dash-collector-world"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -17,19 +17,20 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-core = { path = "../../ark/core" }
-dash-api = { path = "../api" }
-dash-collector-api = { path = "../collector/api" }
-dash-collector-converter = { path = "../collector/converter" }
-dash-collector-world = { path = "../collector/world" }
-dash-optimizer-api = { path = "./api" }
-dash-pipe-api = { path = "../pipe/api" }
-dash-pipe-provider = { path = "../pipe/provider" }
+dash-api = { path = "../../api" }
+dash-collector-api = { path = "../api", features = ["metrics"] }
+dash-optimizer-fallback = { path = "../../optimizer/fallback" }
+dash-pipe-api = { path = "../../pipe/api" }
+dash-pipe-provider = { path = "../../pipe/provider" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-futures = { workspace = true }
+byte-unit = { workspace = true }
+clap = { workspace = true }
+inflector = { workspace = true }
+itertools = { workspace = true }
 kube = { workspace = true }
-opentelemetry = { workspace = true }
+maplit = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

@@ -5,7 +5,7 @@ use async_stream::try_stream;
 use async_trait::async_trait;
 use deltalake::{
     arrow::json::ArrayWriter,
-    datafusion::{physical_plan::execute_stream_partitioned, prelude::DataFrame},
+    datafusion::{physical_plan::execute_stream, prelude::DataFrame},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use serde::de::DeserializeOwned;
@@ -32,16 +32,16 @@ impl TryIntoTableDecoder for DataFrame {
         let task_ctx = Arc::new(self.task_ctx());
         let plan = self.create_physical_plan().await?;
 
-        let batches = execute_stream_partitioned(plan, task_ctx)?;
+        let mut stream = execute_stream(plan, task_ctx)?;
         Ok(try_stream! {
-            for mut batch in batches {
-                while let Some(batch) = batch.try_next().await? {
-                    let mut writer = ArrayWriter::new(vec![]);
-                    writer.write(&batch)?;
-                    writer.finish()?;
+            while let Some(batch) = stream.try_next().await? {
+                let mut writer = ArrayWriter::new(vec![]);
+                writer.write(&batch)?;
+                writer.finish()?;
 
-                    let buf = writer.into_inner();
-                    for value in ::serde_json::from_reader::<_, Vec<T>>(&*buf)
+                let data = writer.into_inner();
+                if !data.is_empty() {
+                    for value in ::serde_json::from_reader::<_, Vec<T>>(&*data)
                         .map_err(|error| anyhow!("failed to convert data: {error}"))?
                     {
                         yield value;

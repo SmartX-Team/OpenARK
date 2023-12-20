@@ -22,6 +22,7 @@ manager = [
     "tokio",
     "tracing",
 ]
+name = ["anyhow", "k8s-openapi", "kube", "sha2", "tracing"]
 
 [dependencies]
 ark-core = { path = ".." }
@@ -44,6 +45,7 @@ resolv-conf = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }

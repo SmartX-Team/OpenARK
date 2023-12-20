@@ -99,6 +99,8 @@ impl GlobalStorageContext {
 
 impl GlobalStorageContext {
     pub async fn get_table(&self, model: &str) -> Result<StorageContext> {
+        const INTERVAL_CHECK_LOCK: Duration = Duration::from_millis(10);
+
         loop {
             {
                 let storages = self.storages.read().await;
@@ -109,7 +111,7 @@ impl GlobalStorageContext {
 
             // wait for other table operations to be finished
             if self.lock_table.swap(true, Ordering::SeqCst) {
-                sleep(Duration::from_millis(10)).await;
+                sleep(INTERVAL_CHECK_LOCK).await;
                 continue;
             }
             let release = || self.lock_table.store(false, Ordering::SeqCst);
@@ -209,6 +211,7 @@ impl<Value> super::MetadataStorage<Value> for Storage {
 #[derive(Clone)]
 pub struct StorageContext {
     model: String,
+    model_raw: String,
     namespace: String,
     table: Arc<RwLock<DeltaTable>>,
     writer: Arc<Mutex<StorageTableWriter>>,
@@ -234,7 +237,8 @@ impl StorageContext {
         };
 
         // get or create a table
-        let (model, table, state) = load_table(args, model, fields).await?;
+        let model_raw = model.to_string();
+        let (model, table, state) = load_table(args, &model_raw, fields).await?;
 
         let writer = match state {
             StorageTableState::Inited => Some(init_writer(&table)?),
@@ -246,6 +250,7 @@ impl StorageContext {
 
         Ok(Self {
             model,
+            model_raw,
             namespace,
             table,
             writer,
@@ -302,7 +307,7 @@ impl StorageContext {
 
 #[async_trait]
 impl<Value> super::MetadataStorage<Value> for StorageContext {
-    #[instrument(level = Level::INFO, skip_all, fields(data.namespace = %self.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.model_raw, data.namespace = %self.namespace), err(Display))]
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + DeserializeOwned,
@@ -317,7 +322,7 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         })
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = %values.len(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = %values.len(), data.name = %self.model_raw, data.namespace = %self.namespace), err(Display))]
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Serialize + JsonSchema,

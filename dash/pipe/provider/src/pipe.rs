@@ -301,6 +301,8 @@ where
                     }
                     .loop_forever()
                     .await,
+                    model_in: model.clone(),
+                    namespace: namespace.clone(),
                     rx,
                 })
             }
@@ -312,6 +314,7 @@ where
             atomic_session: AtomicSession::new(max_tasks),
             encoder: self.encoder.unwrap_or_default(),
             function_context: function_context.clone(),
+            model_out: self.model_out.clone(),
             storage: storage.output.clone(),
             stream: match self.model_out.as_ref() {
                 Some(model) => Some(messenger.publish(namespace, model.clone()).await?),
@@ -404,7 +407,7 @@ async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
-    #[instrument(name = "read", level = Level::INFO, skip_all, err(Display))]
+    #[instrument(name = "read", level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %reader.model_in.as_str(), data.namespace = %reader.namespace), err(Display))]
     async fn recv_one<Value>(
         function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
@@ -454,8 +457,10 @@ where
 
     let input_payloads = inputs.get_payloads_ref();
 
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = %inputs.len().max(1), data.name = model_out, data.namespace = %namespace), err(Display))]
     async fn call_function<F>(
+        namespace: &str,
+        model_out: Option<&str>,
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
     ) -> Result<PipeMessages<<F as Function>::Output>>
@@ -465,7 +470,14 @@ where
         function.tick(inputs).await
     }
 
-    match call_function(&mut ctx.function, inputs).await? {
+    match call_function(
+        ctx.function_context.namespace(),
+        ctx.writer.model_out.as_ref().map(|model| model.as_str()),
+        &mut ctx.function,
+        inputs,
+    )
+    .await?
+    {
         PipeMessages::None => Ok(()),
         outputs => {
             let mut writer = ctx.writer.clone();
@@ -516,6 +528,8 @@ where
 
 struct ReadContext<Value> {
     _job: JoinHandle<()>,
+    model_in: Name,
+    namespace: String,
     rx: Receiver<PipeMessage<Value>>,
 }
 
@@ -591,6 +605,7 @@ struct WriteContext {
     atomic_session: AtomicSession,
     encoder: Codec,
     function_context: FunctionContext,
+    model_out: Option<Name>,
     storage: Arc<StorageSet>,
     stream: Option<Arc<dyn Publisher>>,
 }

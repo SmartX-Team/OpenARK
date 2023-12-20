@@ -72,17 +72,17 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn reply_one(&self, _data: Bytes, _inbox: String) -> Result<()> {
         bail!("cannot reply with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn request_one(&self, _data: Bytes) -> Result<Bytes> {
         bail!("cannot request with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.namespace = %self.namespace, data.topic = %self.topic.as_str()), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .send(

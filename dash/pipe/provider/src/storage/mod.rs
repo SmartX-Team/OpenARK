@@ -83,7 +83,7 @@ impl StorageSet {
                 let flush = if ctx.is_disabled_store_metadata() {
                     None
                 } else {
-                    Some(Duration::from_secs(10))
+                    Some(Duration::from_millis(args.flush_ms))
                 };
                 self::lakehouse::Storage::try_new::<Value>(&args.s3, namespace(), model, flush)
                     .await?
@@ -270,6 +270,9 @@ pub trait Storage {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct StorageArgs {
+    #[arg(long, env = "PIPE_FLUSH", value_name = "MS", default_value_t = 10_000)]
+    flush_ms: u64,
+
     #[arg(long, env = "PIPE_PERSISTENCE", action = ArgAction::SetTrue)]
     #[serde(default)]
     persistence: Option<bool>,

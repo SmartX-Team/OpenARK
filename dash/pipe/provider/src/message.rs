@@ -43,9 +43,9 @@ where
 {
     pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
         match self {
-            PipeMessages::None => HashMap::default(),
-            PipeMessages::Single(value) => value.get_payloads_ref().collect(),
-            PipeMessages::Batch(values) => values
+            Self::None => HashMap::default(),
+            Self::Single(value) => value.get_payloads_ref().collect(),
+            Self::Batch(values) => values
                 .iter()
                 .flat_map(|value| value.get_payloads_ref())
                 .collect(),
@@ -65,14 +65,30 @@ where
         P: JsonSchema,
     {
         match self {
-            PipeMessages::None => PipeMessages::None,
-            PipeMessages::Single(value) => PipeMessages::Single(value.drop_payloads()),
-            PipeMessages::Batch(values) => PipeMessages::Batch(
+            Self::None => PipeMessages::None,
+            Self::Single(value) => PipeMessages::Single(value.drop_payloads()),
+            Self::Batch(values) => PipeMessages::Batch(
                 values
                     .into_iter()
                     .map(|value| value.drop_payloads())
                     .collect(),
             ),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::None => true,
+            Self::Single(_) => false,
+            Self::Batch(values) => values.is_empty(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Single(_) => 1,
+            Self::Batch(values) => values.len(),
         }
     }
 }

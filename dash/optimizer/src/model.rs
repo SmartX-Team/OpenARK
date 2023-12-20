@@ -6,47 +6,48 @@ use dash_api::{
     },
     storage::ModelStorageKind,
 };
-use dash_optimizer_api::optimize;
+use dash_collector_world::ctx::{Timeout, WorldContext};
+use dash_optimizer_api::model;
 use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
 use futures::FutureExt;
 use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
-use crate::ctx::{OptimizerContext, Timeout};
-
 #[derive(Clone)]
-pub struct Optimizer {
-    ctx: OptimizerContext,
+pub struct Service {
+    ctx: WorldContext,
+}
+
+impl Service {
+    pub fn new(ctx: WorldContext) -> Self {
+        Self { ctx }
+    }
 }
 
 #[async_trait]
-impl crate::ctx::OptimizerService for Optimizer {
-    fn new(ctx: &OptimizerContext) -> Self {
-        Self { ctx: ctx.clone() }
-    }
-
+impl ::dash_collector_world::service::Service for Service {
     async fn loop_forever(self) -> Result<()> {
-        info!("creating messenger: model optimizer");
+        info!("creating service: model optimizer");
 
         let pipe = PipeArgs::with_function(self)?
             .with_ignore_sigint(true)
-            .with_model_in(Some(optimize::model::model_in()?))
-            .with_model_out(Some(optimize::model::model_out()?));
+            .with_model_in(Some(model::model_in()?))
+            .with_model_out(Some(model::model_out()?));
         pipe.loop_forever_async().await
     }
 }
 
 #[async_trait]
-impl RemoteFunction for Optimizer {
-    type Input = optimize::model::Request;
-    type Output = optimize::model::Response;
+impl RemoteFunction for Service {
+    type Input = model::Request;
+    type Output = model::Response;
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call_one(
         &self,
         input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
     ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
-        let optimize::model::Request {
+        let model::Request {
             model,
             policy,
             storage,

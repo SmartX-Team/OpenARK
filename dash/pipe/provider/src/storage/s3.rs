@@ -70,7 +70,7 @@ impl super::Storage for Storage {
         super::StorageType::S3
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.namespace = %self.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self), fields(data.len = 1usize, data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
         let bucket_name = model.storage();
         let args = GetObjectArgs::new(bucket_name, path)?;
@@ -90,7 +90,7 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to get object from S3 object store: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, bytes), fields(data.len = %bytes.len(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, bytes), fields(data.len = %bytes.len(), data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
         let path = format!(
@@ -108,7 +108,7 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.namespace = %self.namespace), err(Display))]
+    #[instrument(level = Level::INFO, skip(self), fields(data.len = 1usize, data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
     async fn delete(&self, path: &str) -> Result<()> {
         let bucket_name = self.bucket_name()?;
         let args = RemoveObjectArgs::new(bucket_name, path)?;

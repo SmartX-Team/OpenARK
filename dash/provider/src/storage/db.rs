@@ -461,7 +461,7 @@ impl RuntimeIden {
         // read hash digest and consume hasher
         let hash = hasher.finalize();
 
-        // encode to base64 format
+        // encode to hex format
         Self(format!("{hash:x}"))
     }
 
@@ -475,7 +475,7 @@ impl RuntimeIden {
         // read hash digest and consume hasher
         let hash = hasher.finalize();
 
-        // encode to base64 format
+        // encode to hex format
         Self(format!("{hash:x}"))
     }
 }

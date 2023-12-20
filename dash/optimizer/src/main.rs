@@ -1,39 +1,34 @@
-mod ctx;
-mod metric;
 mod model;
-mod plan;
-mod raw;
 // mod router;
-mod world;
+mod storage;
 
 use std::process::exit;
 
 use anyhow::Result;
 use ark_core::tracer;
+use dash_collector_world::{ctx::WorldContext, loader::StorageLoader, service::Service};
 use opentelemetry::global;
 use tokio::try_join;
 use tracing::{error, info, instrument, Level};
 
-use self::ctx::OptimizerService;
-
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn try_main() -> Result<()> {
-    // init optimizer context
-    let (ctx, plan_rx) = self::ctx::OptimizerContext::try_default().await.unwrap();
-
-    // init daemon tasks
-    ctx.spawn_task(|ctx| ctx.loop_forever_plan(plan_rx));
-    ctx.spawn_task(|ctx| ctx.loop_forever_sync_metrics());
+    // init world context
+    let (ctx, plan_rx) = WorldContext::try_new("optimizer-metric".into())
+        .await
+        .unwrap();
 
     // load optimizer data
-    let loader = self::world::StorageLoader::new(&ctx);
+    let loader = StorageLoader::new(&ctx);
     loader.load().await.unwrap();
 
-    // spawn handlers
+    // spawn services
     try_join!(
-        self::model::Optimizer::new(&ctx).loop_forever(),
-        self::raw::trace::Reader::new(&ctx).loop_forever(),
-        self::world::Optimizer::new(&ctx).loop_forever(),
+        ::dash_collector_converter::trace::Reader::new(ctx.clone()).loop_forever(),
+        ::dash_collector_world::plan::PlanRunner::new(ctx.clone(), plan_rx).loop_forever(),
+        ::dash_collector_world::syncer::MetricSyncer::new(ctx.clone()).loop_forever(),
+        self::model::Service::new(ctx.clone()).loop_forever(),
+        self::storage::Service::new(ctx).loop_forever(),
     )?;
     Ok(())
 }
