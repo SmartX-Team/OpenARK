@@ -29,8 +29,10 @@ macro_rules! init_exporters {
             )*
         }
 
+        #[cfg(feature = "exporter-messenger")]
         mod topics {
             $(
+                #[cfg(feature = $signal_feature)]
                 pub fn $signal() -> super::Result<::ark_core_k8s::data::Name> {
                     format!(
                         "dash.raw.{signal}",
