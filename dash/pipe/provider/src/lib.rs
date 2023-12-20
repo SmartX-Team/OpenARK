@@ -14,7 +14,7 @@ pub use ark_core_k8s::data::Name;
 pub use self::function::deltalake::DeltaFunction;
 pub use self::function::{
     Function, FunctionBuilder, FunctionContext, FunctionSignal, GenericStatelessRemoteFunction,
-    RemoteFunction, StatelessRemoteFunction,
+    OwnedFunctionBuilder, RemoteFunction, StatelessRemoteFunction,
 };
 #[cfg(feature = "pyo3")]
 pub use self::message::PyPipeMessage;

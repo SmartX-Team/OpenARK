@@ -301,6 +301,14 @@ impl StorageArgs {
             None
         }
     }
+
+    pub fn with_persistence(&mut self, persistence: bool) {
+        self.persistence = Some(persistence);
+    }
+
+    pub fn with_persistence_metadata(&mut self, persistence_metadata: bool) {
+        self.persistence_metadata = Some(persistence_metadata);
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]

@@ -1,5 +1,6 @@
 mod model;
 // mod router;
+mod pipe;
 mod storage;
 
 use std::process::exit;
@@ -14,13 +15,12 @@ use tracing::{error, info, instrument, Level};
 #[instrument(level = Level::INFO, skip_all, err(Display))]
 async fn try_main() -> Result<()> {
     // init world context
-    let (ctx, plan_rx) = WorldContext::try_new("optimizer-metric".into())
-        .await
-        .unwrap();
+    let model = "optimizer-metric".parse()?;
+    let (ctx, plan_rx) = WorldContext::try_new(model).await?;
 
     // load optimizer data
     let loader = StorageLoader::new(&ctx);
-    loader.load().await.unwrap();
+    loader.load().await?;
 
     // spawn services
     try_join!(

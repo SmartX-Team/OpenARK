@@ -184,6 +184,21 @@ where
     }
 }
 
+impl<F> PipeArgs<F>
+where
+    F: FunctionBuilder,
+{
+    pub fn with_storage_persistence(mut self, persistence: bool) -> Self {
+        self.storage.with_persistence(persistence);
+        self
+    }
+
+    pub fn with_storage_persistence_metadata(mut self, persistence_metadata: bool) -> Self {
+        self.storage.with_persistence_metadata(persistence_metadata);
+        self
+    }
+}
+
 impl<F> PipeArgs<F, DummyStorageArgs>
 where
     F: FunctionBuilder,

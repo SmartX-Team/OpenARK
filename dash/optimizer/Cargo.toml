@@ -30,5 +30,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
 opentelemetry = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

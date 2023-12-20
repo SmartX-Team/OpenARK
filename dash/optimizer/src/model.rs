@@ -8,10 +8,12 @@ use dash_api::{
 };
 use dash_collector_world::ctx::{Timeout, WorldContext};
 use dash_optimizer_api::model;
-use dash_pipe_provider::{PipeArgs, PipeMessage, RemoteFunction};
+use dash_pipe_provider::{PipeMessage, RemoteFunction};
 use futures::FutureExt;
 use kube::ResourceExt;
 use tracing::{info, instrument, Level};
+
+use crate::pipe::init_pipe;
 
 #[derive(Clone)]
 pub struct Service {
@@ -29,10 +31,7 @@ impl ::dash_collector_world::service::Service for Service {
     async fn loop_forever(self) -> Result<()> {
         info!("creating service: model optimizer");
 
-        let pipe = PipeArgs::with_function(self)?
-            .with_ignore_sigint(true)
-            .with_model_in(Some(model::model_in()?))
-            .with_model_out(Some(model::model_out()?));
+        let pipe = init_pipe(self, model::model_in()?, model::model_out()?)?;
         pipe.loop_forever_async().await
     }
 }

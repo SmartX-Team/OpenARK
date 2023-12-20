@@ -10,6 +10,7 @@ use dash_pipe_api::storage::StorageS3Args;
 use dash_pipe_provider::{
     deltalake::{arrow::json::ArrayWriter, datafusion::dataframe::DataFrame},
     storage::lakehouse::{GlobalStorageContext, StorageContext},
+    Name,
 };
 use inflector::Inflector;
 use kube::Client;
@@ -28,7 +29,7 @@ use crate::{
 pub struct WorldContext {
     pub(crate) data: Arc<RwLock<World>>,
     pub(crate) kube: Arc<Client>,
-    model: String,
+    model: Name,
     plan_tx: Arc<mpsc::Sender<Box<dyn Plan>>>,
     storage: GlobalStorageContext,
     storage_model: String,
@@ -39,20 +40,21 @@ impl WorldContext {
     pub(crate) const INTERVAL_FLUSH: Duration = Duration::from_secs(10);
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn try_new(model: String) -> Result<(Self, mpsc::Receiver<Box<dyn Plan>>)> {
+    pub async fn try_new(model: Name) -> Result<(Self, mpsc::Receiver<Box<dyn Plan>>)> {
         info!("creating world context");
         let (plan_tx, plan_rx) = mpsc::channel(1024);
         let kube = Client::try_default().await?;
         let namespace = kube.default_namespace().into();
         let storage_model = model.to_snake_case();
 
+        let args = StorageS3Args::try_parse()?;
         let flush = Some(Self::INTERVAL_FLUSH);
         let ctx = Self {
             data: Arc::default(),
             kube: Arc::new(kube),
             model,
             plan_tx: Arc::new(plan_tx),
-            storage: GlobalStorageContext::new(StorageS3Args::try_parse()?, flush, namespace),
+            storage: GlobalStorageContext::new(args, flush, namespace),
             storage_model,
         };
 
