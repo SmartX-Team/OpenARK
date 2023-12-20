@@ -72,6 +72,13 @@ macro_rules! init_exporter {
                     self.$signal.clone()
                 }
             )*
+
+            async fn terminate(&self) -> Result<()> {
+                $(
+                    self.$signal.terminate().await?;
+                )*
+                Ok(())
+            }
         }
     };
 }
@@ -165,10 +172,8 @@ mod impl_trace {
 
     #[async_trait]
     impl
-        super::super::Exporter<
-            collector::trace::v1::ExportTraceServiceRequest,
-            ::dash_collector_api::metrics::MetricSpan<'static>,
-        > for Storage
+        super::super::Exporter<collector::trace::v1::ExportTraceServiceRequest, MetricSpan<'static>>
+        for Storage
     {
         #[instrument(level = Level::INFO, skip_all, err(Display))]
         async fn export(
@@ -240,8 +245,17 @@ mod impl_trace {
                 .map(|value| PipeMessage::with_request(message, vec![], value))
                 .collect::<Vec<_>>();
 
+            // skip storing if no metrics are given
+            if metrics.is_empty() {
+                return Ok(());
+            }
+
             let metrics = metrics.iter().collect::<Vec<_>>();
             self.put_metadata(&metrics).await
+        }
+
+        async fn terminate(&self) -> Result<()> {
+            MetadataStorage::<MetricSpan<'static>>::flush(self).await
         }
     }
 

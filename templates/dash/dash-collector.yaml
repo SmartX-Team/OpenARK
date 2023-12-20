@@ -78,6 +78,10 @@ spec:
               value: /var/run/secrets/nats.io/token
             - name: NATS_TLS_REQUIRED
               value: "false"
+            - name: PIPE_FLUSH
+              value: "10"
+            - name: PIPE_MODEL_OUT
+              value: optimizer-metric
             - name: RUST_LOG
               value: INFO
           ports:

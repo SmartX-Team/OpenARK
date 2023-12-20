@@ -8,7 +8,7 @@ macro_rules! init_signals {
         #[::tracing::instrument(level = tracing::Level::INFO, skip_all, err(Display))]
         pub async fn init_server(
             #[cfg(feature = "exporter")]
-            exporters: Box<dyn $crate::exporter::Exporters>,
+            exporters: ::std::sync::Arc<dyn $crate::exporter::Exporters>,
         ) -> ::anyhow::Result<()> {
             let addr = ::ark_core::env::infer("DASH_COLLECTOR_GRPC_ADDR")?;
 

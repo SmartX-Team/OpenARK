@@ -27,6 +27,10 @@ macro_rules! init_exporters {
                 #[cfg(feature = $signal_feature)]
                 fn $signal(&self) -> Arc<dyn Exporter<$signal_request, $signal_response>>;
             )*
+
+            async fn terminate(&self) -> Result<()> {
+                Ok(())
+            }
         }
 
         #[cfg(feature = "exporter-messenger")]
@@ -70,10 +74,10 @@ macro_rules! init_exporter_impls {
         )*
 
         #[instrument(level = Level::INFO, skip_all)]
-        pub async fn init_exporters() -> Box<dyn Exporters> {
+        pub async fn init_exporters() -> Arc<dyn Exporters> {
             $(
                 match self::$exporter::Exporters::try_default().await {
-                    Ok(exporter) => Box::new(exporter),
+                    Ok(exporter) => Arc::new(exporter),
                     Err(e) => {
                         ::tracing::error!(
                             "failed to init exporter ({exporter}): {e}",
@@ -98,6 +102,10 @@ where
     Self: Send + Sync,
 {
     async fn export(&self, message: &PipeMessage<Req, ()>) -> Result<()>;
+
+    async fn terminate(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]

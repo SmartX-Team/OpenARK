@@ -4,7 +4,8 @@ mod exporter;
 use std::future::Future;
 
 use anyhow::Result;
-use tracing::error;
+use opentelemetry::global;
+use tracing::{error, info};
 
 macro_rules! init_protocols {
     [ $( $protocol:ident with feature $protocol_feature:expr , )* ] => {
@@ -17,20 +18,38 @@ macro_rules! init_protocols {
         async fn main() {
             ::ark_core::tracer::init_once();
 
+            let signal = ::dash_pipe_provider::FunctionSignal::default();
+            if let Err(error) = signal.trap_on_sigint() {
+                error!("{error}");
+                return;
+            }
+
             #[cfg(feature = "exporter")]
             let exporters = $crate::exporter::init_exporters().await;
 
-            ::tokio::join!(
+            let handlers = vec![
                 $(
-                    init_loop(
+                    ::tokio::spawn(init_loop(
                         stringify!($protocol),
                         self::$protocol::init_server(
                             #[cfg(feature = "exporter")]
-                            exporters,
+                            exporters.clone(),
                         ),
-                    ),
+                    )),
                 )*
-            );
+            ];
+            signal.wait_to_terminate().await;
+
+            info!("Terminating...");
+            for handler in handlers {
+                handler.abort();
+            }
+            if let Err(error) = exporters.terminate().await {
+                error!("failed to terminate exporters: {error}");
+            }
+
+            info!("Terminated.");
+            global::shutdown_tracer_provider();
         }
     };
 }

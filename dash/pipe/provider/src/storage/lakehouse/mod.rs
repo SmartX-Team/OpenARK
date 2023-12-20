@@ -338,6 +338,10 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
     where
         Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
     {
+        if values.is_empty() {
+            return Ok(());
+        }
+
         self.writer
             .lock()
             .await
@@ -382,6 +386,7 @@ impl StorageTableWriter {
                 values
                     .iter()
                     .filter_map(|value| ::serde_json::to_vec(value).ok())
+                    .take(1)
                     .flatten()
                     .collect::<Vec<_>>(),
             );

@@ -211,7 +211,7 @@ where
         let mut function_context =
             FunctionContext::new(messenger.messenger_type(), namespace.clone());
         if !self.ignore_sigint {
-            function_context.clone().trap_on_sigint()?;
+            function_context.trap_on_sigint()?;
         }
 
         // Do not load payloads on writer mode

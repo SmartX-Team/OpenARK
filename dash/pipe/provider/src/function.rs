@@ -1,10 +1,12 @@
 use std::{
     fmt,
     marker::PhantomData,
+    ops,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    time::Duration,
 };
 
 use anyhow::{anyhow, bail, Error, Result};
@@ -14,6 +16,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
+use tokio::time::sleep;
 use tracing::{info, instrument, Level};
 
 use crate::{
@@ -359,9 +362,17 @@ pub struct FunctionContext {
     is_disabled_load: bool,
     is_disabled_store: bool,
     is_disabled_store_metadata: bool,
-    is_terminating: Arc<AtomicBool>,
     messenger_type: MessengerType,
     namespace: String,
+    signal: FunctionSignal,
+}
+
+impl ops::Deref for FunctionContext {
+    type Target = FunctionSignal;
+
+    fn deref(&self) -> &Self::Target {
+        &self.signal
+    }
 }
 
 impl FunctionContext {
@@ -370,9 +381,9 @@ impl FunctionContext {
             is_disabled_load: Default::default(),
             is_disabled_store: Default::default(),
             is_disabled_store_metadata: Default::default(),
-            is_terminating: Default::default(),
             messenger_type,
             namespace,
+            signal: Default::default(),
         }
     }
 
@@ -409,9 +420,15 @@ impl FunctionContext {
     }
 }
 
-impl FunctionContext {
-    pub(crate) fn trap_on_sigint(self) -> Result<()> {
-        ::ctrlc::set_handler(move || self.terminate())
+#[derive(Clone, Debug, Default)]
+pub struct FunctionSignal {
+    is_terminating: Arc<AtomicBool>,
+}
+
+impl FunctionSignal {
+    pub fn trap_on_sigint(&self) -> Result<()> {
+        let signal = self.clone();
+        ::ctrlc::set_handler(move || signal.terminate())
             .map_err(|error| anyhow!("failed to set SIGINT handler: {error}"))
     }
 
@@ -432,5 +449,11 @@ impl FunctionContext {
 
     pub(crate) fn is_terminating(&self) -> bool {
         self.is_terminating.load(Ordering::SeqCst)
+    }
+
+    pub async fn wait_to_terminate(&self) {
+        while !self.is_terminating() {
+            sleep(Duration::from_millis(100)).await;
+        }
     }
 }

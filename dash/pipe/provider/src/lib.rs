@@ -13,8 +13,8 @@ pub use ark_core_k8s::data::Name;
 #[cfg(feature = "deltalake")]
 pub use self::function::deltalake::DeltaFunction;
 pub use self::function::{
-    Function, FunctionBuilder, FunctionContext, GenericStatelessRemoteFunction, RemoteFunction,
-    StatelessRemoteFunction,
+    Function, FunctionBuilder, FunctionContext, FunctionSignal, GenericStatelessRemoteFunction,
+    RemoteFunction, StatelessRemoteFunction,
 };
 #[cfg(feature = "pyo3")]
 pub use self::message::PyPipeMessage;
