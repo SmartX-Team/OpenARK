@@ -10,6 +10,9 @@ pub struct QueryArgs {
     #[command(flatten)]
     client: QueryClientArgs,
 
+    #[arg(long, action = ArgAction::SetTrue)]
+    json: bool,
+
     #[arg(action = ArgAction::Append, value_name = "SQL")]
     sql: String,
 }
@@ -17,15 +20,26 @@ pub struct QueryArgs {
 impl QueryArgs {
     #[instrument(level = Level::INFO, skip_all, fields(sql = %self.sql), err(Display))]
     pub async fn run(self) -> Result<()> {
-        let Self { client, sql } = self;
+        let Self { client, json, sql } = self;
         let client = QueryClient::try_new(&client).await?;
 
-        run_query(&client, &sql).await
+        if json {
+            run_query_and_write_json(&client, &sql).await
+        } else {
+            run_query_and_print(&client, &sql).await
+        }
     }
 }
 
 #[instrument(level = Level::INFO, skip(client), err(Display))]
-async fn run_query(client: &QueryClient, sql: &str) -> Result<()> {
+async fn run_query_and_print(client: &QueryClient, sql: &str) -> Result<()> {
+    let df = client.sql(sql).await?;
+    df.show().await?;
+    Ok(())
+}
+
+#[instrument(level = Level::INFO, skip(client), err(Display))]
+async fn run_query_and_write_json(client: &QueryClient, sql: &str) -> Result<()> {
     let mut rows = client.sql_and_decode::<Value>(sql).await?;
     while let Some(row) = rows.try_next().await.and_then(|row| {
         row.map(|row| {
