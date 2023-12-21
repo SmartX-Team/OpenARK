@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG ARCHLINUX_VERSION="latest"
+ARG ARCHLINUX_VERSION="base-20231214.0.199919"
 
 # Configure user-specific environment variables
 ARG USER_GID="2000"
