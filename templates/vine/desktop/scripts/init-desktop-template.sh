@@ -82,7 +82,7 @@ pushd "${HOME}"
 git init .
 git remote add origin "${KISS_DESKTOP_TEMPLATE_GIT}"
 # git fetch --all
-git pull "origin" "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
+git pull --depth=1 "origin" "${KISS_DESKTOP_TEMPLATE_GIT_BRANCH}"
 popd
 
 # Backup .zshrc
