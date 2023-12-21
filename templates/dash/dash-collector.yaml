@@ -68,6 +68,20 @@ spec:
           command:
             - dash-collector
           env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-user-0
+                  key: CONSOLE_ACCESS_KEY
+            - name: AWS_ENDPOINT_URL
+              value: http://minio
+            - name: AWS_REGION
+              value: us-east-1
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-user-0
+                  key: CONSOLE_SECRET_KEY
             - name: DASH_COLLECTOR_GRPC_ADDR
               value: 0.0.0.0:4317
             - name: NATS_ACCOUNT

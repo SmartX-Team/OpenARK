@@ -306,10 +306,10 @@ where
                         storage: storage.input.clone(),
                         stream: if self.queue_group {
                             messenger
-                                .subscribe_queued(model.clone(), model.clone())
+                                .subscribe_queued(namespace.clone(), model.clone(), model.clone())
                                 .await
                         } else {
-                            messenger.subscribe(model.clone()).await
+                            messenger.subscribe(namespace.clone(), model.clone()).await
                         }
                         .map_err(|error| anyhow!("failed to init input stream: {error}"))?,
                         tx: tx.into(),

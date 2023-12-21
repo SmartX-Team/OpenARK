@@ -123,7 +123,7 @@ pub enum FunctionType {
     JsonSchema,
 )]
 pub enum MessengerOperation {
-    Recv,
+    Read,
     Reply,
     Request,
     Send,

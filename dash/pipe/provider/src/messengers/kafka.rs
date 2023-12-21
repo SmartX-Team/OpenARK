@@ -48,7 +48,11 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
+    async fn subscribe(
+        &self,
+        namespace: String,
+        topic: Name,
+    ) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
@@ -56,7 +60,11 @@ impl<Value> super::Messenger<Value> for Messenger {
         consumer
             .subscribe(&[&topic])
             .map_err(|error| anyhow!("failed to subscribe Kafka topic: {error}"))?;
-        Ok(Box::new(consumer))
+        Ok(Box::new(Subscriber {
+            consumer,
+            namespace,
+            topic,
+        }))
     }
 }
 
@@ -95,7 +103,11 @@ impl super::Publisher for Publisher {
     }
 }
 
-pub type Subscriber = StreamConsumer;
+pub struct Subscriber {
+    consumer: StreamConsumer,
+    namespace: String,
+    topic: Name,
+}
 
 #[async_trait]
 impl<Value> super::Subscriber<Value> for Subscriber
@@ -103,9 +115,10 @@ where
     Self: Send + Sync,
     Value: Send + DeserializeOwned,
 {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
-        self.recv()
+        self.consumer
+            .recv()
             .await
             .map_err(|error| anyhow!("failed to subscribe Kafka input: {error}"))
             .and_then(|message| message.payload().unwrap_or_default().try_into().map(Some))

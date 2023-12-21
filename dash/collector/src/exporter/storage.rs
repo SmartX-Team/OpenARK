@@ -213,7 +213,7 @@ mod impl_trace {
                                 type_: FunctionType::Dash,
                             },
                             // Messenger
-                            "recv_one" => parse_messenger(attributes, MessengerOperation::Recv)?,
+                            "read_one" => parse_messenger(attributes, MessengerOperation::Read)?,
                             "reply_one" => parse_messenger(attributes, MessengerOperation::Reply)?,
                             "request_one" => {
                                 parse_messenger(attributes, MessengerOperation::Request)?

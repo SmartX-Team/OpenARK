@@ -82,21 +82,27 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
+    async fn subscribe(
+        &self,
+        namespace: String,
+        topic: Name,
+    ) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        Ok(Box::new(
-            self.client
-                .subscribe(topic)
-                .await
-                .map(|inner| Subscriber { inner })?,
-        ))
+        Ok(Box::new(self.client.subscribe(topic.clone()).await.map(
+            |inner| Subscriber {
+                inner,
+                namespace,
+                topic,
+            },
+        )?))
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
+        namespace: String,
         topic: Name,
         queue_group: Name,
     ) -> Result<Box<dyn super::Subscriber<Value>>>
@@ -105,9 +111,13 @@ impl<Value> super::Messenger<Value> for Messenger {
     {
         Ok(Box::new(
             self.client
-                .queue_subscribe(topic, queue_group.into())
+                .queue_subscribe(topic.clone(), queue_group.into())
                 .await
-                .map(|inner| Subscriber { inner })?,
+                .map(|inner| Subscriber {
+                    inner,
+                    namespace,
+                    topic,
+                })?,
         ))
     }
 }
@@ -152,6 +162,8 @@ impl super::Publisher for Publisher {
 
 pub struct Subscriber {
     inner: ::async_nats::Subscriber,
+    namespace: String,
+    topic: Name,
 }
 
 #[async_trait]
@@ -160,7 +172,7 @@ where
     Self: Send + Sync,
     Value: Send + DeserializeOwned,
 {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
         self.inner
             .next()
