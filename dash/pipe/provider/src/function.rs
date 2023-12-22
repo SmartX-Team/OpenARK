@@ -235,7 +235,7 @@ pub struct StatelessRemoteFunction<Input, Output> {
 
 impl<Input, Output> StatelessRemoteFunction<Input, Output> {
     #[instrument(level = Level::INFO, skip(messenger), err(Display))]
-    pub async fn try_new<M>(namespace: String, messenger: M, model_in: Name) -> Result<Self>
+    pub async fn try_new<M>(messenger: M, model_in: Name) -> Result<Self>
     where
         M: Messenger<Output>,
         Output: Send + DeserializeOwned,
@@ -243,7 +243,7 @@ impl<Input, Output> StatelessRemoteFunction<Input, Output> {
         Ok(Self {
             _input: PhantomData,
             _output: PhantomData,
-            publisher: messenger.publish(namespace, model_in).await?,
+            publisher: messenger.publish(model_in).await?,
         })
     }
 }
@@ -363,7 +363,6 @@ pub struct FunctionContext {
     is_disabled_store: bool,
     is_disabled_store_metadata: bool,
     messenger_type: MessengerType,
-    namespace: String,
     signal: FunctionSignal,
 }
 
@@ -376,13 +375,12 @@ impl ops::Deref for FunctionContext {
 }
 
 impl FunctionContext {
-    pub(crate) fn new(messenger_type: MessengerType, namespace: String) -> Self {
+    pub(crate) fn new(messenger_type: MessengerType) -> Self {
         Self {
             is_disabled_load: Default::default(),
             is_disabled_store: Default::default(),
             is_disabled_store_metadata: Default::default(),
             messenger_type,
-            namespace,
             signal: Default::default(),
         }
     }
@@ -413,10 +411,6 @@ impl FunctionContext {
 
     pub const fn messenger_type(&self) -> MessengerType {
         self.messenger_type
-    }
-
-    pub fn namespace(&self) -> &str {
-        &self.namespace
     }
 }
 

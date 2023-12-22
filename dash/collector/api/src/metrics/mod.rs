@@ -1,6 +1,8 @@
 pub mod edge;
 pub mod node;
 
+use std::borrow::Cow;
+
 use dash_pipe_provider::{
     storage::{MetadataStorageType, StorageType},
     MessengerType,
@@ -18,7 +20,7 @@ pub struct MetricSpan<'a> {
     #[serde(flatten)]
     pub duration: MetricDuration,
     #[serde(flatten)]
-    pub kind: MetricSpanKind,
+    pub kind: MetricSpanKind<'a>,
     pub len: usize,
     #[serde(flatten)]
     pub metadata: ObjectMetadata<'a>,
@@ -28,6 +30,8 @@ pub struct MetricSpan<'a> {
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 pub struct MetricRow<'a> {
+    #[serde(flatten)]
+    pub kind: MetricSpanKind<'a>,
     #[serde(flatten)]
     pub metadata: ObjectMetadata<'a>,
     #[serde(flatten)]
@@ -43,26 +47,29 @@ pub struct MetricDuration {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(tag = "kind")]
-pub enum MetricSpanKind {
+pub enum MetricSpanKind<'a> {
     Function {
         op: FunctionOperation,
         #[serde(rename = "type")]
         type_: FunctionType,
     },
     Messenger {
+        model: Cow<'a, str>,
         op: MessengerOperation,
         #[serde(rename = "type")]
         type_: MessengerType,
     },
     MetadataStorage {
+        model: Cow<'a, str>,
         op: MetadataStorageOperation,
         #[serde(rename = "type")]
         type_: MetadataStorageType,
     },
     Storage {
+        model: Cow<'a, str>,
         op: StorageOperation,
         #[serde(rename = "type")]
         type_: StorageType,
@@ -86,6 +93,7 @@ pub enum MetricSpanKind {
 )]
 pub enum FunctionOperation {
     Call,
+    Tick,
 }
 
 #[derive(

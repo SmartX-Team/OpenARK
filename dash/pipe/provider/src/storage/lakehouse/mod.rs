@@ -80,17 +80,15 @@ impl StorageSessionContext for SessionContext {
 pub struct GlobalStorageContext {
     args: StorageS3Args,
     flush: Option<Duration>,
-    namespace: String,
     lock_table: Arc<AtomicBool>,
     storages: Arc<RwLock<BTreeMap<String, StorageContext>>>,
 }
 
 impl GlobalStorageContext {
-    pub fn new(args: StorageS3Args, flush: Option<Duration>, namespace: String) -> Self {
+    pub fn new(args: StorageS3Args, flush: Option<Duration>) -> Self {
         Self {
             args,
             flush,
-            namespace,
             lock_table: Arc::default(),
             storages: Arc::default(),
         }
@@ -117,14 +115,7 @@ impl GlobalStorageContext {
             let release = || self.lock_table.store(false, Ordering::SeqCst);
 
             // load or create a table
-            match StorageContext::try_new::<DynValue>(
-                &self.args,
-                self.namespace.clone(),
-                model,
-                self.flush,
-            )
-            .await
-            {
+            match StorageContext::try_new::<DynValue>(&self.args, model, self.flush).await {
                 Ok(ctx) => {
                     self.storages
                         .write()
@@ -152,7 +143,6 @@ impl Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new<Value>(
         args: &StorageS3Args,
-        namespace: String,
         model: Option<&Name>,
         flush: Option<Duration>,
     ) -> Result<Self>
@@ -161,10 +151,9 @@ impl Storage {
     {
         Ok(Self {
             inner: match model {
-                Some(model) => Some(
-                    StorageContext::try_new::<Value>(args, namespace, model.storage(), flush)
-                        .await?,
-                ),
+                Some(model) => {
+                    Some(StorageContext::try_new::<Value>(args, model.storage(), flush).await?)
+                }
                 None => None,
             },
         })
@@ -212,7 +201,6 @@ impl<Value> super::MetadataStorage<Value> for Storage {
 pub struct StorageContext {
     model: String,
     model_raw: String,
-    namespace: String,
     table: Arc<RwLock<DeltaTable>>,
     writer: Arc<Mutex<StorageTableWriter>>,
 }
@@ -221,7 +209,6 @@ impl StorageContext {
     #[instrument(level = Level::INFO, skip(args), err(Display))]
     pub async fn try_new<Value>(
         args: &StorageS3Args,
-        namespace: String,
         model: &str,
         flush: Option<Duration>,
     ) -> Result<Self>
@@ -251,7 +238,6 @@ impl StorageContext {
         Ok(Self {
             model,
             model_raw,
-            namespace,
             table,
             writer,
         })
@@ -318,7 +304,15 @@ impl StorageContext {
 
 #[async_trait]
 impl<Value> super::MetadataStorage<Value> for StorageContext {
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.model_raw, data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.model_raw,
+        ),
+        err(Display),
+    )]
     async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
     where
         Value: 'static + Send + DeserializeOwned,
@@ -333,7 +327,15 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         })
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = %values.len(), data.name = %self.model_raw, data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %values.len(),
+            data.model = %self.model_raw,
+        ),
+        err(Display),
+    )]
     async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
     where
         Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
@@ -349,7 +351,15 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.model_raw,
+        ),
+        err(Display),
+    )]
     async fn flush(&self) -> Result<()> {
         self.writer.lock().await.flush().await
     }

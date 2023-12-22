@@ -73,36 +73,29 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn super::Publisher>> {
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.client.clone(),
-            namespace,
             topic,
         }))
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(
-        &self,
-        namespace: String,
-        topic: Name,
-    ) -> Result<Box<dyn super::Subscriber<Value>>>
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        Ok(Box::new(self.client.subscribe(topic.clone()).await.map(
-            |inner| Subscriber {
-                inner,
-                namespace,
-                topic,
-            },
-        )?))
+        Ok(Box::new(
+            self.client
+                .subscribe(topic.clone())
+                .await
+                .map(|inner| Subscriber { inner, topic })?,
+        ))
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
-        namespace: String,
         topic: Name,
         queue_group: Name,
     ) -> Result<Box<dyn super::Subscriber<Value>>>
@@ -113,18 +106,13 @@ impl<Value> super::Messenger<Value> for Messenger {
             self.client
                 .queue_subscribe(topic.clone(), queue_group.into())
                 .await
-                .map(|inner| Subscriber {
-                    inner,
-                    namespace,
-                    topic,
-                })?,
+                .map(|inner| Subscriber { inner, topic })?,
         ))
     }
 }
 
 pub struct Publisher {
     client: Arc<Client>,
-    namespace: String,
     topic: Name,
 }
 
@@ -134,7 +122,15 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()> {
         self.client
             .publish(inbox, data)
@@ -142,7 +138,15 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to reply data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn request_one(&self, data: Bytes) -> Result<Bytes> {
         self.client
             .request(&self.topic, data)
@@ -151,7 +155,15 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to request data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .publish(&self.topic, data)
@@ -159,7 +171,15 @@ impl super::Publisher for Publisher {
             .map_err(|error| anyhow!("failed to publish data to NATS: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn flush(&self) -> Result<()> {
         self.client
             .flush()
@@ -170,7 +190,6 @@ impl super::Publisher for Publisher {
 
 pub struct Subscriber {
     inner: ::async_nats::Subscriber,
-    namespace: String,
     topic: Name,
 }
 
@@ -180,7 +199,15 @@ where
     Self: Send + Sync,
     Value: Send + DeserializeOwned,
 {
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
         self.inner
             .next()

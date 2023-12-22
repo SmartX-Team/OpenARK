@@ -50,15 +50,11 @@ macro_rules! init_exporter {
 
                 let args = ExporterStorageArgs::parse();
 
-                let kube = ::kube::Client::try_default().await?;
-                let namespace = || kube.default_namespace().to_string();
-
                 Ok(Self {
                     $(
                         $signal: Arc::new(
                             Storage::try_new::<Value>(
                                 &args.s3,
-                                namespace(),
                                 Some(&args.model_out),
                                 args.flush(),
                             ).await?
@@ -212,6 +208,10 @@ mod impl_trace {
                                 op: FunctionOperation::Call,
                                 type_: FunctionType::Dash,
                             },
+                            "tick_function" => MetricSpanKind::Function {
+                                op: FunctionOperation::Tick,
+                                type_: FunctionType::Dash,
+                            },
                             // Messenger
                             "read_one" => parse_messenger(attributes, MessengerOperation::Read)?,
                             "reply_one" => parse_messenger(attributes, MessengerOperation::Reply)?,
@@ -236,8 +236,11 @@ mod impl_trace {
                         len: get_attribute_value_str(attributes, "data.len")
                             .and_then(|len| len.parse().ok())?,
                         metadata: ObjectMetadata {
-                            name: get_attribute_value_str(attributes, "data.name")?.into(),
-                            namespace: get_attribute_value_str(attributes, "data.namespace")?
+                            name: get_attribute_value_str(attributes, "k8s.deployment.name")
+                                .or_else(|| get_attribute_value_str(attributes, "k8s.job.name"))
+                                .or_else(|| get_attribute_value_str(attributes, "k8s.pod.name"))?
+                                .into(),
+                            namespace: get_attribute_value_str(attributes, "k8s.namespace.name")?
                                 .into(),
                         },
                     })
@@ -261,6 +264,7 @@ mod impl_trace {
 
     fn parse_messenger(attributes: &[KeyValue], op: MessengerOperation) -> Option<MetricSpanKind> {
         Some(MetricSpanKind::Messenger {
+            model: get_attribute_value_str(attributes, "data.model")?.into(),
             op,
             type_: match get_attribute_value_str(attributes, "code.namespace")? {
                 "dash_pipe_provider::messengers::kafka" => MessengerType::Kafka,
@@ -275,6 +279,7 @@ mod impl_trace {
         op: MetadataStorageOperation,
     ) -> Option<MetricSpanKind> {
         Some(MetricSpanKind::MetadataStorage {
+            model: get_attribute_value_str(attributes, "data.model")?.into(),
             op,
             type_: match get_attribute_value_str(attributes, "code.namespace")? {
                 "dash_pipe_provider::storage::lakehouse" => MetadataStorageType::LakeHouse,
@@ -285,6 +290,7 @@ mod impl_trace {
 
     fn parse_storage(attributes: &[KeyValue], op: StorageOperation) -> Option<MetricSpanKind> {
         Some(MetricSpanKind::Storage {
+            model: get_attribute_value_str(attributes, "data.model")?.into(),
             op,
             type_: match get_attribute_value_str(attributes, "code.namespace")? {
                 "dash_pipe_provider::storage::s3" => StorageType::S3,

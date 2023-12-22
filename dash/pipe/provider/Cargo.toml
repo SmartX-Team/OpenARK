@@ -51,7 +51,7 @@ derivative = { workspace = true }
 futures = { workspace = true }
 gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }
-kube = { workspace = true, features = ["client", "rustls-tls"] }
+kube = { workspace = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 opentelemetry = { workspace = true }

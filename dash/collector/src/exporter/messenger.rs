@@ -23,14 +23,11 @@ macro_rules! init_exporter {
 
                 let args = StorageS3Args::parse();
 
-                let kube = ::kube::Client::try_default().await?;
-                let namespace = || kube.default_namespace().to_string();
-
                 let messenger = init_messenger::<Value>(&args).await?;
 
                 Ok(Self {
                     $(
-                        $signal: Arc::new(messenger.publish(namespace(), super::topics::$signal()?).await?),
+                        $signal: Arc::new(messenger.publish(super::topics::$signal()?).await?),
                     )*
                 })
             }

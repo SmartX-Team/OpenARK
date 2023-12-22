@@ -36,23 +36,22 @@ where
 {
     fn messenger_type(&self) -> MessengerType;
 
-    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>>;
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>>;
 
-    async fn subscribe(&self, namespace: String, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned;
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
-        namespace: String,
         topic: Name,
         _queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        self.subscribe(namespace, topic).await
+        self.subscribe(topic).await
     }
 }
 
@@ -66,29 +65,28 @@ where
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>> {
-        <T as Messenger<Value>>::publish(*self, namespace, topic).await
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
+        <T as Messenger<Value>>::publish(*self, topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(&self, namespace: String, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        <T as Messenger<Value>>::subscribe(*self, namespace, topic).await
+        <T as Messenger<Value>>::subscribe(*self, topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
-        namespace: String,
         topic: Name,
         queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        <T as Messenger<Value>>::subscribe_queued(*self, namespace, topic, queue_group).await
+        <T as Messenger<Value>>::subscribe_queued(*self, topic, queue_group).await
     }
 }
 
@@ -99,31 +97,28 @@ impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn Publisher>> {
-        self.as_ref().publish(namespace, topic).await
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn Publisher>> {
+        self.as_ref().publish(topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(&self, namespace: String, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        self.as_ref().subscribe(namespace, topic).await
+        self.as_ref().subscribe(topic).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn subscribe_queued(
         &self,
-        namespace: String,
         topic: Name,
         queue_group: Name,
     ) -> Result<Box<dyn Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
-        self.as_ref()
-            .subscribe_queued(namespace, topic, queue_group)
-            .await
+        self.as_ref().subscribe_queued(topic, queue_group).await
     }
 }
 

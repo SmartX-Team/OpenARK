@@ -63,7 +63,6 @@ impl StorageSet {
             Some(true) => StorageType::PERSISTENT,
             Some(false) | None => StorageType::TEMPORARY,
         };
-        let namespace = || ctx.namespace().to_string();
         let pipe_name = args
             .pipe_name
             .clone()
@@ -85,13 +84,12 @@ impl StorageSet {
                 } else {
                     args.flush()
                 };
-                self::lakehouse::Storage::try_new::<Value>(&args.s3, namespace(), model, flush)
-                    .await?
+                self::lakehouse::Storage::try_new::<Value>(&args.s3, model, flush).await?
             } else {
                 self::lakehouse::Storage::default()
             },
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, namespace(), model, &pipe_name)?,
+            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name)?,
         })
     }
 

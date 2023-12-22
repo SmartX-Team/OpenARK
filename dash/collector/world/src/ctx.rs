@@ -44,7 +44,6 @@ impl WorldContext {
         info!("creating world context");
         let (plan_tx, plan_rx) = mpsc::channel(1024);
         let kube = Client::try_default().await?;
-        let namespace = kube.default_namespace().into();
         let storage_model = model.to_snake_case();
 
         let args = StorageS3Args::try_parse()?;
@@ -54,7 +53,7 @@ impl WorldContext {
             kube: Arc::new(kube),
             model,
             plan_tx: Arc::new(plan_tx),
-            storage: GlobalStorageContext::new(args, flush, namespace),
+            storage: GlobalStorageContext::new(args, flush),
             storage_model,
         };
 

@@ -36,11 +36,7 @@ impl DashFunctionTemplate {
     }
 
     #[instrument(level = Level::INFO, skip(self, messenger), fields(function = %self), err(Display))]
-    pub(crate) async fn try_into_udf(
-        self,
-        namespace: String,
-        messenger: &dyn Messenger,
-    ) -> Result<ScalarUDF> {
+    pub(crate) async fn try_into_udf(self, messenger: &dyn Messenger) -> Result<ScalarUDF> {
         let info = self.to_string();
 
         let Self {
@@ -64,7 +60,7 @@ impl DashFunctionTemplate {
             .collect();
         let output = DataType::Struct(output_schema.fields().clone());
 
-        let function = GenericStatelessRemoteFunction::try_new(namespace, messenger, model_in)
+        let function = GenericStatelessRemoteFunction::try_new(messenger, model_in)
             .await?
             .into_delta(input_schema, output_schema);
 

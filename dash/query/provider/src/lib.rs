@@ -92,11 +92,7 @@ impl QueryClient {
         // load functions after loading models
         for function in load_functions(&kube, &tables, namespace).await? {
             info!("Loading function: {function}");
-            ctx.register_udf(
-                function
-                    .try_into_udf(namespace.into(), messenger.as_ref())
-                    .await?,
-            );
+            ctx.register_udf(function.try_into_udf(messenger.as_ref()).await?);
         }
 
         Ok(Self { ctx, tables })

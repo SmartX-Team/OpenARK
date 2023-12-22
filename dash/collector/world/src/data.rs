@@ -6,7 +6,7 @@ use byte_unit::Byte;
 use dash_api::{model_claim::ModelClaimBindingPolicy, storage::ModelStorageCrd};
 use dash_collector_api::{
     metadata::ObjectMetadata,
-    metrics::{edge::EdgeMetric, node::NodeMetric, MetricRow},
+    metrics::{edge::EdgeMetric, node::NodeMetric, MetricRow, MetricSpanKind},
 };
 use dash_optimizer_fallback::GetCapacity;
 use kube::{Client, ResourceExt};
@@ -99,8 +99,9 @@ impl World {
         Ok(())
     }
 
-    pub(crate) async fn update_metrics<'a>(&mut self, metrics: Vec<MetricRow<'a>>) {
+    pub(crate) async fn update_metrics(&mut self, metrics: Vec<MetricRow<'static>>) {
         for MetricRow {
+            kind,
             metadata: ObjectMetadata { name, namespace },
             value,
         } in metrics
@@ -109,7 +110,7 @@ impl World {
             storage
                 .write()
                 .await
-                .update_node_metric(name.as_ref(), value)
+                .update_node_metric(name.as_ref(), kind, value)
         }
     }
 }
@@ -167,14 +168,14 @@ impl Namespace {
         }
     }
 
-    fn update_node_metric(&mut self, name: &str, value: NodeMetric) {
+    fn update_node_metric(&mut self, name: &str, kind: MetricSpanKind<'static>, value: NodeMetric) {
         if let Some(status) = self
             .names
             .get(name)
             .copied()
             .and_then(|id| self.nodes.get_mut(id))
         {
-            status.metric = value;
+            status.metrics.insert(kind, value);
         }
     }
 
@@ -307,7 +308,7 @@ struct NodeStatus {
     crd: Arc<ModelStorageCrd>,
     discovered: bool,
     edges: BTreeMap<usize, EdgeMetric>,
-    metric: NodeMetric,
+    metrics: BTreeMap<MetricSpanKind<'static>, NodeMetric>,
     usage: i64,
 }
 
@@ -320,7 +321,7 @@ impl NodeStatus {
             edges: btreemap!(
                 index => EdgeMetric::default(),
             ),
-            metric: NodeMetric::default(),
+            metrics: BTreeMap::default(),
             usage: 0,
         }
     }

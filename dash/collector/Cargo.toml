@@ -20,9 +20,9 @@ version = { workspace = true }
 default = ["exporter-storage", "grpc", "http", "logs", "metrics", "trace"]
 
 # telemetry pillars and functions
-logs = ["kube", "opentelemetry-proto?/logs"]
-metrics = ["kube", "opentelemetry-proto?/metrics"]
-trace = ["dash-collector-api/metrics", "kube", "opentelemetry-proto?/trace"]
+logs = ["opentelemetry-proto?/logs"]
+metrics = ["opentelemetry-proto?/metrics"]
+trace = ["dash-collector-api/metrics", "opentelemetry-proto?/trace"]
 
 # grpc using tonic
 grpc = [
@@ -48,9 +48,6 @@ exporter-storage = [
     "opentelemetry-proto/with-schemars",
 ]
 
-# kubernetes
-kube = ["k8s-openapi", "dep:kube"]
-
 [dependencies]
 ark-core = { path = "../../ark/core" }
 ark-core-k8s = { path = "../../ark/core/k8s", optional = true, features = [
@@ -64,8 +61,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
-k8s-openapi = { workspace = true, optional = true }
-kube = { workspace = true, optional = true }
 opentelemetry = { workspace = true }
 opentelemetry-proto = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }

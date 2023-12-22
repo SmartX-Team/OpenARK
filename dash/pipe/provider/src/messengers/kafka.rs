@@ -39,20 +39,15 @@ impl<Value> super::Messenger<Value> for Messenger {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn publish(&self, namespace: String, topic: Name) -> Result<Arc<dyn super::Publisher>> {
+    async fn publish(&self, topic: Name) -> Result<Arc<dyn super::Publisher>> {
         Ok(Arc::new(Publisher {
             client: self.config.create()?,
-            namespace,
             topic,
         }))
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn subscribe(
-        &self,
-        namespace: String,
-        topic: Name,
-    ) -> Result<Box<dyn super::Subscriber<Value>>>
+    async fn subscribe(&self, topic: Name) -> Result<Box<dyn super::Subscriber<Value>>>
     where
         Value: Send + DeserializeOwned,
     {
@@ -60,17 +55,12 @@ impl<Value> super::Messenger<Value> for Messenger {
         consumer
             .subscribe(&[&topic])
             .map_err(|error| anyhow!("failed to subscribe Kafka topic: {error}"))?;
-        Ok(Box::new(Subscriber {
-            consumer,
-            namespace,
-            topic,
-        }))
+        Ok(Box::new(Subscriber { consumer, topic }))
     }
 }
 
 pub struct Publisher {
     client: FutureProducer,
-    namespace: String,
     topic: Name,
 }
 
@@ -80,17 +70,41 @@ impl super::Publisher for Publisher {
         &self.topic
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %_data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn reply_one(&self, _data: Bytes, _inbox: String) -> Result<()> {
         bail!("cannot reply with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, _data), fields(data.len = %_data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %_data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn request_one(&self, _data: Bytes) -> Result<Bytes> {
         bail!("cannot request with Kafka")
     }
 
-    #[instrument(level = Level::INFO, skip(self, data), fields(data.len = %data.len(), data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %data.len(),
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn send_one(&self, data: Bytes) -> Result<()> {
         self.client
             .send(
@@ -102,7 +116,15 @@ impl super::Publisher for Publisher {
             .map_err(|(error, _)| anyhow!("failed to publish data to Kafka: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn flush(&self) -> Result<()> {
         self.client
             .flush(Timeout::Never)
@@ -112,7 +134,6 @@ impl super::Publisher for Publisher {
 
 pub struct Subscriber {
     consumer: StreamConsumer,
-    namespace: String,
     topic: Name,
 }
 
@@ -122,7 +143,15 @@ where
     Self: Send + Sync,
     Value: Send + DeserializeOwned,
 {
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %self.topic.as_str(),
+        ),
+        err(Display),
+    )]
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
         self.consumer
             .recv()

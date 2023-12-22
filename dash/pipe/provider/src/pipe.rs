@@ -14,7 +14,6 @@ use ark_core_k8s::data::Name;
 use clap::{ArgAction, Args, Parser};
 use derivative::Derivative;
 use futures::Future;
-use kube::Client;
 use opentelemetry::global;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -214,17 +213,10 @@ where
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
-        let namespace = Client::try_default()
-            .await
-            .map_err(|error| anyhow!("failed to init kubernetes client: {error}"))?
-            .default_namespace()
-            .to_string();
-
         let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Task Context");
-        let mut function_context =
-            FunctionContext::new(messenger.messenger_type(), namespace.clone());
+        let mut function_context = FunctionContext::new(messenger.messenger_type());
         if !self.ignore_sigint {
             function_context.trap_on_sigint()?;
         }
@@ -306,18 +298,18 @@ where
                         storage: storage.input.clone(),
                         stream: if self.queue_group {
                             messenger
-                                .subscribe_queued(namespace.clone(), model.clone(), model.clone())
+                                .subscribe_queued(model.clone(), model.clone())
                                 .await
                         } else {
-                            messenger.subscribe(namespace.clone(), model.clone()).await
+                            messenger.subscribe(model.clone()).await
                         }
                         .map_err(|error| anyhow!("failed to init input stream: {error}"))?,
                         tx: tx.into(),
                     }
                     .loop_forever()
                     .await,
+                    function_context: function_context.clone(),
                     model_in: model.clone(),
-                    namespace: namespace.clone(),
                     rx,
                 })
             }
@@ -332,7 +324,7 @@ where
             model_out: self.model_out.clone(),
             storage: storage.output.clone(),
             stream: match self.model_out.as_ref() {
-                Some(model) => Some(messenger.publish(namespace, model.clone()).await?),
+                Some(model) => Some(messenger.publish(model.clone()).await?),
                 None => None,
             },
         };
@@ -423,27 +415,52 @@ where
     }
 }
 
-#[instrument(name = "tick", level = Level::INFO, skip(ctx), err(Display))]
+#[instrument(
+    name = "tick_function",
+    level = Level::INFO,
+    skip_all,
+    fields(
+        data.len = %1usize,
+    ),
+    err(Display),
+)]
 async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
-    #[instrument(name = "read", level = Level::INFO, skip_all, fields(data.len = 1usize, data.name = %reader.model_in.as_str(), data.namespace = %reader.namespace), err(Display))]
+    #[instrument(
+        name = "read",
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %reader.model_in(),
+        ),
+        err(Display),
+    )]
     async fn recv_one<Value>(
-        function_context: &FunctionContext,
         reader: &mut ReadContext<Value>,
     ) -> Result<Option<PipeMessage<Value>>> {
         loop {
             select! {
                 input = reader.rx.recv() => break Ok(input),
-                () = sleep(Duration::from_millis(100)) => if function_context.is_terminating() {
+                () = sleep(Duration::from_millis(100)) => if reader.function_context.is_terminating() {
                     break Ok(None)
                 },
             }
         }
     }
 
-    #[instrument(name = "write", level = Level::INFO, skip_all, err(Display))]
+    #[instrument(
+        name = "write",
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %messages.len().max(1),
+            data.model = writer.model_out(),
+        ),
+        err(Display),
+    )]
     async fn send_one<Value>(
         writer: &WriteContext,
         stream: &Arc<dyn Publisher>,
@@ -484,7 +501,7 @@ where
 
     let inputs = match &mut ctx.reader {
         Some(reader) => {
-            let input = match recv_one(&ctx.function_context, reader).await? {
+            let input = match recv_one(reader).await? {
                 Some(input) => input,
                 None => return Ok(()),
             };
@@ -501,7 +518,7 @@ where
                         {
                             break;
                         } else {
-                            inputs.push(match recv_one(&ctx.function_context, reader).await? {
+                            inputs.push(match recv_one(reader).await? {
                                 Some(input) => input,
                                 None => return Ok(()),
                             })
@@ -517,10 +534,15 @@ where
 
     let input_payloads = inputs.get_payloads_ref();
 
-    #[instrument(level = Level::INFO, skip_all, fields(data.len = %inputs.len().max(1), data.name = model_out, data.namespace = %namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %inputs.len().max(1),
+        ),
+        err(Display),
+    )]
     async fn call_function<F>(
-        namespace: &str,
-        model_out: Option<&str>,
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
     ) -> Result<PipeMessages<<F as Function>::Output>>
@@ -530,14 +552,7 @@ where
         function.tick(inputs).await
     }
 
-    match call_function(
-        ctx.function_context.namespace(),
-        ctx.writer.model_out.as_ref().map(|model| model.as_str()),
-        &mut ctx.function,
-        inputs,
-    )
-    .await?
-    {
+    match call_function(&mut ctx.function, inputs).await? {
         PipeMessages::None => Ok(()),
         outputs => match ctx.writer.stream.clone() {
             Some(stream) => {
@@ -593,9 +608,15 @@ where
 
 struct ReadContext<Value> {
     _job: JoinHandle<()>,
+    function_context: FunctionContext,
     model_in: Name,
-    namespace: String,
     rx: Receiver<PipeMessage<Value>>,
+}
+
+impl<Value> ReadContext<Value> {
+    fn model_in(&self) -> &str {
+        self.model_in.as_str()
+    }
 }
 
 struct ReadSession<Value> {
@@ -676,6 +697,10 @@ struct WriteContext {
 }
 
 impl WriteContext {
+    fn model_out(&self) -> Option<&str> {
+        self.model_out.as_ref().map(|model| model.as_str())
+    }
+
     #[instrument(level = Level::INFO, skip_all)]
     async fn write_outputs<Value>(
         &mut self,

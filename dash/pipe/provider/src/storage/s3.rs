@@ -17,7 +17,6 @@ use tracing::{debug, instrument, Level};
 pub struct Storage {
     base_url: BaseUrl,
     model: Option<Name>,
-    namespace: String,
     pipe_name: Name,
     pipe_timestamp: String,
     provider: StaticProvider,
@@ -32,7 +31,6 @@ impl Storage {
             s3_endpoint,
             secret_key,
         }: &StorageS3Args,
-        namespace: String,
         model: Option<&Name>,
         pipe_name: &Name,
     ) -> Result<Self> {
@@ -41,7 +39,6 @@ impl Storage {
             base_url: BaseUrl::from_string(s3_endpoint.as_str().into())
                 .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?,
             model: model.cloned(),
-            namespace,
             pipe_name: pipe_name.clone(),
             pipe_timestamp: Utc::now()
                 .to_rfc3339_opts(SecondsFormat::Nanos, true)
@@ -70,7 +67,15 @@ impl super::Storage for Storage {
         super::StorageType::S3
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.len = 1usize, data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = %model.as_str(),
+        ),
+        err(Display),
+    )]
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes> {
         let bucket_name = model.storage();
         let args = GetObjectArgs::new(bucket_name, path)?;
@@ -90,7 +95,15 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to get object from S3 object store: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, bytes), fields(data.len = %bytes.len(), data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %bytes.len(),
+            data.model = self.model().map(|model| model.as_str()),
+        ),
+        err(Display),
+    )]
     async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
         let bucket_name = self.bucket_name()?;
         let path = format!(
@@ -108,7 +121,15 @@ impl super::Storage for Storage {
             .map_err(|error| anyhow!("failed to put object into S3 object store: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self), fields(data.len = 1usize, data.name = &self.model().map(|model| model.as_str()), data.namespace = %self.namespace), err(Display))]
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = self.model().map(|model| model.as_str()),
+        ),
+        err(Display),
+    )]
     async fn delete(&self, path: &str) -> Result<()> {
         let bucket_name = self.bucket_name()?;
         let args = RemoveObjectArgs::new(bucket_name, path)?;
