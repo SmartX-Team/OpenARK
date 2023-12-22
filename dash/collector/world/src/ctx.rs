@@ -92,7 +92,7 @@ impl WorldContext {
             None => String::default(),
         };
 
-        let group = "name, namespace, kind, type, op";
+        let group = "name, namespace, kind, type, op, model";
         let columns = format!("{group}, sum(end_ns - begin_ns) as elapsed_ns, sum(len) as total_bytes, count(1) as len");
         let sql = format!(
             "SELECT {columns} FROM {model} {condition} GROUP BY {group}",

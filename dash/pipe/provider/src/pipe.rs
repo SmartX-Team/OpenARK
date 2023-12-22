@@ -387,7 +387,6 @@ where
         if self.bootstrap {
             Ok(())
         } else {
-            let model = ctx.model()?.to_string();
             loop {
                 // yield per every loop
                 yield_now().await;
@@ -396,7 +395,7 @@ where
                     break self.terminate(ctx).await;
                 }
 
-                if let Err(error) = tick_async(&mut ctx, &model).await {
+                if let Err(error) = tick_async(&mut ctx).await {
                     warn!("{error}");
                 }
             }
@@ -422,11 +421,11 @@ where
     skip_all,
     fields(
         data.len = %1usize,
-        data.model = %model,
+        data.model = %ctx.writer.model_out(),
     ),
     err(Display),
 )]
-async fn tick_async<F>(ctx: &mut Context<F>, model: &str) -> Result<()>
+async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
 {
@@ -459,7 +458,7 @@ where
         skip_all,
         fields(
             data.len = %messages.len().max(1),
-            data.model = writer.model_out(),
+            data.model = %writer.model_out(),
         ),
         err(Display),
     )]
@@ -541,12 +540,12 @@ where
         skip_all,
         fields(
             data.len = %inputs.len().max(1),
-            data.model = %model,
+            data.model = %model_out,
         ),
         err(Display),
     )]
     async fn call_function<F>(
-        model: &str,
+        model_out: &str,
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
     ) -> Result<PipeMessages<<F as Function>::Output>>
@@ -556,7 +555,7 @@ where
         function.tick(inputs).await
     }
 
-    match call_function(model, &mut ctx.function, inputs).await? {
+    match call_function(ctx.writer.model_out(), &mut ctx.function, inputs).await? {
         PipeMessages::None => Ok(()),
         outputs => match ctx.writer.stream.clone() {
             Some(stream) => {
@@ -608,18 +607,6 @@ where
     reader: Option<ReadContext<<F as Function>::Input>>,
     storage: Arc<StorageIO>,
     writer: WriteContext,
-}
-
-impl<F> Context<F>
-where
-    F: Function,
-{
-    fn model(&self) -> Result<&str> {
-        self.writer
-            .model_out()
-            .or_else(|| self.reader.as_ref().map(|reader| reader.model_in()))
-            .ok_or_else(|| anyhow!("one of model I/O names should be enabled"))
-    }
 }
 
 struct ReadContext<Value> {
@@ -713,8 +700,11 @@ struct WriteContext {
 }
 
 impl WriteContext {
-    fn model_out(&self) -> Option<&str> {
-        self.model_out.as_ref().map(|model| model.as_str())
+    fn model_out(&self) -> &str {
+        self.model_out
+            .as_ref()
+            .map(|model| model.as_str())
+            .unwrap_or_default()
     }
 
     #[instrument(level = Level::INFO, skip_all)]
