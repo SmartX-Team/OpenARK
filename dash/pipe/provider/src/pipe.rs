@@ -387,6 +387,7 @@ where
         if self.bootstrap {
             Ok(())
         } else {
+            let model = ctx.model()?.to_string();
             loop {
                 // yield per every loop
                 yield_now().await;
@@ -395,7 +396,7 @@ where
                     break self.terminate(ctx).await;
                 }
 
-                if let Err(error) = tick_async(&mut ctx).await {
+                if let Err(error) = tick_async(&mut ctx, &model).await {
                     warn!("{error}");
                 }
             }
@@ -421,10 +422,11 @@ where
     skip_all,
     fields(
         data.len = %1usize,
+        data.model = %model,
     ),
     err(Display),
 )]
-async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
+async fn tick_async<F>(ctx: &mut Context<F>, model: &str) -> Result<()>
 where
     F: Function,
 {
@@ -539,10 +541,12 @@ where
         skip_all,
         fields(
             data.len = %inputs.len().max(1),
+            data.model = %model,
         ),
         err(Display),
     )]
     async fn call_function<F>(
+        model: &str,
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
     ) -> Result<PipeMessages<<F as Function>::Output>>
@@ -552,7 +556,7 @@ where
         function.tick(inputs).await
     }
 
-    match call_function(&mut ctx.function, inputs).await? {
+    match call_function(model, &mut ctx.function, inputs).await? {
         PipeMessages::None => Ok(()),
         outputs => match ctx.writer.stream.clone() {
             Some(stream) => {
@@ -604,6 +608,18 @@ where
     reader: Option<ReadContext<<F as Function>::Input>>,
     storage: Arc<StorageIO>,
     writer: WriteContext,
+}
+
+impl<F> Context<F>
+where
+    F: Function,
+{
+    fn model(&self) -> Result<&str> {
+        self.writer
+            .model_out()
+            .or_else(|| self.reader.as_ref().map(|reader| reader.model_in()))
+            .ok_or_else(|| anyhow!("one of model I/O names should be enabled"))
+    }
 }
 
 struct ReadContext<Value> {

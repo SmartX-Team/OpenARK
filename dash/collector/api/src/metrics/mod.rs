@@ -52,6 +52,7 @@ pub struct MetricDuration {
 #[serde(tag = "kind")]
 pub enum MetricSpanKind<'a> {
     Function {
+        model: Cow<'a, str>,
         op: FunctionOperation,
         #[serde(rename = "type")]
         type_: FunctionType,

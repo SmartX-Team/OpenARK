@@ -151,6 +151,8 @@ mod impl_metrics {
 
 #[cfg(feature = "trace")]
 mod impl_trace {
+    use std::borrow::Cow;
+
     use dash_collector_api::{
         metadata::ObjectMetadata,
         metrics::{
@@ -192,58 +194,106 @@ mod impl_trace {
                         })
                         .is_some()
                 })
-                .flat_map(|spans| &spans.scope_spans)
-                .flat_map(|spans| &spans.spans)
-                .filter_map(|span| {
-                    let attributes = &span.attributes;
+                .filter_map(|spans| {
+                    Some((&spans.resource.as_ref()?.attributes, &spans.scope_spans))
+                })
+                .flat_map(|(spans_attributes, scope_spans)| {
+                    scope_spans
+                        .iter()
+                        .flat_map(|spans| &spans.spans)
+                        .filter_map(move |span| {
+                            let attributes = &span.attributes;
 
-                    Some(MetricSpan {
-                        duration: MetricDuration {
-                            begin_ns: span.start_time_unix_nano,
-                            end_ns: span.end_time_unix_nano,
-                        },
-                        kind: match span.name.as_str() {
-                            // Function
-                            "call_function" => MetricSpanKind::Function {
-                                op: FunctionOperation::Call,
-                                type_: FunctionType::Dash,
-                            },
-                            "tick_function" => MetricSpanKind::Function {
-                                op: FunctionOperation::Tick,
-                                type_: FunctionType::Dash,
-                            },
-                            // Messenger
-                            "read_one" => parse_messenger(attributes, MessengerOperation::Read)?,
-                            "reply_one" => parse_messenger(attributes, MessengerOperation::Reply)?,
-                            "request_one" => {
-                                parse_messenger(attributes, MessengerOperation::Request)?
-                            }
-                            "send_one" => parse_messenger(attributes, MessengerOperation::Send)?,
-                            // Metadata Storage
-                            "list_metadata" => {
-                                parse_metadata_storage(attributes, MetadataStorageOperation::List)?
-                            }
-                            "put_metadata" => {
-                                parse_metadata_storage(attributes, MetadataStorageOperation::Put)?
-                            }
-                            // Storage
-                            "get" => parse_storage(attributes, StorageOperation::Get)?,
-                            "put" => parse_storage(attributes, StorageOperation::Put)?,
-                            "delete" => parse_storage(attributes, StorageOperation::Delete)?,
-                            // END
-                            _ => return None,
-                        },
-                        len: get_attribute_value_str(attributes, "data.len")
-                            .and_then(|len| len.parse().ok())?,
-                        metadata: ObjectMetadata {
-                            name: get_attribute_value_str(attributes, "k8s.deployment.name")
-                                .or_else(|| get_attribute_value_str(attributes, "k8s.job.name"))
-                                .or_else(|| get_attribute_value_str(attributes, "k8s.pod.name"))?
-                                .into(),
-                            namespace: get_attribute_value_str(attributes, "k8s.namespace.name")?
-                                .into(),
-                        },
-                    })
+                            let code_namespace =
+                                get_attribute_value_str(attributes, "code.namespace");
+                            let model = get_attribute_value_str(attributes, "data.model")?.into();
+
+                            Some(MetricSpan {
+                                duration: MetricDuration {
+                                    begin_ns: span.start_time_unix_nano,
+                                    end_ns: span.end_time_unix_nano,
+                                },
+                                kind: match span.name.as_str() {
+                                    // Function
+                                    "call_function" => MetricSpanKind::Function {
+                                        model,
+                                        op: FunctionOperation::Call,
+                                        type_: FunctionType::Dash,
+                                    },
+                                    "tick_function" => MetricSpanKind::Function {
+                                        model,
+                                        op: FunctionOperation::Tick,
+                                        type_: FunctionType::Dash,
+                                    },
+                                    // Messenger
+                                    "read_one" => parse_messenger(
+                                        code_namespace?,
+                                        model,
+                                        MessengerOperation::Read,
+                                    )?,
+                                    "reply_one" => parse_messenger(
+                                        code_namespace?,
+                                        model,
+                                        MessengerOperation::Reply,
+                                    )?,
+                                    "request_one" => parse_messenger(
+                                        code_namespace?,
+                                        model,
+                                        MessengerOperation::Request,
+                                    )?,
+                                    "send_one" => parse_messenger(
+                                        code_namespace?,
+                                        model,
+                                        MessengerOperation::Send,
+                                    )?,
+                                    // Metadata Storage
+                                    "list_metadata" => parse_metadata_storage(
+                                        code_namespace?,
+                                        model,
+                                        MetadataStorageOperation::List,
+                                    )?,
+                                    "put_metadata" => parse_metadata_storage(
+                                        code_namespace?,
+                                        model,
+                                        MetadataStorageOperation::Put,
+                                    )?,
+                                    // Storage
+                                    "get" => parse_storage(
+                                        code_namespace?,
+                                        model,
+                                        StorageOperation::Get,
+                                    )?,
+                                    "put" => parse_storage(
+                                        code_namespace?,
+                                        model,
+                                        StorageOperation::Put,
+                                    )?,
+                                    "delete" => parse_storage(
+                                        code_namespace?,
+                                        model,
+                                        StorageOperation::Delete,
+                                    )?,
+                                    // END
+                                    _ => return None,
+                                },
+                                len: get_attribute_value_str(attributes, "data.len")
+                                    .and_then(|len| len.parse().ok())?,
+                                metadata: ObjectMetadata {
+                                    name: ["k8s.deployment.name", "k8s.job.name", "k8s.pod.name"]
+                                        .into_iter()
+                                        .filter_map(|key| {
+                                            get_attribute_value_str(spans_attributes, key)
+                                        })
+                                        .next()?
+                                        .into(),
+                                    namespace: get_attribute_value_str(
+                                        spans_attributes,
+                                        "k8s.namespace.name",
+                                    )?
+                                    .into(),
+                                },
+                            })
+                        })
                 })
                 .map(|value| PipeMessage::with_request(message, vec![], value))
                 .collect::<Vec<_>>();
@@ -262,11 +312,15 @@ mod impl_trace {
         }
     }
 
-    fn parse_messenger(attributes: &[KeyValue], op: MessengerOperation) -> Option<MetricSpanKind> {
+    fn parse_messenger<'a>(
+        code_namespace: &str,
+        model: Cow<'a, str>,
+        op: MessengerOperation,
+    ) -> Option<MetricSpanKind<'a>> {
         Some(MetricSpanKind::Messenger {
-            model: get_attribute_value_str(attributes, "data.model")?.into(),
+            model,
             op,
-            type_: match get_attribute_value_str(attributes, "code.namespace")? {
+            type_: match code_namespace {
                 "dash_pipe_provider::messengers::kafka" => MessengerType::Kafka,
                 "dash_pipe_provider::messengers::nats" => MessengerType::Nats,
                 _ => return None,
@@ -274,25 +328,30 @@ mod impl_trace {
         })
     }
 
-    fn parse_metadata_storage(
-        attributes: &[KeyValue],
+    fn parse_metadata_storage<'a>(
+        code_namespace: &str,
+        model: Cow<'a, str>,
         op: MetadataStorageOperation,
-    ) -> Option<MetricSpanKind> {
+    ) -> Option<MetricSpanKind<'a>> {
         Some(MetricSpanKind::MetadataStorage {
-            model: get_attribute_value_str(attributes, "data.model")?.into(),
+            model,
             op,
-            type_: match get_attribute_value_str(attributes, "code.namespace")? {
+            type_: match code_namespace {
                 "dash_pipe_provider::storage::lakehouse" => MetadataStorageType::LakeHouse,
                 _ => return None,
             },
         })
     }
 
-    fn parse_storage(attributes: &[KeyValue], op: StorageOperation) -> Option<MetricSpanKind> {
+    fn parse_storage<'a>(
+        code_namespace: &str,
+        model: Cow<'a, str>,
+        op: StorageOperation,
+    ) -> Option<MetricSpanKind<'a>> {
         Some(MetricSpanKind::Storage {
-            model: get_attribute_value_str(attributes, "data.model")?.into(),
+            model,
             op,
-            type_: match get_attribute_value_str(attributes, "code.namespace")? {
+            type_: match code_namespace {
                 "dash_pipe_provider::storage::s3" => StorageType::S3,
                 _ => return None,
             },

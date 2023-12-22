@@ -41,10 +41,8 @@ impl OptimizerClient {
             storage,
         });
 
-        let namespace = kubernetes_storage.namespace.to_string();
         let function =
-            StatelessRemoteFunction::try_new(namespace, &self.messenger, model::model_in()?)
-                .await?;
+            StatelessRemoteFunction::try_new(&self.messenger, model::model_in()?).await?;
 
         match function
             .call_one(request)
