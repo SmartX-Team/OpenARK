@@ -139,6 +139,8 @@ where
     async fn request_one(&self, data: Bytes) -> Result<Bytes>;
 
     async fn send_one(&self, data: Bytes) -> Result<()>;
+
+    async fn flush(&self) -> Result<()>;
 }
 
 #[async_trait]

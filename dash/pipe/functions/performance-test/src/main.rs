@@ -32,6 +32,9 @@ pub struct FunctionArgs {
     #[arg(long, env = "PIPE_PERFORMANCE_TEST_QUIET", action = ArgAction::SetTrue)]
     quiet: bool,
 
+    #[arg(long, env = "PIPE_PERFORMANCE_SAVE_METRICS", action = ArgAction::SetTrue)]
+    save_metrics: bool,
+
     #[arg(
         long,
         env = "PIPE_PERFORMANCE_TEST_TOTAL_MESSAGES",
@@ -47,6 +50,7 @@ pub struct Function {
     ctx: FunctionContext,
     metric: MetricData,
     next_stdout: Duration,
+    save_metrics: bool,
     #[derivative(Debug = "ignore")]
     storage: Arc<StorageSet>,
     timestamp: Option<Instant>,
@@ -62,6 +66,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             data_size,
             payload_size,
             quiet,
+            save_metrics,
             total_messages,
         }: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
         ctx: &mut FunctionContext,
@@ -85,7 +90,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
                 .transpose()?
                 .filter(|&size| size > 0),
             sum_latency: Default::default(),
-            total: total_messages.get_bytes(),
+            total: total_messages.get_bytes() as u64,
             total_sent: 0,
             total_sent_bytes: 0,
             total_sent_payload_bytes: 0,
@@ -97,12 +102,10 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
         }
 
         Ok(Self {
-            ctx: {
-                ctx.disable_load();
-                ctx.clone()
-            },
+            ctx: ctx.clone(),
             metric,
             next_stdout: Self::TICK,
+            save_metrics: *save_metrics,
             storage: storage.output.clone(),
             timestamp: None,
             verbose,
@@ -169,7 +172,7 @@ impl Function {
     fn create_payload(&self) -> Vec<PipePayload> {
         match self.metric.payload_size {
             Some(size) => vec![PipePayload::new(
-                "payload".into(),
+                format!("{index}", index = self.metric.total_sent),
                 Some(create_data(size).into()),
             )],
             None => Default::default(),
@@ -184,7 +187,9 @@ impl Function {
     }
 
     fn flush_metric(&mut self) {
-        self.metric.flush(self.storage.clone(), self.verbose)
+        if self.save_metrics {
+            self.metric.flush(self.storage.clone(), self.verbose)
+        }
     }
 }
 
@@ -198,15 +203,15 @@ pub struct Metric {
 pub struct MetricData {
     data_size: usize,
     messenger_type: MessengerType,
-    num_sent: u128,
-    num_sent_bytes: u128,
-    num_sent_payload_bytes: u128,
+    num_sent: u64,
+    num_sent_bytes: u64,
+    num_sent_payload_bytes: u64,
     payload_size: Option<usize>,
     sum_latency: Duration,
-    total: u128,
-    total_sent: u128,
-    total_sent_bytes: u128,
-    total_sent_payload_bytes: u128,
+    total: u64,
+    total_sent: u64,
+    total_sent_bytes: u64,
+    total_sent_payload_bytes: u64,
 }
 
 impl MetricData {
@@ -252,15 +257,15 @@ impl MetricData {
         &mut self,
         message: &PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>,
     ) {
-        let bytes = message.value.value.len() as u128;
+        let bytes = message.value.value.len() as u64;
         self.num_sent_bytes += bytes;
         self.total_sent_bytes += bytes;
 
         let payload_bytes = message
             .payloads
             .iter()
-            .filter_map(|payload| payload.value().map(|value| value.len() as u128))
-            .sum::<u128>();
+            .filter_map(|payload| payload.value().map(|value| value.len() as u64))
+            .sum::<u64>();
         self.num_sent_payload_bytes += payload_bytes;
         self.total_sent_payload_bytes += payload_bytes;
     }
@@ -280,7 +285,7 @@ impl MetricData {
         &mut self,
         messages: &[PipeMessage<<Function as ::dash_pipe_provider::Function>::Input>],
     ) {
-        let sent = messages.len() as u128;
+        let sent = messages.len() as u64;
         self.num_sent += sent;
         self.total_sent += sent;
 
@@ -324,9 +329,10 @@ impl MetricData {
     }
 
     fn show_avg(&mut self, elapsed: Duration) {
-        let num_sent = self.total_sent * 1_000 / elapsed.as_millis();
-        let num_sent_bytes = self.total_sent_bytes * 1_000 / elapsed.as_millis();
-        let num_sent_payload_bytes = self.total_sent_payload_bytes * 1_000 / elapsed.as_millis();
+        let elapsed = elapsed.as_millis().max(1) as u64;
+        let num_sent = self.total_sent * 1_000 / elapsed;
+        let num_sent_bytes = self.total_sent_bytes * 1_000 / elapsed;
+        let num_sent_payload_bytes = self.total_sent_payload_bytes * 1_000 / elapsed;
 
         let speed = get_speed_as_bps(num_sent_bytes);
         let speed_payloads = get_speed_as_bps(num_sent_payload_bytes);
@@ -339,8 +345,8 @@ fn create_data(size: usize) -> Vec<u8> {
     vec![98u8; size]
 }
 
-fn get_speed_as_bps(speed: u128) -> String {
-    let mut speed = Byte::from_bytes(8 * speed)
+fn get_speed_as_bps(speed: u64) -> String {
+    let mut speed = Byte::from_bytes(8 * speed as u128)
         .get_appropriate_unit(false)
         .to_string();
     if speed.ends_with('B') {

@@ -158,6 +158,14 @@ impl super::Publisher for Publisher {
             .await
             .map_err(|error| anyhow!("failed to publish data to NATS: {error}"))
     }
+
+    #[instrument(level = Level::INFO, skip(self), fields(data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    async fn flush(&self) -> Result<()> {
+        self.client
+            .flush()
+            .await
+            .map_err(|error| anyhow!("failed to terminate NATS publisher: {error}"))
+    }
 }
 
 pub struct Subscriber {

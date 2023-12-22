@@ -361,6 +361,8 @@ where
     }
 
     pub fn loop_forever(&self) {
+        const MAX_TERMINATION_TIMEOUT: Duration = Duration::from_secs(30);
+
         let runtime = ::tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -370,10 +372,12 @@ where
             Ok(()) => {
                 info!("Terminated.");
                 global::shutdown_tracer_provider();
+                runtime.shutdown_timeout(MAX_TERMINATION_TIMEOUT);
             }
             Err(error) => {
                 error!("{error}");
                 global::shutdown_tracer_provider();
+                runtime.shutdown_timeout(MAX_TERMINATION_TIMEOUT);
                 exit(1)
             }
         }
@@ -395,25 +399,27 @@ where
                 // yield per every loop
                 yield_now().await;
 
-                if ctx.function_context.is_terminating()
-                    && !ctx.function_context.is_disabled_store_metadata()
-                {
-                    break ctx.storage.flush().await;
+                if ctx.function_context.is_terminating() {
+                    break self.terminate(ctx).await;
                 }
 
-                let response = tick_async(&mut ctx).await;
-                if ctx.function_context.is_terminating() {
-                    if ctx.function_context.is_disabled_store_metadata() {
-                        break response;
-                    } else {
-                        let flush_response = ctx.storage.flush().await;
-                        break response.and(flush_response);
-                    }
-                } else if let Err(error) = response {
+                if let Err(error) = tick_async(&mut ctx).await {
                     warn!("{error}");
                 }
             }
         }
+    }
+
+    async fn terminate(&self, ctx: Context<F>) -> Result<()> {
+        ctx.writer.atomic_session.terminate().await;
+
+        if !ctx.function_context.is_disabled_store_metadata() {
+            ctx.storage.flush().await?;
+        }
+        if let Some(stream) = ctx.writer.stream.as_ref() {
+            stream.flush().await?;
+        }
+        Ok(())
     }
 }
 
@@ -435,6 +441,45 @@ where
                 },
             }
         }
+    }
+
+    #[instrument(name = "write", level = Level::INFO, skip_all, err(Display))]
+    async fn send_one<Value>(
+        writer: &WriteContext,
+        stream: &Arc<dyn Publisher>,
+        input_payloads: &HashMap<String, PipePayload<()>>,
+        messages: PipeMessages<Value>,
+    ) -> Result<()>
+    where
+        Value: Send + Sync + Serialize + JsonSchema,
+    {
+        let outputs = if writer.function_context.is_disabled_store() {
+            messages.drop_payloads()
+        } else {
+            messages
+                .dump_payloads(&writer.storage, input_payloads)
+                .await?
+        }
+        .into_vec();
+
+        for output in outputs {
+            if !writer.function_context.is_disabled_store_metadata() {
+                if let Err(error) = writer
+                    .storage
+                    .get_default_metadata()
+                    .put_metadata(&[&output])
+                    .await
+                {
+                    warn!("{error}");
+                }
+            }
+
+            let data = output
+                .to_bytes(writer.encoder)
+                .map_err(|error| anyhow!("failed to parse output: {error}"))?;
+            stream.reply_or_send_one(data, output.reply).await?
+        }
+        Ok(())
     }
 
     let inputs = match &mut ctx.reader {
@@ -494,12 +539,17 @@ where
     .await?
     {
         PipeMessages::None => Ok(()),
-        outputs => {
-            let mut writer = ctx.writer.clone();
-            spawn(async move { writer.write_outputs(&input_payloads, outputs).await });
-            ctx.writer.atomic_session.wait().await;
-            Ok(())
-        }
+        outputs => match ctx.writer.stream.clone() {
+            Some(stream) => {
+                let writer = ctx.writer.clone();
+                ctx.writer.atomic_session.spawn(async move {
+                    send_one(&writer, &stream, &input_payloads, outputs).await
+                });
+                ctx.writer.atomic_session.wait().await;
+                Ok(())
+            }
+            None => Ok(()),
+        },
     }
 }
 
@@ -712,9 +762,31 @@ impl AtomicSession {
         result
     }
 
+    fn spawn<F>(&self, task: F) -> JoinHandle<<F as Future>::Output>
+    where
+        F: 'static + Send + Future,
+        <F as Future>::Output: Send,
+    {
+        self.num_tasks.fetch_add(1, Ordering::SeqCst);
+
+        let session = self.clone();
+        spawn(async move {
+            let result = task.await;
+            session.num_tasks.fetch_sub(1, Ordering::SeqCst);
+            result
+        })
+    }
+
     #[instrument(name = "submit", level = Level::INFO, skip_all)]
     async fn wait(&self) {
         while self.num_tasks.load(Ordering::SeqCst) >= self.max_tasks {
+            yield_now().await
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip_all)]
+    async fn terminate(&self) {
+        while self.num_tasks.load(Ordering::SeqCst) > 0 {
             yield_now().await
         }
     }

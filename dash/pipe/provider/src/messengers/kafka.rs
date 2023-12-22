@@ -7,7 +7,7 @@ use bytes::Bytes;
 use clap::Parser;
 use rdkafka::{
     consumer::{Consumer, StreamConsumer},
-    producer::{FutureProducer, FutureRecord},
+    producer::{FutureProducer, FutureRecord, Producer},
     util::Timeout,
     ClientConfig, Message,
 };
@@ -100,6 +100,13 @@ impl super::Publisher for Publisher {
             .await
             .map(|_| ())
             .map_err(|(error, _)| anyhow!("failed to publish data to Kafka: {error}"))
+    }
+
+    #[instrument(level = Level::INFO, skip(self), fields(data.name = %self.topic.as_str(), data.namespace = %self.namespace), err(Display))]
+    async fn flush(&self) -> Result<()> {
+        self.client
+            .flush(Timeout::Never)
+            .map_err(|error| anyhow!("failed to terminate Kafka publisher: {error}"))
     }
 }
 
