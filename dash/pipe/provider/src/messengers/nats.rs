@@ -40,13 +40,26 @@ impl Messenger {
 
         #[instrument(level = Level::INFO, skip_all, err(Display))]
         async fn parse_password(args: &MessengerNatsArgs) -> Result<Option<String>> {
+            fn parse_plain(password: impl AsRef<str>) -> String {
+                password
+                    .as_ref()
+                    .split('\n')
+                    .next()
+                    .unwrap()
+                    .trim()
+                    .to_string()
+            }
+
             match args.nats_password_path.as_ref() {
                 Some(path) => ::tokio::fs::read_to_string(path)
                     .await
-                    .map(|password| password.split('\n').next().unwrap().trim().to_string())
+                    .map(parse_plain)
                     .map(Some)
                     .map_err(|error| anyhow!("failed to get NATS token: {error}")),
-                None => Ok(None),
+                None => match args.nats_password.as_ref() {
+                    Some(plain) => Ok(Some(parse_plain(plain))),
+                    None => Ok(None),
+                },
             }
         }
 
@@ -233,6 +246,9 @@ pub struct MessengerNatsArgs {
 
     #[arg(long, env = "NATS_ADDRS", value_name = "ADDR")]
     nats_addrs: Vec<String>,
+
+    #[arg(long, env = "NATS_PASSWORD", value_name = "PLAIN")]
+    nats_password: Option<String>,
 
     #[arg(long, env = "NATS_PASSWORD_PATH", value_name = "PATH")]
     nats_password_path: Option<PathBuf>,

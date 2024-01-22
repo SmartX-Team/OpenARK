@@ -124,6 +124,11 @@ spec:
           command: {{ spec.boxQuota.desktop.container.command | json_encode() | safe }}
           args: {{ spec.boxQuota.desktop.container.args | json_encode() | safe }}
           env:
+{% if spec.boxQuota.desktop.container.env is array %}
+{% for var in spec.boxQuota.desktop.container.env %}
+            - {{ var | json_encode() | safe }}
+{% endfor %}
+{% endif %}
             - name: DISPLAY
               value: ":0"
             - name: HOME

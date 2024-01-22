@@ -1,5 +1,5 @@
 use ark_core_k8s::data::ImagePullPolicy;
-use k8s_openapi::api::core::v1::{ContainerPort, ResourceRequirements};
+use k8s_openapi::api::core::v1::{ContainerPort, EnvVar, ResourceRequirements};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -65,6 +65,8 @@ pub struct UserBoxQuotaDesktopContainerSpec {
     pub args: Option<Vec<String>>,
     #[serde(default = "UserBoxQuotaDesktopContainerSpec::default_command")]
     pub command: Option<Vec<String>>,
+    #[serde(default = "UserBoxQuotaDesktopContainerSpec::default_env")]
+    pub env: Option<Vec<EnvVar>>,
     #[serde(default = "UserBoxQuotaDesktopContainerSpec::default_image")]
     pub image: String,
     #[serde(default = "UserBoxQuotaDesktopContainerSpec::default_image_pull_policy")]
@@ -78,6 +80,7 @@ impl Default for UserBoxQuotaDesktopContainerSpec {
         Self {
             args: Self::default_args(),
             command: Self::default_command(),
+            env: Self::default_env(),
             image: Self::default_image(),
             image_pull_policy: Self::default_image_pull_policy(),
             ports: Self::default_ports(),
@@ -98,6 +101,10 @@ impl UserBoxQuotaDesktopContainerSpec {
             "vine-desktop.service".into(),
             "--system".into(),
         ])
+    }
+
+    fn default_env() -> Option<Vec<EnvVar>> {
+        None
     }
 
     fn default_image() -> String {
