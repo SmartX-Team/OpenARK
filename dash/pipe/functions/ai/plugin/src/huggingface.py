@@ -11,7 +11,7 @@ T = TypeVar('T')
 
 
 def _convert_device(data: T, device: torch.device) -> T:
-    if isinstance(data, list):
+    if isinstance(data, tuple) or isinstance(data, list):
         return [
             _convert_device(item, data)
             for item in data
@@ -27,8 +27,8 @@ def _convert_device(data: T, device: torch.device) -> T:
         return data
 
 
-def _replace_payloads(data: T, payloads: list[Any]) -> T | bytes | Image.Image:
-    if isinstance(data, list):
+def _replace_payloads(data: T, payloads: list[tuple[str, bytes]]) -> T | bytes | Image.Image:
+    if isinstance(data, tuple) or isinstance(data, list):
         return [
             _replace_payloads(item, payloads)
             for item in data
@@ -39,15 +39,15 @@ def _replace_payloads(data: T, payloads: list[Any]) -> T | bytes | Image.Image:
             for key, value in data.items()
         }
     elif isinstance(data, str):
-        scheme = '@payload:'
+        scheme = '@data:'
         if isinstance(data, str) and data.startswith(scheme):
-            type_, *key = data[len(scheme):].split(':')
-            key = ':'.join(key)
+            type_, *key = data[len(scheme):].split(',')
+            key = ','.join(key)
 
             data: bytes = next(
-                payload.value
-                for payload in payloads
-                if payload.key == key
+                payload_value
+                for payload_key, payload_value in payloads
+                if payload_key == key
             )
 
             match type_:
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     class DummyMessage:
         def __init__(
             self,
-            payloads: list[Any],
+            payloads: list[tuple[str, bytes]],
             value: Any,
             reply: str | None = None,
         ) -> None:
