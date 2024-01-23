@@ -1,27 +1,85 @@
-from typing import Any, Callable
+import io
+from typing import Any, Callable, TypeVar
 
+import inflection
+from PIL import Image
+import torch
 from transformers import AutoTokenizer, Pipeline, PretrainedConfig, pipeline
-from optimum.onnxruntime import ORTModel
+# from optimum.onnxruntime import ORTModel
+
+T = TypeVar('T')
+
+
+def _convert_device(data: T, device: torch.device) -> T:
+    if isinstance(data, list):
+        return [
+            _convert_device(item, data)
+            for item in data
+        ]
+    elif isinstance(data, dict):
+        return {
+            key: _convert_device(value, data)
+            for key, value in data.items()
+        }
+    elif isinstance(data, torch.Tensor):
+        return data.to(device)
+    else:
+        return data
+
+
+def _replace_payloads(data: T, payloads: list[Any]) -> T | bytes | Image.Image:
+    if isinstance(data, list):
+        return [
+            _replace_payloads(item, payloads)
+            for item in data
+        ]
+    elif isinstance(data, dict):
+        return {
+            key: _replace_payloads(value, payloads)
+            for key, value in data.items()
+        }
+    elif isinstance(data, str):
+        scheme = '@payload:'
+        if isinstance(data, str) and data.startswith(scheme):
+            type_, *key = data[len(scheme):].split(':')
+            key = ':'.join(key)
+
+            data: bytes = next(
+                payload.value
+                for payload in payloads
+                if payload.key == key
+            )
+
+            match type_:
+                case 'binary':
+                    return data
+                case 'image':
+                    return Image.open(io.BytesIO(data))
+                case _:
+                    raise Exception(f'unsupported payload type: {type_}')
+    else:
+        return data
+
+
+def _select_best_device() -> torch.device:
+    return torch.device(
+        'cuda'
+        if torch.cuda.is_available()
+        else 'cpu'
+    )
 
 
 def _parse_task(kind: str) -> str:
-    match kind:
-        case 'QuestionAnswering':
-            return 'question-answering'
-        case 'Summarization':
-            return 'summarization'
-        case 'TextGeneration':
-            return 'text-generation'
-        case 'Translation':
-            return 'translation'
-        case 'ZeroShotClassification':
-            return 'zero-shot-classification'
+    return inflection.dasherize(inflection.underscore(kind))
 
 
 def load(model_id: str, kind: str) -> Callable:
     scheme = 'huggingface://'
     if model_id.startswith(scheme):
         model_id = model_id[len(scheme):]
+
+    device_from = _select_best_device()
+    device_to = torch.device('cpu')
 
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -42,43 +100,34 @@ def load(model_id: str, kind: str) -> Callable:
         task=_parse_task(kind),
         model=model,
         tokenizer=tokenizer,
+        device=device_from,
     )
     return lambda inputs: wrap_tick(
         tick=tick,
         inputs=inputs,
-        kind=kind,
+        device_from=device_from,
+        device_to=device_to,
     )
 
 
-def preprocess(input: Any, kind: str) -> dict[str, Any]:
-    match kind:
-        # NLP
-        case 'QuestionAnswering' \
-                | 'Summarization' \
-                | 'TextGeneration' \
-                | 'Translation' \
-                | 'ZeroShotClassification':
-            return input.value
+def preprocess(input: Any) -> dict[str, Any]:
+    payloads = input.payloads
+    value = input.value
 
+    if not isinstance(value, dict):
+        value = {
+            'value': value,
+        }
 
-def postprocess(
-    input_type: type,
-    input: Any,
-    output_set: dict[str, Any],
-    kind: str,
-) -> Any:
-    # pack payloads
-    return input_type(
-        input.payloads,
-        output_set,
-        input.reply,
-    )
+    # replace payloads
+    return _replace_payloads(value, payloads)
 
 
 def wrap_tick(
     tick: Pipeline,
     inputs: list[Any],
-    kind: str,
+    device_from: torch.device,
+    device_to: torch.device,
 ) -> list[Any]:
     # skip if empty inputs
     if not inputs:
@@ -88,13 +137,17 @@ def wrap_tick(
     outputs = []
     for input in inputs:
         # load inputs
-        input_set = preprocess(input, kind)
+        input_set = _convert_device(preprocess(input), device_from)
 
         # execute inference
-        output_set = tick(input_set)
+        output_set = _convert_device(tick(**input_set), device_to)
 
         # pack outputs
-        output = postprocess(input_type, input, output_set, kind)
+        output = input_type(
+            input.payloads,
+            output_set,
+            input.reply,
+        )
         outputs.append(output)
     return outputs
 
@@ -111,7 +164,7 @@ if __name__ == '__main__':
             self,
             payloads: list[Any],
             value: Any,
-            reply: str | None,
+            reply: str | None = None,
         ) -> None:
             self.payloads = payloads
             self.value = value
@@ -123,6 +176,21 @@ if __name__ == '__main__':
                 'value': self.value,
             })
 
+    class DummyPayload:
+        def __init__(
+            self,
+            key: str,
+            value: Any,
+        ) -> None:
+            self.key = key
+            self.value = value
+
+        def __repr__(self) -> str:
+            return repr({
+                'key': self.key,
+                'value': len(self.value),
+            })
+
     inputs = [
         DummyMessage(
             payloads=[],
@@ -130,7 +198,6 @@ if __name__ == '__main__':
                 'context': 'I am happy.',
                 'question': 'What is my feel?',
             },
-            reply=None,
         ),
     ]
 

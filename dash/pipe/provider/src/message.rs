@@ -13,6 +13,8 @@ use tracing::{instrument, Level};
 
 use crate::storage::{StorageSet, StorageType};
 
+pub type DynMap = serde_json::Map<String, DynValue>;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PipeMessages<Value = DynValue, Payload = Bytes>

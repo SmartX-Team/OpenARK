@@ -11,7 +11,6 @@ use dash_pipe_provider::{
 use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -23,16 +22,7 @@ pub struct FunctionArgs {
     ai_model: Url,
 
     #[arg(short, long, env = "PIPE_AI_MODEL_KIND", value_name = "KIND")]
-    ai_model_kind: ModelKind,
-}
-
-#[derive(Copy, Clone, Debug, Display, EnumString, Serialize, Deserialize, Parser)]
-pub enum ModelKind {
-    QuestionAnswering,
-    Summarization,
-    TextGeneration,
-    Translation,
-    ZeroShotClassification,
+    ai_model_kind: String,
 }
 
 #[derive(Derivative)]
@@ -62,7 +52,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             tick: Python::with_gil(|py| {
                 let module = PyModule::from_code(py, code, "__dash_pipe__.py", "__dash_pipe__")?;
                 let loader = module.getattr("load")?;
-                let tick = loader.call1((model.to_string(), kind.to_string()))?;
+                let tick = loader.call1((model.to_string(), kind))?;
                 Ok(tick.into())
             })
             .map_err(|error: Error| anyhow!("failed to init python tick function: {error}"))?,
