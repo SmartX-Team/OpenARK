@@ -124,7 +124,7 @@ spec:
           command: {{ spec.boxQuota.desktop.container.command | json_encode() | safe }}
           args: {{ spec.boxQuota.desktop.container.args | json_encode() | safe }}
           env:
-{% if spec.boxQuota.desktop.container.env is array %}
+{% if spec.boxQuota.desktop.container.env is iterable %}
 {% for var in spec.boxQuota.desktop.container.env %}
             - {{ var | json_encode() | safe }}
 {% endfor %}
