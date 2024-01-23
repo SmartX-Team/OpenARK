@@ -662,7 +662,7 @@ context_env_fields! {
         pub aws_secret_access_key: Option<String>,
     },
     ext: {
-        #[default(String::from("nats-admin-user"))]
+        #[default(String::from("nats-admin"))]
         pub service_account: String,
 
         optional: {},
