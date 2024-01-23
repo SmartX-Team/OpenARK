@@ -144,6 +144,17 @@ def wrap_tick(
         # execute inference
         output_set = _convert_device(tick(**input_set), device_to)
 
+        # flatten outputs
+        while isinstance(output_set, list):
+            if len(output_set) == 1:
+                output_set = output_set[0]
+            else:
+                break
+        if not isinstance(output_set, dict):
+            output_set = {
+                'value': output_set,
+            }
+
         # pack outputs
         output = input_type(
             input.payloads,
@@ -174,23 +185,11 @@ if __name__ == '__main__':
 
         def __repr__(self) -> str:
             return repr({
-                'payloads': self.payloads,
+                'payloads': {
+                    payload_key: len(payload_value)
+                    for payload_key, payload_value in self.payloads
+                },
                 'value': self.value,
-            })
-
-    class DummyPayload:
-        def __init__(
-            self,
-            key: str,
-            value: Any,
-        ) -> None:
-            self.key = key
-            self.value = value
-
-        def __repr__(self) -> str:
-            return repr({
-                'key': self.key,
-                'value': len(self.value),
             })
 
     inputs = [
