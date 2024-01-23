@@ -57,6 +57,8 @@ def _replace_payloads(data: T, payloads: list[Any]) -> T | bytes | Image.Image:
                     return Image.open(io.BytesIO(data))
                 case _:
                     raise Exception(f'unsupported payload type: {type_}')
+        else:
+            return data
     else:
         return data
 
