@@ -21,7 +21,7 @@ pub struct Messenger {
 }
 
 impl Messenger {
-    pub fn try_new(args: &MessengerNatsArgs) -> Result<Self> {
+    pub fn try_new(args: &MessengerKafkaArgs) -> Result<Self> {
         debug!("Initializing Messenger IO - Kafka");
 
         let mut config = ClientConfig::new();
@@ -162,7 +162,7 @@ where
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
-pub struct MessengerNatsArgs {
+pub struct MessengerKafkaArgs {
     #[arg(long, env = "KAFKA_HOSTS", value_name = "ADDR")]
     kafka_hosts: Vec<String>,
 }

@@ -142,6 +142,7 @@ ordered-float = { version = "4.1", default-features = false, features = [
 ] }
 procfs = { version = "0.16" }
 pyo3 = { version = "0.20" }
+r2r = { version = "0.8" }
 rand = { version = "0.8" }
 rdkafka = { version = "0.35", features = ["cmake-build"] }
 regex = { version = "1.10" }

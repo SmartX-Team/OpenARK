@@ -14,6 +14,10 @@ fn main() {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
+    #[arg(long, env = "PIPE_IDENTITY_WRITE_TO_STDOUT", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    write_to_stdout: Option<bool>,
+
     #[arg(long, env = "PIPE_IDENTITY_WRITE_TO_PERSISTENT_STORAGE", action = ArgAction::SetTrue)]
     #[serde(default)]
     write_to_persistent_storage: Option<bool>,
@@ -49,6 +53,10 @@ impl ::dash_pipe_provider::Function for Function {
         &mut self,
         inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
     ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+        if self.args.write_to_stdout == Some(true) {
+            println!("{}\n", ::serde_json::to_string_pretty(&inputs)?);
+        }
+
         match self.args.write_to_persistent_storage {
             Some(true) => Ok(match inputs {
                 PipeMessages::None => PipeMessages::None,

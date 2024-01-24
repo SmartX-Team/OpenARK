@@ -20,9 +20,10 @@ version = { workspace = true }
 default = ["messengers", "storage"]
 
 # messengers
-messengers = ["kafka", "nats"]
-nats = ["dep:async-nats"]
+messengers = ["kafka", "nats", "ros2"]
 kafka = ["dep:rdkafka"]
+nats = ["dep:async-nats"]
+ros2 = ["dep:r2r"]
 
 # storage
 storage = ["lakehouse", "s3"]
@@ -56,6 +57,7 @@ map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 opentelemetry = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+r2r = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
 rmp-serde = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }

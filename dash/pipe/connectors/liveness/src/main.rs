@@ -2,7 +2,6 @@ use std::{ops::RangeInclusive, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use clap::Parser;
 use dash_pipe_provider::{
     storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
@@ -77,10 +76,7 @@ impl ::dash_pipe_provider::Function for Function {
             }
         }
 
-        Ok(PipeMessages::Single(PipeMessage::new(Ping {
-            index,
-            timestamp: Some(Utc::now()),
-        })))
+        Ok(PipeMessages::Single(PipeMessage::new(Ping { index })))
     }
 }
 
@@ -89,5 +85,4 @@ impl ::dash_pipe_provider::Function for Function {
 )]
 pub struct Ping {
     index: Option<u64>,
-    timestamp: Option<DateTime<Utc>>,
 }

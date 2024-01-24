@@ -357,6 +357,30 @@ where
     }
 }
 
+impl<Value, Payload> TryFrom<&str> for PipeMessage<Value, Payload>
+where
+    Payload: DeserializeOwned + JsonSchema,
+    Value: DeserializeOwned,
+{
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        ::serde_json::from_str(value).map_err(Into::into)
+    }
+}
+
+impl<Value, Payload> TryFrom<DynValue> for PipeMessage<Value, Payload>
+where
+    Payload: DeserializeOwned + JsonSchema,
+    Value: DeserializeOwned,
+{
+    type Error = Error;
+
+    fn try_from(value: DynValue) -> Result<Self> {
+        ::serde_json::from_value(value).map_err(Into::into)
+    }
+}
+
 impl<Value, Payload> TryFrom<&PipeMessage<Value, Payload>> for Bytes
 where
     Payload: Serialize + JsonSchema,

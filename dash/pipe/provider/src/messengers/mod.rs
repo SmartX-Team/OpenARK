@@ -2,6 +2,8 @@
 mod kafka;
 #[cfg(feature = "nats")]
 mod nats;
+#[cfg(feature = "ros2")]
+mod ros2;
 
 use std::sync::Arc;
 
@@ -26,6 +28,8 @@ pub async fn init_messenger<Value>(args: &MessengerArgs) -> Result<Box<dyn Messe
         MessengerType::Kafka => Box::new(self::kafka::Messenger::try_new(&args.kafka)?),
         #[cfg(feature = "nats")]
         MessengerType::Nats => Box::new(self::nats::Messenger::try_new(&args.nats).await?),
+        #[cfg(feature = "nats")]
+        MessengerType::Ros2 => Box::new(self::ros2::Messenger::try_new(&args.ros2)?),
     })
 }
 
@@ -151,10 +155,13 @@ impl PublisherExt for Arc<dyn Publisher> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn reply_or_send_one(&self, data: Bytes, reply: Option<PipeReply>) -> Result<()> {
         match reply {
-            Some(PipeReply { inbox, target }) if Some(self.topic()) == target.as_ref() => self
-                .reply_one(data, inbox)
-                .await
-                .map_err(|error| anyhow!("failed to reply output: {error}")),
+            Some(PipeReply { inbox, target })
+                if !inbox.is_empty() && Some(self.topic()) == target.as_ref() =>
+            {
+                self.reply_one(data, inbox)
+                    .await
+                    .map_err(|error| anyhow!("failed to reply output: {error}"))
+            }
             Some(_) | None => self
                 .send_one(data)
                 .await
@@ -190,12 +197,19 @@ where
 )]
 pub enum MessengerType {
     #[cfg(feature = "kafka")]
-    #[cfg_attr(all(not(feature = "nats"), feature = "kafka"), default)]
+    #[cfg_attr(
+        all(not(feature = "nats"), not(feature = "ros2"), feature = "kafka"),
+        default
+    )]
     Kafka,
 
     #[cfg(feature = "nats")]
     #[cfg_attr(feature = "nats", default)]
     Nats,
+
+    #[cfg(feature = "ros2")]
+    #[cfg_attr(all(not(feature = "nats"), feature = "ros2"), default)]
+    Ros2,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
@@ -205,9 +219,13 @@ pub struct MessengerArgs {
 
     #[cfg(feature = "kafka")]
     #[command(flatten)]
-    kafka: self::kafka::MessengerNatsArgs,
+    kafka: self::kafka::MessengerKafkaArgs,
 
     #[cfg(feature = "nats")]
     #[command(flatten)]
     nats: self::nats::MessengerNatsArgs,
+
+    #[cfg(feature = "ros2")]
+    #[command(flatten)]
+    ros2: self::ros2::MessengerRos2Args,
 }
