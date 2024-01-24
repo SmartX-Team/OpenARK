@@ -20,7 +20,11 @@ version = { workspace = true }
 default = ["messengers", "storage"]
 
 # messengers
-messengers = ["kafka", "nats", "ros2"]
+messengers = [
+    "kafka",
+    "nats",
+    "ros2",  # exclude(alpine)
+]
 kafka = ["dep:rdkafka"]
 nats = ["dep:async-nats"]
 ros2 = ["dep:r2r"]
