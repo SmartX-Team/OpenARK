@@ -28,7 +28,7 @@ pub async fn init_messenger<Value>(args: &MessengerArgs) -> Result<Box<dyn Messe
         MessengerType::Kafka => Box::new(self::kafka::Messenger::try_new(&args.kafka)?),
         #[cfg(feature = "nats")]
         MessengerType::Nats => Box::new(self::nats::Messenger::try_new(&args.nats).await?),
-        #[cfg(feature = "nats")]
+        #[cfg(feature = "ros2")]
         MessengerType::Ros2 => Box::new(self::ros2::Messenger::try_new(&args.ros2)?),
     })
 }
