@@ -116,7 +116,9 @@ map-macro = { version = "0.2" }
 maplit = { version = "1.0" }
 ndarray = { version = "0.15" }
 octocrab = { version = "0.31", default-features = false, features = ["rustls"] }
-opencv = { version = "0.86", default-features = false }
+opencv = { version = "0.86", default-features = false, features = [
+    "clang-runtime",
+] }
 opentelemetry = { version = "0.21", features = ["logs", "metrics", "trace"] }
 opentelemetry-otlp = { version = "0.14", features = [
     "logs",
