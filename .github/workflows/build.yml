@@ -44,59 +44,6 @@ jobs:
         with:
           config_file: ./.github/linters/yamllint.yaml
 
-  build-rust:
-    needs:
-      - lint-yaml
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: >
-          sudo apt-get update
-          && sudo apt-get install -y
-          curl
-          software-properties-common
-          && sudo add-apt-repository -y universe
-          && curl -sSL "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key" -o "/usr/share/keyrings/ros-archive-keyring.gpg"
-          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" >"/etc/apt/sources.list.d/ros2.list"
-          && sudo apt-get update
-          && sudo apt-get install -y
-          build-essential
-          clang
-          cmake
-          libclang-dev
-          libopencv-dev
-          libprotobuf-dev
-          libprotoc-dev
-          libpython3-dev
-          libssl-dev
-          llvm-dev
-          mold
-          nasm
-          ros-dev-tools
-          "ros-${ROS2_DIST}-ros-base"
-          s3fs
-          && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y
-
-      - name: Disable clang linker
-        run: >
-          sed -i 's/^linker *\=/#\0/g' ./.cargo/config.toml
-          && sed -i 's/^rustflags *\=/#\0/g' ./.cargo/config.toml
-
-      - name: Include target-dependent packages
-        run: >
-          find ./ -type f -name Cargo.toml -exec sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' {} +
-          && find ./ -type f -name Cargo.toml -exec sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" {} +
-
-      - name: Build
-        run: /home/runner/.cargo/bin/cargo build --all --workspace --verbose
-
-      - name: Run tests
-        run: /home/runner/.cargo/bin/cargo test --all --workspace --verbose
-
   build-and-push-image:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
@@ -870,7 +817,6 @@ jobs:
   release:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
-      - build-rust
       - build-and-push-image
       - build-and-push-image-bootstrap-node
       - build-and-push-image-ipmitool
