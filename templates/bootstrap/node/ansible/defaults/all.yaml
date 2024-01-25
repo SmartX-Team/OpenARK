@@ -94,7 +94,7 @@ all:
         # bird enable BGP routing, required for ipip and no encapsulation modes
         calico_network_backend: bird # enable BGP routing
         # Enable BGP encapsulation mode
-        calico_ipip_mode: Never
+        calico_ipip_mode: Always
         calico_vxlan_mode: Never
         # Enable eBPF mode
         calico_bpf_enabled: false
