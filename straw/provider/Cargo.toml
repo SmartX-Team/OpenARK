@@ -17,16 +17,15 @@ version = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["ai", "oci"]
-ai = ["dash-pipe-function-ai-plugin"]
-oci = ["ark-core-k8s", "k8s-openapi"]
+default = ["oci", "python"]
+
+oci = ["straw-provider-oci"]
+python = ["straw-provider-python"]
 
 [dependencies]
-ark-core-k8s = { path = "../../ark/core/k8s", optional = true, features = [
-    "data",
-] }
-dash-pipe-function-ai-plugin = { path = "../../dash/pipe/functions/ai/plugin", optional = true, features = [
-    "straw",
+straw-provider-oci = { path = "./oci", optional = true, features = ["plugin"] }
+straw-provider-python = { path = "./python", optional = true, features = [
+    "plugin",
 ] }
 straw-api = { path = "../api", features = ["plugin"] }
 
@@ -38,5 +37,4 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
-k8s-openapi = { workspace = true, optional = true }
 tracing = { workspace = true }

@@ -1,3 +1,5 @@
+#![cfg(feature = "plugin")]
+
 use ark_core_k8s::data::Url;
 use k8s_openapi::api::core::v1::EnvVar;
 
@@ -9,6 +11,7 @@ impl PluginBuilder {
     }
 }
 
+#[cfg(feature = "plugin")]
 impl ::straw_api::plugin::PluginBuilder for PluginBuilder {
     fn try_build(&self, url: &Url) -> Option<::straw_api::plugin::DynPlugin> {
         if url.scheme() == "oci" {
@@ -19,10 +22,12 @@ impl ::straw_api::plugin::PluginBuilder for PluginBuilder {
     }
 }
 
+#[cfg(feature = "plugin")]
 pub struct Plugin {
     url: Url,
 }
 
+#[cfg(feature = "plugin")]
 impl ::straw_api::plugin::PluginDaemon for Plugin {
     fn container_image(&self) -> String {
         self.url.to_string()["oci://".len()..].into()
@@ -41,6 +46,7 @@ impl ::straw_api::plugin::PluginDaemon for Plugin {
     }
 }
 
+#[cfg(feature = "plugin")]
 fn parse_executable_command(env: &[EnvVar]) -> Option<String> {
     env.iter()
         .find(|env| env.name == "_COMMAND")

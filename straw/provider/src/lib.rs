@@ -1,6 +1,3 @@
-#[cfg(feature = "oci")]
-mod oci;
-
 use anyhow::{anyhow, Result};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
@@ -20,10 +17,10 @@ impl StrawSession {
     pub fn new(kube: Client, namespace: Option<String>) -> Self {
         Self {
             builders: vec![
-                #[cfg(feature = "ai")]
-                Box::new(::dash_pipe_function_ai_plugin::PluginBuilder::new()),
                 #[cfg(feature = "oci")]
-                Box::new(self::oci::PluginBuilder::new()),
+                Box::new(::straw_provider_oci::PluginBuilder::new()),
+                #[cfg(feature = "python")]
+                Box::new(::straw_provider_python::PluginBuilder::new()),
             ],
             kube,
             namespace,

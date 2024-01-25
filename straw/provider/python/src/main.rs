@@ -1,16 +1,19 @@
+mod lib;
+
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error, Result};
 use ark_core_k8s::data::Url;
 use async_trait::async_trait;
 use clap::Parser;
-use dash_pipe_function_ai_plugin::PluginBuilder;
 use dash_pipe_provider::{
     storage::StorageIO, DynValue, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
 };
 use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
+
+use crate::lib::PluginBuilder;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()
@@ -50,7 +53,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
         Ok(Self {
             tick: Python::with_gil(|py| {
-                let module = PyModule::from_code(py, code, "__dash_pipe__.py", "__dash_pipe__")?;
+                let module = PyModule::from_code(py, code, "__straw__.py", "__straw__")?;
                 let loader = module.getattr("load")?;
                 let tick = loader.call1((model.to_string(), kind))?;
                 Ok(tick.into())

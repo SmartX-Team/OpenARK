@@ -22,8 +22,6 @@ members = [
     "dash/pipe/connectors/liveness",
     "dash/pipe/connectors/storage",
     "dash/pipe/connectors/webcam",          # exclude(alpine)
-    "dash/pipe/functions/ai",               # exclude(alpine)
-    "dash/pipe/functions/ai/plugin",
     "dash/pipe/functions/identity",
     "dash/pipe/functions/performance-test",
     "dash/pipe/functions/python",           # exclude(alpine)
@@ -43,6 +41,8 @@ members = [
     "kiss/monitor",
     "straw/api",
     "straw/provider",
+    "straw/provider/oci",
+    "straw/provider/python",
     "vine/api",
     "vine/bastion",
     "vine/controller",
