@@ -7,9 +7,13 @@ ARG FUNCTION_HOME="/opt/dash/functions/builtins"
 ARG PACKAGE="openark"
 ARG PYTORCH_RELEASE="23.08"
 ARG PYTHON_VERSION="3"
+ARG ROS2_DIST="humble"
 
 # Be ready for serving
 FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
+
+# Package Manager Configuration
+ARG DEBIAN_FRONTEND='noninteractive'
 
 # Server Configuration
 EXPOSE 80/tcp
@@ -18,15 +22,26 @@ CMD [ "/bin/sh" ]
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
+    curl \
     s3fs \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ROS2 dependencies
+ARG ROS2_DIST
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository -y universe \
+    && curl -sSL "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key" -o "/usr/share/keyrings/ros-archive-keyring.gpg" \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" >"/etc/apt/sources.list.d/ros2.list" \
+    && apt-get update && apt-get install -y \
+    "ros-${ROS2_DIST}-ros-base" \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
 ADD ./requirements.txt /requirements.txt
-RUN apt-get update && apt-get install -y \
-    # Install core dependencies
-    curl \
+RUN true \
     # Include target-dependent packages
     && sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' /requirements.txt \
     && sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" /requirements.txt \
@@ -54,6 +69,7 @@ RUN apt-get update && apt-get install -y \
     llvm-dev \
     mold \
     nasm \
+    ros-dev-tools \
     s3fs \
     # Install rustup
     && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y \
@@ -66,7 +82,10 @@ WORKDIR /src
 
 # Build it!
 ARG FUNCTION_HOME
+ARG ROS2_DIST
 RUN mkdir -p /out/bin /out/lib \
+    # Setup ROS2 development environment
+    && source "/opt/ros/${ROS2_DIST}/setup.sh" \
     # Include target-dependent packages
     && find ./ -type f -name Cargo.toml -exec sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' {} + \
     && find ./ -type f -name Cargo.toml -exec sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" {} + \
