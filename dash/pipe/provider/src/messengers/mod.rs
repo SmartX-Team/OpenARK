@@ -213,6 +213,13 @@ pub enum MessengerType {
 }
 
 impl MessengerType {
+    /// Return if the published messages are lossless.
+    ///
+    /// NOTE: Intentionally dropping data when there are no subscribers is not regarded as loss.
+    pub const fn is_lossless(&self) -> bool {
+        matches!(self, Self::Kafka | Self::Nats)
+    }
+
     /// Return if the subscribed messages are sorted by timestamp.
     pub const fn is_sorted(&self) -> bool {
         matches!(self, Self::Ros2)
