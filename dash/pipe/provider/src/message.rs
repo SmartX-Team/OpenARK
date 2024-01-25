@@ -444,11 +444,15 @@ where
     }
 
     pub(crate) fn with_reply_inbox(mut self, inbox: String) -> Self {
-        self.reply = Some(PipeReply {
-            inbox,
-            target: None,
-        });
-        self
+        if !inbox.is_empty() {
+            self.reply = Some(PipeReply {
+                inbox,
+                target: None,
+            });
+            self
+        } else {
+            self.drop_reply()
+        }
     }
 
     pub(crate) fn with_reply_target(mut self, target: &Option<Name>) -> Self {

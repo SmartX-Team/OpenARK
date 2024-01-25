@@ -157,7 +157,13 @@ where
             .recv()
             .await
             .map_err(|error| anyhow!("failed to subscribe Kafka input: {error}"))
-            .and_then(|message| message.payload().unwrap_or_default().try_into().map(Some))
+            .and_then(|message| {
+                message
+                    .payload()
+                    .unwrap_or_default()
+                    .try_into()
+                    .map(|input: PipeMessage<Value, ()>| Some(input.drop_reply()))
+            })
     }
 }
 

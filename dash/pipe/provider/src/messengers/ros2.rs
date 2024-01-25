@@ -261,6 +261,7 @@ where
                     .data
                     .as_str()
                     .try_into()
+                    .map(|input: PipeMessage<Value, ()>| input.drop_reply())
                     .map_err(|error| anyhow!("failed to subscribe Ros2 input: {error}"))
             })
             .transpose()
