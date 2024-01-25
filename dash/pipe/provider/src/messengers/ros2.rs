@@ -278,7 +278,7 @@ pub struct MessengerRos2Args {
 
 impl MessengerRos2Args {
     const fn default_spin_interval() -> u64 {
-        1
+        1 // in milliseconds
     }
 }
 
