@@ -212,6 +212,13 @@ pub enum MessengerType {
     Ros2,
 }
 
+impl MessengerType {
+    /// Return if the subscribed messages are sorted by timestamp.
+    pub const fn is_sorted(&self) -> bool {
+        matches!(self, Self::Ros2)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct MessengerArgs {
     #[arg(long, env = "PIPE_DEFAULT_MESSENGER", value_name = "TYPE", default_value_t = Default::default())]
