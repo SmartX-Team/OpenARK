@@ -27,7 +27,6 @@ env:
   OS_FLATCAR_RELEASE_URL: https://flatcar-linux.org/releases-json/releases.json
   OS_ROCKYLINUX_NAME: rocky
   OS_ROCKYLINUX_VERSION: "9.1"
-  ROS2_DIST: humble
   UBUNTU_VERSION: "22.04"
 
   # GPU => NVIDIA => Driver
