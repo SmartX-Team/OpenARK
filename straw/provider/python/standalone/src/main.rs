@@ -1,5 +1,3 @@
-mod lib;
-
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error, Result};
@@ -12,8 +10,7 @@ use dash_pipe_provider::{
 use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
 use serde::{Deserialize, Serialize};
-
-use crate::lib::PluginBuilder;
+use straw_provider_python::PluginBuilder;
 
 fn main() {
     PipeArgs::<Function>::from_env().loop_forever()

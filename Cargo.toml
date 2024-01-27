@@ -43,6 +43,7 @@ members = [
     "straw/provider",
     "straw/provider/oci",
     "straw/provider/python",
+    "straw/provider/python/standalone", # exclude(alpine)
     "vine/api",
     "vine/bastion",
     "vine/controller",
