@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
@@ -74,7 +74,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
     ) -> Result<Self> {
         let metric = MetricData {
             data_size: data_size
-                .get_bytes()
+                .as_u128()
                 .try_into()
                 .map_err(|error| anyhow!("too large data size: {error}"))?,
             messenger_type: ctx.messenger_type(),
@@ -83,14 +83,14 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             num_sent_payload_bytes: 0,
             payload_size: payload_size
                 .map(|size| {
-                    size.get_bytes()
+                    size.as_u128()
                         .try_into()
                         .map_err(|error| anyhow!("too large data size: {error}"))
                 })
                 .transpose()?
                 .filter(|&size| size > 0),
             sum_latency: Default::default(),
-            total: total_messages.get_bytes() as u64,
+            total: total_messages.as_u64(),
             total_sent: 0,
             total_sent_bytes: 0,
             total_sent_payload_bytes: 0,
@@ -346,8 +346,8 @@ fn create_data(size: usize) -> Vec<u8> {
 }
 
 fn get_speed_as_bps(speed: u64) -> String {
-    let mut speed = Byte::from_bytes(8 * speed as u128)
-        .get_appropriate_unit(false)
+    let mut speed = Byte::from_u64(8 * speed)
+        .get_appropriate_unit(UnitType::Decimal)
         .to_string();
     if speed.ends_with('B') {
         speed.pop();

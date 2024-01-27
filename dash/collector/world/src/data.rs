@@ -335,7 +335,7 @@ impl NodeStatus {
 }
 
 fn parse_byte(byte: Byte) -> Result<i64> {
-    byte.get_bytes()
+    byte.as_u128()
         .try_into()
         .map_err(|error| anyhow!("failed to parse capacity byte: {error}"))
 }

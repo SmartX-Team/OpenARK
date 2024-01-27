@@ -1546,7 +1546,7 @@ fn split_resources(
                 .parse()
                 .map_err(|error| anyhow!("failed to parse storage volume size: {error}"))?;
             let storage_resource_per_volume =
-                storage_resource_as_bytes.get_bytes() / total_volumes as u128;
+                storage_resource_as_bytes.as_u128() / total_volumes as u128;
             Ok(Some(btreemap! {
                 "storage".into() => Quantity(storage_resource_per_volume.to_string()),
             }))

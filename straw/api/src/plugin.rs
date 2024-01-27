@@ -308,9 +308,8 @@ where
                                                 match_expressions: None,
                                                 match_labels: Some(labels),
                                             }),
-                                            namespace_selector: None,
-                                            namespaces: None,
                                             topology_key: "kubernetes.io/hostname".into(),
+                                            ..Default::default()
                                         },
                                         weight: 1,
                                     },

@@ -11,13 +11,16 @@ pub struct Capacity {
 
 impl Capacity {
     pub const fn available(&self) -> Byte {
-        let capacity = self.capacity.get_bytes();
-        let usage = self.usage.get_bytes();
+        let capacity = self.capacity.as_u128();
+        let usage = self.usage.as_u128();
 
         if usage <= capacity {
-            Byte::from_bytes(capacity - usage)
+            match Byte::from_u128(capacity - usage) {
+                Some(available) => available,
+                None => Byte::MAX,
+            }
         } else {
-            Byte::from_bytes(0)
+            Byte::MIN
         }
     }
 
@@ -30,8 +33,8 @@ impl Capacity {
     }
 
     pub fn ratio(&self) -> f64 {
-        let capacity = self.capacity.get_bytes();
-        let usage = self.usage.get_bytes();
+        let capacity = self.capacity.as_u128();
+        let usage = self.usage.as_u128();
 
         if capacity > 0 && usage <= capacity {
             usage as f64 / capacity as f64
@@ -44,8 +47,9 @@ impl Capacity {
 impl Sum for Capacity {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::default(), |a, b| Self {
-            capacity: Byte::from_bytes(a.capacity.get_bytes() + b.capacity.get_bytes()),
-            usage: Byte::from_bytes(a.usage.get_bytes() + b.usage.get_bytes()),
+            capacity: Byte::from_u128(a.capacity.as_u128() + b.capacity.as_u128())
+                .unwrap_or(Byte::MAX),
+            usage: Byte::from_u128(a.usage.as_u128() + b.usage.as_u128()).unwrap_or(Byte::MAX),
         })
     }
 }
