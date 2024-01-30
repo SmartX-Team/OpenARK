@@ -23,7 +23,7 @@ default = ["messengers", "storage"]
 messengers = [
     "kafka",
     "nats",
-    "ros2",  # exclude(alpine)
+    # "ros2",  # exclude(alpine)
 ]
 kafka = ["dep:rdkafka"]
 nats = ["dep:async-nats"]
