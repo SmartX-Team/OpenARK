@@ -217,12 +217,26 @@ impl MessengerType {
     ///
     /// NOTE: Intentionally dropping data when there are no subscribers is not regarded as loss.
     pub const fn is_lossless(&self) -> bool {
-        matches!(self, Self::Kafka | Self::Nats)
+        match self {
+            #[cfg(feature = "kafka")]
+            Self::Kafka => true,
+            #[cfg(feature = "nats")]
+            Self::Nats => true,
+            #[cfg(feature = "ros2")]
+            Self::Ros2 => false,
+        }
     }
 
     /// Return if the subscribed messages are sorted by timestamp.
     pub const fn is_sorted(&self) -> bool {
-        matches!(self, Self::Ros2)
+        match self {
+            #[cfg(feature = "kafka")]
+            Self::Kafka => false,
+            #[cfg(feature = "nats")]
+            Self::Nats => false,
+            #[cfg(feature = "ros2")]
+            Self::Ros2 => true,
+        }
     }
 }
 
