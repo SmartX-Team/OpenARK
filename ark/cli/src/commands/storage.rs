@@ -186,7 +186,7 @@ impl<'a> S3PasswdFile<'a> {
             .await
             .map_err(|error| anyhow!("failed to create passwd file: {error}"))?;
 
-        fs::set_permissions(&path, Permissions::from_mode(0o400))
+        fs::set_permissions(&path, Permissions::from_mode(0o600))
             .await
             .map_err(|error| anyhow!("failed to set permission for passwd file: {error}"))?;
 
