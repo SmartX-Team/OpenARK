@@ -1,6 +1,8 @@
 use std::{
     borrow::Cow,
     fmt,
+    fs::Permissions,
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 
@@ -52,13 +54,13 @@ impl MountArgs {
             secret_key: &self.s3.secret_key,
             source: &self.source,
         };
-        passwd.create().await?;
+        let passwd_path = passwd.create().await?;
 
-        self.exec().await
+        self.exec(&passwd_path).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn exec(self) -> Result<()> {
+    async fn exec(self, passwd_path: &Path) -> Result<()> {
         struct MountOption<'a> {
             key: Cow<'a, str>,
             value: Option<Cow<'a, str>>,
@@ -77,7 +79,7 @@ impl MountArgs {
         let options = [
             MountOption {
                 key: "passwd_file".into(),
-                value: Some("./ark/cli/.s3-password".into()),
+                value: Some(passwd_path.display().to_string().into()),
             },
             MountOption {
                 key: "use_path_request_style".into(),
@@ -156,7 +158,7 @@ struct S3PasswdFile<'a> {
 
 impl<'a> S3PasswdFile<'a> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn create(&self) -> Result<()> {
+    async fn create(&self) -> Result<PathBuf> {
         let Self {
             access_key,
             secret_key,
@@ -180,9 +182,15 @@ impl<'a> S3PasswdFile<'a> {
             path
         };
 
-        fs::write(path, format!("{access_key}:{secret_key}"))
+        fs::write(&path, format!("{access_key}:{secret_key}"))
             .await
-            .map_err(|error| anyhow!("failed to create passwd file: {error}"))
+            .map_err(|error| anyhow!("failed to create passwd file: {error}"))?;
+
+        fs::set_permissions(&path, Permissions::from_mode(0o400))
+            .await
+            .map_err(|error| anyhow!("failed to set permission for passwd file: {error}"))?;
+
+        Ok(path)
     }
 }
 
@@ -192,7 +200,7 @@ fn is_mounted(target: &Path) -> Result<bool> {
         .map(|infos| {
             infos
                 .into_iter()
-                .filter_map(|info| PathBuf::try_from(info.fs_file).ok())
+                .map(|info| PathBuf::from(info.fs_file))
                 .any(|mountpoint| mountpoint == target)
         })
         .map_err(|error| anyhow!("failed to load mount information: {error}"))
