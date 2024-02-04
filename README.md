@@ -1,5 +1,7 @@
 # OpenARK
 
+![OpenARK Logo](assets/logo.webp)
+
 [OpenARK](https://github.com/SmartX-Team/openark) is a kind of Open-Source IaC (Infrastructure as Code) that supports individuals or organizations to freely integrate and operate their own or well-known (i.e. Amazon AWS) distributed resources.
 
 `OpenARK` utilizes [Kubernetes](https://kubernetes.io/) and Linux kernel. In some cases, it utilizes kernel bypassing technology that allows direct access to high-speed PCI devices such as `GPU` , `NPU` and `DPU` for performance. The results of these works can be applied from embedded including mobile to HPC areas through the `IPI Ecosystem` .
