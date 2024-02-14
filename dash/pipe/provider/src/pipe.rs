@@ -252,7 +252,7 @@ where
                     });
                     StorageSet::try_new(
                         &self.storage,
-                        &mut function_context,
+                        Some(&mut function_context),
                         model,
                         default_metadata,
                     )
@@ -265,7 +265,7 @@ where
 
                     StorageSet::try_new(
                         &self.storage,
-                        &mut function_context,
+                        Some(&mut function_context),
                         model,
                         default_metadata,
                     )
@@ -475,7 +475,7 @@ where
             messages.drop_payloads()
         } else {
             messages
-                .dump_payloads(&writer.storage, input_payloads)
+                .dump_payloads(&writer.storage, Some(input_payloads))
                 .await?
         }
         .into_vec();
@@ -737,7 +737,7 @@ impl WriteContext {
                             messages.drop_payloads()
                         } else {
                             messages
-                                .dump_payloads(&self.storage, input_payloads)
+                                .dump_payloads(&self.storage, Some(input_payloads))
                                 .await?
                         }
                         .into_vec();

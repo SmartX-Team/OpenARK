@@ -48,15 +48,6 @@ impl Storage {
     }
 }
 
-impl Storage {
-    fn bucket_name(&self) -> Result<&str> {
-        match self.model.as_ref().map(|model| model.storage()) {
-            Some(model) => Ok(model),
-            None => bail!("s3 storage is not inited"),
-        }
-    }
-}
-
 #[async_trait]
 impl super::Storage for Storage {
     fn model(&self) -> Option<&Name> {
@@ -100,12 +91,12 @@ impl super::Storage for Storage {
         skip_all,
         fields(
             data.len = %bytes.len(),
-            data.model = self.model().map(|model| model.as_str()),
+            data.model = %model.as_str(),
         ),
         err(Display),
     )]
-    async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
-        let bucket_name = self.bucket_name()?;
+    async fn put_with_model(&self, model: &Name, path: &str, bytes: Bytes) -> Result<String> {
+        let bucket_name = model.storage();
         let path = format!(
             "{kind}/{prefix}/{timestamp}/{path}",
             kind = super::name::KIND_STORAGE,
@@ -126,12 +117,12 @@ impl super::Storage for Storage {
         skip_all,
         fields(
             data.len = %1usize,
-            data.model = self.model().map(|model| model.as_str()),
+            data.model = %model.as_str(),
         ),
         err(Display),
     )]
-    async fn delete(&self, path: &str) -> Result<()> {
-        let bucket_name = self.bucket_name()?;
+    async fn delete_with_model(&self, model: &Name, path: &str) -> Result<()> {
+        let bucket_name = model.storage();
         let args = RemoveObjectArgs::new(bucket_name, path)?;
 
         Client::new(self.base_url.clone(), Some(&self.provider))

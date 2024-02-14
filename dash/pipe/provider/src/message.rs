@@ -100,7 +100,7 @@ impl<Value> PipeMessages<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
-        input_payloads: &HashMap<String, PipePayload<()>>,
+        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
     ) -> Result<PipeMessages<Value, ()>> {
         match self {
             Self::None => Ok(PipeMessages::None),
@@ -310,6 +310,43 @@ impl PyPipeMessage {
 
     fn __repr__(&self) -> String {
         format!("{self:?}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct MaybePipeMessage<Value = DynValue, Payload = Bytes>
+where
+    Payload: JsonSchema,
+{
+    #[serde(default, rename = "__payloads", skip_serializing_if = "Vec::is_empty")]
+    pub payloads: Vec<PipePayload<Payload>>,
+    #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
+    pub(crate) reply: Option<PipeReply>,
+    #[serde(
+        default,
+        rename = "__timestamp",
+        skip_serializing_if = "Option::is_none"
+    )]
+    timestamp: Option<DateTime<Utc>>,
+    #[serde(flatten)]
+    pub value: Value,
+}
+
+impl From<MaybePipeMessage> for PipeMessage {
+    fn from(message: MaybePipeMessage) -> Self {
+        let MaybePipeMessage {
+            payloads,
+            reply,
+            timestamp,
+            value,
+        } = message;
+
+        Self {
+            payloads,
+            reply,
+            timestamp: timestamp.unwrap_or_else(Utc::now),
+            value,
+        }
     }
 }
 
@@ -542,10 +579,10 @@ where
 
 impl<Value> PipeMessage<Value> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn dump_payloads(
+    pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
-        input_payloads: &HashMap<String, PipePayload<()>>,
+        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
     ) -> Result<PipeMessage<Value, ()>> {
         Ok(PipeMessage {
             payloads: self
@@ -658,7 +695,7 @@ impl PipePayload {
     async fn dump(
         self,
         storage: &StorageSet,
-        input_payloads: &HashMap<String, PipePayload<()>>,
+        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
     ) -> Result<PipePayload<()>> {
         let Self {
             key,
@@ -667,7 +704,7 @@ impl PipePayload {
             value,
         } = self;
 
-        let last = input_payloads.get(&key);
+        let last = input_payloads.and_then(|map| map.get(&key));
         let last_model = last
             .and_then(|payload| payload.model.clone())
             .or(last_model);

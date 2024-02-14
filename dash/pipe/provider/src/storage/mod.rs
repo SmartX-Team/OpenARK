@@ -5,7 +5,7 @@ pub mod s3;
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ark_core_k8s::data::Name;
 use async_stream::try_stream;
 use async_trait::async_trait;
@@ -45,7 +45,7 @@ impl StorageSet {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new<Value>(
         args: &StorageArgs,
-        ctx: &mut FunctionContext,
+        mut ctx: Option<&mut FunctionContext>,
         model: Option<&Name>,
         default_metadata: MetadataStorageArgs<Value>,
     ) -> Result<Self>
@@ -55,8 +55,10 @@ impl StorageSet {
         debug!("Initializing Storage Set ({model:?})");
 
         let persistence_metadata = args.persistence_metadata.unwrap_or_default();
-        if !persistence_metadata {
-            ctx.disable_store_metadata();
+        if let Some(ctx) = ctx.as_mut() {
+            if !persistence_metadata {
+                ctx.disable_store_metadata();
+            }
         }
 
         let default = match args.persistence {
@@ -79,7 +81,11 @@ impl StorageSet {
             #[cfg(feature = "lakehouse")]
             lakehouse: if persistence_metadata {
                 // TODO: to be implemented!
-                let flush = if ctx.is_disabled_store_metadata() {
+                let flush = if ctx
+                    .as_mut()
+                    .map(|ctx| ctx.is_disabled_store_metadata())
+                    .unwrap_or_default()
+                {
                     None
                 } else {
                     args.flush()
@@ -129,6 +135,7 @@ impl StorageSet {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MetadataStorageArgs<T> {
     default_storage: MetadataStorageType,
     _type: PhantomData<T>,
@@ -261,9 +268,41 @@ pub trait Storage {
 
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes>;
 
-    async fn put(&self, path: &str, bytes: Bytes) -> Result<String>;
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %bytes.len(),
+            data.model = self.model().map(|model| model.as_str()),
+        ),
+        err(Display),
+    )]
+    async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
+        match self.model() {
+            Some(model) => self.put_with_model(model, path, bytes).await,
+            None => bail!("generic storage cannot store data"),
+        }
+    }
 
-    async fn delete(&self, path: &str) -> Result<()>;
+    async fn put_with_model(&self, model: &Name, path: &str, bytes: Bytes) -> Result<String>;
+
+    #[instrument(
+        level = Level::INFO,
+        skip_all,
+        fields(
+            data.len = %1usize,
+            data.model = self.model().map(|model| model.as_str()),
+        ),
+        err(Display),
+    )]
+    async fn delete(&self, path: &str) -> Result<()> {
+        match self.model() {
+            Some(model) => self.delete_with_model(model, path).await,
+            None => bail!("generic storage cannot delete data"),
+        }
+    }
+
+    async fn delete_with_model(&self, model: &Name, path: &str) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]

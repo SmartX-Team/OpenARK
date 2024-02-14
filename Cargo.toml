@@ -6,6 +6,7 @@ members = [
     "ark/core",
     "ark/core/k8s",
     "dash/api",
+    "dash/broker/web",
     "dash/client",
     "dash/collector",
     "dash/collector/api",
