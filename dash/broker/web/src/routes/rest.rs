@@ -7,25 +7,25 @@ use ark_core::result::Result;
 use dash_pipe_provider::{MaybePipeMessage, PipeClient};
 use tracing::{instrument, Level};
 
-#[instrument(level = Level::INFO, skip(ctx))]
-#[get("/call/{topic:.*}")]
-pub async fn get(ctx: Data<PipeClient>, topic: Path<String>) -> impl Responder {
+#[instrument(level = Level::INFO, skip(client))]
+#[get("/r/{topic:.*}")]
+pub async fn get(client: Data<PipeClient>, topic: Path<String>) -> impl Responder {
     match topic.replace('/', ".").parse() {
-        Ok(topic) => HttpResponse::from(Result::from(ctx.read(topic).await)),
+        Ok(topic) => HttpResponse::from(Result::from(client.read(topic).await)),
         Err(error) => HttpResponse::from(Result::<()>::Err(error.to_string())),
     }
 }
 
-#[instrument(level = Level::INFO, skip(ctx, message))]
-#[post("/call/{topic:.*}")]
+#[instrument(level = Level::INFO, skip(client, message))]
+#[post("/r/{topic:.*}")]
 pub async fn post(
-    ctx: Data<PipeClient>,
+    client: Data<PipeClient>,
     topic: Path<String>,
     message: Json<MaybePipeMessage>,
 ) -> impl Responder {
     match topic.replace('/', ".").parse() {
         Ok(topic) => HttpResponse::from(Result::from(
-            ctx.call(topic, message.into_inner().into()).await,
+            client.call(topic, message.into_inner().into()).await,
         )),
         Err(error) => HttpResponse::from(Result::<()>::Err(error.to_string())),
     }

@@ -42,8 +42,8 @@ async fn main() {
             let app = app
                 .service(index)
                 .service(health)
-                .service(crate::routes::call::get)
-                .service(crate::routes::call::post);
+                .service(crate::routes::rest::get)
+                .service(crate::routes::rest::post);
             app.wrap(cors)
                 .wrap(RequestTracing::default())
                 .wrap(RequestMetrics::default())

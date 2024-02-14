@@ -171,7 +171,7 @@ impl PublisherExt for Arc<dyn Publisher> {
 }
 
 #[async_trait]
-pub trait Subscriber<Value>
+pub trait Subscriber<Value = ::serde_json::Value>
 where
     Self: Send,
     Value: Send + DeserializeOwned,
