@@ -202,7 +202,7 @@ impl Name {
     const RE_FIELD: &'static str = r"[a-z]([a-z0-9_-]*[a-z0-9])?";
 
     pub fn storage(&self) -> &str {
-        self.0.split('.').next().unwrap()
+        self.0.as_str()
     }
 }
 
