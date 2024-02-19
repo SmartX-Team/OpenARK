@@ -7,51 +7,48 @@ use dash_pipe_provider::{
         arrow::datatypes::{DataType, Schema},
         datafusion::{
             error::DataFusionError,
-            logical_expr::{ScalarUDF, Signature, TypeSignature, Volatility},
+            logical_expr::{ScalarUDFImpl, Signature, TypeSignature, Volatility},
             physical_plan::ColumnarValue,
         },
     },
     messengers::Messenger,
     DeltaFunction, GenericStatelessRemoteFunction, Name,
 };
+use derivative::Derivative;
 use futures::executor::block_on;
 use inflector::Inflector;
 use tokio::{spawn, sync::oneshot};
 use tracing::{instrument, Level};
 
-#[derive(Debug)]
-pub(crate) struct DashFunctionTemplate {
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub(crate) struct DashFunction {
+    #[derivative(Debug = "ignore")]
+    function: DeltaFunction,
     name: Name,
-    model_in: Name,
+    name_udf: String,
+    output: DataType,
+    signature: Signature,
     spec: RemoteFunctionSpec,
 }
 
-impl DashFunctionTemplate {
-    pub(crate) fn new(name: Name, model_in: Name, spec: RemoteFunctionSpec) -> Result<Self> {
-        Ok(Self {
-            name,
-            model_in,
-            spec,
-        })
-    }
+impl DashFunction {
+    #[instrument(level = Level::INFO, skip(messenger, spec), err(Display))]
+    pub(crate) async fn try_new(
+        messenger: &dyn Messenger,
+        name: Name,
+        model_in: Name,
+        spec: RemoteFunctionSpec,
+    ) -> Result<Self> {
+        let RemoteFunctionSpec {
+            input: input_schema,
+            output: output_schema,
+            exec: _,
+            type_: _,
+            volatility,
+        } = &spec;
 
-    #[instrument(level = Level::INFO, skip(self, messenger), fields(function = %self), err(Display))]
-    pub(crate) async fn try_into_udf(self, messenger: &dyn Messenger) -> Result<ScalarUDF> {
-        let info = self.to_string();
-
-        let Self {
-            name,
-            model_in,
-            spec:
-                FunctionSpec {
-                    input: input_schema,
-                    output: output_schema,
-                    exec: (),
-                    type_: _,
-                    volatility,
-                },
-        } = self;
-
+        let name_udf = name.to_snake_case();
         let input = DataType::Struct(input_schema.fields().clone());
         let inputs = input_schema
             .fields()
@@ -62,7 +59,7 @@ impl DashFunctionTemplate {
 
         let function = GenericStatelessRemoteFunction::try_new(messenger, model_in)
             .await?
-            .into_delta(input_schema, output_schema);
+            .into_delta(input_schema.clone(), output_schema.clone());
 
         #[instrument(level = Level::INFO, skip(function, inputs), err(Display))]
         fn wrap_function(
@@ -84,8 +81,11 @@ impl DashFunctionTemplate {
                 .and_then(|result| result.map_err(|error| DataFusionError::External(error.into())))
         }
 
-        Ok(ScalarUDF {
-            name: name.to_snake_case(),
+        Ok(Self {
+            function,
+            name,
+            name_udf,
+            output,
             signature: Signature {
                 type_signature: TypeSignature::OneOf(vec![
                     TypeSignature::Exact(vec![input]),
@@ -97,20 +97,55 @@ impl DashFunctionTemplate {
                     FunctionVolatility::Volatile => Volatility::Volatile,
                 },
             },
-            return_type: {
-                let return_type = Arc::new(output);
-                Arc::new(move |_| Ok(Arc::clone(&return_type)))
-            },
-            fun: Arc::new(move |inputs| wrap_function(&info, &function, inputs)),
+            spec,
         })
     }
 }
 
-impl fmt::Display for DashFunctionTemplate {
+impl ScalarUDFImpl for DashFunction {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        &self.name_udf
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn return_type(
+        &self,
+        _arg_types: &[DataType],
+    ) -> ::dash_pipe_provider::deltalake::datafusion::error::Result<DataType> {
+        Ok(self.output.clone())
+    }
+
+    #[instrument(level = Level::INFO, skip(self, args), err(Display))]
+    fn invoke(
+        &self,
+        args: &[ColumnarValue],
+    ) -> ::dash_pipe_provider::deltalake::datafusion::error::Result<ColumnarValue> {
+        let (tx, rx) = oneshot::channel();
+
+        let function = self.function.clone();
+        let inputs = args.to_vec();
+        spawn(async move {
+            let result = function.call(&inputs).await;
+            let _ = tx.send(result);
+        });
+
+        block_on(rx)
+            .map_err(|error| DataFusionError::External(error.into()))
+            .and_then(|result| result.map_err(|error| DataFusionError::External(error.into())))
+    }
+}
+
+impl fmt::Display for DashFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             name,
-            model_in: _,
             spec:
                 FunctionSpec {
                     input,
@@ -119,6 +154,7 @@ impl fmt::Display for DashFunctionTemplate {
                     type_: _,
                     volatility: _,
                 },
+            ..
         } = self;
 
         write!(f, "{name}(")?;

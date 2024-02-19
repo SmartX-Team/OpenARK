@@ -22,13 +22,11 @@ pub mod login {
         tera: Data<Tera>,
         box_name: Path<Uuid>,
     ) -> impl Responder {
-        match {
-            match ::vine_rbac::auth::get_user_name(&request) {
-                Ok(user_name) => {
-                    ::vine_rbac::login::execute(&client, &box_name.to_string(), &user_name).await
-                }
-                Err(response) => Ok(response.into()),
+        match match ::vine_rbac::auth::get_user_name(&request) {
+            Ok(user_name) => {
+                ::vine_rbac::login::execute(&client, &box_name.to_string(), &user_name).await
             }
+            Err(response) => Ok(response.into()),
         } {
             Ok(UserSessionResponse::Accept { .. }) => Redirect::to("../../")
                 .temporary()

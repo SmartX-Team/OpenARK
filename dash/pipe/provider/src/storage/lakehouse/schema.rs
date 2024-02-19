@@ -11,7 +11,8 @@ use deltalake::{
         datatypes::{DataType, Field, Fields, TimeUnit},
     },
     kernel::{
-        ArrayType, DataType as DeltaDataType, MapType, PrimitiveType, StructField, StructType,
+        ArrayType, DataType as DeltaDataType, MapType, PrimitiveType,
+        PrimitiveType as DeltaPrimitiveType, StructField, StructType,
     },
 };
 use map_macro::hash_map;
@@ -219,20 +220,36 @@ impl FieldColumns for RootSchema {
                     Ok(match instance_type {
                         InstanceType::Null => None,
                         InstanceType::Boolean => Some(
-                            StructField::new(name, DeltaDataType::boolean(), nullable)
-                                .with_metadata(metadata("Boolean".into())),
+                            StructField::new(
+                                name,
+                                DeltaDataType::Primitive(DeltaPrimitiveType::Boolean),
+                                nullable,
+                            )
+                            .with_metadata(metadata("Boolean".into())),
                         ),
                         InstanceType::Integer => Some(
-                            StructField::new(name, DeltaDataType::long(), nullable)
-                                .with_metadata(metadata("Integer".into())),
+                            StructField::new(
+                                name,
+                                DeltaDataType::Primitive(DeltaPrimitiveType::Long),
+                                nullable,
+                            )
+                            .with_metadata(metadata("Integer".into())),
                         ),
                         InstanceType::Number => Some(
-                            StructField::new(name, DeltaDataType::double(), nullable)
-                                .with_metadata(metadata("Number".into())),
+                            StructField::new(
+                                name,
+                                DeltaDataType::Primitive(DeltaPrimitiveType::Double),
+                                nullable,
+                            )
+                            .with_metadata(metadata("Number".into())),
                         ),
                         InstanceType::String => Some(
-                            StructField::new(name, DeltaDataType::string(), nullable)
-                                .with_metadata(metadata("String".into())),
+                            StructField::new(
+                                name,
+                                DeltaDataType::Primitive(DeltaPrimitiveType::String),
+                                nullable,
+                            )
+                            .with_metadata(metadata("String".into())),
                         ),
                         InstanceType::Array => value
                             .array
@@ -401,18 +418,22 @@ impl FieldColumns for RootSchema {
                 ) -> Result<Option<ArrayType>> {
                     Ok(match instance_type {
                         InstanceType::Null => None,
-                        InstanceType::Boolean => {
-                            Some(ArrayType::new(DeltaDataType::boolean(), nullable))
-                        }
-                        InstanceType::Integer => {
-                            Some(ArrayType::new(DeltaDataType::long(), nullable))
-                        }
-                        InstanceType::Number => {
-                            Some(ArrayType::new(DeltaDataType::double(), nullable))
-                        }
-                        InstanceType::String => {
-                            Some(ArrayType::new(DeltaDataType::string(), nullable))
-                        }
+                        InstanceType::Boolean => Some(ArrayType::new(
+                            DeltaDataType::Primitive(DeltaPrimitiveType::Boolean),
+                            nullable,
+                        )),
+                        InstanceType::Integer => Some(ArrayType::new(
+                            DeltaDataType::Primitive(DeltaPrimitiveType::Long),
+                            nullable,
+                        )),
+                        InstanceType::Number => Some(ArrayType::new(
+                            DeltaDataType::Primitive(DeltaPrimitiveType::Double),
+                            nullable,
+                        )),
+                        InstanceType::String => Some(ArrayType::new(
+                            DeltaDataType::Primitive(DeltaPrimitiveType::String),
+                            nullable,
+                        )),
                         InstanceType::Array => value
                             .array
                             .to_array_data_type(api_version, definitions)?
@@ -863,11 +884,21 @@ impl FieldColumns for [ModelFieldNativeSpec] {
         impl From<FieldBuilderPrimitiveType> for DeltaDataType {
             fn from(value: FieldBuilderPrimitiveType) -> Self {
                 match value {
-                    FieldBuilderPrimitiveType::Boolean => DeltaDataType::boolean(),
-                    FieldBuilderPrimitiveType::Integer => DeltaDataType::long(),
-                    FieldBuilderPrimitiveType::Number => DeltaDataType::double(),
-                    FieldBuilderPrimitiveType::String => DeltaDataType::string(),
-                    FieldBuilderPrimitiveType::DateTime => DeltaDataType::timestamp(),
+                    FieldBuilderPrimitiveType::Boolean => {
+                        DeltaDataType::Primitive(DeltaPrimitiveType::Boolean)
+                    }
+                    FieldBuilderPrimitiveType::Integer => {
+                        DeltaDataType::Primitive(DeltaPrimitiveType::Long)
+                    }
+                    FieldBuilderPrimitiveType::Number => {
+                        DeltaDataType::Primitive(DeltaPrimitiveType::Double)
+                    }
+                    FieldBuilderPrimitiveType::String => {
+                        DeltaDataType::Primitive(DeltaPrimitiveType::String)
+                    }
+                    FieldBuilderPrimitiveType::DateTime => {
+                        DeltaDataType::Primitive(DeltaPrimitiveType::Timestamp)
+                    }
                 }
             }
         }
@@ -967,7 +998,7 @@ impl FieldColumns for [ModelFieldNativeSpec] {
             },
         ));
 
-        let root = match self.get(0) {
+        let root = match self.first() {
             Some(root) => root,
             None => return Ok(Default::default()),
         };
@@ -1042,29 +1073,43 @@ impl FieldSchema for DataType {
         Ok(match self {
             // BEGIN primitive types
             DataType::Null => None,
-            DataType::Boolean => Some(DeltaDataType::boolean()),
-            DataType::Int8 | DataType::UInt8 => Some(DeltaDataType::byte()),
-            DataType::Int16 | DataType::UInt16 => Some(DeltaDataType::short()),
-            DataType::Int32 | DataType::UInt32 => Some(DeltaDataType::integer()),
-            DataType::Int64 | DataType::UInt64 => Some(DeltaDataType::long()),
+            DataType::Boolean => Some(DeltaDataType::Primitive(DeltaPrimitiveType::Boolean)),
+            DataType::Int8 | DataType::UInt8 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Byte))
+            }
+            DataType::Int16 | DataType::UInt16 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Short))
+            }
+            DataType::Int32 | DataType::UInt32 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Integer))
+            }
+            DataType::Int64 | DataType::UInt64 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Long))
+            }
             // DataType::Float16 => todo!(),
-            DataType::Float32 => Some(DeltaDataType::float()),
-            DataType::Float64 => Some(DeltaDataType::double()),
+            DataType::Float32 => Some(DeltaDataType::Primitive(DeltaPrimitiveType::Float)),
+            DataType::Float64 => Some(DeltaDataType::Primitive(DeltaPrimitiveType::Double)),
             DataType::Decimal128(precision, scale) | DataType::Decimal256(precision, scale) => {
-                Some(DeltaDataType::decimal(*precision as usize, *scale as usize))
+                Some(DeltaDataType::decimal(*precision, *scale))
             }
             // BEGIN binary formats
             DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => {
-                Some(DeltaDataType::binary())
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Binary))
             }
             // BEGIN string formats
-            DataType::Utf8 | DataType::LargeUtf8 => Some(DeltaDataType::string()),
-            DataType::Date32 | DataType::Date64 => Some(DeltaDataType::date()),
+            DataType::Utf8 | DataType::LargeUtf8 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::String))
+            }
+            DataType::Date32 | DataType::Date64 => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Date))
+            }
             // DataType::Duration(_) => todo!(),
             // DataType::Interval(_) => todo!(),
             // DataType::Time32(_) => todo!(),
             // DataType::Time64(_) => todo!(),
-            DataType::Timestamp(_, _) => Some(DeltaDataType::timestamp()),
+            DataType::Timestamp(_, _) => {
+                Some(DeltaDataType::Primitive(DeltaPrimitiveType::Timestamp))
+            }
             // BEGIN aggregation types
             DataType::Union(_, _) => bail!("union data type is not supported"),
             DataType::FixedSizeList(field, _)

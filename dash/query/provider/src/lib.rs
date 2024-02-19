@@ -21,7 +21,7 @@ use dash_pipe_provider::{
         datafusion::execution::context::SessionContext,
         DeltaTable,
     },
-    messengers::{init_messenger, MessengerArgs},
+    messengers::{init_messenger, Messenger, MessengerArgs},
     storage::{
         lakehouse::{decoder::TryIntoTableDecoder, StorageSessionContext, StorageTableState},
         Stream,
@@ -29,7 +29,7 @@ use dash_pipe_provider::{
 };
 use dash_provider::storage::ObjectStorageRef;
 use deltalake::datafusion::prelude::DataFrame;
-use futures::{stream::FuturesUnordered, Future, TryStreamExt};
+use futures::{stream::FuturesUnordered, Future, TryFutureExt, TryStreamExt};
 use inflector::Inflector;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, Client, ResourceExt};
@@ -90,9 +90,8 @@ impl QueryClient {
         }
 
         // load functions after loading models
-        for function in load_functions(&kube, &tables, namespace).await? {
-            info!("Loading function: {function}");
-            ctx.register_udf(function.try_into_udf(messenger.as_ref()).await?);
+        for function in load_functions(&kube, messenger.as_ref(), &tables, namespace).await? {
+            ctx.register_udf(function.into());
         }
 
         Ok(Self { ctx, tables })
@@ -210,20 +209,20 @@ async fn load_models<'a>(
         }))
 }
 
-#[instrument(level = Level::INFO, skip(kube, tables), err(Display))]
+#[instrument(level = Level::INFO, skip(kube, messenger, tables), err(Display))]
 async fn load_functions(
     kube: &Client,
+    messenger: &dyn Messenger,
     tables: &BTreeMap<String, Arc<DeltaTable>>,
     namespace: &str,
-) -> Result<Vec<self::function::DashFunctionTemplate>> {
+) -> Result<Vec<self::function::DashFunction>> {
     async fn get_model_schema(
         tables: &BTreeMap<String, Arc<DeltaTable>>,
         name: &str,
     ) -> Result<Arc<Schema>> {
         match tables.get(&name.to_snake_case()) {
-            Some(table) => table
-                .get_state()
-                .physical_arrow_schema(table.object_store())
+            Some(table) => async { table.snapshot() }
+                .and_then(|snapshot| snapshot.physical_arrow_schema(table.object_store()))
                 .await
                 .map_err(|error| anyhow!("failed to load schema ({name}): {error}")),
             None => bail!("no such table: {name}"),
@@ -238,6 +237,7 @@ async fn load_functions(
         .into_iter()
         .filter_map(|function| {
             let name: Name = function.name_any().parse().ok()?;
+            info!("Loading function: {name}");
 
             let status = function.status?;
             if !matches!(status.state, FunctionState::Ready) {
@@ -260,7 +260,7 @@ async fn load_functions(
                     type_,
                     volatility,
                 };
-                self::function::DashFunctionTemplate::new(name, model_in, spec)
+                self::function::DashFunction::try_new(messenger, name, model_in, spec).await
             })
         })
         .collect::<FuturesUnordered<_>>()

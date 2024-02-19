@@ -6,11 +6,9 @@ use vine_api::user_auth::UserAuthResponse;
 #[instrument(level = Level::INFO, skip(request, client))]
 #[get("/auth")]
 pub async fn get(request: HttpRequest, client: Data<Client>) -> impl Responder {
-    match {
-        match ::vine_rbac::auth::get_user_name(&request) {
-            Ok(user_name) => ::vine_rbac::auth::execute(&client, &user_name).await,
-            Err(response) => Ok(response.into()),
-        }
+    match match ::vine_rbac::auth::get_user_name(&request) {
+        Ok(user_name) => ::vine_rbac::auth::execute(&client, &user_name).await,
+        Err(response) => Ok(response.into()),
     } {
         Ok(response) if matches!(response, UserAuthResponse::Accept { .. }) => {
             HttpResponse::Ok().json(response)

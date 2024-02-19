@@ -22,7 +22,7 @@ use deltalake::{
     operations::create::CreateBuilder,
     protocol::SaveMode,
     writer::{DeltaWriter, JsonWriter},
-    DeltaTable, DeltaTableBuilder, DeltaTableConfig, DeltaTableError,
+    DeltaTable, DeltaTableBuilder, DeltaTableError,
 };
 use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
@@ -246,7 +246,7 @@ impl StorageContext {
     #[must_use]
     pub async fn is_ready(&self) -> bool {
         let table = self.table.read().await;
-        table.get_state().schema().is_some()
+        table.schema().is_some()
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
@@ -270,18 +270,11 @@ impl StorageContext {
     #[must_use]
     async fn try_get_session(&self) -> Result<Option<SessionContext>> {
         let old_table = self.table.read().await;
-        if old_table.get_state().schema().is_none() {
+        if old_table.schema().is_none() {
             return Ok(None);
         }
 
-        let mut table = DeltaTable::new(
-            old_table.log_store(),
-            DeltaTableConfig {
-                require_tombstones: old_table.config.require_tombstones,
-                require_files: old_table.config.require_files,
-                log_buffer_size: old_table.config.log_buffer_size,
-            },
-        );
+        let mut table = old_table.clone();
         table.state = old_table.state.clone();
         drop(old_table);
 
@@ -400,7 +393,7 @@ impl StorageTableWriter {
                     .flatten()
                     .collect::<Vec<_>>(),
             );
-            let schema = infer_json_schema_from_seekable(reader, None)
+            let (schema, _) = infer_json_schema_from_seekable(reader, None)
                 .map_err(|error| anyhow!("failed to infer object metadata schema: {error}"))?;
             let columns = schema.to_data_columns().map_err(|error| {
                 anyhow!("failed to convert inferred object metadata schema into parquet: {error}")

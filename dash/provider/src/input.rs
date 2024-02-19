@@ -224,7 +224,7 @@ impl InputTemplate {
                     *field = Value::Bool(value.parse()?);
                     Ok(())
                 }
-                value => assert_optional(&name, &value, &base_field.parsed, optional),
+                value => assert_optional(&name, value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::Integer {
                 default: _,
@@ -363,7 +363,7 @@ impl InputTemplate {
                     );
                     Ok(())
                 }
-                value => assert_optional(&name, &value, &base_field.parsed, optional),
+                value => assert_optional(&name, value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::Object { children: _, kind } => match value {
                 Value::String(ref_name) => {
@@ -390,7 +390,7 @@ impl InputTemplate {
                         Ok(())
                     }
                 },
-                value => assert_optional(&name, &value, &base_field.parsed, optional),
+                value => assert_optional(&name, value, &base_field.parsed, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
                 Value::Array(children) => {
@@ -401,7 +401,7 @@ impl InputTemplate {
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, &base_field.parsed, optional),
+                value => assert_optional(&name, value, &base_field.parsed, optional),
             },
         }
     }
@@ -805,7 +805,7 @@ impl<'a> ItemTemplate<'a> {
                     );
                     Ok(())
                 }
-                value => assert_optional(&name, &value, base_field, optional),
+                value => assert_optional(&name, value, base_field, optional),
             },
             ModelFieldKindNativeSpec::Object { children: _, kind } => match value {
                 Value::Object(children) => match kind {
@@ -822,7 +822,7 @@ impl<'a> ItemTemplate<'a> {
                         Ok(())
                     }
                 },
-                value => assert_optional(&name, &value, base_field, optional),
+                value => assert_optional(&name, value, base_field, optional),
             },
             ModelFieldKindNativeSpec::ObjectArray { .. } => match value {
                 Value::Array(children) => {
@@ -832,7 +832,7 @@ impl<'a> ItemTemplate<'a> {
                     }
                     Ok(())
                 }
-                value => assert_optional(&name, &value, base_field, optional),
+                value => assert_optional(&name, value, base_field, optional),
             },
         }
     }
