@@ -67,6 +67,7 @@ pyo3 = { workspace = true, optional = true }
 r2r = { workspace = true, optional = true }
 rdkafka = { workspace = true, optional = true }
 rmp-serde = { workspace = true }
+sas = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
 serde_cbor = { workspace = true }

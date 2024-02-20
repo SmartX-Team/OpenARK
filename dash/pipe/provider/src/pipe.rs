@@ -73,6 +73,11 @@ where
     #[serde(default)]
     default_model_in: Option<DefaultModelIn>,
 
+    /// Disable the SAS global optimizer.
+    #[arg(long, env = "PIPE_DISABLE_SAS", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    disable_sas: bool,
+
     #[arg(long, env = "PIPE_ENCODER", value_name = "CODEC")]
     #[serde(default)]
     encoder: Option<Codec>,
@@ -214,6 +219,13 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
         let messenger = init_messenger(&self.messenger_args).await?;
+
+        if !self.disable_sas {
+            debug!("Initializing SAS Optimizer");
+            if let Err(error) = ::sas::try_init() {
+                warn!("{error}");
+            }
+        }
 
         debug!("Initializing Task Context");
         let mut function_context = FunctionContext::new(messenger.messenger_type());
