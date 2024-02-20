@@ -21,7 +21,13 @@ fn main() {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
-    #[arg(long, env = "PIPE_WEBCAM_CAMERA_DEVICE", value_name = "PATH")]
+    #[arg(
+        long,
+        env = "PIPE_WEBCAM_CAMERA_DEVICE",
+        value_name = "PATH",
+        default_value_t = FunctionArgs::default_camera_device()
+    )]
+    #[serde(default = "FunctionArgs::default_camera_device")]
     camera_device: String,
 
     #[arg(
@@ -73,6 +79,10 @@ pub struct FunctionArgs {
 }
 
 impl FunctionArgs {
+    fn default_camera_device() -> String {
+        "/dev/video0".into()
+    }
+
     const fn default_camera_fps() -> f64 {
         60.0
     }
