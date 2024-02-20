@@ -73,6 +73,11 @@ where
     #[serde(default)]
     default_model_in: Option<DefaultModelIn>,
 
+    /// Disable the OpenTelemetry exporters.
+    #[arg(long, env = "PIPE_DISABLE_OTEL", action = ArgAction::SetTrue)]
+    #[serde(default)]
+    disable_otel: bool,
+
     /// Disable the SAS global optimizer.
     #[arg(long, env = "PIPE_DISABLE_SAS", action = ArgAction::SetTrue)]
     #[serde(default)]
@@ -218,7 +223,12 @@ where
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
-        let messenger = init_messenger(&self.messenger_args).await?;
+        if !self.disable_otel {
+            match &self.log_level {
+                Some(level) => ::ark_core::tracer::init_once_with(level),
+                None => ::ark_core::tracer::init_once(),
+            }
+        }
 
         if !self.disable_sas {
             debug!("Initializing SAS Optimizer");
@@ -226,6 +236,8 @@ where
                 warn!("{error}");
             }
         }
+
+        let messenger = init_messenger(&self.messenger_args).await?;
 
         debug!("Initializing Task Context");
         let mut function_context = FunctionContext::new(messenger.messenger_type());
@@ -394,11 +406,6 @@ where
     where
         <F as Function>::Output: Clone,
     {
-        match &self.log_level {
-            Some(level) => ::ark_core::tracer::init_once_with(level),
-            None => ::ark_core::tracer::init_once(),
-        }
-
         let mut ctx = self.init_context().await?;
         info!("Initialized!");
 
