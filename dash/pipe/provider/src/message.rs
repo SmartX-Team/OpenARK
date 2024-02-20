@@ -682,7 +682,7 @@ where
         PipePayload {
             key: key.clone(),
             model: model.clone(),
-            storage: storage.clone(),
+            storage: *storage,
             value: None,
         }
     }
@@ -755,12 +755,9 @@ impl PipePayload {
         } else if let Some(next_model) = next_storage.model().cloned() {
             match value {
                 Some(value) => {
-                    let value = match next_storage_type {
-                        StorageType::Passthrough => Some(value),
-                        _ => {
-                            next_storage.put(&key, value).await?;
-                            None
-                        }
+                    let (key, value) = match next_storage_type {
+                        StorageType::Passthrough => (key, Some(value)),
+                        _ => (next_storage.put(&key, value).await?, None),
                     };
 
                     Ok(Some(Self {
