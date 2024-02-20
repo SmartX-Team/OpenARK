@@ -29,6 +29,6 @@ pub(crate) struct ArgsCommon {
 
 impl ArgsCommon {
     fn run(self) {
-        tracer::init_once_with_level_int(self.debug)
+        tracer::init_once_with_level_int(self.debug, true)
     }
 }

@@ -223,11 +223,9 @@ where
 {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn init_context(&self) -> Result<Context<F>> {
-        if !self.disable_otel {
-            match &self.log_level {
-                Some(level) => ::ark_core::tracer::init_once_with(level),
-                None => ::ark_core::tracer::init_once(),
-            }
+        match &self.log_level {
+            Some(level) => ::ark_core::tracer::init_once_with(level, !self.disable_otel),
+            None => ::ark_core::tracer::init_once_with_default(!self.disable_otel),
         }
 
         if !self.disable_sas {

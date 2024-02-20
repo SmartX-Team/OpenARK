@@ -7,7 +7,7 @@ use tracing_subscriber::{
     layer::SubscriberExt, registry::LookupSpan, util::SubscriberInitExt, Layer, Registry,
 };
 
-fn init_once_opentelemetry() {
+fn init_once_opentelemetry(export: bool) {
     #[cfg(feature = "otlp")]
     use opentelemetry_sdk::runtime::Tokio as Runtime;
 
@@ -88,17 +88,37 @@ fn init_once_opentelemetry() {
         .with(init_layer_env_filter())
         .with(init_layer_stdfmt());
 
-    #[cfg(feature = "logs")]
-    let layer = layer.with(init_layer_otlp_logger());
-    #[cfg(feature = "metrics")]
-    let layer = layer.with(init_layer_otlp_metrics());
-    #[cfg(feature = "trace")]
-    let layer = layer.with(init_layer_otlp_tracer());
+    if export {
+        #[cfg(feature = "logs")]
+        let layer = layer.with(init_layer_otlp_logger());
+        #[cfg(feature = "metrics")]
+        let layer = layer.with(init_layer_otlp_metrics());
+        #[cfg(feature = "trace")]
+        let layer = layer.with(init_layer_otlp_tracer());
 
-    layer.init()
+        layer.init()
+    } else {
+        layer.init()
+    }
 }
 
 pub fn init_once() {
+    init_once_with_default(true)
+}
+
+pub fn init_once_with(level: impl AsRef<OsStr>, export: bool) {
+    // Skip init if has been set
+    if dispatcher::has_been_set() {
+        return;
+    }
+
+    // set custom tracing level
+    ::std::env::set_var(KEY, level);
+
+    init_once_opentelemetry(export)
+}
+
+pub fn init_once_with_default(export: bool) {
     // Skip init if has been set
     if dispatcher::has_been_set() {
         return;
@@ -109,22 +129,10 @@ pub fn init_once() {
         ::std::env::set_var(KEY, "INFO");
     }
 
-    init_once_opentelemetry()
+    init_once_opentelemetry(export)
 }
 
-pub fn init_once_with(level: impl AsRef<OsStr>) {
-    // Skip init if has been set
-    if dispatcher::has_been_set() {
-        return;
-    }
-
-    // set custom tracing level
-    ::std::env::set_var(KEY, level);
-
-    init_once_opentelemetry()
-}
-
-pub fn init_once_with_level_int(level: u8) {
+pub fn init_once_with_level_int(level: u8, export: bool) {
     // You can see how many times a particular flag or argument occurred
     // Note, only flags can have multiple occurrences
     let debug_level = match level {
@@ -135,7 +143,7 @@ pub fn init_once_with_level_int(level: u8) {
         level => panic!("too high debug level: {level}"),
     };
     env::set_var("RUST_LOG", debug_level);
-    init_once();
+    init_once_with(debug_level, export)
 }
 
 const KEY: &str = "RUST_LOG";
