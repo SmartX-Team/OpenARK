@@ -152,7 +152,7 @@ where
         ),
         err(Display),
     )]
-    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
+    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value>>> {
         self.consumer
             .recv()
             .await
@@ -162,7 +162,7 @@ where
                     .payload()
                     .unwrap_or_default()
                     .try_into()
-                    .map(|input: PipeMessage<Value, ()>| Some(input.drop_reply()))
+                    .map(|input: PipeMessage<Value>| Some(input.drop_reply()))
             })
     }
 }

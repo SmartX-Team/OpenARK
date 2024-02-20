@@ -176,7 +176,7 @@ where
     Self: Send,
     Value: Send + DeserializeOwned,
 {
-    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>>;
+    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value>>>;
 }
 
 #[derive(

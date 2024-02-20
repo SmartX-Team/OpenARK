@@ -352,7 +352,10 @@ where
             .map_err(|error| anyhow!("failed to init function: {error}"))
     }
 
-    pub fn loop_forever(&self) {
+    pub fn loop_forever(&self)
+    where
+        <F as Function>::Output: Clone,
+    {
         const MAX_TERMINATION_TIMEOUT: Duration = Duration::from_secs(30);
 
         let runtime = ::tokio::runtime::Builder::new_multi_thread()
@@ -375,7 +378,10 @@ where
         }
     }
 
-    pub async fn loop_forever_async(&self) -> Result<()> {
+    pub async fn loop_forever_async(&self) -> Result<()>
+    where
+        <F as Function>::Output: Clone,
+    {
         match &self.log_level {
             Some(level) => ::ark_core::tracer::init_once_with(level),
             None => ::ark_core::tracer::init_once(),
@@ -428,6 +434,7 @@ where
 async fn tick_async<F>(ctx: &mut Context<F>) -> Result<()>
 where
     F: Function,
+    <F as Function>::Output: Clone,
 {
     #[instrument(
         name = "read",
@@ -465,37 +472,37 @@ where
     async fn send_one<Value>(
         writer: &WriteContext,
         stream: &Arc<dyn Publisher>,
-        input_payloads: &HashMap<String, PipePayload<()>>,
+        input_payloads: &HashMap<String, PipePayload>,
         messages: PipeMessages<Value>,
     ) -> Result<()>
     where
-        Value: Send + Sync + Serialize + JsonSchema,
+        Value: Send + Sync + Clone + Serialize + JsonSchema,
     {
-        let outputs = if writer.function_context.is_disabled_store() {
-            messages.drop_payloads()
-        } else {
+        let messages = if !writer.function_context.is_disabled_store() {
             messages
                 .dump_payloads(&writer.storage, Some(input_payloads))
                 .await?
+        } else {
+            messages
         }
         .into_vec();
 
-        for output in outputs {
+        for message in messages {
             if !writer.function_context.is_disabled_store_metadata() {
                 if let Err(error) = writer
                     .storage
                     .get_default_metadata()
-                    .put_metadata(&[&output])
+                    .put_metadata(&[&message])
                     .await
                 {
                     warn!("{error}");
                 }
             }
 
-            let data = output
+            let data = message
                 .to_bytes(writer.encoder)
-                .map_err(|error| anyhow!("failed to parse output: {error}"))?;
-            stream.reply_or_send_one(data, output.reply).await?
+                .map_err(|error| anyhow!("failed to parse output message: {error}"))?;
+            stream.reply_or_send_one(data, message.reply).await?
         }
         Ok(())
     }
@@ -533,7 +540,7 @@ where
         None => PipeMessages::None,
     };
 
-    let input_payloads = inputs.get_payloads_ref();
+    let input_payloads = inputs.as_payloads_map();
 
     #[instrument(
         level = Level::INFO,
@@ -705,66 +712,6 @@ impl WriteContext {
             .as_ref()
             .map(|model| model.as_str())
             .unwrap_or_default()
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    async fn write_outputs<Value>(
-        &mut self,
-        input_payloads: &HashMap<String, PipePayload<()>>,
-        messages: PipeMessages<Value>,
-    ) where
-        Value: Send + Sync + Serialize + JsonSchema,
-    {
-        if let Err(error) = self.try_write_outputs(input_payloads, messages).await {
-            error!("{error}");
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn try_write_outputs<Value>(
-        &mut self,
-        input_payloads: &HashMap<String, PipePayload<()>>,
-        messages: PipeMessages<Value>,
-    ) -> Result<()>
-    where
-        Value: Send + Sync + Serialize + JsonSchema,
-    {
-        match self.stream.as_ref() {
-            Some(stream) => {
-                self.atomic_session
-                    .alloc(async {
-                        let outputs = if self.function_context.is_disabled_store() {
-                            messages.drop_payloads()
-                        } else {
-                            messages
-                                .dump_payloads(&self.storage, Some(input_payloads))
-                                .await?
-                        }
-                        .into_vec();
-
-                        for output in outputs {
-                            if !self.function_context.is_disabled_store_metadata() {
-                                if let Err(error) = self
-                                    .storage
-                                    .get_default_metadata()
-                                    .put_metadata(&[&output])
-                                    .await
-                                {
-                                    warn!("{error}");
-                                }
-                            }
-
-                            let data = output
-                                .to_bytes(self.encoder)
-                                .map_err(|error| anyhow!("failed to parse output: {error}"))?;
-                            stream.reply_or_send_one(data, output.reply).await?
-                        }
-                        Ok(())
-                    })
-                    .await
-            }
-            None => Ok(()),
-        }
     }
 }
 

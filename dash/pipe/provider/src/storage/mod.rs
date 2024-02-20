@@ -1,5 +1,6 @@
 #[cfg(feature = "lakehouse")]
 pub mod lakehouse;
+pub mod passthrough;
 #[cfg(feature = "s3")]
 pub mod s3;
 
@@ -37,6 +38,7 @@ pub struct StorageSet {
     default_metadata: MetadataStorageType,
     #[cfg(feature = "lakehouse")]
     lakehouse: self::lakehouse::Storage,
+    passthrough: self::passthrough::Storage,
     #[cfg(feature = "s3")]
     s3: self::s3::Storage,
 }
@@ -94,6 +96,7 @@ impl StorageSet {
             } else {
                 self::lakehouse::Storage::default()
             },
+            passthrough: self::passthrough::Storage::new(model),
             #[cfg(feature = "s3")]
             s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name)?,
         })
@@ -101,6 +104,7 @@ impl StorageSet {
 
     pub const fn get(&self, storage_type: StorageType) -> &(dyn Send + Sync + Storage) {
         match storage_type {
+            StorageType::Passthrough => &self.passthrough,
             #[cfg(feature = "s3")]
             StorageType::S3 => &self.s3,
         }
@@ -221,13 +225,13 @@ where
 
 #[async_trait]
 pub trait MetadataStorage<Value = ()> {
-    async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value, ()>>>
+    async fn list_metadata(&self) -> Result<Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + DeserializeOwned;
 
-    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    async fn put_metadata(&self, values: &[&PipeMessage<Value>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Serialize + JsonSchema;
+        Value: 'async_trait + Send + Sync + Clone + Serialize + JsonSchema;
 
     async fn flush(&self) -> Result<()>;
 }
@@ -248,16 +252,16 @@ pub trait MetadataStorage<Value = ()> {
     JsonSchema,
 )]
 pub enum StorageType {
+    Passthrough,
     #[cfg(feature = "s3")]
     S3,
 }
 
 impl StorageType {
     #[cfg(feature = "s3")]
-    pub const TEMPORARY: Self = Self::S3;
-
-    #[cfg(feature = "s3")]
     pub const PERSISTENT: Self = Self::S3;
+
+    pub const TEMPORARY: Self = Self::Passthrough;
 }
 
 #[async_trait]

@@ -252,7 +252,7 @@ where
         ),
         err(Display),
     )]
-    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
+    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value>>> {
         self.inner
             .next()
             .await
@@ -261,7 +261,7 @@ where
                     .data
                     .as_str()
                     .try_into()
-                    .map(|input: PipeMessage<Value, ()>| input.drop_reply())
+                    .map(|input: PipeMessage<Value>| input.drop_reply())
                     .map_err(|error| anyhow!("failed to subscribe Ros2 input: {error}"))
             })
             .transpose()

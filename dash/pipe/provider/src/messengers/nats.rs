@@ -221,7 +221,7 @@ where
         ),
         err(Display),
     )]
-    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value, ()>>> {
+    async fn read_one(&mut self) -> Result<Option<PipeMessage<Value>>> {
         self.inner
             .next()
             .await

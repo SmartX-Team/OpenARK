@@ -61,7 +61,7 @@ impl PipeClient {
     }
 
     #[instrument(level = Level::INFO, skip(self, data))]
-    pub async fn call(&self, topic: Name, data: PipeMessage) -> Result<PipeMessage<Value, ()>> {
+    pub async fn call(&self, topic: Name, data: PipeMessage) -> Result<PipeMessage<Value>> {
         let data = data
             .dump_payloads(&self.storage, None)
             .await?
@@ -75,7 +75,7 @@ impl PipeClient {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    pub async fn read(&self, topic: Name) -> Result<Option<PipeMessage<Value, ()>>> {
+    pub async fn read(&self, topic: Name) -> Result<Option<PipeMessage<Value>>> {
         self.subscribe(topic).await?.read_one().await
     }
 }

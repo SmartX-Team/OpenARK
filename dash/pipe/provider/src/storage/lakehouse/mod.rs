@@ -163,7 +163,7 @@ impl Storage {
 #[async_trait]
 impl<Value> super::MetadataStorage<Value> for Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + DeserializeOwned,
     {
@@ -176,9 +176,9 @@ impl<Value> super::MetadataStorage<Value> for Storage {
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    async fn put_metadata(&self, values: &[&PipeMessage<Value>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
+        Value: 'async_trait + Send + Sync + Clone + Serialize + JsonSchema,
     {
         match self.inner.as_ref() {
             Some(inner) => {
@@ -306,7 +306,7 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         ),
         err(Display),
     )]
-    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value, ()>>>
+    async fn list_metadata(&self) -> Result<super::Stream<PipeMessage<Value>>>
     where
         Value: 'static + Send + DeserializeOwned,
     {
@@ -329,9 +329,9 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         ),
         err(Display),
     )]
-    async fn put_metadata(&self, values: &[&PipeMessage<Value, ()>]) -> Result<()>
+    async fn put_metadata(&self, values: &[&PipeMessage<Value>]) -> Result<()>
     where
-        Value: 'async_trait + Send + Sync + Serialize + JsonSchema,
+        Value: 'async_trait + Send + Sync + Clone + Serialize + JsonSchema,
     {
         if values.is_empty() {
             return Ok(());
@@ -340,7 +340,12 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         self.writer
             .lock()
             .await
-            .write(values.iter().map(|value| json!(value)).collect())
+            .write(
+                values
+                    .iter()
+                    .map(|value| json!(value.as_dropped_payloads::<()>()))
+                    .collect(),
+            )
             .await
     }
 

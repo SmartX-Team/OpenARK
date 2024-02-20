@@ -26,6 +26,16 @@ pub struct FunctionArgs {
 
     #[arg(
         long,
+        env = "PIPE_WEBCAM_CAMERA_DECODER",
+        value_name = "TYPE",
+        value_enum,
+        default_value_t = Default::default()
+    )]
+    #[serde(default)]
+    camera_decoder: CameraDecoder,
+
+    #[arg(
+        long,
         env = "PIPE_WEBCAM_CAMERA_ENCODER",
         value_name = "TYPE",
         value_enum,
@@ -33,6 +43,82 @@ pub struct FunctionArgs {
     )]
     #[serde(default)]
     camera_encoder: CameraEncoder,
+
+    #[arg(
+        long,
+        env = "PIPE_WEBCAM_CAMERA_FPS",
+        value_name = "FPS",
+        default_value_t = FunctionArgs::default_camera_fps()
+    )]
+    #[serde(default = "FunctionArgs::default_camera_fps")]
+    camera_fps: f64,
+
+    #[arg(
+        long,
+        env = "PIPE_WEBCAM_CAMERA_WIDTH",
+        value_name = "SIZE",
+        default_value_t = FunctionArgs::default_camera_width()
+    )]
+    #[serde(default = "FunctionArgs::default_camera_width")]
+    camera_width: u32,
+
+    #[arg(
+        long,
+        env = "PIPE_WEBCAM_CAMERA_HEIGHT",
+        value_name = "SIZE",
+        default_value_t = FunctionArgs::default_camera_height()
+    )]
+    #[serde(default = "FunctionArgs::default_camera_height")]
+    camera_height: u32,
+}
+
+impl FunctionArgs {
+    const fn default_camera_fps() -> f64 {
+        60.0
+    }
+
+    const fn default_camera_width() -> u32 {
+        1920
+    }
+
+    const fn default_camera_height() -> u32 {
+        1080
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    ValueEnum,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum CameraDecoder {
+    #[default]
+    Jpeg,
+}
+
+impl CameraDecoder {
+    const fn as_fourcc(&self) -> [char; 4] {
+        match self {
+            Self::Jpeg => ['M', 'J', 'P', 'G'],
+        }
+    }
+
+    fn as_video_writer(&self) -> Result<f64> {
+        let [c1, c2, c3, c4] = self.as_fourcc();
+        videoio::VideoWriter::fourcc(c1, c2, c3, c4)
+            .map(Into::into)
+            .map_err(Into::into)
+    }
 }
 
 #[derive(
@@ -67,6 +153,24 @@ impl CameraEncoder {
     }
 }
 
+impl PartialEq<CameraEncoder> for CameraDecoder {
+    fn eq(&self, other: &CameraEncoder) -> bool {
+        match self {
+            Self::Jpeg => matches!(other, CameraEncoder::Jpeg),
+        }
+    }
+}
+
+impl PartialEq<CameraDecoder> for CameraEncoder {
+    fn eq(&self, other: &CameraDecoder) -> bool {
+        match self {
+            Self::Bmp => false,
+            Self::Jpeg => matches!(other, CameraDecoder::Jpeg),
+            Self::Png => false,
+        }
+    }
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Function {
@@ -95,14 +199,23 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
     ) -> Result<Self> {
         let FunctionArgs {
             camera_device,
+            camera_decoder,
             camera_encoder,
+            camera_fps,
+            camera_width,
+            camera_height,
         } = args.clone();
 
-        let capture = VideoCapture::from_file(&camera_device, videoio::CAP_ANY)
+        let mut capture = VideoCapture::from_file(&camera_device, videoio::CAP_ANY)
             .map_err(|error| anyhow!("failed to init video capture: {error}"))?;
         if !capture.is_opened().unwrap_or_default() {
             bail!("failed to open video capture");
         }
+
+        capture.set(videoio::CAP_PROP_FOURCC, camera_decoder.as_video_writer()?)?;
+        capture.set(videoio::CAP_PROP_FPS, camera_fps)?;
+        capture.set(videoio::CAP_PROP_FRAME_WIDTH, camera_width.into())?;
+        capture.set(videoio::CAP_PROP_FRAME_HEIGHT, camera_height.into())?;
 
         Ok(Self {
             camera_encoder,

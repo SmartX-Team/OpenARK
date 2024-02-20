@@ -4,7 +4,7 @@ use anyhow::{bail, Error, Result};
 use ark_core_k8s::data::Name;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use futures::{stream::FuturesOrdered, TryStreamExt};
+use futures::{stream::FuturesOrdered, StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use serde_json::Value as DynValue;
@@ -43,13 +43,16 @@ impl<Value, Payload> PipeMessages<Value, Payload>
 where
     Payload: JsonSchema,
 {
-    pub(crate) fn get_payloads_ref(&self) -> HashMap<String, PipePayload<()>> {
+    pub(crate) fn as_payloads_map(&self) -> HashMap<String, PipePayload<Payload>>
+    where
+        Payload: Clone,
+    {
         match self {
             Self::None => HashMap::default(),
-            Self::Single(value) => value.get_payloads_ref().collect(),
+            Self::Single(value) => value.iter_payloads_map().collect(),
             Self::Batch(values) => values
                 .iter()
-                .flat_map(|value| value.get_payloads_ref())
+                .flat_map(|value| value.iter_payloads_map())
                 .collect(),
         }
     }
@@ -100,8 +103,8 @@ impl<Value> PipeMessages<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
-        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
-    ) -> Result<PipeMessages<Value, ()>> {
+        input_payloads: Option<&HashMap<String, PipePayload>>,
+    ) -> Result<PipeMessages<Value>> {
         match self {
             Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value
@@ -506,26 +509,13 @@ where
         self
     }
 
-    fn get_payloads_ref(&self) -> impl '_ + Iterator<Item = (String, PipePayload<()>)> {
+    fn iter_payloads_map(&self) -> impl '_ + Iterator<Item = (String, PipePayload<Payload>)>
+    where
+        Payload: Clone,
+    {
         self.payloads
             .iter()
-            .map(|payload| (payload.key.clone(), payload.get_ref()))
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<PipeMessage<Value>> {
-        Ok(PipeMessage {
-            payloads: self
-                .payloads
-                .into_iter()
-                .map(|payload| payload.load(storage))
-                .collect::<FuturesOrdered<_>>()
-                .try_collect()
-                .await?,
-            reply: self.reply,
-            timestamp: self.timestamp,
-            value: self.value,
-        })
+            .map(|payload| (payload.key.clone(), payload.clone()))
     }
 
     pub(crate) fn drop_payloads<P>(self) -> PipeMessage<Value, P>
@@ -541,6 +531,23 @@ where
             reply: self.reply,
             timestamp: self.timestamp,
             value: self.value,
+        }
+    }
+
+    pub(crate) fn as_dropped_payloads<P>(&self) -> PipeMessage<Value, P>
+    where
+        P: JsonSchema,
+        Value: Clone,
+    {
+        PipeMessage {
+            payloads: self
+                .payloads
+                .iter()
+                .map(|payload| payload.as_dropped())
+                .collect(),
+            reply: self.reply.clone(),
+            timestamp: self.timestamp,
+            value: self.value.clone(),
         }
     }
 
@@ -579,18 +586,35 @@ where
 
 impl<Value> PipeMessage<Value> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<Self> {
+        Ok(Self {
+            payloads: self
+                .payloads
+                .into_iter()
+                .map(|payload| payload.load(storage))
+                .collect::<FuturesOrdered<_>>()
+                .try_collect()
+                .await?,
+            reply: self.reply,
+            timestamp: self.timestamp,
+            value: self.value,
+        })
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
-        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
-    ) -> Result<PipeMessage<Value, ()>> {
-        Ok(PipeMessage {
+        input_payloads: Option<&HashMap<String, PipePayload>>,
+    ) -> Result<Self> {
+        Ok(Self {
             payloads: self
                 .payloads
                 .into_iter()
                 .map(|payload| payload.dump(storage, input_payloads))
                 .collect::<FuturesOrdered<_>>()
-                .try_collect()
+                .filter_map(|payload| async { payload.transpose() })
+                .try_collect::<Vec<_>>()
                 .await?,
             reply: self.reply,
             timestamp: self.timestamp,
@@ -625,47 +649,6 @@ where
         }
     }
 
-    fn get_ref<T>(&self) -> PipePayload<T>
-    where
-        T: JsonSchema,
-    {
-        let Self {
-            key,
-            model,
-            storage,
-            value: _,
-        } = self;
-
-        PipePayload {
-            key: key.clone(),
-            model: model.clone(),
-            storage: *storage,
-            value: None,
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn load(self, storage: &StorageSet) -> Result<PipePayload> {
-        let Self {
-            key,
-            model,
-            storage: storage_type,
-            value: _,
-        } = self;
-
-        Ok(PipePayload {
-            value: match model.as_ref().zip(storage_type) {
-                Some((model, storage_type)) => {
-                    storage.get(storage_type).get(model, &key).await.map(Some)?
-                }
-                None => bail!("storage type not defined"),
-            },
-            key,
-            model,
-            storage: storage_type,
-        })
-    }
-
     fn drop<T>(self) -> PipePayload<T>
     where
         T: JsonSchema,
@@ -685,6 +668,25 @@ where
         }
     }
 
+    fn as_dropped<T>(&self) -> PipePayload<T>
+    where
+        T: JsonSchema,
+    {
+        let Self {
+            key,
+            model,
+            storage,
+            value: _,
+        } = self;
+
+        PipePayload {
+            key: key.clone(),
+            model: model.clone(),
+            storage: storage.clone(),
+            value: None,
+        }
+    }
+
     pub const fn value(&self) -> Option<&Value> {
         self.value.as_ref()
     }
@@ -692,15 +694,38 @@ where
 
 impl PipePayload {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
+    async fn load(self, storage: &StorageSet) -> Result<Self> {
+        let Self {
+            key,
+            model,
+            storage: storage_type,
+            value,
+        } = self;
+
+        Ok(Self {
+            value: match model.as_ref().zip(storage_type) {
+                Some((model, storage_type)) => match storage_type {
+                    StorageType::Passthrough => value,
+                    _ => storage.get(storage_type).get(model, &key).await.map(Some)?,
+                },
+                None => bail!("storage type not defined"),
+            },
+            key,
+            model,
+            storage: storage_type,
+        })
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn dump(
         self,
         storage: &StorageSet,
-        input_payloads: Option<&HashMap<String, PipePayload<()>>>,
-    ) -> Result<PipePayload<()>> {
+        input_payloads: Option<&HashMap<String, PipePayload>>,
+    ) -> Result<Option<Self>> {
         let Self {
             key,
             model: last_model,
-            storage: last_storage,
+            storage: last_storage_type,
             value,
         } = self;
 
@@ -708,32 +733,48 @@ impl PipePayload {
         let last_model = last
             .and_then(|payload| payload.model.clone())
             .or(last_model);
+        let last_storage_type = last
+            .and_then(|payload| payload.storage)
+            .or(last_storage_type);
 
-        let last_storage = last.and_then(|payload| payload.storage).or(last_storage);
-        let next_storage = storage.get_default().storage_type();
-        let is_storage_same = last_storage
-            .map(|last_storage| last_storage == next_storage)
+        let next_storage = storage.get_default();
+        let next_storage_type = next_storage.storage_type();
+
+        let is_storage_same = last_storage_type
+            .map(|last_storage_type| last_storage_type == next_storage_type)
             .unwrap_or_default();
 
-        let (key, model) = if last_model.is_some() && is_storage_same {
+        if last_model.is_some() && is_storage_same {
             // do not restore the payloads to the same storage
-            (key, last_model)
-        } else if let Some(next_model) = storage.get_default().model().cloned() {
-            let key = match value {
-                Some(value) => storage.get_default().put(&key, value).await?,
-                None => key,
-            };
-            (key, Some(next_model))
-        } else {
-            (key, None)
-        };
+            Ok(Some(Self {
+                key,
+                model: last_model,
+                storage: last_storage_type,
+                value: None,
+            }))
+        } else if let Some(next_model) = next_storage.model().cloned() {
+            match value {
+                Some(value) => {
+                    let value = match next_storage_type {
+                        StorageType::Passthrough => Some(value),
+                        _ => {
+                            next_storage.put(&key, value).await?;
+                            None
+                        }
+                    };
 
-        Ok(PipePayload {
-            key,
-            model,
-            storage: Some(next_storage),
-            value: None,
-        })
+                    Ok(Some(Self {
+                        key,
+                        model: Some(next_model),
+                        storage: Some(next_storage_type),
+                        value,
+                    }))
+                }
+                None => Ok(None),
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
 
