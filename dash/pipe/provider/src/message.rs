@@ -713,10 +713,16 @@ impl PipePayload {
 
         Ok(Self {
             key,
-            value: match model.as_ref().zip(storage_type).zip(path.as_ref()) {
-                Some(((model, storage_type), path)) => match storage_type {
-                    StorageType::Passthrough => value,
-                    _ => storage.get(storage_type).get(model, path).await.map(Some)?,
+            value: match storage_type {
+                Some(StorageType::Passthrough) => value,
+                #[cfg(feature = "s3")]
+                Some(StorageType::S3) => match model.as_ref().zip(path.as_ref()) {
+                    Some((model, path)) => storage
+                        .get(StorageType::S3)
+                        .get(model, path)
+                        .await
+                        .map(Some)?,
+                    None => None,
                 },
                 None => bail!("storage type not defined"),
             },
