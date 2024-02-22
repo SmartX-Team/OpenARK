@@ -95,6 +95,7 @@ RUN apt-get update && apt-get install -y \
     gpg \
     libgles2-mesa-dev \
     libglfw3-dev \
+    libhwloc-dev \
     libldacbt-abr2 \
     libldacbt-enc2 \
     libspa-0.2-bluetooth \

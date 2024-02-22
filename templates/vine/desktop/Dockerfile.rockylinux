@@ -58,6 +58,7 @@ RUN dnf install -y \
 
 # Install core dependencies
 RUN dnf install -y \
+    hwloc-devel \
     libglvnd-gles \
     mesa-dri-drivers \
     pipewire \

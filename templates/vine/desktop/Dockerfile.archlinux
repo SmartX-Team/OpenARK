@@ -105,6 +105,7 @@ USER builder
 RUN ${PACKAGE_MANAGER_INSTALL} --needed \
     lib32-vulkan-icd-loader \
     libglvnd \
+    hwloc \
     mesa \
     pipewire \
     vulkan-icd-loader \

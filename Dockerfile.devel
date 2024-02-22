@@ -25,9 +25,11 @@ RUN apt-get update && apt-get install -y \
     docker-buildx \
     libclang-dev \
     libgtk2.0-dev \
+    libhwloc-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libssl-dev \
+    libudev-dev \
     llvm-dev \
     mold \
     nasm \

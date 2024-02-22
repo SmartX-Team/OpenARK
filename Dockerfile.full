@@ -23,7 +23,9 @@ CMD [ "/bin/sh" ]
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    hwloc \
     s3fs \
+    udev \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
@@ -63,9 +65,11 @@ RUN apt-get update && apt-get install -y \
     clang \
     cmake \
     libclang-dev \
+    libhwloc-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libssl-dev \
+    libudev-dev \
     llvm-dev \
     mold \
     nasm \

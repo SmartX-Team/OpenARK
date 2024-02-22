@@ -93,6 +93,7 @@ RUN apt-get update && apt-get install -y \
     gpg \
     libgles2-mesa-dev \
     libglfw3-dev \
+    libhwloc-dev \
     mesa-vulkan-drivers \
     pulseaudio \
     pulseaudio-module-bluetooth \
