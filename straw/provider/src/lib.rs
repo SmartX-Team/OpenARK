@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{stream::FuturesUnordered, StreamExt, TryStreamExt};
 use kube::Client;
 use straw_api::{
     function::{StrawFunction, StrawNode},
@@ -69,14 +69,14 @@ impl StrawSession {
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, function), err(Display))]
-    pub async fn exists(&self, function: &StrawFunction) -> Result<bool> {
+    #[instrument(level = Level::INFO, skip(self, function))]
+    pub async fn exists(&self, function: &StrawFunction) -> bool {
         function
             .straw
             .iter()
             .map(|node| self.exists_node(node))
             .collect::<FuturesUnordered<_>>()
-            .try_any(|exists| async move { exists })
+            .any(|exists| async { exists.unwrap_or(false) })
             .await
     }
 

@@ -240,6 +240,7 @@ impl PyPipeMessage {
                 |PipePayload {
                      key,
                      model: _,
+                     path: _,
                      storage: _,
                      value,
                  }| { (key.as_str(), value.as_deref()) },
@@ -632,6 +633,8 @@ where
     #[serde(default)]
     model: Option<Name>,
     #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
     storage: Option<StorageType>,
     value: Option<Value>,
 }
@@ -644,6 +647,7 @@ where
         Self {
             key,
             model: None,
+            path: None,
             storage: None,
             value,
         }
@@ -656,6 +660,7 @@ where
         let Self {
             key,
             model,
+            path,
             storage,
             value: _,
         } = self;
@@ -663,6 +668,7 @@ where
         PipePayload {
             key,
             model,
+            path,
             storage,
             value: None,
         }
@@ -675,6 +681,7 @@ where
         let Self {
             key,
             model,
+            path,
             storage,
             value: _,
         } = self;
@@ -682,6 +689,7 @@ where
         PipePayload {
             key: key.clone(),
             model: model.clone(),
+            path: path.clone(),
             storage: *storage,
             value: None,
         }
@@ -698,19 +706,21 @@ impl PipePayload {
         let Self {
             key,
             model,
+            path,
             storage: storage_type,
             value,
         } = self;
 
         Ok(Self {
-            value: match model.as_ref().zip(storage_type) {
-                Some((model, storage_type)) => match storage_type {
+            key,
+            value: match model.as_ref().zip(storage_type).zip(path.as_ref()) {
+                Some(((model, storage_type), path)) => match storage_type {
                     StorageType::Passthrough => value,
-                    _ => storage.get(storage_type).get(model, &key).await.map(Some)?,
+                    _ => storage.get(storage_type).get(model, path).await.map(Some)?,
                 },
                 None => bail!("storage type not defined"),
             },
-            key,
+            path,
             model,
             storage: storage_type,
         })
@@ -725,6 +735,7 @@ impl PipePayload {
         let Self {
             key,
             model: last_model,
+            path: last_path,
             storage: last_storage_type,
             value,
         } = self;
@@ -749,20 +760,22 @@ impl PipePayload {
             Ok(Some(Self {
                 key,
                 model: last_model,
+                path: last_path,
                 storage: last_storage_type,
                 value: None,
             }))
         } else if let Some(next_model) = next_storage.model().cloned() {
             match value {
                 Some(value) => {
-                    let (key, value) = match next_storage_type {
-                        StorageType::Passthrough => (key, Some(value)),
-                        _ => (next_storage.put(&key, value).await?, None),
+                    let (next_path, value) = match next_storage_type {
+                        StorageType::Passthrough => (None, Some(value)),
+                        _ => (Some(next_storage.put(&key, value).await?), None),
                     };
 
                     Ok(Some(Self {
                         key,
                         model: Some(next_model),
+                        path: next_path,
                         storage: Some(next_storage_type),
                         value,
                     }))
