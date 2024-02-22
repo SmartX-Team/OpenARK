@@ -764,32 +764,33 @@ impl PipePayload {
         if last_model.is_some() && is_storage_same {
             // do not restore the payloads to the same storage
             Ok(Some(Self {
-                key,
+                storage: last_storage_type,
                 model: last_model,
                 path: last_path,
-                storage: last_storage_type,
+                key,
                 value: None,
             }))
-        } else if let Some(next_model) = next_storage.model().cloned() {
-            match value {
-                Some(value) => {
-                    let (next_path, value) = match next_storage_type {
-                        StorageType::Passthrough => (None, Some(value)),
-                        _ => (Some(next_storage.put(&key, value).await?), None),
-                    };
-
-                    Ok(Some(Self {
-                        key,
-                        model: Some(next_model),
-                        path: next_path,
-                        storage: Some(next_storage_type),
-                        value,
-                    }))
-                }
-                None => Ok(None),
-            }
         } else {
-            Ok(None)
+            match next_storage_type {
+                StorageType::Passthrough => Ok(Some(Self {
+                    storage: Some(next_storage_type),
+                    model: None,
+                    path: None,
+                    key,
+                    value,
+                })),
+                #[cfg(feature = "s3")]
+                StorageType::S3 => match next_storage.model().cloned().zip(value) {
+                    Some((next_model, value)) => Ok(Some(Self {
+                        storage: Some(next_storage_type),
+                        model: Some(next_model),
+                        path: Some(next_storage.put(&key, value).await?),
+                        key,
+                        value: None,
+                    })),
+                    None => Ok(None),
+                },
+            }
         }
     }
 }
