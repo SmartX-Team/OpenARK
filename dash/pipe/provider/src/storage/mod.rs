@@ -281,8 +281,8 @@ pub trait Storage {
         ),
         err(Display),
     )]
-    async fn put(&self, path: &str, bytes: Bytes) -> Result<String> {
-        match self.model() {
+    async fn put(&self, model: Option<&Name>, path: &str, bytes: Bytes) -> Result<String> {
+        match model.or_else(|| self.model()) {
             Some(model) => self.put_with_model(model, path, bytes).await,
             None => bail!("generic storage cannot store data"),
         }

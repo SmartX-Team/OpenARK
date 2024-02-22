@@ -103,17 +103,18 @@ impl<Value> PipeMessages<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
+        model: Option<&Name>,
         input_payloads: Option<&HashMap<String, PipePayload>>,
     ) -> Result<PipeMessages<Value>> {
         match self {
             Self::None => Ok(PipeMessages::None),
             Self::Single(value) => value
-                .dump_payloads(storage, input_payloads)
+                .dump_payloads(storage, model, input_payloads)
                 .await
                 .map(PipeMessages::Single),
             Self::Batch(values) => values
                 .into_iter()
-                .map(|value| value.dump_payloads(storage, input_payloads))
+                .map(|value| value.dump_payloads(storage, model, input_payloads))
                 .collect::<FuturesOrdered<_>>()
                 .try_collect()
                 .await
@@ -606,13 +607,14 @@ impl<Value> PipeMessage<Value> {
     pub(crate) async fn dump_payloads(
         self,
         storage: &StorageSet,
+        model: Option<&Name>,
         input_payloads: Option<&HashMap<String, PipePayload>>,
     ) -> Result<Self> {
         Ok(Self {
             payloads: self
                 .payloads
                 .into_iter()
-                .map(|payload| payload.dump(storage, input_payloads))
+                .map(|payload| payload.dump(storage, model, input_payloads))
                 .collect::<FuturesOrdered<_>>()
                 .filter_map(|payload| async { payload.transpose() })
                 .try_collect::<Vec<_>>()
@@ -736,6 +738,7 @@ impl PipePayload {
     async fn dump(
         self,
         storage: &StorageSet,
+        model: Option<&Name>,
         input_payloads: Option<&HashMap<String, PipePayload>>,
     ) -> Result<Option<Self>> {
         let Self {
@@ -765,8 +768,8 @@ impl PipePayload {
             // do not restore the payloads to the same storage
             Ok(Some(Self {
                 storage: last_storage_type,
-                model: last_model,
                 path: last_path,
+                model: last_model,
                 key,
                 value: None,
             }))
@@ -774,17 +777,18 @@ impl PipePayload {
             match next_storage_type {
                 StorageType::Passthrough => Ok(Some(Self {
                     storage: Some(next_storage_type),
-                    model: None,
                     path: None,
+                    model: None,
                     key,
                     value,
                 })),
                 #[cfg(feature = "s3")]
-                StorageType::S3 => match next_storage.model().cloned().zip(value) {
+                StorageType::S3 => match model.or_else(|| next_storage.model()).cloned().zip(value)
+                {
                     Some((next_model, value)) => Ok(Some(Self {
                         storage: Some(next_storage_type),
+                        path: Some(next_storage.put(Some(&next_model), &key, value).await?),
                         model: Some(next_model),
-                        path: Some(next_storage.put(&key, value).await?),
                         key,
                         value: None,
                     })),

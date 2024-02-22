@@ -497,7 +497,7 @@ where
     {
         let messages = if !writer.function_context.is_disabled_store() {
             messages
-                .dump_payloads(&writer.storage, Some(input_payloads))
+                .dump_payloads(&writer.storage, None, Some(input_payloads))
                 .await?
         } else {
             messages

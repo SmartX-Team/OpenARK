@@ -128,7 +128,9 @@ where
     where
         Value: 'async_trait,
     {
-        let message = message.dump_payloads(&self.storage, None).await?;
+        let message = message
+            .dump_payloads(&self.storage, Some(&self.topic), None)
+            .await?;
         let data = message.to_bytes(self.encoder)?;
         self.inner.reply_one(data, inbox).await
     }
@@ -147,7 +149,9 @@ where
         Value: 'async_trait,
         ValueOut: 'async_trait,
     {
-        let message_req = message.dump_payloads(&self.storage, None).await?;
+        let message_req = message
+            .dump_payloads(&self.storage, Some(&self.topic), None)
+            .await?;
         let data_req = message_req.to_bytes(self.encoder)?;
 
         let data_res = self.inner.request_one(data_req).await?;
@@ -168,7 +172,9 @@ where
     where
         Value: 'async_trait,
     {
-        let message = message.dump_payloads(&self.storage, None).await?;
+        let message = message
+            .dump_payloads(&self.storage, Some(&self.topic), None)
+            .await?;
         let data = message.to_bytes(self.encoder)?;
         self.inner.send_one(data).await
     }
