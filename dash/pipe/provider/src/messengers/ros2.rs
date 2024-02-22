@@ -243,6 +243,10 @@ where
     Self: Send + Sync,
     Value: Send + DeserializeOwned,
 {
+    fn topic(&self) -> &Name {
+        &self.topic
+    }
+
     #[instrument(
         level = Level::INFO,
         skip_all,

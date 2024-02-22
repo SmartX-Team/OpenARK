@@ -127,17 +127,24 @@ impl<Value> Messenger<Value> for Box<dyn Messenger<Value>> {
 }
 
 #[async_trait]
-pub trait Publisher
+pub trait Publisher<Value = Bytes, ValueOut = Bytes>
 where
     Self: Send + Sync,
 {
     fn topic(&self) -> &Name;
 
-    async fn reply_one(&self, data: Bytes, inbox: String) -> Result<()>;
+    async fn reply_one(&self, data: Value, inbox: String) -> Result<()>
+    where
+        Value: 'async_trait;
 
-    async fn request_one(&self, data: Bytes) -> Result<Bytes>;
+    async fn request_one(&self, data: Value) -> Result<ValueOut>
+    where
+        Value: 'async_trait,
+        ValueOut: 'async_trait;
 
-    async fn send_one(&self, data: Bytes) -> Result<()>;
+    async fn send_one(&self, data: Value) -> Result<()>
+    where
+        Value: 'async_trait;
 
     async fn flush(&self) -> Result<()>;
 }
@@ -176,6 +183,8 @@ where
     Self: Send,
     Value: Send + DeserializeOwned,
 {
+    fn topic(&self) -> &Name;
+
     async fn read_one(&mut self) -> Result<Option<PipeMessage<Value>>>;
 }
 
