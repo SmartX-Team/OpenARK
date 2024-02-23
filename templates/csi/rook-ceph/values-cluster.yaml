@@ -338,7 +338,7 @@ cephFileSystems:
         resources:
           limits:
             cpu: "2000m"
-            memory: "4Gi"
+            memory: "8Gi" # MDS Cache size + free space (2Gi) + burstable space (~2Gi)
           requests:
             cpu: "1000m"
             memory: "4Gi"
