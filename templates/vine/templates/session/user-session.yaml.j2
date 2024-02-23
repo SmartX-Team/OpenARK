@@ -170,6 +170,7 @@ spec:
             capabilities:
               add:
                 - apparmor:unconfined
+                - seccomp:unconfined
 {% if spec.boxQuota.desktop.host.privileged %}
             privileged: true
 {% endif %}
