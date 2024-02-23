@@ -14,7 +14,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}"
+FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
 
 # Load user-specific environment variables
 ARG USER_GID
@@ -23,6 +23,7 @@ ARG USER_SHELL
 ARG USER_SUDO
 ARG USER_UID
 
+ENV SHELL="${USER_SHELL}"
 ENV USER_SHELL="${USER_SHELL}"
 
 # Package Manager Configuration
@@ -40,6 +41,15 @@ CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--system" ]
 # Volumes Configuration
 ## home.user
 VOLUME [ "/home/${USER_NAME}" ]
+
+# Fix base image bugs
+RUN true \
+    # NVIDIA
+    ## Fix library link issue (duplicated library binaries)
+    && ( which find >/dev/null \
+    && /sbin/ldconfig.real 2>&1 | grep -Po '/usr/local/lib/lib[a-z0-9_.]+' | xargs rm -f \
+    && /sbin/ldconfig.real ) \
+    || true
 
 # Configure package manager
 RUN dst='/etc/apt/apt.conf.d/docker-minimal' \
@@ -74,8 +84,10 @@ RUN true \
 # Install core dependencies
 RUN apt-get update && apt-get install -y \
     apt-transport-https \
+    apt-utils \
     curl \
     dbus-user-session \
+    dialog \
     fancontrol \
     gpg \
     i2c-tools \
@@ -100,6 +112,8 @@ RUN apt-get update && apt-get install -y \
     wmctrl \
     x11-utils \
     xdotool \
+    # DBus Configuration
+    && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -117,10 +131,6 @@ RUN apt-get update && apt-get install -y \
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
     crun \
-    docker-ce \
-    docker-ce-cli \
-    docker-ce-rootless-extras \
-    docker-compose-plugin \
     fuse-overlayfs \
     git \
     iptables \
@@ -130,6 +140,7 @@ RUN apt-get update && apt-get install -y \
     nvidia-container-toolkit-base \
     openssh-client \
     pciutils \
+    podman-docker \
     python3 \
     python3-pip \
     screen \
@@ -144,10 +155,10 @@ RUN apt-get update && apt-get install -y \
     && test "x${USER_SUDO}" = "xtrue" \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
-    # Docker Configuration
+    # Docker (Podman) Configuration
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
-    && sed -i 's/systemctl --user show-environment/true/g' /usr/bin/dockerd-rootless-setuptool.sh \
-    && systemctl disable docker.service docker.socket \
+    && systemctl enable podman \
+    && touch /etc/containers/nodocker \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
     && mkdir -p /etc/containers/ \
     && echo '[storage]' >/etc/containers/storage.conf \
@@ -251,9 +262,9 @@ RUN apt-get update && apt-get install -y \
 
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
-ARG DEEPSTREAM_URL_DOWNLOAD="https://developer.download.nvidia.com/assets/Deepstream"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
 ARG DEEPSTREAM_VERSION_MAJOR="6"
-ARG DEEPSTREAM_VERSION_MINOR="2"
+ARG DEEPSTREAM_VERSION_MINOR="3"
 ARG DEEPSTREAM_VERSION_PATCH="0"
 ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN apt-get update && apt-get install -y \
@@ -271,6 +282,7 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-tools \
     gstreamer1.0-vaapi \
     gstreamer1.0-x \
+    libgles2-mesa-dev \
     libgstreamer1.0-dev \
     libgstreamer-plugins-bad1.0-dev \
     libgstreamer-plugins-base1.0-dev \
@@ -280,10 +292,10 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libyaml-cpp-dev \
     # Get the latest version
-    && DEEPSTREAM_VERSION=$( \
+    && DEEPSTREAM_VERSION="$( \
     curl -s "${DEEPSTREAM_VERSION_URL}" \
     | grep -Po '^version\=\K[0-9\.]+$' \
-    ) \
+    )" \
     # Parse the version information
     && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
     && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION_MAJOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')"}" \
@@ -291,11 +303,18 @@ RUN apt-get update && apt-get install -y \
     && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION_PATCH:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')"}" \
     && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
     && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
+    && DEEPSTREAM_URL_DOWNLOAD="${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_VERSION_RELEASE}/files" \
+    && DEEPSTREAM_FILE_DOWNLOAD="$( \
+    curl -s "${DEEPSTREAM_URL_DOWNLOAD}" \
+    | grep -Po "deepstream-${DEEPSTREAM_VERSION_RELEASE}_${DEEPSTREAM_VERSION_FULL}-[0-9]*_$(dpkg --print-architecture).deb" \
+    | sort \
+    | tail -n1 \
+    )" \
     # Download
-    && DEEPSTREAM_SDK_FILE="/opt/deepstream-sdk.tbz2" \
-    && wget -qO "${DEEPSTREAM_SDK_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/DeepStream_${DEEPSTREAM_VERSION_RELEASE}/deepstream_sdk_v${DEEPSTREAM_VERSION_FULL}_$(uname -m).tbz2" \
+    && DEEPSTREAM_FILE="/opt/deepstream-sdk.deb" \
+    && wget -qO "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
     # Decompress the downloaded file
-    && tar -x -C '/' -f "${DEEPSTREAM_SDK_FILE}" \
+    && apt-get install -y "${DEEPSTREAM_FILE}" \
     # Install
     && pushd "${DEEPSTREAM_HOME}" \
     && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
@@ -317,7 +336,7 @@ RUN apt-get update && apt-get install -y \
     && chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
     # Cleanup
     && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
-    && rm -f "${DEEPSTREAM_SDK_FILE}"
+    && rm -f "${DEEPSTREAM_FILE}"
 
 # Install utility
 RUN apt-get update && apt-get install -y \

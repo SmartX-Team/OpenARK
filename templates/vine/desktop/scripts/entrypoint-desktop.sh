@@ -13,8 +13,6 @@ trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
 # Initialize rootless container environment
-"$(dirname "$0")/init-desktop-cdi.sh"
-"$(dirname "$0")/init-desktop-docker.sh"
 "$(dirname "$0")/init-desktop-podman.sh"
 
 # Initialize desktop storage environment

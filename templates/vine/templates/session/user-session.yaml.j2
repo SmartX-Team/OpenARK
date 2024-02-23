@@ -78,10 +78,12 @@ spec:
               sudo chmod 700 "${HOME}"
               sudo chmod 777 '/mnt/public'
               sudo cp /opt/group-src /opt/group-dst/group
-              sudo sed -i 's/^kiss.*$//g' /opt/group-dst/group
+              sudo sed -i '/^kiss:.*$/ d' /opt/group-dst/group
               sudo sed -i 's/:kiss$/:/g' /opt/group-dst/group
+              sudo sed -i 's/,kiss$/,/g' /opt/group-dst/group
               sudo sed -i 's/^tenant:/user:/g' /opt/group-dst/group
               sudo sed -i 's/:tenant$/:user/g' /opt/group-dst/group
+              sudo sed -i 's/,tenant$/,user/g' /opt/group-dst/group
               exec true
           env:
             - name: HOME
