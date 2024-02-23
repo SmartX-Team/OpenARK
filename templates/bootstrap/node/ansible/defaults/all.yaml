@@ -146,13 +146,13 @@ all:
         ## Upstream dns servers
         upstream_dns_servers:
           - 1.1.1.1
-          - 8.8.8.8
+          - 1.0.0.1
 
         # Enable nodelocal dns cache
         enable_nodelocaldns: true
 
         # Enable k8s_external plugin for CoreDNS
-        enable_coredns_k8s_external: true
+        enable_coredns_k8s_external: false
         coredns_k8s_external_zone: k8s.openark # Inter-cluster External DNS
         # Enable endpoint_pod_names option for kubernetes plugin
         enable_coredns_k8s_endpoint_pod_names: false
