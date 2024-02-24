@@ -264,7 +264,7 @@ RUN apt-get update && apt-get install -y \
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
 ARG DEEPSTREAM_VERSION_MAJOR="6"
-ARG DEEPSTREAM_VERSION_MINOR="3"
+ARG DEEPSTREAM_VERSION_MINOR="4"
 ARG DEEPSTREAM_VERSION_PATCH="0"
 ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN apt-get update && apt-get install -y \
