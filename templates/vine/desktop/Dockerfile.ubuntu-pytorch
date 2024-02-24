@@ -194,7 +194,6 @@ RUN apt-get update && apt-get install -y \
     && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && ldconfig \
     # SystemD Configuration
     && chmod u+x /usr/bin/systemctl \
     # Cleanup
@@ -284,7 +283,6 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-x \
     libgles2-mesa-dev \
     libgstreamer1.0-dev \
-    libgstreamer-plugins-bad1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     libgstrtspserver-1.0 \
     libjansson4 \
@@ -318,7 +316,7 @@ RUN apt-get update && apt-get install -y \
     # Install
     && pushd "${DEEPSTREAM_HOME}" \
     && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
-    && ./install.sh && ldconfig \
+    && ./install.sh \
     && rm -f *.sh \
     && popd \
     # Download the latest configuration files
@@ -423,7 +421,7 @@ ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*
 
 # Add a user
-RUN ldconfig \
+RUN /sbin/ldconfig.real \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
