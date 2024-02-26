@@ -145,8 +145,8 @@ all:
 
         ## Upstream dns servers
         upstream_dns_servers:
+          - 8.8.8.8
           - 1.1.1.1
-          - 1.0.0.1
 
         # Enable nodelocal dns cache
         enable_nodelocaldns: true
