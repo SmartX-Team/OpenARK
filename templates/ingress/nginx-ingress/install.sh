@@ -48,7 +48,7 @@ helm repo add "${NAMESPACE}-ingress-nginx" "${HELM_CHART}"
 
 echo "- Installing NGINX Ingress ... "
 
-helm upgrade --install "ingress-nginx" \
+helm upgrade --install "${NAMESPACE}-${DOMAIN_NAME/./-}-ingress-nginx" \
     "${NAMESPACE}-ingress-nginx/ingress-nginx" \
     --create-namespace \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \

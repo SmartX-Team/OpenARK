@@ -1,0 +1,26 @@
+---
+# Mattermost Operator Values
+mattermostOperator:
+  enabled: true
+  replicas: 1
+  # rbac:
+  #   create: true
+  # serviceAccount:
+  #   create: true
+  # env:
+  #   maxReconcilingInstallations: 20
+  #   maxReconcilingConcurrency: 10
+  #   requeuOnLimitDelay: 20s
+  # image:
+  #   repository: docker.io/mattermost/mattermost-operator
+  #   pullPolicy: IfNotPresent
+  #   tag: v1.20.1
+  # args:
+  #   - --enable-leader-election
+  #   - --metrics-addr=0.0.0.0:8383
+
+  ## Specify image pull secret for private repository
+  ##
+  # privateRegistry:
+  #   enabled: false
+  #   imagePullSecret: <name of the secret>

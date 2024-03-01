@@ -49,9 +49,9 @@ controller:
   # Limit the scope of the controller to a specific namespace
   scope:
     # -- Enable 'scope' or not
-    enabled: true
+    enabled: false
 
 ## Enable RBAC as per https://github.com/kubernetes/ingress-nginx/blob/main/docs/deploy/rbac.md and https://github.com/kubernetes/ingress-nginx/issues/266
 rbac:
   create: true
-  scope: true
+  scope: false
