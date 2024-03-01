@@ -18,7 +18,10 @@ USER root
 WORKDIR /
 
 # Install Development Environment Dependencies
-RUN apt-get update && apt-get install -y \
+RUN true \
+    # Remove podman
+    && apt-get purge -y podman \
+    && apt-get update && apt-get install -y \
     build-essential \
     clang \
     cmake \
@@ -35,6 +38,7 @@ RUN apt-get update && apt-get install -y \
     nasm \
     openssh-server \
     pkg-config \
+    python3.10-venv \
     s3fs \
     # GStreamer
     libges-1.0-dev \
@@ -47,12 +51,14 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-ugly \
+    # LaTex
+    chktex \
+    latexmk \
+    texlive-full \
     # Backup SSH Configurations
     && cp -r /etc/ssh /etc/.ssh \
     # Grant user-level dockerd access
     && gpasswd -a user docker \
-    # Remove podman
-    && apt-get purge -y podman \
     # Update ldconfig
     && ldconfig \
     # Cleanup
