@@ -21,6 +21,7 @@ workspace = true
 
 [dependencies]
 ark-core = { path = "../../ark/core" }
+dash-collector-api = { path = "../collector/api" }
 dash-network-api = { path = "./api" }
 dash-pipe-provider = { path = "../pipe/provider" }
 

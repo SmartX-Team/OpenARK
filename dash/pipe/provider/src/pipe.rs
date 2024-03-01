@@ -343,6 +343,7 @@ where
             atomic_session: AtomicSession::new(max_tasks),
             encoder: self.encoder.unwrap_or_default(),
             function_context: function_context.clone(),
+            model_in: self.model_in.clone(),
             model_out: self.model_out.clone(),
             storage: storage.output.clone(),
             stream: match self.model_out.as_ref() {
@@ -445,6 +446,7 @@ where
     fields(
         data.len = %1usize,
         data.model = %ctx.writer.model_out(),
+        data.model_from = %ctx.writer.model_in(),
     ),
     err(Display),
 )]
@@ -718,12 +720,20 @@ struct WriteContext {
     atomic_session: AtomicSession,
     encoder: Codec,
     function_context: FunctionContext,
+    model_in: Option<Name>,
     model_out: Option<Name>,
     storage: Arc<StorageSet>,
     stream: Option<Arc<dyn Publisher>>,
 }
 
 impl WriteContext {
+    fn model_in(&self) -> &str {
+        self.model_in
+            .as_ref()
+            .map(|model| model.as_str())
+            .unwrap_or_default()
+    }
+
     fn model_out(&self) -> &str {
         self.model_out
             .as_ref()

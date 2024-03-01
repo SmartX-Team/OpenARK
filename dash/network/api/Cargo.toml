@@ -27,3 +27,4 @@ dash-collector-api = { path = "../../collector/api" }
 anyhow = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }

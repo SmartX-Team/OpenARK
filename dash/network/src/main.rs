@@ -1,8 +1,10 @@
 mod actix;
 mod grpc;
+mod routes;
 
-use dash_network_api::NetworkGraph;
+use dash_network_api::ArcNetworkGraph;
 use opentelemetry::global;
+use tokio::spawn;
 use tracing::{error, info};
 
 #[tokio::main]
@@ -15,9 +17,12 @@ async fn main() {
         return;
     }
 
-    let graph = NetworkGraph::default();
+    let graph = ArcNetworkGraph::default();
 
-    let handlers = vec![::tokio::spawn(crate::grpc::loop_forever(graph))];
+    let handlers = vec![
+        spawn(crate::actix::loop_forever(graph.clone())),
+        spawn(crate::grpc::loop_forever(graph)),
+    ];
     signal.wait_to_terminate().await;
 
     info!("Terminating...");
