@@ -1,0 +1,395 @@
+---
+# Configuration for the ingester
+ingester:
+  # -- Number of replicas for the ingester
+  replicas: 1
+  # -- Affinity for ingester pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.ingesterSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.ingesterSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the distributor
+distributor:
+  # -- Number of replicas for the distributor
+  replicas: 1
+  # -- Affinity for distributor pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.distributorSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.distributorSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the querier
+querier:
+  # -- Number of replicas for the querier
+  replicas: 1
+  # -- Affinity for querier pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.querierSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.querierSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the query-frontend
+queryFrontend:
+  # -- Number of replicas for the query-frontend
+  replicas: 1
+  # -- Affinity for query-frontend pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.queryFrontendSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.queryFrontendSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the query-scheduler
+queryScheduler:
+  # -- Specifies whether the query-scheduler should be decoupled from the query-frontend
+  enabled: false
+  # -- Number of replicas for the query-scheduler.
+  # It should be lower than `-querier.max-concurrent` to avoid generating back-pressure in queriers;
+  # it's also recommended that this value evenly divides the latter
+  replicas: 2
+  # -- Affinity for query-scheduler pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.querySchedulerSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.querySchedulerSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the table-manager
+tableManager:
+  # -- Specifies whether the table-manager should be enabled
+  enabled: false
+  # -- Affinity for table-manager pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.tableManagerSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.tableManagerSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Use either this ingress or the gateway, but not both at once.
+# If you enable this, make sure to disable the gateway.
+# You'll need to supply authn configuration for your ingress controller.
+ingress:
+  enabled: false
+
+# Configuration for the gateway
+gateway:
+  # -- Specifies whether the gateway should be enabled
+  enabled: true
+  # -- Affinity for gateway pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.gatewaySelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.gatewaySelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the compactor
+compactor:
+  # -- Number of replicas for the compactor
+  replicas: 1
+  # -- Specifies whether compactor should be enabled
+  enabled: false
+  # -- Affinity for compactor pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.compactorSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.compactorSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# Configuration for the ruler
+ruler:
+  # -- Specifies whether the ruler should be enabled
+  enabled: false
+  # -- Number of replicas for the ruler
+  replicas: 1
+  # -- Affinity for ruler pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "loki.rulerSelectorLabels" . | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "loki.rulerSelectorLabels" . | nindent 12 }}
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+
+memcached:
+  # -- Affinity for memcached pods. Passed through `tpl` and, thus, to be configured as string
+  # @default -- Hard node and soft zone anti-affinity
+  affinity: |
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              {{- include "tempo.selectorLabels" (dict "ctx" . "component" "memcached") | nindent 10 }}
+          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                {{- include "tempo.selectorLabels" (dict "ctx" . "component" "memcached") | nindent 12 }}
+            topologyKey: topology.kubernetes.io/zone
+
+memcachedExporter:
+  # -- Specifies whether the Memcached Exporter should be enabled
+  enabled: false
+
+memcachedChunks:
+  # -- Specifies whether the Memcached chunks cache should be enabled
+  enabled: false
+
+memcachedFrontend:
+  # -- Specifies whether the Memcached frontend cache should be enabled
+  enabled: false
+
+memcachedIndexQueries:
+  # -- Specifies whether the Memcached index queries cache should be enabled
+  enabled: false
+
+memcachedIndexWrites:
+  # -- Specifies whether the Memcached index writes cache should be enabled
+  enabled: false
+
+networkPolicy:
+  # -- Specifies whether Network Policies should be created
+  enabled: false

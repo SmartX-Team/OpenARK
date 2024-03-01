@@ -13,12 +13,21 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://greptimeteam.github.io/helm-charts"
-NAMESPACE_DEFAULT="greptimedb-operator"
+HELM_CHART_DEFAULT="https://grafana.github.io/helm-charts"
+NAMESPACE_DEFAULT="dash"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
+
+###########################################################
+#   Check Environment Variables                           #
+###########################################################
+
+if [ "x${DOMAIN_NAME}" == "x" ]; then
+    echo 'Skipping installation: "DOMAIN_NAME" not set'
+    exit 0
+fi
 
 ###########################################################
 #   Configure Helm Channel                                #
@@ -26,33 +35,22 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "${NAMESPACE}" "${HELM_CHART}"
+helm repo add "${NAMESPACE}-tempo" "${HELM_CHART}"
 
 ###########################################################
-#   Checking if Graptime is already installed             #
+#   Install Tempo                                         #
 ###########################################################
 
-echo "- Checking Graptime is already installed ... "
-if
-    kubectl get namespace --no-headers "${NAMESPACE}" \
-        >/dev/null 2>/dev/null
-then
-    IS_FIRST=0
-else
-    IS_FIRST=1
-fi
+echo "- Installing Tempo ... "
 
-###########################################################
-#   Install Graptime                                      #
-###########################################################
-
-echo "- Installing Graptime ... "
-
-helm upgrade --install "greptimedb-operator" \
-    "${NAMESPACE}/greptimedb-operator" \
+helm upgrade --install "tempo-distributed" \
+    "${NAMESPACE}-tempo/tempo-distributed" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --values "./values-operator.yaml"
+    --set queryFrontend.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
+    --set queryFrontend.ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
+    --set queryFrontend.ingress.hosts[0]="${DOMAIN_NAME}" \
+    --values "./values.yaml"
 
 # Finished!
 echo "Installed!"

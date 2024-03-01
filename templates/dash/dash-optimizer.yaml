@@ -120,39 +120,3 @@ spec:
   bindingPolicy: LowestLatency
   deletionPolicy: Delete
   storage: ObjectStorage
-# ---
-# apiVersion: dash.ulagbulag.io/v1alpha1
-# kind: ModelClaim
-# metadata:
-#   name: greptime
-#   namespace: dash
-# spec:
-#   allowReplacement: true
-#   bindingPolicy: LowestLatency
-#   deletionPolicy: Delete
-#   storage: ObjectStorage
-# ---
-# apiVersion: greptime.io/v1alpha1
-# kind: GreptimeDBCluster
-# metadata:
-#   name: greptime
-#   namespace: dash
-# spec:
-#   base:
-#     main:
-#       image: docker.io/greptime/greptimedb:latest
-#   datanode:
-#     replicas: 3
-#     storage:
-#       storageClassName: ceph-block
-#   frontend:
-#     replicas: 1
-#   meta:
-#     replicas: 1
-#     etcdEndpoints:
-#       - etcd:2379
-#   # storage:
-#   #   s3:
-#   #     bucket: greptime
-#   #     endpoint: minio
-#   #     secretName: object-storage-user-0

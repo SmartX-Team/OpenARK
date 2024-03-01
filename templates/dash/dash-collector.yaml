@@ -184,40 +184,6 @@ spec:
           grpc:
             endpoint: localhost:65535
 
-    processors:
-      batch:
-        send_batch_size: 10000
-        timeout: 10s
-      memory_limiter:
-        check_interval: 1s
-        limit_percentage: 75
-        spike_limit_percentage: 15
-      spanmetrics:
-        metrics_exporter: prometheusremotewrite
-
-    exporters:
-      logging:
-        loglevel: debug
-      otlp:
-        endpoint: "collector.dash.svc:4317"
-        tls:
-          insecure: true
-      prometheusremotewrite:
-        endpoint: "http://kube-prometheus-stack-prometheus.vine.svc:9090/api/v1/write"
-
-        # # Enabling the Write-Ahead-Log for the exporter.
-        # wal:
-        #   # The directory to store the WAL in
-        #   directory: ./prom_rw
-        #   # Optional count of elements to be read from the WAL before truncating; default of 300
-        #   # buffer_size: 300
-        #   # Optional frequency for how often the WAL should be truncated. It is a time.ParseDuration; default of 1m
-        #   # truncate_frequency: 1m
-
-        # Convert resource attributes to metric labels
-        resource_to_telemetry_conversion:
-          enabled: true
-
     connectors:
       spanmetrics:
         histogram:
@@ -246,6 +212,44 @@ spec:
         metrics_flush_interval: 5s
         namespace: dash.metrics
 
+    exporters:
+      logging:
+        loglevel: debug
+      loki:
+        endpoint: "loki-distributed-distributor:3100"
+      otlp:
+        endpoint: "collector:4317"
+        tls:
+          insecure: true
+      otlp/tempo:
+        endpoint: "tempo-distributed-distributor:4317"
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: "http://kube-prometheus-stack-prometheus:9090/api/v1/write"
+
+        # # Enabling the Write-Ahead-Log for the exporter.
+        # wal:
+        #   # The directory to store the WAL in
+        #   directory: ./prom_rw
+        #   # Optional count of elements to be read from the WAL before truncating; default of 300
+        #   # buffer_size: 300
+        #   # Optional frequency for how often the WAL should be truncated. It is a time.ParseDuration; default of 1m
+        #   # truncate_frequency: 1m
+
+        # Convert resource attributes to metric labels
+        resource_to_telemetry_conversion:
+          enabled: true
+
+    processors:
+      batch:
+        send_batch_size: 1000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+
     service:
       pipelines:
         traces:
@@ -256,6 +260,7 @@ spec:
             - batch
           exporters:
             - otlp
+            - otlp/tempo
             - spanmetrics
         metrics:
           receivers:
@@ -281,6 +286,7 @@ spec:
             - memory_limiter
             - batch
           exporters:
+            - loki
             - otlp
 ---
 apiVersion: monitoring.coreos.com/v1

@@ -49,13 +49,6 @@ echo "- Installing Dex ... "
 pushd "dex" && ./install.sh && popd
 
 ###########################################################
-#   Install Prometheus                                    #
-###########################################################
-
-echo "- Installing Prometheus ... "
-pushd "monitoring/prometheus" && ./install.sh && popd
-
-###########################################################
 #   Install Daemonsets                                    #
 ###########################################################
 

@@ -9,25 +9,11 @@ set -e -o pipefail
 set -x
 
 ###########################################################
-#   Install Opentelemetry                                 #
+#   Install Monitoring Stack                              #
 ###########################################################
 
-echo "- Installing Opentelemetry ... "
-pushd "opentelemetry" && ./install.sh && popd
-
-###########################################################
-#   Install ETCD Cluster                                  #
-###########################################################
-
-echo "- Installing ETCD Cluster ... "
-pushd "etcd" && ./install.sh && popd
-
-###########################################################
-#   Install Greptime TSDB                                 #
-###########################################################
-
-echo "- Installing Greptime TSDB Cluster ... "
-pushd "greptime" && ./install.sh && popd
+echo "- Installing Monitoring Stack ... "
+pushd "monitoring" && ./install.sh && popd
 
 # Finished!
 echo "Installed!"

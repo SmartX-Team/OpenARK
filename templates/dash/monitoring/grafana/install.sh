@@ -13,36 +13,20 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://charts.bitnami.com/bitnami"
+HELM_CHART_DEFAULT="https://prometheus-community.github.io/helm-charts"
 NAMESPACE_DEFAULT="dash"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
-# Parse from CoreDNS
-export CLUSTER_NAME="$(
-    kubectl -n kube-system get configmap coredns -o yaml |
-        yq -r '.data.Corefile' |
-        grep -Po ' +kubernetes \K[\w\.\_\-]+'
-)"
-
 ###########################################################
 #   Check Environment Variables                           #
 ###########################################################
 
-ETCD_ROOT_PASSWORD="$(
-    kubectl get secret etcd \
-        --namespace "${NAMESPACE}" \
-        --output jsonpath \
-        --template "{.data.etcd-root-password}" |
-        base64 -d ||
-        true
-)"
-
-ARGS="--set clusterDomain=${CLUSTER_NAME}"
-if [ "x${ETCD_ROOT_PASSWORD}" != "x" ]; then
-    ARGS="${ARGS} --set auth.rbac.rootPassword=${ETCD_ROOT_PASSWORD}"
+if [ "x${DOMAIN_NAME}" == "x" ]; then
+    echo 'Skipping installation: "DOMAIN_NAME" not set'
+    exit 0
 fi
 
 ###########################################################
@@ -51,33 +35,22 @@ fi
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "${NAMESPACE}-etcd" "${HELM_CHART}"
+helm repo add "${NAMESPACE}-prometheus" "${HELM_CHART}"
 
 ###########################################################
-#   Checking if Graptime is already installed             #
+#   Install Prometheus Stack                              #
 ###########################################################
 
-echo "- Checking Graptime is already installed ... "
-if
-    kubectl get namespace --no-headers "${NAMESPACE}" \
-        >/dev/null 2>/dev/null
-then
-    IS_FIRST=0
-else
-    IS_FIRST=1
-fi
+echo "- Installing Prometheus Stack ... "
 
-###########################################################
-#   Install Graptime                                      #
-###########################################################
-
-echo "- Installing Graptime ... "
-
-helm upgrade --install "etcd" \
-    "${NAMESPACE}-etcd/etcd" \
+helm upgrade --install "kube-prometheus-stack" \
+    "${NAMESPACE}-prometheus/kube-prometheus-stack" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    ${ARGS} \
+    --set grafana."grafana\.ini".server.root_url="http://${DOMAIN_NAME}/dashboard/grafana/" \
+    --set grafana.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
+    --set grafana.ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
+    --set grafana.ingress.hosts[0]="${DOMAIN_NAME}" \
     --values "./values.yaml"
 
 # Finished!

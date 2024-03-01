@@ -13,8 +13,8 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://prometheus-community.github.io/helm-charts"
-NAMESPACE_DEFAULT="vine"
+HELM_CHART_DEFAULT="https://grafana.github.io/helm-charts"
+NAMESPACE_DEFAULT="dash"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
@@ -35,22 +35,18 @@ fi
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "${NAMESPACE}-prometheus" "${HELM_CHART}"
+helm repo add "${NAMESPACE}-loki" "${HELM_CHART}"
 
 ###########################################################
-#   Install Prometheus Stack                              #
+#   Install Loki                                          #
 ###########################################################
 
-echo "- Installing Prometheus Stack ... "
+echo "- Installing Loki ... "
 
-helm upgrade --install "kube-prometheus-stack" \
-    "${NAMESPACE}-prometheus/kube-prometheus-stack" \
+helm upgrade --install "loki-distributed" \
+    "${NAMESPACE}-loki/loki-distributed" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set grafana."grafana\.ini".server.root_url="http://${DOMAIN_NAME}/dashboard/grafana/" \
-    --set grafana.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
-    --set grafana.ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
-    --set grafana.ingress.hosts[0]="${DOMAIN_NAME}" \
     --values "./values.yaml"
 
 # Finished!
