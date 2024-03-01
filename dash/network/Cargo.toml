@@ -1,5 +1,5 @@
 [package]
-name = "dash-optimizer-fallback"
+name = "dash-network"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,13 +20,16 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-api = { path = "../../api" }
-dash-provider = { path = "../../provider" }
-dash-provider-api = { path = "../../provider/api" }
+ark-core = { path = "../../ark/core" }
+dash-network-api = { path = "./api" }
+dash-pipe-provider = { path = "../pipe/provider" }
 
+actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-byte-unit = { workspace = true }
-futures = { workspace = true }
-kube = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-proto = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tonic = { workspace = true }
 tracing = { workspace = true }

@@ -4,7 +4,7 @@ use dash_api::{
     model::ModelCrd, model_claim::ModelClaimBindingPolicy,
     model_storage_binding::ModelStorageBindingCrd, storage::ModelStorageKind,
 };
-use dash_optimizer_api::model;
+use dash_network_api::model;
 use dash_pipe_provider::{
     messengers::{init_messenger, Messenger, MessengerArgs},
     PipeMessage, RemoteFunction, StatelessRemoteFunction,
@@ -13,11 +13,11 @@ use dash_provider::storage::KubernetesStorageClient;
 use kube::ResourceExt;
 use tracing::{info, instrument, Level};
 
-pub struct OptimizerClient {
+pub struct NetworkClient {
     messenger: Box<dyn Messenger<model::Response>>,
 }
 
-impl OptimizerClient {
+impl NetworkClient {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default() -> Result<Self> {
         let args = MessengerArgs::try_parse()?;
@@ -83,7 +83,7 @@ impl OptimizerClient {
         model: &ModelCrd,
         storage: Option<ModelStorageKind>,
     ) -> Result<Option<ModelStorageBindingCrd>> {
-        let fallback = ::dash_optimizer_fallback::OptimizerClient::new(kubernetes_storage);
+        let fallback = ::dash_network_fallback::NetworkClient::new(kubernetes_storage);
         fallback
             .optimize_model_storage_binding(field_manager, model, storage)
             .await

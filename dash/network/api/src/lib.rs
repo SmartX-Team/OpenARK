@@ -1,3 +1,6 @@
+#[derive(Clone, Debug, Default)]
+pub struct NetworkGraph {}
+
 pub mod model {
     use anyhow::Result;
     use ark_core_k8s::data::Name;

@@ -76,6 +76,7 @@ macro_rules! init_exporter_impls {
         #[instrument(level = Level::INFO, skip_all)]
         pub async fn init_exporters() -> Arc<dyn Exporters> {
             $(
+                #[cfg(feature = $exporter_feature)]
                 match self::$exporter::Exporters::try_default().await {
                     Ok(exporter) => Arc::new(exporter),
                     Err(e) => {

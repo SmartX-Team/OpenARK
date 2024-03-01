@@ -1,5 +1,5 @@
 [package]
-name = "dash-optimizer-api"
+name = "dash-network-api"
 
 authors = { workspace = true }
 description = { workspace = true }

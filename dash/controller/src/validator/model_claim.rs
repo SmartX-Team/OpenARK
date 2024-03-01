@@ -1,13 +1,13 @@
 use anyhow::{bail, Result};
 use dash_api::model_claim::{ModelClaimCrd, ModelClaimDeletionPolicy};
-use dash_optimizer_client::OptimizerClient;
+use dash_network_client::NetworkClient;
 use dash_provider::storage::KubernetesStorageClient;
 use kube::ResourceExt;
 use tracing::{instrument, Level};
 
 pub struct ModelClaimValidator<'client, 'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
-    pub optimizer: &'client OptimizerClient,
+    pub optimizer: &'client NetworkClient,
 }
 
 impl<'client, 'namespace, 'kube> ModelClaimValidator<'client, 'namespace, 'kube> {

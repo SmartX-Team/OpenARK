@@ -1,5 +1,5 @@
 [package]
-name = "dash-optimizer-client"
+name = "dash-network-client"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -21,8 +21,8 @@ workspace = true
 
 [dependencies]
 dash-api = { path = "../../api" }
-dash-optimizer-api = { path = "../api" }
-dash-optimizer-fallback = { path = "../fallback" }
+dash-network-api = { path = "../api" }
+dash-network-fallback = { path = "../fallback" }
 dash-pipe-provider = { path = "../../pipe/provider" }
 dash-provider = { path = "../../provider" }
 

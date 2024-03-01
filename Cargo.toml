@@ -11,14 +11,13 @@ members = [
     "dash/collector",
     "dash/collector/api",
     "dash/collector/client",
-    "dash/collector/world",
     "dash/controller",
     "dash/gateway",
+    "dash/network",                         # exclude(alpine)
+    "dash/network/api",
+    "dash/network/client",
+    "dash/network/fallback",
     "dash/openapi",
-    "dash/optimizer",                       # exclude(alpine)
-    "dash/optimizer/api",
-    "dash/optimizer/client",
-    "dash/optimizer/fallback",
     "dash/pipe/api",
     "dash/pipe/connectors/liveness",
     "dash/pipe/connectors/storage",
