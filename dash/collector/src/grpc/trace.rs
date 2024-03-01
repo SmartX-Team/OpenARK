@@ -4,7 +4,7 @@ use opentelemetry_proto::tonic::collector::trace::v1::{
     trace_service_server::{TraceService, TraceServiceServer},
     ExportTracePartialSuccess, ExportTraceServiceRequest, ExportTraceServiceResponse,
 };
-use tonic::{Request, Response, Status};
+use tonic::{codec::CompressionEncoding, Request, Response, Status};
 use tracing::{instrument, Level};
 
 pub fn init(
@@ -16,6 +16,8 @@ pub fn init(
         #[cfg(feature = "exporter")]
         exporter,
     })
+    .accept_compressed(CompressionEncoding::Gzip)
+    .send_compressed(CompressionEncoding::Gzip)
 }
 
 pub type Server = TraceServiceServer<Service>;

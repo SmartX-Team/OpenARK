@@ -165,3 +165,140 @@ spec:
       port: 4318
       protocol: TCP
       targetPort: 4318
+---
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: dash-observability
+  namespace: dash
+spec:
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+      # Dummy receiver that's never used, because a pipeline is required to have one.
+      otlp/spanmetrics:
+        protocols:
+          grpc:
+            endpoint: localhost:65535
+
+    processors:
+      batch:
+        send_batch_size: 10000
+        timeout: 10s
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+      spanmetrics:
+        metrics_exporter: prometheusremotewrite
+
+    exporters:
+      logging:
+        loglevel: debug
+      otlp:
+        endpoint: "collector.dash.svc:4317"
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: "http://kube-prometheus-stack-prometheus.vine.svc:9090/api/v1/write"
+
+        # # Enabling the Write-Ahead-Log for the exporter.
+        # wal:
+        #   # The directory to store the WAL in
+        #   directory: ./prom_rw
+        #   # Optional count of elements to be read from the WAL before truncating; default of 300
+        #   # buffer_size: 300
+        #   # Optional frequency for how often the WAL should be truncated. It is a time.ParseDuration; default of 1m
+        #   # truncate_frequency: 1m
+
+        # Convert resource attributes to metric labels
+        resource_to_telemetry_conversion:
+          enabled: true
+
+    connectors:
+      spanmetrics:
+        histogram:
+          explicit:
+            buckets:
+              - 2ms
+              - 4ms
+              - 6ms
+              - 8ms
+              - 10ms
+              - 20ms
+              - 30ms
+              - 40ms
+              - 50ms
+              - 100ms
+              - 200ms
+              - 400ms
+              - 800ms
+              - 1000ms
+              - 1400ms
+              - 2000ms
+              - 5000ms
+              - 10000ms
+              - 15000ms
+          unit: ms
+        metrics_flush_interval: 5s
+        namespace: dash.metrics
+
+    service:
+      pipelines:
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+          exporters:
+            - otlp
+            - spanmetrics
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+          exporters:
+            - otlp
+            - prometheusremotewrite
+        metrics/spanmetrics:
+          receivers:
+            - spanmetrics
+          processors:
+            - memory_limiter
+            - batch
+          exporters:
+            - prometheusremotewrite
+        logs:
+          receivers:
+            - otlp
+          processors:
+            - memory_limiter
+            - batch
+          exporters:
+            - otlp
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dash-observability
+  namespace: "dash"
+spec:
+  endpoints:
+    - path: /metrics
+      port: monitoring
+      interval: 5s
+  namespaceSelector:
+    matchNames:
+      - dash
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: opentelemetry-collector
+      app.kubernetes.io/instance: dash.dash-observability
+      app.kubernetes.io/managed-by: opentelemetry-operator
+      app.kubernetes.io/part-of: opentelemetry
