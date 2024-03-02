@@ -60,7 +60,7 @@ impl TraceService for Service {
                     .iter()
                     .flat_map(|spans| &spans.spans)
                     .filter_map(move |span| {
-                        if span.name != "tick_function" {
+                        if span.name != "call_function" {
                             return None;
                         }
 
@@ -78,7 +78,7 @@ impl TraceService for Service {
                         };
                         let node_to = NetworkNodeKey {
                             kind: kind.into(),
-                            name: Some(get_attribute_value_str(attributes, "data.model")?.into()),
+                            name: get_attribute_value_str(attributes, "data.model").map(Into::into),
                             namespace: namespace.into(),
                         };
                         let key = (node_from, node_to);
@@ -115,4 +115,5 @@ fn get_attribute_value_str<'a>(attributes: &'a [KeyValue], key: &str) -> Option<
             any_value::Value::StringValue(value) => Some(value.as_str()),
             _ => None,
         })
+        .filter(|&value| !value.is_empty())
 }

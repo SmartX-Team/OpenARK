@@ -567,10 +567,12 @@ where
         fields(
             data.len = %inputs.len().max(1),
             data.model = %model_out,
+            data.model_from = %model_in,
         ),
         err(Display),
     )]
     async fn call_function<F>(
+        model_in: &str,
         model_out: &str,
         function: &mut F,
         inputs: PipeMessages<<F as Function>::Input>,
@@ -581,7 +583,14 @@ where
         function.tick(inputs).await
     }
 
-    match call_function(ctx.writer.model_out(), &mut ctx.function, inputs).await? {
+    match call_function(
+        ctx.writer.model_in(),
+        ctx.writer.model_out(),
+        &mut ctx.function,
+        inputs,
+    )
+    .await?
+    {
         PipeMessages::None => Ok(()),
         outputs => match ctx.writer.stream.clone() {
             Some(stream) => {

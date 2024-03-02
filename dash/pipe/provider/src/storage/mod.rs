@@ -92,13 +92,19 @@ impl StorageSet {
                 } else {
                     args.flush()
                 };
-                self::lakehouse::Storage::try_new::<Value>(&args.s3, model, flush).await?
+                self::lakehouse::Storage::try_new::<Value>(
+                    &args.s3,
+                    args.storage_name.clone(),
+                    model,
+                    flush,
+                )
+                .await?
             } else {
                 self::lakehouse::Storage::default()
             },
             passthrough: self::passthrough::Storage::new(model),
             #[cfg(feature = "s3")]
-            s3: self::s3::Storage::try_new(&args.s3, model, &pipe_name)?,
+            s3: self::s3::Storage::try_new(&args.s3, args.storage_name.clone(), model, &pipe_name)?,
         })
     }
 
@@ -268,6 +274,8 @@ impl StorageType {
 pub trait Storage {
     fn model(&self) -> Option<&Name>;
 
+    fn name(&self) -> &str;
+
     fn storage_type(&self) -> StorageType;
 
     async fn get(&self, model: &Name, path: &str) -> Result<Bytes>;
@@ -278,6 +286,8 @@ pub trait Storage {
         fields(
             data.len = %bytes.len(),
             data.model = self.model().map(|model| model.as_str()),
+            storage.name = &self.name(),
+            storage.r#type = %self.storage_type(),
         ),
         err(Display),
     )]
@@ -296,6 +306,8 @@ pub trait Storage {
         fields(
             data.len = %1usize,
             data.model = self.model().map(|model| model.as_str()),
+            storage.name = &self.name(),
+            storage.r#type = %self.storage_type(),
         ),
         err(Display),
     )]
@@ -328,6 +340,9 @@ pub struct StorageArgs {
     #[cfg(any(feature = "lakehouse", feature = "s3"))]
     #[command(flatten)]
     pub s3: ::dash_pipe_api::storage::StorageS3Args,
+
+    #[arg(long, env = "PIPE_STORAGE_NAME", value_name = "NAME")]
+    storage_name: String,
 }
 
 impl StorageArgs {

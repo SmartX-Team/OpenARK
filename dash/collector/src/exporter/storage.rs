@@ -40,6 +40,9 @@ macro_rules! init_exporter {
 
                     #[command(flatten)]
                     s3: ::dash_pipe_api::storage::StorageS3Args,
+
+                    #[arg(long, env = "PIPE_STORAGE_NAME", value_name = "NAME")]
+                    storage_name: String,
                 }
 
                 impl ExporterStorageArgs {
@@ -55,6 +58,7 @@ macro_rules! init_exporter {
                         $signal: Arc::new(
                             Storage::try_new::<Value>(
                                 &args.s3,
+                                args.storage_name.clone(),
                                 Some(&args.model_out),
                                 args.flush(),
                             ).await?

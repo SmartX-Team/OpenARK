@@ -83,15 +83,17 @@ pub struct GlobalStorageContext {
     args: StorageS3Args,
     flush: Option<Duration>,
     lock_table: Arc<AtomicBool>,
+    name: String,
     storages: Arc<RwLock<BTreeMap<String, StorageContext>>>,
 }
 
 impl GlobalStorageContext {
-    pub fn new(args: StorageS3Args, flush: Option<Duration>) -> Self {
+    pub fn new(args: StorageS3Args, name: String, flush: Option<Duration>) -> Self {
         Self {
             args,
             flush,
             lock_table: Arc::default(),
+            name,
             storages: Arc::default(),
         }
     }
@@ -117,7 +119,8 @@ impl GlobalStorageContext {
             let release = || self.lock_table.store(false, Ordering::SeqCst);
 
             // load or create a table
-            match StorageContext::try_new::<DynValue>(&self.args, model, self.flush).await {
+            let name = self.name.clone();
+            match StorageContext::try_new::<DynValue>(&self.args, name, model, self.flush).await {
                 Ok(ctx) => {
                     self.storages
                         .write()
@@ -145,6 +148,7 @@ impl Storage {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_new<Value>(
         args: &StorageS3Args,
+        name: String,
         model: Option<&Name>,
         flush: Option<Duration>,
     ) -> Result<Self>
@@ -153,9 +157,9 @@ impl Storage {
     {
         Ok(Self {
             inner: match model {
-                Some(model) => {
-                    Some(StorageContext::try_new::<Value>(args, model.storage(), flush).await?)
-                }
+                Some(model) => Some(
+                    StorageContext::try_new::<Value>(args, name, model.storage(), flush).await?,
+                ),
                 None => None,
             },
         })
@@ -203,14 +207,18 @@ impl<Value> super::MetadataStorage<Value> for Storage {
 pub struct StorageContext {
     model: String,
     model_raw: String,
+    name: String,
     table: Arc<RwLock<DeltaTable>>,
     writer: Arc<Mutex<StorageTableWriter>>,
 }
 
 impl StorageContext {
+    const STORAGE_TYPE: super::MetadataStorageType = super::MetadataStorageType::LakeHouse;
+
     #[instrument(level = Level::INFO, skip(args), err(Display))]
     pub async fn try_new<Value>(
         args: &StorageS3Args,
+        name: String,
         model: &str,
         flush: Option<Duration>,
     ) -> Result<Self>
@@ -240,6 +248,7 @@ impl StorageContext {
         Ok(Self {
             model,
             model_raw,
+            name,
             table,
             writer,
         })
@@ -305,6 +314,8 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         fields(
             data.len = %1usize,
             data.model = %self.model_raw,
+            storage.name = &self.name,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]
@@ -328,6 +339,8 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         fields(
             data.len = %values.len(),
             data.model = %self.model_raw,
+            storage.name = &self.name,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]
@@ -357,6 +370,8 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         fields(
             data.len = %1usize,
             data.model = %self.model_raw,
+            storage.name = &self.name,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]

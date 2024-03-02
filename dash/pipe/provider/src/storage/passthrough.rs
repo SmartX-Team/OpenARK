@@ -10,6 +10,9 @@ pub struct Storage {
 }
 
 impl Storage {
+    const STORAGE_NAME: &'static str = "";
+    const STORAGE_TYPE: super::StorageType = super::StorageType::Passthrough;
+
     pub fn new(model: Option<&Name>) -> Self {
         Self {
             model: model.cloned(),
@@ -23,16 +26,22 @@ impl super::Storage for Storage {
         self.model.as_ref()
     }
 
+    fn name(&self) -> &str {
+        Self::STORAGE_NAME
+    }
+
     fn storage_type(&self) -> super::StorageType {
-        super::StorageType::Passthrough
+        Self::STORAGE_TYPE
     }
 
     #[instrument(
         level = Level::INFO,
         skip_all,
         fields(
-            data.len = %1usize,
+            data.len = %0usize,
             data.model = %_model.as_str(),
+            storage.name = %Self::STORAGE_NAME,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]
@@ -46,6 +55,8 @@ impl super::Storage for Storage {
         fields(
             data.len = %_bytes.len(),
             data.model = %_model.as_str(),
+            storage.name = %Self::STORAGE_NAME,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]
@@ -59,6 +70,8 @@ impl super::Storage for Storage {
         fields(
             data.len = %1usize,
             data.model = %_model.as_str(),
+            storage.name = %Self::STORAGE_NAME,
+            storage.r#type = %Self::STORAGE_TYPE,
         ),
         err(Display),
     )]

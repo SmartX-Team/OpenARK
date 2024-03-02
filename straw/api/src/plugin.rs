@@ -609,6 +609,12 @@ context_env_fields! {
         ]
         pub queue_group: bool,
 
+        #[
+            env("PIPE_STORAGE_NAME"),
+            default(String::from("default")),
+        ]
+        pub storage_name: String,
+
         optional: {
             #[
                 env("PIPE_ENCODER"),
