@@ -121,7 +121,9 @@ where
     Bucket: Ord,
     Key: Ord,
 {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub edges: BTreeMap<Key, BTreeMap<Key, NetworkValue<Bucket>>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub nodes: BTreeMap<Key, NetworkNodeMap<Key>>,
 }
 
@@ -133,8 +135,11 @@ where
     Bucket: Ord,
     Key: Ord,
 {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub from: BTreeMap<Key, NetworkValue<Bucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r#loop: Option<NetworkValue<Bucket>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub to: BTreeMap<Key, NetworkValue<Bucket>>,
 }
 
@@ -184,8 +189,11 @@ pub struct NetworkNodeMap<Key = NetworkNodeKey>
 where
     Key: Ord,
 {
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub from: BTreeSet<Key>,
+    #[serde(default, skip_serializing_if = "is_bool_default")]
     pub r#loop: bool,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub to: BTreeSet<Key>,
 }
 
@@ -245,7 +253,9 @@ pub struct NetworkValue<Bucket = Duration>
 where
     Bucket: Ord,
 {
+    #[serde(default)]
     pub count: usize,
+    #[serde(default)]
     pub duration: NetworkHistogram<Bucket, usize>,
 }
 
@@ -332,7 +342,9 @@ pub struct NetworkHistogram<Bucket, Value>
 where
     Bucket: Ord,
 {
+    #[serde(default)]
     pub buckets: BTreeMap<Bucket, Value>,
+    #[serde(default)]
     pub total_ms: u128,
 }
 
@@ -458,4 +470,8 @@ pub mod storage {
     }
 
     pub type Response = Option<String>;
+}
+
+const fn is_bool_default(value: &bool) -> bool {
+    !*value
 }
