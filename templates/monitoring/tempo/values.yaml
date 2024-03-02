@@ -403,10 +403,12 @@ storage:
     # -- The supported storage backends are gcs, s3 and azure, as specified in https://grafana.com/docs/enterprise-traces/latest/config/reference/#admin_client_config
     backend: filesystem
 
-# Global overrides
-global_overrides:
-  metrics_generator_processors:
-    - service-graphs
+# Per tenants overrides
+overrides: |
+  overrides:
+    metrics_generator_processors:
+      - service-graphs
+      - span-metrics
 
 # memcached is for all of the Tempo pieces to coordinate with each other.
 # you can use your self memcacherd by set enable: false and host + service
