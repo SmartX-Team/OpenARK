@@ -976,8 +976,8 @@ impl<'storage> MinioAdminClient<'storage> {
                 #[derive(Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 struct DataPool {
-                    raw_capacity: Byte,
-                    usage: Byte,
+                    raw_capacity: u64,
+                    usage: u64,
                 }
 
                 let data: Data = resp.json().await?;
@@ -986,8 +986,8 @@ impl<'storage> MinioAdminClient<'storage> {
                         .into_values()
                         .flatten()
                         .map(|(_, pool)| Capacity {
-                            capacity: pool.raw_capacity,
-                            usage: pool.usage,
+                            capacity: Byte::from_u64(pool.raw_capacity),
+                            usage: Byte::from_u64(pool.usage),
                         })
                         .sum(),
                 ))
