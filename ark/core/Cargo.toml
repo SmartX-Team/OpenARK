@@ -20,7 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["metrics", "trace"]
+default = ["logs", "metrics", "trace"]
 
 # telemetry pillars and functions
 logs = ["otlp"]
@@ -34,6 +34,7 @@ actix-web = { workspace = true, optional = true, default-features = false }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 opentelemetry = { workspace = true }
+opentelemetry-appender-tracing = { workspace = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 serde = { workspace = true }

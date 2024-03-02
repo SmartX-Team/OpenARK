@@ -125,6 +125,10 @@ opencv = { version = "0.88", default-features = false, features = [
     "clang-runtime",
 ] }
 opentelemetry = { version = "0.21", features = ["logs", "metrics", "trace"] }
+opentelemetry-appender-tracing = { version = "0.2", features = [
+    # "experimental_metadata_attributes",
+    "logs_level_enabled",
+] }
 opentelemetry-otlp = { version = "0.14", features = [
     "logs",
     "metrics",
