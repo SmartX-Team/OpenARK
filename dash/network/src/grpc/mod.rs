@@ -1,8 +1,8 @@
-use std::time::Duration;
+mod pipe_function;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use dash_network_api::{ArcNetworkGraph, NetworkNodeKey, NetworkValueBuilder};
+use dash_network_api::ArcNetworkGraph;
 use opentelemetry_proto::tonic::{
     collector::trace::v1::{
         trace_service_server::{TraceService, TraceServiceServer},
@@ -54,40 +54,24 @@ impl TraceService for Service {
         let metrics: Vec<_> = request
             .resource_spans
             .iter()
-            .filter_map(|spans| Some((&spans.resource.as_ref()?.attributes, &spans.scope_spans)))
-            .flat_map(|(spans_attributes, scope_spans)| {
+            .filter_map(|spans| {
+                Some((
+                    spans.resource.as_ref()?.attributes.as_slice(),
+                    &spans.scope_spans,
+                ))
+            })
+            .flat_map(|(resource_attributes, scope_spans)| {
                 scope_spans
                     .iter()
                     .flat_map(|spans| &spans.spans)
                     .filter_map(move |span| {
-                        if span.name != "call_function" {
-                            return None;
+                        let attributes = span.attributes.as_slice();
+                        let parse = |f: fn(_, _, _) -> _| f(resource_attributes, span, attributes);
+
+                        match span.name.as_str() {
+                            "call_function" => parse(self::pipe_function::parse),
+                            _ => None,
                         }
-
-                        let attributes = &span.attributes;
-
-                        let kind = "function";
-                        let namespace =
-                            get_attribute_value_str(spans_attributes, "k8s.namespace.name")?;
-
-                        let node_from = NetworkNodeKey {
-                            kind: kind.into(),
-                            name: get_attribute_value_str(attributes, "data.model_from")
-                                .map(Into::into),
-                            namespace: namespace.into(),
-                        };
-                        let node_to = NetworkNodeKey {
-                            kind: kind.into(),
-                            name: get_attribute_value_str(attributes, "data.model").map(Into::into),
-                            namespace: namespace.into(),
-                        };
-                        let key = (node_from, node_to);
-
-                        let value = NetworkValueBuilder::new(Duration::from_nanos(
-                            span.end_time_unix_nano - span.start_time_unix_nano,
-                        ));
-
-                        Some((key, value))
                     })
             })
             .collect();
