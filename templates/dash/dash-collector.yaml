@@ -95,7 +95,9 @@ spec:
             - name: PIPE_FLUSH
               value: "10"
             - name: PIPE_MODEL_OUT
-              value: optimizer-metric
+              value: dash.collector
+            - name: PIPE_STORAGE_NAME
+              value: default
             - name: RUST_LOG
               value: INFO
           ports:
@@ -166,6 +168,31 @@ spec:
       protocol: TCP
       targetPort: 4318
 ---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: default
+  namespace: dash
+spec:
+  objectStorage:
+    owned:
+      resources:
+        requests:
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelClaim
+metadata:
+  name: dash.collector
+  namespace: dash
+spec:
+  allowReplacement: true
+  bindingPolicy: LowestLatency
+  deletionPolicy: Delete
+  storage: ObjectStorage
+---
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
 metadata:
@@ -216,17 +243,17 @@ spec:
       logging:
         loglevel: debug
       loki:
-        endpoint: "loki-distributed-distributor:3100"
+        endpoint: "loki-distributed-distributor.monitoring.svc:3100"
       otlp:
         endpoint: "collector:4317"
         tls:
           insecure: true
       otlp/tempo:
-        endpoint: "tempo-distributed-distributor:4317"
+        endpoint: "tempo-distributed-distributor.monitoring.svc:4317"
         tls:
           insecure: true
       prometheusremotewrite:
-        endpoint: "http://kube-prometheus-stack-prometheus:9090/api/v1/write"
+        endpoint: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/write"
 
         # # Enabling the Write-Ahead-Log for the exporter.
         # wal:

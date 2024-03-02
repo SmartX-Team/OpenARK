@@ -260,6 +260,9 @@ gateway:
               matchLabels:
                 {{- include "loki.gatewaySelectorLabels" . | nindent 12 }}
             topologyKey: failure-domain.beta.kubernetes.io/zone
+  nginxConfig:
+    # -- Allows overriding the DNS resolver address nginx will use.
+    resolver: coredns.kube-system.svc
 
 # Configuration for the compactor
 compactor:

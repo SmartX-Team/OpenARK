@@ -14,7 +14,7 @@ set -x
 
 # Configure default environment variables
 HELM_CHART_DEFAULT="https://grafana.github.io/helm-charts"
-NAMESPACE_DEFAULT="dash"
+NAMESPACE_DEFAULT="monitoring"
 
 # Set environment variables
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"

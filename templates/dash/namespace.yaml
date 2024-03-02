@@ -27,7 +27,7 @@ metadata:
 spec:
   permissions:
     publish:
-      - dash.raw.>
+      - dash.collector.>
     subscribe:
       - _inbox.*
       - _INBOX.>
