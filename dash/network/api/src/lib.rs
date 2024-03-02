@@ -116,6 +116,7 @@ impl ArcNetworkGraph {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkGraph<Key = NetworkEdgeKey, Bucket = Duration>
 where
     Bucket: Ord,
@@ -130,6 +131,7 @@ where
 pub type NetworkEdgeKey = (NetworkNodeKey, NetworkNodeKey);
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkNode<Key = NetworkNodeKey, Bucket = Duration>
 where
     Bucket: Ord,
@@ -185,6 +187,7 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkNodeMap<Key = NetworkNodeKey>
 where
     Key: Ord,
@@ -230,6 +233,7 @@ where
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NetworkNodeKey {
     pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub namespace: String,
 }
@@ -249,6 +253,7 @@ impl fmt::Display for NetworkNodeKey {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkValue<Bucket = Duration>
 where
     Bucket: Ord,
@@ -325,38 +330,29 @@ impl NetworkValueBuilder {
 
         NetworkValue {
             count: 1,
-            duration: NetworkHistogram {
-                buckets: Self::DEFAULT_BUCKETS
+            duration: NetworkHistogram(
+                Self::DEFAULT_BUCKETS
                     .iter()
                     .copied()
                     .map(|le| (le, (duration < le) as usize))
                     .collect(),
-                total_ms: duration.as_millis(),
-            },
+            ),
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NetworkHistogram<Bucket, Value>
+#[serde(default, transparent)]
+pub struct NetworkHistogram<Bucket, Value>(pub BTreeMap<Bucket, Value>)
 where
-    Bucket: Ord,
-{
-    #[serde(default)]
-    pub buckets: BTreeMap<Bucket, Value>,
-    #[serde(default)]
-    pub total_ms: u128,
-}
+    Bucket: Ord;
 
 impl<Bucket, Value> Default for NetworkHistogram<Bucket, Value>
 where
     Bucket: Default + Ord,
 {
     fn default() -> Self {
-        Self {
-            buckets: BTreeMap::default(),
-            total_ms: 0,
-        }
+        Self(BTreeMap::default())
     }
 }
 
@@ -365,13 +361,12 @@ where
     Value: Copy + ops::AddAssign,
 {
     fn add_assign(&mut self, rhs: Self) {
-        for (duration, rhs) in rhs.buckets {
-            self.buckets
+        for (duration, rhs) in rhs.0 {
+            self.0
                 .entry(duration)
                 .and_modify(|lhs| *lhs += rhs)
                 .or_insert(rhs);
         }
-        self.total_ms += rhs.total_ms;
     }
 }
 
@@ -379,11 +374,10 @@ impl ops::AddAssign<NetworkValueBuilder> for NetworkHistogram<Duration, usize> {
     fn add_assign(&mut self, rhs: NetworkValueBuilder) {
         let NetworkValueBuilder { duration } = rhs;
 
-        self.buckets
+        self.0
             .iter_mut()
             .filter(|(&le, _)| duration < le)
             .for_each(|(_, lhs)| *lhs += 1);
-        self.total_ms += duration.as_millis();
     }
 }
 
@@ -392,25 +386,23 @@ where
     Value: Clone,
 {
     fn into_json(self) -> NetworkHistogram<String, Value> {
-        let Self { buckets, total_ms } = self;
-        NetworkHistogram {
-            buckets: buckets
+        let Self(buckets) = self;
+        NetworkHistogram(
+            buckets
                 .into_iter()
                 .map(|(key, value)| (key.as_millis().to_string(), value))
                 .collect(),
-            total_ms,
-        }
+        )
     }
 
     fn to_json(&self) -> NetworkHistogram<String, Value> {
-        let Self { buckets, total_ms } = self;
-        NetworkHistogram {
-            buckets: buckets
+        let Self(buckets) = self;
+        NetworkHistogram(
+            buckets
                 .iter()
                 .map(|(key, value)| (key.as_millis().to_string(), value.clone()))
                 .collect(),
-            total_ms: *total_ms,
-        }
+        )
     }
 }
 
