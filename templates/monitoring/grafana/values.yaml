@@ -136,16 +136,20 @@ grafana:
       # https://grafana.com/docs/grafana/latest/datasources/tempo/#provision-the-tempo-data-source
       jsonData:
         httpMethod: GET
+        nodeGraph:
+          enabled: true
+        serviceMap:
+          datasourceUid: prometheus
         tracesToLogs:
-          datasourceUid: "loki"
+          datasourceUid: loki
           # they must be attached by the instrumentation
-          tags: ["pod", "namespace"]
+          tags:
+            - namespace
+            - pod
           # extend time span a little, to ensure catching all logs of that span
           spanStartTimeShift: 1s
           spandEndTimeShift: 1s
           lokiSearch: true
-        serviceMap:
-          datasourceUid: "prometheus"
 
   ## Affinity for pod assignment (evaluated as template)
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
