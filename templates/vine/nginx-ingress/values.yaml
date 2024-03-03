@@ -1,5 +1,7 @@
 ---
 controller:
+  allowSnippetAnnotations: true
+
   # -- Affinity and anti-affinity rules for server scheduling to nodes
   ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##

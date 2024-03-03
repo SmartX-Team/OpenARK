@@ -29,6 +29,8 @@ if [ "x${DOMAIN_NAME}" == "x" ]; then
     exit 0
 fi
 
+PUBLIC_DOMAIN_NAME="${PUBLIC_DOMAIN_NAME:-"http://${DOMAIN_NAME}"}"
+
 ###########################################################
 #   Configure Helm Channel                                #
 ###########################################################
@@ -47,7 +49,7 @@ helm upgrade --install "dex" \
     "${NAMESPACE}/dex" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set config.issuer="http://${DOMAIN_NAME}/dex/" \
+    --set config.issuer="${PUBLIC_DOMAIN_NAME}/dex/" \
     --set config.staticClients[0].redirectURIs[0]="http://${DOMAIN_NAME}/oauth2/callback" \
     --set image.repository="quay.io/ulagbulag/openark-vine-dex" \
     --set image.pullPolicy="Always" \
