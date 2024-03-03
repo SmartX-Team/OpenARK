@@ -6,7 +6,9 @@ use kube::{CustomResource, ResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource,
+)]
 #[kube(
     group = "vine.ulagbulag.io",
     version = "v1alpha1",

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use ark_core_k8s::data::{EmailAddress, Url};
 use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
@@ -56,12 +56,20 @@ pub struct UserAuthOAuth2Common {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct UserAuthPayload {
+    /// User primary id
+    #[serde(default)]
+    id: Option<String>,
     /// User e-mail address
     email: String,
     /// User name
-    name: String,
+    #[serde(default)]
+    name: Option<String>,
     /// Preferred user name
-    preferred_username: String,
+    #[serde(alias = "preferred_username")]
+    username: String,
+    /// User roles
+    #[serde(default)]
+    roles: String,
 }
 
 impl UserAuthPayload {
@@ -69,19 +77,33 @@ impl UserAuthPayload {
         fn encode(s: &str) -> String {
             s.to_lowercase()
                 // common special words
+                .replace('.', "-d-")
                 .replace('-', "-s-")
                 .replace('@', "-at-")
                 // other special words
                 .replace('_', "-u-")
         }
 
-        match self.email.parse::<EmailAddress>() {
-            Ok(email) => Ok(format!("email-{}", encode(email.0.as_str()))),
-            Err(_) => match self.preferred_username.as_str() {
-                "" => bail!("failed to parse primary key: {:?}", self),
-                name => Ok(format!("name-{}", encode(name))),
-            },
-        }
+        let id = || {
+            let id = self.id.as_ref()?;
+            Some(format!("id-{}", encode(id)))
+        };
+        let email = || {
+            let email = self.email.parse::<EmailAddress>().ok()?;
+            Some(format!("email-{}", encode(email.as_str())))
+        };
+        let name = || {
+            let name = &self.username;
+            if name.is_empty() {
+                None
+            } else {
+                Some(format!("name-{}", encode(name)))
+            }
+        };
+
+        id().or_else(email)
+            .or_else(name)
+            .ok_or_else(|| anyhow!("failed to parse primary key: {:?}", self))
     }
 }
 
