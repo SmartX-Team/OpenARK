@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mattermost-prometheus
+  namespace: vine
+type: Opaque
+stringData:
+  # TODO(user): change your own token!
+  url: http://mattermost.vine.svc:8065/plugins/alertmanager/api/webhook?token='xxxxxxxxxxxxxxxxxxxxx'
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: mattermost-prometheus
+  namespace: vine
+spec:
+  receivers:
+    - name: mattermost
+      webhookConfigs:
+        - sendResolved: true
+          urlSecret:
+            name: mattermost-prometheus
+            key: url
+            optional: false
