@@ -1,0 +1,173 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mattermost
+    installation.mattermost.com/installation: mattermost
+    installation.mattermost.com/resource: mattermost
+  name: mattermost
+  namespace: vine
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: mattermost
+      installation.mattermost.com/installation: mattermost
+      installation.mattermost.com/resource: mattermost
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mattermost
+        installation.mattermost.com/installation: mattermost
+        installation.mattermost.com/resource: mattermost
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+              weight: 1
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+              weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      containers:
+        - command:
+            - mattermost
+          env:
+            - name: MM_CONFIG
+              valueFrom:
+                secretKeyRef:
+                  key: DB_CONNECTION_STRING
+                  name: mattermost-db-user-0
+            - name: MM_FILESETTINGS_DRIVERNAME
+              value: amazons3
+            - name: MM_FILESETTINGS_AMAZONS3BUCKET
+              value: mattermost
+            - name: MM_FILESETTINGS_AMAZONS3ENDPOINT
+              value: minio.dash.svc
+            - name: MM_FILESETTINGS_AMAZONS3SSL
+              value: "false"
+            - name: MM_FILESETTINGS_AMAZONS3ACCESSKEYID
+              valueFrom:
+                secretKeyRef:
+                  key: accesskey
+                  name: mattermost-object-storage-user-0
+            - name: MM_FILESETTINGS_AMAZONS3SECRETACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  key: secretkey
+                  name: mattermost-object-storage-user-0
+            - name: MM_PLUGINSETTINGS_ENABLEUPLOADS
+              value: "true"
+            - name: MM_METRICSSETTINGS_ENABLE
+              value: "true"
+            - name: MM_METRICSSETTINGS_LISTENADDRESS
+              value: :8067
+            - name: MM_CLUSTERSETTINGS_ENABLE
+              value: "true"
+            - name: MM_CLUSTERSETTINGS_CLUSTERNAME
+              value: production
+            - name: MM_INSTALL_TYPE
+              value: kubernetes-operator
+            - name: MM_SERVICESETTINGS_SITEURL
+              value: https://chat.mobilex.kr
+            - name: MM_FILESETTINGS_MAXFILESIZE
+              value: "1048576000"
+            - name: MM_FILESETTINGS_AMAZONS3SSE
+              value: "false"
+          image: docker.io/mattermost/mattermost-team-edition:release-9.6
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v4/system/ping
+              port: 8065
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: mattermost
+          ports:
+            - containerPort: 8065
+              name: app
+              protocol: TCP
+            - containerPort: 8067
+              name: metrics
+              protocol: TCP
+            # - containerPort: 8443
+            #   name: rtc-tcp
+            #   protocol: TCP
+            - containerPort: 8443
+              name: rtc-udp
+              protocol: UDP
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /api/v4/system/ping
+              port: 8065
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: 500m
+              memory: 500Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: mattermost
+      serviceAccountName: mattermost
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost-call
+  namespace: vine
+spec:
+  ports:
+    # - name: rtc-tcp
+    #   port: 8443
+    #   protocol: TCP
+    #   targetPort: rtc-tcp
+    - name: rtc-udp
+      port: 8443
+      protocol: UDP
+      targetPort: rtc-udp
+  selector:
+    app: mattermost
+    installation.mattermost.com/installation: mattermost
+    installation.mattermost.com/resource: mattermost
+  sessionAffinity: None
+  type: LoadBalancer
