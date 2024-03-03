@@ -2,7 +2,7 @@ mod pipe_function;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use dash_network_api::ArcNetworkGraph;
+use dash_network_api::graph::ArcNetworkGraph;
 use opentelemetry_proto::tonic::{
     collector::trace::v1::{
         trace_service_server::{TraceService, TraceServiceServer},

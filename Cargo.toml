@@ -152,6 +152,7 @@ ordered-float = { version = "4.2", default-features = false, features = [
     "std",
 ] }
 procfs = { version = "0.16" }
+prometheus-client = { version = "0.22" }
 pyo3 = { version = "0.20" }
 r2r = { version = "0.8" }
 rand = { version = "0.8" }

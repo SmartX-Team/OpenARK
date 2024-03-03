@@ -3,7 +3,7 @@ use actix_web::{
     web::{Data, Path},
     HttpResponse, Responder,
 };
-use dash_network_api::{ArcNetworkGraph, NetworkNodeKey};
+use dash_network_api::graph::{ArcNetworkGraph, NetworkNodeKey};
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO)]

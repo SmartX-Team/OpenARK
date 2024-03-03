@@ -2,7 +2,7 @@ mod actix;
 mod grpc;
 mod routes;
 
-use dash_network_api::ArcNetworkGraph;
+use dash_network_api::graph::ArcNetworkGraph;
 use opentelemetry::global;
 use tokio::spawn;
 use tracing::{error, info};

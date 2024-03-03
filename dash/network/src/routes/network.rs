@@ -1,5 +1,5 @@
 use actix_web::{get, web::Data, HttpResponse, Responder};
-use dash_network_api::ArcNetworkGraph;
+use dash_network_api::graph::ArcNetworkGraph;
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO)]

@@ -31,6 +31,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-proto = { workspace = true }
+prometheus-client = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true }
 tracing = { workspace = true }

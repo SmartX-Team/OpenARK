@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use dash_network_api::{NetworkEdgeKey, NetworkNodeKey, NetworkValueBuilder};
+use dash_network_api::graph::{NetworkEdgeKey, NetworkNodeKey, NetworkValueBuilder};
 use opentelemetry_proto::tonic::{common::v1::KeyValue, trace::v1::Span};
 
 use super::get_attribute_value_str;
