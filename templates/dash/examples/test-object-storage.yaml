@@ -31,7 +31,7 @@ metadata:
   namespace: my-storage-borrowed
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
@@ -43,7 +43,7 @@ metadata:
   namespace: my-storage-cloned
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
@@ -55,7 +55,7 @@ metadata:
   namespace: my-storage-cloned-pull
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
@@ -67,7 +67,7 @@ metadata:
   namespace: my-storage-cloned-push
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
@@ -79,7 +79,7 @@ metadata:
   namespace: my-storage-owned
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=

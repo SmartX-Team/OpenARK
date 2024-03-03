@@ -11,7 +11,7 @@ metadata:
   namespace: my-storage
 immutable: true
 type: Opaque
-# FIXME: change your own secret!
+# TODO(user): change your own secret!
 data:
   CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
   CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
