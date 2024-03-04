@@ -1,5 +1,5 @@
 [package]
-name = "dash-network-client"
+name = "dash-optimizer-connector-storage"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,13 +20,17 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-api = { path = "../../api" }
-dash-network-api = { path = "../api" }
-dash-network-fallback = { path = "../fallback" }
-dash-pipe-provider = { path = "../../pipe/provider" }
-dash-provider = { path = "../../provider" }
+dash-api = { path = "../../../api" }
+dash-network-api = { path = "../../../network/api" }
+dash-optimizer-connector-storage-client = { path = "./client" }
+dash-pipe-provider = { path = "../../../pipe/provider" }
+dash-provider-api = { path = "../../../provider/api" }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
+derivative = { workspace = true }
+futures = { workspace = true }
 kube = { workspace = true }
+serde = { workspace = true }
 tracing = { workspace = true }

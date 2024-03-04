@@ -1,22 +1,20 @@
-use anyhow::{bail, Result};
-use dash_api::model_claim::{ModelClaimCrd, ModelClaimDeletionPolicy};
-use dash_network_client::NetworkClient;
+use anyhow::Result;
+use dash_api::model_claim::{ModelClaimCrd, ModelClaimDeletionPolicy, ModelClaimState};
 use dash_provider::storage::KubernetesStorageClient;
 use kube::ResourceExt;
 use tracing::{instrument, Level};
 
-pub struct ModelClaimValidator<'client, 'namespace, 'kube> {
+pub struct ModelClaimValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
-    pub optimizer: &'client NetworkClient,
 }
 
-impl<'client, 'namespace, 'kube> ModelClaimValidator<'client, 'namespace, 'kube> {
+impl<'namespace, 'kube> ModelClaimValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_model_claim(
         &self,
         field_manager: &str,
         crd: &ModelClaimCrd,
-    ) -> Result<()> {
+    ) -> Result<ModelClaimState> {
         // create model
         let model = self
             .kubernetes_storage
@@ -30,27 +28,12 @@ impl<'client, 'namespace, 'kube> ModelClaimValidator<'client, 'namespace, 'kube>
             .await?
             .is_empty()
         {
-            return Ok(());
+            return Ok(ModelClaimState::Ready);
         }
 
-        // create model storage binding
-        match self
-            .optimizer
-            .optimize_model_storage_binding(
-                field_manager,
-                self.kubernetes_storage,
-                &model,
-                crd.spec.binding_policy,
-                crd.spec.storage,
-            )
-            .await?
-        {
-            Some(_) => Ok(()),
-            None => bail!(
-                "failed to bind to proper model storage: {name:?}",
-                name = crd.name_any(),
-            ),
-        }
+        // notify the model claim
+        // TODO: to be implemented!
+        Ok(ModelClaimState::Pending)
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]

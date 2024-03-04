@@ -5,7 +5,6 @@ use ark_core_k8s::manager::{Manager, TryDefault};
 use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::model_claim::{ModelClaimCrd, ModelClaimSpec, ModelClaimState, ModelClaimStatus};
-use dash_network_client::NetworkClient;
 use dash_provider::storage::KubernetesStorageClient;
 use kube::{
     api::{Patch, PatchParams},
@@ -17,16 +16,12 @@ use tracing::{info, instrument, warn, Level};
 
 use crate::validator::model_claim::ModelClaimValidator;
 
-pub struct Ctx {
-    optimizer: NetworkClient,
-}
+pub struct Ctx {}
 
 #[async_trait]
 impl TryDefault for Ctx {
     async fn try_default() -> Result<Self> {
-        Ok(Self {
-            optimizer: NetworkClient::try_default().await?,
-        })
+        Ok(Self {})
     }
 }
 
@@ -85,7 +80,6 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 namespace: &namespace,
                 kube: &manager.kube,
             },
-            optimizer: &manager.ctx.optimizer,
         };
 
         match data
@@ -98,13 +92,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 .validate_model_claim(<Self as ::ark_core_k8s::manager::Ctx>::NAME, &data)
                 .await
             {
-                Ok(()) => {
+                Ok(state) => {
                     Self::update_fields_or_requeue(
                         &namespace,
                         &manager.kube,
                         &name,
                         Some(data.spec.clone()),
-                        ModelClaimState::Ready,
+                        state,
                     )
                     .await
                 }

@@ -153,18 +153,7 @@ spec:
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelClaim
 metadata:
-  name: dash.network.manage
-  namespace: dash
-spec:
-  allowReplacement: true
-  bindingPolicy: LowestLatency
-  deletionPolicy: Delete
-  storage: ObjectStorage
----
-apiVersion: dash.ulagbulag.io/v1alpha1
-kind: ModelClaim
-metadata:
-  name: dash.network.source
+  name: dash.network.connector
   namespace: dash
 spec:
   allowReplacement: true

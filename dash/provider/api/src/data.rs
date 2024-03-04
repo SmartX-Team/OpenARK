@@ -1,30 +1,28 @@
 use std::iter::Sum;
 
-use byte_unit::Byte;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema,
+)]
 pub struct Capacity {
-    pub capacity: Byte,
-    pub usage: Byte,
+    pub capacity: u128,
+    pub usage: u128,
 }
 
 impl Capacity {
-    pub const fn available(&self) -> Byte {
-        let capacity = self.capacity.as_u128();
-        let usage = self.usage.as_u128();
+    pub const fn available(&self) -> u128 {
+        let Self { capacity, usage } = *self;
 
         if usage <= capacity {
-            match Byte::from_u128(capacity - usage) {
-                Some(available) => available,
-                None => Byte::MAX,
-            }
+            capacity - usage
         } else {
-            Byte::MIN
+            0
         }
     }
 
-    pub fn limit_on(self, limit: Byte) -> Self {
+    pub fn limit_on(self, limit: u128) -> Self {
         let Self { capacity, usage } = self;
         Self {
             capacity: capacity.min(limit),
@@ -33,8 +31,7 @@ impl Capacity {
     }
 
     pub fn ratio(&self) -> f64 {
-        let capacity = self.capacity.as_u128();
-        let usage = self.usage.as_u128();
+        let Self { capacity, usage } = *self;
 
         if capacity > 0 && usage <= capacity {
             usage as f64 / capacity as f64
@@ -47,9 +44,8 @@ impl Capacity {
 impl Sum for Capacity {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::default(), |a, b| Self {
-            capacity: Byte::from_u128(a.capacity.as_u128() + b.capacity.as_u128())
-                .unwrap_or(Byte::MAX),
-            usage: Byte::from_u128(a.usage.as_u128() + b.usage.as_u128()).unwrap_or(Byte::MAX),
+            capacity: a.capacity + b.capacity,
+            usage: a.usage + b.usage,
         })
     }
 }

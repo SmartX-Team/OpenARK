@@ -17,14 +17,13 @@ use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
     arrow::json::reader::infer_json_schema_from_seekable,
-    aws::{self, storage::S3StorageOptions},
+    aws,
     datafusion::{dataframe::DataFrame, execution::context::SessionContext},
     kernel::StructField,
     operations::create::CreateBuilder,
     protocol::SaveMode,
-    storage::{ObjectStoreFactory, StorageOptions},
     writer::{DeltaWriter, JsonWriter},
-    DeltaTable, DeltaTableConfig, DeltaTableError,
+    DeltaTable, DeltaTableBuilder, DeltaTableError,
 };
 use inflector::Inflector;
 use schemars::{schema::RootSchema, JsonSchema};
@@ -511,20 +510,14 @@ async fn load_table(
     backend_config.insert("AWS_S3_ALLOW_UNSAFE_RENAME".to_string(), "true".into());
     backend_config.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret_key.clone());
 
-    let s3_storage_options = S3StorageOptions::from_map(&backend_config);
-    let storage_options = StorageOptions(backend_config);
+    // load handlers
+    aws::register_handlers(None);
 
-    let (store, _) = aws::storage::S3ObjectStoreFactory::default()
-        .parse_url_opts(&table_uri.parse()?, &storage_options)?;
-    let log_store = aws::logstore::S3DynamoDbLogStore::try_new(
-        table_uri.parse()?,
-        storage_options,
-        &s3_storage_options,
-        store,
-    )?;
-
-    let config = DeltaTableConfig::default();
-    let mut table = DeltaTable::new(Arc::new(log_store), config);
+    let mut table = DeltaTableBuilder::from_valid_uri(&table_uri)?
+        .with_allow_http(allow_http)
+        .with_storage_options(backend_config)
+        .build()
+        .map_err(|error| anyhow!("failed to init DeltaLake table: {error}"))?;
 
     let model = model.split('/').last().unwrap().to_snake_case();
 

@@ -1,3 +1,5 @@
+pub mod connector;
+
 use std::{
     fmt,
     marker::PhantomData,

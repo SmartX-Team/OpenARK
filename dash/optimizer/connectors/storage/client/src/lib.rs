@@ -18,11 +18,11 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use kube::{Client, ResourceExt};
 use tracing::{instrument, warn, Level};
 
-pub struct NetworkClient<'namespace, 'kube> {
+pub struct OptimizerClient<'namespace, 'kube> {
     kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
 }
 
-impl<'namespace, 'kube> NetworkClient<'namespace, 'kube> {
+impl<'namespace, 'kube> OptimizerClient<'namespace, 'kube> {
     pub fn new(kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>) -> Self {
         Self { kubernetes_storage }
     }

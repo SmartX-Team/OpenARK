@@ -931,7 +931,7 @@ impl<'storage> MinioAdminClient<'storage> {
         }
     }
 
-    async fn get_capacity_bucket_capacity(&self, bucket_name: &str) -> Result<Option<Byte>> {
+    async fn get_capacity_bucket_capacity(&self, bucket_name: &str) -> Result<Option<u128>> {
         self.execute::<&str>(
             Method::GET,
             "/admin/v3/get-bucket-quota",
@@ -947,7 +947,7 @@ impl<'storage> MinioAdminClient<'storage> {
             }
 
             let data: Data = resp.json().await?;
-            Ok(data.quota)
+            Ok(data.quota.map(Byte::into))
         })
         .await
         .map_err(|error| {
@@ -959,7 +959,7 @@ impl<'storage> MinioAdminClient<'storage> {
         })
     }
 
-    async fn get_capacity_bucket_usage(&self, _bucket_name: &str) -> Result<Option<Byte>> {
+    async fn get_capacity_bucket_usage(&self, _bucket_name: &str) -> Result<Option<u128>> {
         // NOTE(2023-11-12): minio API does not provide bucket usage in O(1)
         Ok(None)
     }
@@ -986,8 +986,8 @@ impl<'storage> MinioAdminClient<'storage> {
                         .into_values()
                         .flatten()
                         .map(|(_, pool)| Capacity {
-                            capacity: Byte::from_u64(pool.raw_capacity),
-                            usage: Byte::from_u64(pool.usage),
+                            capacity: pool.raw_capacity as u128,
+                            usage: pool.usage as u128,
                         })
                         .sum(),
                 ))

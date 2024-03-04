@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_provider_api::data::Capacity;
 use kube::Client;
-use tracing::{instrument, warn, Level};
+use tracing::{instrument, Level};
 
 #[async_trait]
 impl super::GetCapacity for ModelStorageKubernetesSpec {
@@ -14,7 +14,6 @@ impl super::GetCapacity for ModelStorageKubernetesSpec {
         _namespace: &'namespace str,
         _storage_name: String,
     ) -> Result<Option<Capacity>> {
-        warn!("unsupported storage type for fallback optimizer: Kubernetes");
         Ok(None)
     }
 }
