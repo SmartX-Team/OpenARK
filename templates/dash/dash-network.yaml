@@ -119,3 +119,14 @@ spec:
   bindingPolicy: LowestLatency
   deletionPolicy: Delete
   storage: ObjectStorage
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelClaim
+metadata:
+  name: dash.network.data
+  namespace: dash
+spec:
+  allowReplacement: true
+  bindingPolicy: LowestLatency
+  deletionPolicy: Delete
+  storage: ObjectStorage

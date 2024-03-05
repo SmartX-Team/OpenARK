@@ -1,5 +1,5 @@
 [package]
-name = "dash-network-client"
+name = "kubegraph-client"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,6 +20,10 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+kubegraph-api = { path = "../api" }
 dash-pipe-provider = { path = "../../dash/pipe/provider" }
 
 anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }

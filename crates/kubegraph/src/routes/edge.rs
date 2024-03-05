@@ -3,13 +3,15 @@ use actix_web::{
     web::{Data, Path},
     HttpResponse, Responder,
 };
-use dash_network_api::graph::{ArcNetworkGraph, NetworkNodeKey};
+use ark_core::result::Result;
+use kubegraph_api::graph::{NetworkNodeKey, NetworkValue};
+use kubegraph_client::NetworkGraphClient;
 use tracing::{instrument, Level};
 
-#[instrument(level = Level::INFO)]
+#[instrument(level = Level::INFO, skip(graph))]
 #[get("/{kind}/{from_namespace}/{from_name}/{to_namespace}/{to_name}")]
 pub async fn get(
-    graph: Data<ArcNetworkGraph>,
+    graph: Data<NetworkGraphClient>,
     path: Path<(String, String, String, String, String)>,
 ) -> impl Responder {
     let (kind, from_namespace, from_name, to_namespace, to_name) = path.into_inner();
@@ -28,10 +30,10 @@ pub async fn get(
         namespace: to_namespace,
     };
 
-    HttpResponse::Ok().json(
+    HttpResponse::Ok().json(Result::from(
         graph
             .get_edge(&(from, to))
             .await
-            .map(|node| node.into_json()),
-    )
+            .map(|node| node.map(NetworkValue::into_json)),
+    ))
 }

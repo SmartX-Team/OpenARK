@@ -1,8 +1,10 @@
 mod actix;
-mod pull;
+mod connector;
 mod routes;
 
-use dash_network_api::graph::ArcNetworkGraph;
+use std::process::exit;
+
+use kubegraph_client::NetworkGraphClient;
 use opentelemetry::global;
 use tokio::spawn;
 use tracing::{error, info};
@@ -17,11 +19,17 @@ async fn main() {
         return;
     }
 
-    let graph = ArcNetworkGraph::default();
+    let graph = match NetworkGraphClient::try_default().await {
+        Ok(graph) => graph,
+        Err(error) => {
+            error!("failed to init network graph client: {error}");
+            exit(1);
+        }
+    };
 
     let handlers = vec![
         spawn(crate::actix::loop_forever(graph.clone())),
-        spawn(crate::pull::loop_forever(graph.clone())),
+        spawn(crate::connector::loop_forever(graph.clone())),
     ];
     signal.wait_to_terminate().await;
 

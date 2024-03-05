@@ -5,7 +5,7 @@ use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use clap::Parser;
 use derivative::Derivative;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{instrument, Level};
 
@@ -86,9 +86,13 @@ impl PipeClient {
     pub async fn read(&self, topic: Name) -> Result<Option<PipeMessage<Value>>> {
         self.subscribe(topic).await?.read_one().await
     }
+
+    pub const fn storage(&self) -> &Arc<StorageSet> {
+        &self.storage
+    }
 }
 
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct PipeClientArgs {
     #[command(flatten)]
     pub messenger: MessengerArgs,

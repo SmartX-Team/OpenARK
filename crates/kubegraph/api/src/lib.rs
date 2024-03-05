@@ -1,6 +1,5 @@
-#[cfg(feature = "dash")]
-pub mod dash;
+pub mod connector;
 pub mod graph;
-#[cfg(feature = "model")]
 pub mod model;
 pub mod query;
+pub mod row;

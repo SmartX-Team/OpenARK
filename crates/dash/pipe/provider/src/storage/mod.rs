@@ -34,6 +34,7 @@ impl StorageIO {
 }
 
 pub struct StorageSet {
+    args: StorageArgs,
     default: StorageType,
     default_metadata: MetadataStorageType,
     #[cfg(feature = "lakehouse")]
@@ -78,6 +79,7 @@ impl StorageSet {
             .ok_or_else(|| anyhow!("failed to get/parse pipe name; you may set environment variable \"PIPE_NAME\" manually"))?;
 
         Ok(Self {
+            args: args.clone(),
             default,
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "lakehouse")]
@@ -142,6 +144,36 @@ impl StorageSet {
             .await?;
 
         Ok(())
+    }
+}
+
+impl StorageSet {
+    #[cfg(feature = "lakehouse")]
+    pub async fn create_lakehouse<Value>(
+        &self,
+        model: &Name,
+        flush: Option<Duration>,
+    ) -> Result<self::lakehouse::StorageContext>
+    where
+        Value: JsonSchema,
+    {
+        self::lakehouse::StorageContext::try_new::<Value>(
+            &self.args.s3,
+            self.args.storage_name.clone(),
+            model.storage(),
+            flush,
+        )
+        .await
+    }
+
+    #[cfg(feature = "lakehouse")]
+    pub const fn get_lakehouse(&self) -> &self::lakehouse::Storage {
+        &self.lakehouse
+    }
+
+    #[cfg(feature = "s3")]
+    pub const fn get_s3(&self) -> &self::s3::Storage {
+        &self.s3
     }
 }
 

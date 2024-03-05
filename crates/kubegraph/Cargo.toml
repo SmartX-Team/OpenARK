@@ -1,5 +1,5 @@
 [package]
-name = "dash-network"
+name = "kubegraph"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,16 +20,15 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-core = { path = "../ark/core" }
-dash-network-api = { path = "./api" }
-dash-network-client = { path = "./client" }
+ark-core = { path = "../ark/core", features = ["actix-web"] }
 dash-pipe-provider = { path = "../dash/pipe/provider" }
+kubegraph-api = { path = "./api" }
+kubegraph-client = { path = "./client" }
 
 actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-futures = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-proto = { workspace = true }
 prometheus-http-query = { workspace = true }
