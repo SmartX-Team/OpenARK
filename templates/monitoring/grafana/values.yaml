@@ -219,6 +219,19 @@ grafana:
         gnetId: 5342
         revision: 9
         datasource: Prometheus
+      # Storage - S3 - MinIO
+      storage-s3-minio:
+        gnetId: 13502
+        revision: 25
+        datasource: Prometheus
+      storage-s3-minio-bucket:
+        gnetId: 19237
+        revision: 1
+        datasource: Prometheus
+      storage-s3-minio-replication:
+        gnetId: 15305
+        revision: 4
+        datasource: Prometheus
       # GPU - NVIDIA
       nvidia-dcgm-exporter-dashboard:
         gnetId: 12239

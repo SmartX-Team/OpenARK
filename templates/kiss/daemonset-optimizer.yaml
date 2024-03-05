@@ -25,8 +25,15 @@ spec:
               && echo 2099999999 > /host/proc/sys/fs/inotify/max_queued_events
               && echo 2099999999 > /host/proc/sys/fs/inotify/max_user_instances
               && echo 2099999999 > /host/proc/sys/fs/inotify/max_user_watches
+              && echo 528482304 > /host/proc/sys/net/core/bpf_jit_limit
               && echo 0 > /host/proc/sys/vm/nr_hugepages
               && exec sleep infinity
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+                - seccomp:unconfined
+            privileged: true
           volumeMounts:
             - name: host-proc
               mountPath: /host/proc

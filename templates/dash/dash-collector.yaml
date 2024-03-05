@@ -213,6 +213,10 @@ spec:
 
     connectors:
       spanmetrics:
+        dimensions:
+          - name: data.len
+          - name: data.model
+          - name: data.model_from
         histogram:
           explicit:
             buckets:
@@ -266,6 +270,8 @@ spec:
 
         # Convert resource attributes to metric labels
         resource_to_telemetry_conversion:
+          enabled: true
+        target_info:
           enabled: true
 
     processors:

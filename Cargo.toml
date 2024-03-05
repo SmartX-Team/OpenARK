@@ -1,55 +1,53 @@
 [workspace]
-default-members = ["ark/cli"]
+default-members = ["crates/ark/cli"]
 members = [
-    "ark/api",
-    "ark/cli",
-    "ark/core",
-    "ark/core/k8s",
-    "dash/api",
-    "dash/broker/web",
-    "dash/client",
-    "dash/collector",
-    "dash/collector/api",
-    "dash/collector/client",
-    "dash/controller",
-    "dash/gateway",
-    "dash/network",                             # exclude(alpine)
-    "dash/network/api",
-    "dash/openapi",
-    "dash/optimizer/connectors/storage",
-    "dash/optimizer/connectors/storage/client",
-    "dash/pipe/api",
-    "dash/pipe/connectors/liveness",
-    "dash/pipe/connectors/storage",
-    "dash/pipe/connectors/webcam",              # exclude(alpine)
-    "dash/pipe/functions/identity",
-    "dash/pipe/functions/performance-test",
-    "dash/pipe/functions/python",               # exclude(alpine)
-    "dash/pipe/provider",
-    "dash/provider",
-    "dash/provider/api",
-    "dash/provider/client",
-    "dash/query/cli",
-    "dash/query/provider",
-    "kiss/ansible",
-    "kiss/api",
-    # "kiss/assets",
-    "kiss/controller",
-    "kiss/gateway",
-    "kiss/manager",
-    "kiss/monitor",
-    "straw/api",
-    "straw/provider",
-    "straw/provider/oci",
-    "straw/provider/python",
-    "straw/provider/python/standalone", # exclude(alpine)
-    "vine/api",
-    "vine/bastion",
-    "vine/controller",
-    "vine/plugin",
-    "vine/rbac",
-    "vine/session",
-    "vine/storage",
+    "crates/ark/api",
+    "crates/ark/cli",
+    "crates/ark/core",
+    "crates/ark/core/k8s",
+    "crates/dash/api",
+    "crates/dash/broker/web",
+    "crates/dash/client",
+    "crates/dash/collector",
+    "crates/dash/collector/api",
+    "crates/dash/controller",
+    "crates/dash/gateway",
+    "crates/dash/openapi",
+    "crates/dash/pipe/api",
+    "crates/dash/pipe/connectors/liveness",
+    "crates/dash/pipe/connectors/storage",
+    "crates/dash/pipe/connectors/webcam",          # exclude(alpine)
+    "crates/dash/pipe/functions/identity",
+    "crates/dash/pipe/functions/performance-test",
+    "crates/dash/pipe/functions/python",           # exclude(alpine)
+    "crates/dash/pipe/provider",
+    "crates/dash/provider",
+    "crates/dash/provider/api",
+    "crates/dash/provider/client",
+    "crates/dash/query/cli",
+    "crates/dash/query/provider",
+    "crates/kiss/ansible",
+    "crates/kiss/api",
+    # "crates/kiss/assets",
+    "crates/kiss/controller",
+    "crates/kiss/gateway",
+    "crates/kiss/manager",
+    "crates/kiss/monitor",
+    "crates/kubegraph",
+    "crates/kubegraph/api",
+    "crates/kubegraph/client",
+    "crates/straw/api",
+    "crates/straw/provider",
+    "crates/straw/provider/oci",
+    "crates/straw/provider/python",
+    "crates/straw/provider/python/standalone", # exclude(alpine)
+    "crates/vine/api",
+    "crates/vine/bastion",
+    "crates/vine/controller",
+    "crates/vine/plugin",
+    "crates/vine/rbac",
+    "crates/vine/session",
+    "crates/vine/storage",
 ]
 resolver = "2"
 
@@ -190,6 +188,7 @@ semver = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = { version = "0.11" }
 serde_json = { version = "1.0" }
+serde_with = { version = "3.6" }
 serde_yaml = { version = "0.9" }
 sha2 = { version = "0.10" }
 sio = { version = "0.3" }
