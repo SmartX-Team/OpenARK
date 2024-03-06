@@ -181,7 +181,7 @@ impl BoxState {
     }
 
     pub fn timeout_new() -> Duration {
-        Duration::seconds(30)
+        Duration::try_seconds(30).unwrap()
     }
 
     pub const fn complete(&self) -> Option<Self> {
