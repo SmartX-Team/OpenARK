@@ -1,9 +1,5 @@
-pub mod decoder;
-pub mod schema;
-
 use std::{
     collections::{BTreeMap, HashMap},
-    io::Cursor,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -16,7 +12,6 @@ use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use deltalake::{
-    arrow::json::reader::infer_json_schema_from_seekable,
     aws,
     datafusion::{dataframe::DataFrame, execution::context::SessionContext},
     kernel::StructField,
@@ -35,9 +30,13 @@ use tokio::{
 };
 use tracing::{debug, instrument, Level};
 
-use crate::message::{DynValue, PipeMessage};
-
-use self::{decoder::TryIntoTableDecoder, schema::FieldColumns};
+use crate::{
+    message::{DynValue, PipeMessage},
+    schema::{
+        arrow::{decoder::TryIntoTableDecoder, ToArrowSchema},
+        deltalake::FieldColumns,
+    },
+};
 
 #[async_trait]
 pub trait StorageSessionContext {
@@ -212,7 +211,7 @@ pub struct StorageContext {
 }
 
 impl StorageContext {
-    const STORAGE_TYPE: super::MetadataStorageType = super::MetadataStorageType::LakeHouse;
+    const STORAGE_TYPE: super::MetadataStorageType = super::MetadataStorageType::DeltaLake;
 
     #[instrument(level = Level::INFO, skip(args), err(Display))]
     pub async fn try_new<Value>(
@@ -406,16 +405,7 @@ impl StorageTableWriter {
     async fn get(&mut self, values: &[DynValue]) -> Result<&mut JsonWriter> {
         // dynamic table schema inferring
         if self.inner.is_none() {
-            let reader = Cursor::new(
-                values
-                    .iter()
-                    .filter_map(|value| ::serde_json::to_vec(value).ok())
-                    .take(1)
-                    .flatten()
-                    .collect::<Vec<_>>(),
-            );
-            let (schema, _) = infer_json_schema_from_seekable(reader, None)
-                .map_err(|error| anyhow!("failed to infer object metadata schema: {error}"))?;
+            let schema = values.to_arrow_schema()?;
             let columns = schema.to_data_columns().map_err(|error| {
                 anyhow!("failed to convert inferred object metadata schema into parquet: {error}")
             })?;

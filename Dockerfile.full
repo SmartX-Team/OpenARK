@@ -73,6 +73,7 @@ RUN apt-get update && apt-get install -y \
     llvm-dev \
     mold \
     nasm \
+    protobuf-compiler \
     ros-dev-tools \
     s3fs \
     # Install rustup
@@ -103,7 +104,7 @@ RUN mkdir -p /out/bin /out/lib \
     && find ./target/release/ -name 'libortools*.so*' -type l -print0 | xargs -0 -I {} mv {} /out/lib \
     # Copy pipe functions
     && mkdir -p "${FUNCTION_HOME}" \
-    && mv ./dash/pipe/functions/python/examples "${FUNCTION_HOME}/python" \
+    && mv ./crates/dash/pipe/functions/python/examples "${FUNCTION_HOME}/python" \
     # Cleanup
     && rm -rf /src
 

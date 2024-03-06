@@ -1,25 +1,16 @@
 pub mod connector;
 
-use std::{
-    fmt,
-    marker::PhantomData,
-    ops,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::{fmt, marker::PhantomData, ops, sync::Arc};
 
-use anyhow::{anyhow, bail, Error, Result};
+use anyhow::{bail, Error, Result};
+use ark_core::signal::FunctionSignal;
 use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use futures::{stream::FuturesOrdered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::time::sleep;
-use tracing::{info, instrument, Level};
+use tracing::{instrument, Level};
 
 use crate::{
     message::{PipeMessage, PipeMessages},
@@ -416,40 +407,20 @@ impl FunctionContext {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct FunctionSignal {
-    is_terminating: Arc<AtomicBool>,
+pub trait FunctionSignalExt {
+    fn terminate_ok<T>(&self) -> Result<PipeMessages<T>>;
+
+    fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>>;
 }
 
-impl FunctionSignal {
-    pub fn trap_on_sigint(&self) -> Result<()> {
-        let signal = self.clone();
-        ::ctrlc::set_handler(move || signal.terminate())
-            .map_err(|error| anyhow!("failed to set SIGINT handler: {error}"))
-    }
-
-    pub(crate) fn terminate(&self) {
-        info!("Gracefully shutting down...");
-        self.is_terminating.store(true, Ordering::SeqCst)
-    }
-
-    pub fn terminate_ok<T>(&self) -> Result<PipeMessages<T>> {
+impl FunctionSignalExt for FunctionSignal {
+    fn terminate_ok<T>(&self) -> Result<PipeMessages<T>> {
         self.terminate();
         Ok(PipeMessages::None)
     }
 
-    pub fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>> {
+    fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>> {
         self.terminate();
         Err(error.into())
-    }
-
-    pub(crate) fn is_terminating(&self) -> bool {
-        self.is_terminating.load(Ordering::SeqCst)
-    }
-
-    pub async fn wait_to_terminate(&self) {
-        while !self.is_terminating() {
-            sleep(Duration::from_millis(100)).await;
-        }
     }
 }

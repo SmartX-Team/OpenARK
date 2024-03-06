@@ -1,6 +1,4 @@
-mod actix;
 mod connector;
-mod routes;
 
 use std::process::exit;
 
@@ -13,7 +11,7 @@ use tracing::{error, info};
 async fn main() {
     ::ark_core::tracer::init_once();
 
-    let signal = ::dash_pipe_provider::FunctionSignal::default();
+    let signal = ::ark_core::signal::FunctionSignal::default();
     if let Err(error) = signal.trap_on_sigint() {
         error!("{error}");
         return;
@@ -27,16 +25,11 @@ async fn main() {
         }
     };
 
-    let handlers = vec![
-        spawn(crate::actix::loop_forever(graph.clone())),
-        spawn(crate::connector::loop_forever(graph.clone())),
-    ];
+    let handler = spawn(crate::connector::loop_forever(graph));
     signal.wait_to_terminate().await;
 
     info!("Terminating...");
-    for handler in handlers {
-        handler.abort();
-    }
+    handler.abort();
 
     info!("Terminated.");
     global::shutdown_tracer_provider();

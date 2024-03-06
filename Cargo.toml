@@ -77,12 +77,13 @@ actix-web = { version = "4.4", default-features = false, features = [
 ] }
 actix-web-opentelemetry = { version = "0.16", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
+arrow = { version = ">=50" }
 argon2 = { version = "0.5" }
-async-nats = { version = "0.33" }
+async-nats = { version = "0.34" }
 async-recursion = { version = "1.0" }
 async-stream = { version = "0.3" }
 async-trait = { version = "0.1" }
-base64 = { version = "0.21" }
+base64 = { version = "0.22" }
 byteorder = { version = "1.5" }
 bytes = { version = "1.5" }
 byte-unit = { version = "5.1" }
@@ -109,6 +110,7 @@ ipnet = { version = "2.9", features = ["schemars", "serde"] }
 itertools = { version = "0.12" }
 k8s-openapi = { version = "0.21", features = ["latest", "schemars"] }
 kube = { version = "0.88", default-features = false }
+lancedb = { version = "0.4" }
 mime = { version = "0.3" }
 # FIXME: push a PR: rustls-tls feature support
 minio = { version = "0.1", default-features = false, features = [
@@ -117,22 +119,23 @@ minio = { version = "0.1", default-features = false, features = [
 map-macro = { version = "0.3" }
 maplit = { version = "1.0" }
 ndarray = { version = "0.15" }
-octocrab = { version = "0.33", default-features = false, features = ["rustls"] }
+object_store = { version = "0.9", default-features = false }
+octocrab = { version = "0.34", default-features = false, features = ["rustls"] }
 opencv = { version = "0.88", default-features = false, features = [
     "clang-runtime",
 ] }
-opentelemetry = { version = "0.21", features = ["logs", "metrics", "trace"] }
-opentelemetry-appender-tracing = { version = "0.2", features = [
+opentelemetry = { version = "0.22", features = ["logs", "metrics", "trace"] }
+opentelemetry-appender-tracing = { version = "0.3", features = [
     # "experimental_metadata_attributes",
     "logs_level_enabled",
 ] }
-opentelemetry-otlp = { version = "0.14", features = [
+opentelemetry-otlp = { version = "0.15", features = [
     "logs",
     "metrics",
     "trace",
 ] }
-opentelemetry-proto = { version = "0.4", features = ["with-serde", "zpages"] }
-opentelemetry_sdk = { version = "0.21", features = [
+opentelemetry-proto = { version = "0.5", features = ["with-serde", "zpages"] }
+opentelemetry_sdk = { version = "0.22", features = [
     "logs_level_enabled",
     "metrics",
     "rt-tokio",
@@ -197,11 +200,11 @@ tera = { version = "1.19" }
 thiserror = { version = "1.0" }
 tokio = { version = "1.35", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
-tonic = { version = "0.9", features = [
+tonic = { version = "0.11", features = [
     "gzip",
 ] } # should be synced with opentelemetry-proto
 tracing = { version = "0.1" }
-tracing-opentelemetry = { version = "0.22", features = [
+tracing-opentelemetry = { version = "0.23", features = [
     "metrics",
     "tracing-log",
 ] }
@@ -216,13 +219,7 @@ which = { version = "6.0" }
 
 [patch.crates-io]
 # FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git" } # not deployed to crates.io
-# FIXME: Waiting for `opentelemetry-proto` to be released
-opentelemetry = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
-opentelemetry-otlp = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
-opentelemetry-proto = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
-opentelemetry_sdk = { git = "https://github.com/ulagbulag/opentelemetry-rust", branch = "feat/schemars" }
+minio = { git = "https://github.com/ulagbulag/minio-rs.git" }   # not deployed to crates.io
 or-tools = { git = "https://github.com/ulagbulag/or-tools-rs" }
 schemars = { git = "https://github.com/ulagbulag/schemars" }
 sio = { git = "https://github.com/ulagbulag/sio-rs.git" }
-tracing-opentelemetry = { git = "https://github.com/ulagbulag/tracing-opentelemetry", branch = "chore/histogram" }

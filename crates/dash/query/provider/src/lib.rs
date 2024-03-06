@@ -3,10 +3,11 @@ mod function;
 
 use std::{
     collections::{btree_map::Keys, BTreeMap},
+    ops,
     sync::Arc,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use dash_api::{
     function::{FunctionCrd, FunctionSpec, FunctionState},
@@ -22,14 +23,18 @@ use dash_pipe_provider::{
         DeltaTable,
     },
     messengers::{init_messenger, Messenger, MessengerArgs},
+    schema::arrow::decoder::TryIntoTableDecoder,
     storage::{
-        lakehouse::{decoder::TryIntoTableDecoder, StorageSessionContext, StorageTableState},
+        deltalake::{StorageSessionContext, StorageTableState},
         Stream,
     },
 };
 use dash_provider::storage::ObjectStorageRef;
 use deltalake::datafusion::prelude::DataFrame;
-use futures::{stream::FuturesUnordered, Future, TryFutureExt, TryStreamExt};
+use futures::{
+    stream::{self, FuturesUnordered},
+    Future, StreamExt, TryFutureExt,
+};
 use inflector::Inflector;
 use itertools::Itertools;
 use kube::{api::ListParams, Api, Client, ResourceExt};
@@ -141,6 +146,14 @@ impl QueryClient {
     }
 }
 
+impl ops::Deref for QueryClient {
+    type Target = SessionContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ctx
+    }
+}
+
 #[instrument(level = Level::INFO, skip(kube), err(Display))]
 async fn load_models<'a>(
     kube: &'a Client,
@@ -219,13 +232,17 @@ async fn load_functions(
     async fn get_model_schema(
         tables: &BTreeMap<String, Arc<DeltaTable>>,
         name: &str,
-    ) -> Result<Arc<Schema>> {
-        match tables.get(&name.to_snake_case()) {
-            Some(table) => async { table.snapshot() }
-                .and_then(|snapshot| snapshot.physical_arrow_schema(table.object_store()))
-                .await
-                .map_err(|error| anyhow!("failed to load schema ({name}): {error}")),
-            None => bail!("no such table: {name}"),
+    ) -> Option<Arc<Schema>> {
+        let table = tables.get(&name.to_snake_case())?;
+        match async { table.snapshot() }
+            .and_then(|snapshot| snapshot.physical_arrow_schema(table.object_store()))
+            .await
+        {
+            Ok(schema) => Some(schema),
+            Err(error) => {
+                warn!("failed to load function schema ({name}): {error}; skipping...");
+                None
+            }
         }
     }
 
@@ -233,10 +250,10 @@ async fn load_functions(
     let lp = ListParams::default();
     let functions = api.list(&lp).await?.items;
 
-    functions
-        .into_iter()
-        .filter_map(|function| {
-            let name: Name = function.name_any().parse().ok()?;
+    Ok(stream::iter(functions)
+        .filter_map(|function| async move {
+            let function_name = function.name_any();
+            let name: Name = function_name.parse().ok()?;
             info!("Loading function: {name}");
 
             let status = function.status?;
@@ -252,18 +269,23 @@ async fn load_functions(
                 volatility,
             } = function.spec;
 
-            Some(async move {
-                let spec = FunctionSpec {
-                    input: get_model_schema(tables, &model_in).await?,
-                    output: get_model_schema(tables, &model_out).await?,
-                    exec: (),
-                    type_,
-                    volatility,
-                };
-                self::function::DashFunction::try_new(messenger, name, model_in, spec).await
-            })
+            let spec = FunctionSpec {
+                input: get_model_schema(tables, &model_in).await?,
+                output: get_model_schema(tables, &model_out).await?,
+                exec: (),
+                type_,
+                volatility,
+            };
+            match self::function::DashFunction::try_new(messenger, name, model_in, spec).await {
+                Ok(function) => Some(function),
+                Err(error) => {
+                    warn!("failed to load function ({function_name}): {error}; skipping...");
+                    None
+                }
+            }
         })
         .collect::<FuturesUnordered<_>>()
-        .try_collect()
         .await
+        .into_iter()
+        .collect())
 }

@@ -23,7 +23,12 @@ async fn try_loop_forever(graph: NetworkGraphClient) -> Result<()> {
         url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090".parse()?,
     };
     let query =  NetworkQuery {
-        query: "sum by (data_model, data_model_from, job, le) (dash_metrics_duration_milliseconds_bucket{span_name=\"call_function\"})".into(),
+        query: "sum by (data_model, data_model_from, job, k8s_namespace_name, le) (dash_metrics_duration_milliseconds_bucket{span_name=\"call_function\"})".into(),
+        link: NetworkQueryNodeType {
+            kind: NetworkQueryNodeValue::Static(Some("function".into())),
+            name: NetworkQueryNodeValue::Key("job".into()),
+            namespace: NetworkQueryNodeValue::Key("k8s_namespace_name".into()),
+        },
         sink: NetworkQueryNodeType {
             kind: NetworkQueryNodeValue::Static(Some("model".into())),
             name: NetworkQueryNodeValue::Key("data_model_from".into()),

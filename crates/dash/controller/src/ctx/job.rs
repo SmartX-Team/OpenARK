@@ -42,7 +42,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let namespace = data.namespace().unwrap();
 
         let now = Utc::now();
-        let completed_job_gc_timeout = ::chrono::Duration::minutes(20);
+        let completed_job_gc_timeout = ::chrono::Duration::try_minutes(20).unwrap();
 
         let validator = DashJobValidator {
             kubernetes_storage: KubernetesStorageClient {

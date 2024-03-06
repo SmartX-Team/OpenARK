@@ -56,7 +56,7 @@ fn init_once_opentelemetry(export: bool) {
             .install_batch(Runtime)
             .map(|logger| {
                 ::opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(
-                    &logger.provider().unwrap(),
+                    logger.provider(),
                 )
             })
             .expect("failed to init a logger")

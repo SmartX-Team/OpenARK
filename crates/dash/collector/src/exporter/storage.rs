@@ -27,7 +27,7 @@ macro_rules! init_exporter {
 
                 use ark_core_k8s::data::Name;
                 use clap::Parser;
-                use dash_pipe_provider::storage::lakehouse::Storage;
+                use dash_pipe_provider::storage::deltalake::Storage;
                 use serde_json::Value;
 
                 #[derive(Parser)]
@@ -105,7 +105,7 @@ init_exporter![
 mod impl_logs {
     use anyhow::Result;
     use async_trait::async_trait;
-    use dash_pipe_provider::{storage::lakehouse::Storage, PipeMessage};
+    use dash_pipe_provider::{storage::deltalake::Storage, PipeMessage};
     use opentelemetry_proto::tonic::collector;
     use tracing::{instrument, Level};
 
@@ -131,7 +131,7 @@ mod impl_logs {
 mod impl_metrics {
     use anyhow::Result;
     use async_trait::async_trait;
-    use dash_pipe_provider::{storage::lakehouse::Storage, PipeMessage};
+    use dash_pipe_provider::{storage::deltalake::Storage, PipeMessage};
     use opentelemetry_proto::tonic::collector;
     use tracing::{instrument, Level};
 
@@ -165,7 +165,7 @@ mod impl_trace {
         },
     };
     use dash_pipe_provider::{
-        storage::{lakehouse::Storage, MetadataStorage, MetadataStorageType, StorageType},
+        storage::{deltalake::Storage, MetadataStorage, MetadataStorageType, StorageType},
         MessengerType, PipeMessage,
     };
     use opentelemetry_proto::tonic::common::v1::{any_value, KeyValue};
@@ -341,7 +341,7 @@ mod impl_trace {
             model,
             op,
             type_: match code_namespace {
-                "dash_pipe_provider::storage::lakehouse" => MetadataStorageType::LakeHouse,
+                "dash_pipe_provider::storage::deltalake" => MetadataStorageType::DeltaLake,
                 _ => return None,
             },
         })

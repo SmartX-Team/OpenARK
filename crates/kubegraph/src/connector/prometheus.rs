@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
     connector::NetworkConnectorPrometheusSpec,
-    graph::{NetworkNodeKey, NetworkValueBuilder},
+    graph::{NetworkEdgeKey, NetworkNodeKey, NetworkValue},
     query::{NetworkQuery, NetworkQueryNodeType, NetworkQueryNodeValue},
 };
 use kubegraph_client::NetworkGraphClient;
@@ -41,7 +41,12 @@ impl super::Connector for Connector {
 
     #[instrument(level = Level::INFO, skip_all)]
     async fn pull(&self, graph: &NetworkGraphClient) -> Result<()> {
-        let NetworkQuery { query, sink, src } = &self.query;
+        let NetworkQuery {
+            link,
+            query,
+            sink,
+            src,
+        } = &self.query;
 
         // Evaluate a PromQL query.
         let response = self.client.query(query).get().await?;
@@ -52,18 +57,21 @@ impl super::Connector for Connector {
             .into_iter()
             .map(InstantVector::into_inner)
             .filter_map(|(metric, sample)| {
-                let src = src.search(&metric)?;
-                let sink = sink.search(&metric)?;
-                let key = (src, sink);
+                let key = NetworkEdgeKey {
+                    interval_ms: metric.get("le")?.parse().ok()?,
+                    link: link.search(&metric)?,
+                    sink: sink.search(&metric)?,
+                    src: src.search(&metric)?,
+                };
 
-                let count = sample.value();
-                if count < usize::MIN as f64 || count > usize::MAX as f64 {
-                    return None;
-                }
-                let count = count as usize;
+                let value = NetworkValue({
+                    let count = sample.value();
+                    if count < u64::MIN as f64 || count > u64::MAX as f64 {
+                        return None;
+                    }
+                    count as u64
+                });
 
-                let duration = Duration::from_millis(metric.get("le")?.parse().ok()?);
-                let value = NetworkValueBuilder::new(duration).count(count);
                 Some((key, value))
             });
 
@@ -77,7 +85,7 @@ impl Search for NetworkQueryNodeType {
     fn search(&self, metric: &Metric) -> Option<<Self as Search>::Output> {
         Some(NetworkNodeKey {
             kind: self.kind.search(metric)?,
-            name: self.name.search(metric),
+            name: self.name.search(metric)?,
             namespace: self.namespace.search(metric)?,
         })
     }

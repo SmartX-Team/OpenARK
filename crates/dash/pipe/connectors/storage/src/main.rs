@@ -6,7 +6,8 @@ use clap::Parser;
 use dash_pipe_provider::{
     connector::Connector,
     storage::{MetadataStorageExt, StorageIO, Stream},
-    DefaultModelIn, DynValue, FunctionContext, PipeArgs, PipeMessage, PipeMessages,
+    DefaultModelIn, DynValue, FunctionContext, FunctionSignalExt, PipeArgs, PipeMessage,
+    PipeMessages,
 };
 use derivative::Derivative;
 use futures::TryStreamExt;

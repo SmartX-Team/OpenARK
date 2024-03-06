@@ -22,7 +22,7 @@ workspace = true
 [dependencies]
 dash-api = { path = "../../api" }
 dash-pipe-api = { path = "../../pipe/api" }
-dash-pipe-provider = { path = "../../pipe/provider", features = ["lakehouse"] }
+dash-pipe-provider = { path = "../../pipe/provider", features = ["deltalake"] }
 dash-provider = { path = "../../provider" }
 
 anyhow = { workspace = true }
@@ -38,5 +38,5 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 serde = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

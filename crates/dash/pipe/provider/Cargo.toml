@@ -33,12 +33,16 @@ nats = ["dep:async-nats"]
 ros2 = ["dep:r2r"]
 
 # storage
-storage = ["lakehouse", "s3"]
-lakehouse = ["dash-api", "deltalake", "inflector", "map-macro"]
+storage = ["deltalake", "lancedb", "s3"]
+deltalake = ["arrow", "dash-api", "dep:deltalake", "inflector", "map-macro"]
+lancedb = ["arrow", "dep:lancedb", "object_store/aws"]
 s3 = ["chrono", "minio"]
 
+# metadata schema
+arrow = ["dep:arrow", "async-stream"]
+
 [dependencies]
-ark-core = { path = "../../../ark/core" }
+ark-core = { path = "../../../ark/core", features = ["signal"] }
 ark-core-k8s = { path = "../../../ark/core/k8s", features = [
     "async-nats",
     "data",
@@ -47,21 +51,23 @@ dash-api = { path = "../../api", optional = true }
 dash-pipe-api = { path = "../api" }
 
 anyhow = { workspace = true }
+arrow = { workspace = true, optional = true, features = ["json"] }
 async-nats = { workspace = true, optional = true }
-async-stream = { workspace = true }
+async-stream = { workspace = true, optional = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true, optional = true }
 clap = { workspace = true }
-ctrlc = { workspace = true }
 deltalake = { workspace = true, optional = true }
 derivative = { workspace = true }
 futures = { workspace = true }
 gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }
 kube = { workspace = true }
+lancedb = { workspace = true, optional = true }
 map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
+object_store = { workspace = true, optional = true }
 opentelemetry = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 r2r = { workspace = true, optional = true }

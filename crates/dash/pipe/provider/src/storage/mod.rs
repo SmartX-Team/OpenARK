@@ -1,5 +1,7 @@
-#[cfg(feature = "lakehouse")]
-pub mod lakehouse;
+#[cfg(feature = "deltalake")]
+pub mod deltalake;
+#[cfg(feature = "lancedb")]
+pub mod lancedb;
 pub mod passthrough;
 #[cfg(feature = "s3")]
 pub mod s3;
@@ -18,7 +20,10 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{Display, EnumString};
 use tracing::{debug, instrument, Level};
 
-use crate::{function::FunctionContext, message::PipeMessage};
+use crate::{
+    function::FunctionContext,
+    message::{DynValue, PipeMessage},
+};
 
 pub struct StorageIO {
     pub input: Arc<StorageSet>,
@@ -37,8 +42,10 @@ pub struct StorageSet {
     args: StorageArgs,
     default: StorageType,
     default_metadata: MetadataStorageType,
-    #[cfg(feature = "lakehouse")]
-    lakehouse: self::lakehouse::Storage,
+    #[cfg(feature = "deltalake")]
+    deltalake: self::deltalake::Storage,
+    #[cfg(feature = "lancedb")]
+    lancedb: self::lancedb::Storage,
     passthrough: self::passthrough::Storage,
     #[cfg(feature = "s3")]
     s3: self::s3::Storage,
@@ -82,8 +89,8 @@ impl StorageSet {
             args: args.clone(),
             default,
             default_metadata: default_metadata.default_storage,
-            #[cfg(feature = "lakehouse")]
-            lakehouse: if persistence_metadata {
+            #[cfg(feature = "deltalake")]
+            deltalake: if persistence_metadata {
                 // TODO: to be implemented!
                 let flush = if ctx
                     .as_mut()
@@ -94,7 +101,8 @@ impl StorageSet {
                 } else {
                     args.flush()
                 };
-                self::lakehouse::Storage::try_new::<Value>(
+
+                self::deltalake::Storage::try_new::<Value>(
                     &args.s3,
                     args.storage_name.clone(),
                     model,
@@ -102,7 +110,24 @@ impl StorageSet {
                 )
                 .await?
             } else {
-                self::lakehouse::Storage::default()
+                self::deltalake::Storage::default()
+            },
+            #[cfg(feature = "lancedb")]
+            lancedb: {
+                // TODO: to be implemented!
+                let mode = ::lancedb::table::AddDataMode::default();
+
+                if persistence_metadata {
+                    self::lancedb::Storage::try_new::<Value>(
+                        &args.s3,
+                        args.storage_name.clone(),
+                        mode,
+                        model,
+                    )
+                    .await?
+                } else {
+                    self::lancedb::Storage::default()
+                }
             },
             passthrough: self::passthrough::Storage::new(model),
             #[cfg(feature = "s3")]
@@ -123,8 +148,10 @@ impl StorageSet {
         storage_type: MetadataStorageType,
     ) -> &(dyn Send + Sync + MetadataStorage<Value>) {
         match storage_type {
-            #[cfg(feature = "lakehouse")]
-            MetadataStorageType::LakeHouse => &self.lakehouse,
+            #[cfg(feature = "deltalake")]
+            MetadataStorageType::DeltaLake => &self.deltalake,
+            #[cfg(feature = "lancedb")]
+            MetadataStorageType::LanceDB => &self.lancedb,
         }
     }
 
@@ -138,8 +165,8 @@ impl StorageSet {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn flush(&self) -> Result<()> {
-        #[cfg(feature = "lakehouse")]
-        (&self.lakehouse as &(dyn Sync + MetadataStorage))
+        #[cfg(feature = "deltalake")]
+        (&self.deltalake as &(dyn Sync + MetadataStorage))
             .flush()
             .await?;
 
@@ -148,16 +175,16 @@ impl StorageSet {
 }
 
 impl StorageSet {
-    #[cfg(feature = "lakehouse")]
-    pub async fn create_lakehouse<Value>(
+    #[cfg(feature = "deltalake")]
+    pub async fn create_deltalake<Value>(
         &self,
         model: &Name,
         flush: Option<Duration>,
-    ) -> Result<self::lakehouse::StorageContext>
+    ) -> Result<self::deltalake::StorageContext>
     where
         Value: JsonSchema,
     {
-        self::lakehouse::StorageContext::try_new::<Value>(
+        self::deltalake::StorageContext::try_new::<Value>(
             &self.args.s3,
             self.args.storage_name.clone(),
             model.storage(),
@@ -166,9 +193,50 @@ impl StorageSet {
         .await
     }
 
-    #[cfg(feature = "lakehouse")]
-    pub const fn get_lakehouse(&self) -> &self::lakehouse::Storage {
-        &self.lakehouse
+    #[cfg(feature = "deltalake")]
+    pub async fn create_deltalake_dynamic(
+        &self,
+        model: &Name,
+        flush: Option<Duration>,
+    ) -> Result<self::deltalake::StorageContext> {
+        self.create_deltalake::<DynValue>(model, flush).await
+    }
+
+    #[cfg(feature = "deltalake")]
+    pub const fn get_deltalake(&self) -> &self::deltalake::Storage {
+        &self.deltalake
+    }
+
+    #[cfg(feature = "lancedb")]
+    pub const fn get_lancedb(&self) -> &self::lancedb::Storage {
+        &self.lancedb
+    }
+
+    #[cfg(feature = "lancedb")]
+    pub async fn create_lancedb<Value>(
+        &self,
+        mode: ::lancedb::table::AddDataMode,
+        model: &Name,
+    ) -> Result<self::lancedb::StorageContext>
+    where
+        Value: JsonSchema,
+    {
+        self::lancedb::StorageContext::try_new::<Value>(
+            &self.args.s3,
+            self.args.storage_name.clone(),
+            mode,
+            model.storage(),
+        )
+        .await
+    }
+
+    #[cfg(feature = "lancedb")]
+    pub async fn create_lancedb_dynamic(
+        &self,
+        mode: ::lancedb::table::AddDataMode,
+        model: &Name,
+    ) -> Result<self::lancedb::StorageContext> {
+        self.create_lancedb::<DynValue>(mode, model).await
     }
 
     #[cfg(feature = "s3")]
@@ -209,9 +277,12 @@ impl<T> MetadataStorageArgs<T> {
     JsonSchema,
 )]
 pub enum MetadataStorageType {
-    #[cfg(feature = "lakehouse")]
+    #[cfg(feature = "deltalake")]
     #[default]
-    LakeHouse,
+    DeltaLake,
+    #[cfg(feature = "lancedb")]
+    #[cfg_attr(not(feature = "deltalake"), default)]
+    LanceDB,
 }
 
 #[async_trait]
@@ -271,7 +342,9 @@ pub trait MetadataStorage<Value = ()> {
     where
         Value: 'async_trait + Send + Sync + Clone + Serialize + JsonSchema;
 
-    async fn flush(&self) -> Result<()>;
+    async fn flush(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(
@@ -369,7 +442,7 @@ pub struct StorageArgs {
     #[arg(long, env = "PIPE_NAME", value_name = "NAME")]
     pipe_name: Option<Name>,
 
-    #[cfg(any(feature = "lakehouse", feature = "s3"))]
+    #[cfg(any(feature = "deltalake", feature = "s3"))]
     #[command(flatten)]
     pub s3: ::dash_pipe_api::storage::StorageS3Args,
 

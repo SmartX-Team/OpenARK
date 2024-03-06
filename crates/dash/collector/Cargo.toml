@@ -52,13 +52,13 @@ exporter-storage = [
 ]
 
 [dependencies]
-ark-core = { path = "../../ark/core" }
+ark-core = { path = "../../ark/core", features = ["signal"] }
 ark-core-k8s = { path = "../../ark/core/k8s", optional = true, features = [
     "data",
 ] }
 dash-collector-api = { path = "./api", optional = true }
 dash-pipe-api = { path = "../pipe/api", optional = true }
-dash-pipe-provider = { path = "../pipe/provider" }
+dash-pipe-provider = { path = "../pipe/provider", features = ["deltalake"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }

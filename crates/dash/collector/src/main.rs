@@ -18,7 +18,7 @@ macro_rules! init_protocols {
         async fn main() {
             ::ark_core::tracer::init_once();
 
-            let signal = ::dash_pipe_provider::FunctionSignal::default();
+            let signal = ::ark_core::signal::FunctionSignal::default();
             if let Err(error) = signal.trap_on_sigint() {
                 error!("{error}");
                 return;

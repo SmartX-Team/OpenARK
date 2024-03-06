@@ -168,7 +168,7 @@ impl BoxState {
     }
 
     pub fn timeout(&self) -> Option<Duration> {
-        let fallback_update = Duration::hours(2);
+        let fallback_update = Duration::try_hours(2).unwrap();
 
         match self {
             Self::New => None,

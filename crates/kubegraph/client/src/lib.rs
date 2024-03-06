@@ -1,15 +1,17 @@
-use std::{sync::Arc, time::Duration};
+#![recursion_limit = "256"]
+
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use dash_pipe_provider::{storage::lakehouse::StorageContext, PipeClient, PipeClientArgs};
+use dash_pipe_provider::{
+    lancedb::table::AddDataMode,
+    storage::{lancedb::StorageContext, MetadataStorage},
+    PipeClient, PipeClientArgs, PipeMessage,
+};
 use kubegraph_api::{
-    graph::{
-        NetworkEdgeKey, NetworkGraph, NetworkNode, NetworkNodeKey, NetworkValue,
-        NetworkValueBuilder,
-    },
+    graph::{NetworkEdgeKey, NetworkGraphRow, NetworkValue},
     model,
-    row::NetworkGraphRow,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
@@ -18,16 +20,6 @@ use tracing::{instrument, Level};
 pub struct NetworkGraphClientArgs {
     #[command(flatten)]
     pipe: PipeClientArgs,
-
-    #[arg(long, env = "PIPE_INTERVAL_MS", value_name = "MILLISECONDS", default_value_t = NetworkGraphClientArgs::default_interval_ms(),)]
-    #[serde(default = "NetworkGraphClientArgs::default_interval_ms")]
-    interval_ms: u64,
-}
-
-impl NetworkGraphClientArgs {
-    const fn default_interval_ms() -> u64 {
-        5
-    }
 }
 
 #[derive(Clone)]
@@ -48,10 +40,7 @@ impl NetworkGraphClient {
         let pipe = PipeClient::try_new(&args.pipe).await?;
         let storage = pipe
             .storage()
-            .create_lakehouse::<NetworkGraphRow>(
-                &model::data()?,
-                Some(Duration::from_millis(args.interval_ms)),
-            )
+            .create_lancedb_dynamic(AddDataMode::Append, &model::data()?)
             .await?;
 
         Ok(Self {
@@ -63,23 +52,18 @@ impl NetworkGraphClient {
     #[instrument(level = Level::INFO, skip_all)]
     pub async fn add_edges(
         &self,
-        edges: impl IntoIterator<Item = (NetworkEdgeKey, NetworkValueBuilder)>,
+        edges: impl IntoIterator<Item = (NetworkEdgeKey, NetworkValue)>,
     ) -> Result<()> {
-        todo!()
-    }
+        let values: Vec<_> = edges
+            .into_iter()
+            .map(|(key, value)| NetworkGraphRow { key, value })
+            .map(PipeMessage::new)
+            .collect();
+        if values.is_empty() {
+            return Ok(());
+        }
 
-    #[instrument(level = Level::INFO, skip_all)]
-    pub async fn get_node(&self, key: &NetworkNodeKey) -> Result<Option<NetworkNode>> {
-        todo!()
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    pub async fn get_edge(&self, key: &NetworkEdgeKey) -> Result<Option<NetworkValue>> {
-        todo!()
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    pub async fn to_json(&self) -> Result<NetworkGraph> {
-        todo!()
+        let values: Vec<_> = values.iter().collect();
+        self.storage.put_metadata(&values).await
     }
 }

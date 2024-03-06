@@ -4,7 +4,8 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use dash_pipe_provider::{
-    storage::StorageIO, FunctionContext, PipeArgs, PipeMessage, PipeMessages, PipePayload,
+    storage::StorageIO, FunctionContext, FunctionSignalExt, PipeArgs, PipeMessage, PipeMessages,
+    PipePayload,
 };
 use derivative::Derivative;
 use image::{codecs, RgbImage};

@@ -36,18 +36,25 @@ impl PipeClient {
 
     #[instrument(level = Level::INFO, skip(args))]
     pub async fn try_new(args: &PipeClientArgs) -> ::anyhow::Result<Self> {
-        let default_metadata_type = MetadataStorageType::default();
-        let encoder = Codec::default();
+        let PipeClientArgs {
+            extra:
+                PipeClientExtraArgs {
+                    encoder,
+                    default_metadata_type,
+                },
+            messenger,
+            storage,
+        } = args;
 
         Ok(Self {
-            encoder,
-            messenger: init_messenger(&args.messenger).await?,
+            encoder: encoder.unwrap_or_default(),
+            messenger: init_messenger(messenger).await?,
             storage: Arc::new(
                 StorageSet::try_new(
-                    &args.storage,
+                    storage,
                     None,
                     None,
-                    MetadataStorageArgs::<Value>::new(default_metadata_type),
+                    MetadataStorageArgs::<Value>::new(*default_metadata_type),
                 )
                 .await?,
             ),
@@ -95,10 +102,29 @@ impl PipeClient {
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct PipeClientArgs {
     #[command(flatten)]
+    pub extra: PipeClientExtraArgs,
+
+    #[command(flatten)]
     pub messenger: MessengerArgs,
 
     #[command(flatten)]
     pub storage: StorageArgs,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Parser)]
+pub struct PipeClientExtraArgs {
+    #[arg(
+        long,
+        env = "PIPE_DEFAULT_METADATA_TYPE",
+        value_name = "TYPE",
+        default_value_t = MetadataStorageType::default(),
+    )]
+    #[serde(default)]
+    pub default_metadata_type: MetadataStorageType,
+
+    #[arg(long, env = "PIPE_ENCODER", value_name = "CODEC")]
+    #[serde(default)]
+    pub encoder: Option<Codec>,
 }
 
 #[derive(Clone)]

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use anyhow::{bail, Result};
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 
@@ -44,16 +44,12 @@ where
             bail!("session is not binded: {name:?}")
         }
 
-        let duration_session_start = Duration::seconds(5);
+        let duration_session_start = Duration::try_seconds(5).unwrap();
         match labels
             .get(self::consts::LABEL_BIND_TIMESTAMP)
             .and_then(|timestamp| {
                 let timestamp: i64 = timestamp.parse().ok()?;
-                let naive_date_time = NaiveDateTime::from_timestamp_millis(timestamp)?;
-                Some(DateTime::<Utc>::from_naive_utc_and_offset(
-                    naive_date_time,
-                    Utc,
-                ))
+                DateTime::<Utc>::from_timestamp_millis(timestamp)
             }) {
             Some(timestamp) if Utc::now() - timestamp >= duration_session_start => {}
             Some(_) => {

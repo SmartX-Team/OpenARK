@@ -506,6 +506,11 @@ where
         self
     }
 
+    pub const fn with_timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
+        self.timestamp = timestamp;
+        self
+    }
+
     pub(crate) fn drop_reply(mut self) -> Self {
         self.reply = None;
         self

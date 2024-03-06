@@ -9,7 +9,8 @@ use byte_unit::{Byte, UnitType};
 use clap::{ArgAction, Parser};
 use dash_pipe_provider::{
     storage::{StorageIO, StorageSet},
-    FunctionContext, MessengerType, PipeArgs, PipeMessage, PipeMessages, PipePayload,
+    FunctionContext, FunctionSignalExt, MessengerType, PipeArgs, PipeMessage, PipeMessages,
+    PipePayload,
 };
 use derivative::Derivative;
 use schemars::JsonSchema;

@@ -1,19 +1,16 @@
+mod decoder;
+
 use std::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Error, Result};
+use arrow::datatypes::{DataType, Field, Fields, Schema as ArrowSchema, TimeUnit};
 use dash_api::model::{
     ModelFieldAttributeSpec, ModelFieldKindNativeSpec, ModelFieldKindObjectSpec,
     ModelFieldNativeSpec,
 };
-use deltalake::{
-    arrow::{
-        self,
-        datatypes::{DataType, Field, Fields, TimeUnit},
-    },
-    kernel::{
-        ArrayType, DataType as DeltaDataType, MapType, PrimitiveType,
-        PrimitiveType as DeltaPrimitiveType, StructField, StructType,
-    },
+use deltalake::kernel::{
+    ArrayType, DataType as DeltaDataType, MapType, PrimitiveType,
+    PrimitiveType as DeltaPrimitiveType, StructField, StructType,
 };
 use map_macro::hash_map;
 use schemars::schema::{
@@ -21,6 +18,8 @@ use schemars::schema::{
     SubschemaValidation,
 };
 use serde_json::{json, Value};
+
+use super::arrow::ToDataType;
 
 pub trait ToField {
     fn to_field(&self) -> Result<Field>;
@@ -67,10 +66,6 @@ where
     }
 }
 
-pub trait ToDataType {
-    fn to_data_type(&self) -> Result<DataType>;
-}
-
 impl ToDataType for PrimitiveType {
     fn to_data_type(&self) -> Result<DataType> {
         Ok(match self {
@@ -107,17 +102,11 @@ impl ToDataType for MapType {
     }
 }
 
-impl ToDataType for ::deltalake::arrow::datatypes::Schema {
-    fn to_data_type(&self) -> Result<DataType> {
-        Ok(DataType::Struct(self.fields().clone()))
-    }
-}
-
 pub trait FieldColumns {
     fn to_data_columns(&self) -> Result<Vec<StructField>>;
 }
 
-impl FieldColumns for arrow::datatypes::Schema {
+impl FieldColumns for ArrowSchema {
     fn to_data_columns(&self) -> Result<Vec<StructField>> {
         let api_version = json!("http://arrow.apache.org/");
         self.fields().to_data_columns(&api_version)
