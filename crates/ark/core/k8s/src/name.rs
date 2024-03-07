@@ -19,14 +19,8 @@ pub async fn get_cluster_name(kube: Client) -> Result<String> {
         .and_then(|data| data.get("kubeconfig"))
     {
         Some(config) => {
-            // create a Sha256 object
-            let mut hasher = Sha256::new();
-
-            // write input message
-            hasher.update(config.as_bytes());
-
             // read hash digest and consume hasher
-            let hash = hasher.finalize();
+            let hash = Sha256::digest(config.as_bytes());
 
             // encode to hex format
             Ok(format!("{hash:x}"))

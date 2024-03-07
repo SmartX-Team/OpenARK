@@ -38,6 +38,8 @@ macro_rules! init_protocols {
                     )),
                 )*
             ];
+
+            info!("Ready");
             signal.wait_to_terminate().await;
 
             info!("Terminating...");

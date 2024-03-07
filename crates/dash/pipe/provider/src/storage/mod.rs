@@ -91,16 +91,7 @@ impl StorageSet {
             default_metadata: default_metadata.default_storage,
             #[cfg(feature = "deltalake")]
             deltalake: if persistence_metadata {
-                // TODO: to be implemented!
-                let flush = if ctx
-                    .as_mut()
-                    .map(|ctx| ctx.is_disabled_store_metadata())
-                    .unwrap_or_default()
-                {
-                    None
-                } else {
-                    args.flush()
-                };
+                let flush = parse_flush_interval(args, ctx);
 
                 self::deltalake::Storage::try_new::<Value>(
                     &args.s3,
@@ -113,21 +104,11 @@ impl StorageSet {
                 self::deltalake::Storage::default()
             },
             #[cfg(feature = "lancedb")]
-            lancedb: {
-                // TODO: to be implemented!
-                let mode = ::lancedb::table::AddDataMode::default();
-
-                if persistence_metadata {
-                    self::lancedb::Storage::try_new::<Value>(
-                        &args.s3,
-                        args.storage_name.clone(),
-                        mode,
-                        model,
-                    )
+            lancedb: if persistence_metadata {
+                self::lancedb::Storage::try_new::<Value>(&args.s3, args.storage_name.clone(), model)
                     .await?
-                } else {
-                    self::lancedb::Storage::default()
-                }
+            } else {
+                self::lancedb::Storage::default()
             },
             passthrough: self::passthrough::Storage::new(model),
             #[cfg(feature = "s3")]
@@ -213,18 +194,13 @@ impl StorageSet {
     }
 
     #[cfg(feature = "lancedb")]
-    pub async fn create_lancedb<Value>(
-        &self,
-        mode: ::lancedb::table::AddDataMode,
-        model: &Name,
-    ) -> Result<self::lancedb::StorageContext>
+    pub async fn create_lancedb<Value>(&self, model: &Name) -> Result<self::lancedb::StorageContext>
     where
         Value: JsonSchema,
     {
         self::lancedb::StorageContext::try_new::<Value>(
             &self.args.s3,
             self.args.storage_name.clone(),
-            mode,
             model.storage(),
         )
         .await
@@ -233,10 +209,63 @@ impl StorageSet {
     #[cfg(feature = "lancedb")]
     pub async fn create_lancedb_dynamic(
         &self,
-        mode: ::lancedb::table::AddDataMode,
         model: &Name,
     ) -> Result<self::lancedb::StorageContext> {
-        self.create_lancedb::<DynValue>(mode, model).await
+        self.create_lancedb::<DynValue>(model).await
+    }
+
+    #[instrument(level = Level::INFO, skip(self, ctx), err(Display))]
+    async fn create_default_metadata_storage_as<ValueInit, ValueData>(
+        &self,
+        model: &Name,
+        ctx: Option<&mut FunctionContext>,
+    ) -> Result<Arc<dyn Send + Sync + MetadataStorage<ValueData>>>
+    where
+        ValueInit: JsonSchema,
+    {
+        match self.default_metadata {
+            #[cfg(feature = "deltalake")]
+            MetadataStorageType::DeltaLake => {
+                let flush = parse_flush_interval(&self.args, ctx);
+                Ok(Arc::new(
+                    self.create_deltalake::<ValueInit>(model, flush).await?,
+                ))
+            }
+            #[cfg(feature = "lancedb")]
+            MetadataStorageType::LanceDB => {
+                Ok(Arc::new(self.create_lancedb::<ValueInit>(model).await?))
+            }
+        }
+    }
+
+    pub async fn create_default_metadata_storage<Value>(
+        &self,
+        model: &Name,
+        ctx: Option<&mut FunctionContext>,
+    ) -> Result<Arc<dyn Send + Sync + MetadataStorage<Value>>>
+    where
+        Value: JsonSchema,
+    {
+        self.create_default_metadata_storage_as::<Value, Value>(model, ctx)
+            .await
+    }
+
+    pub async fn create_default_metadata_storage_dynamic(
+        &self,
+        model: &Name,
+        ctx: Option<&mut FunctionContext>,
+    ) -> Result<Arc<dyn Send + Sync + MetadataStorage<DynValue>>> {
+        self.create_default_metadata_storage_as::<DynValue, DynValue>(model, ctx)
+            .await
+    }
+
+    pub async fn create_default_metadata_storage_untyped<Value>(
+        &self,
+        model: &Name,
+        ctx: Option<&mut FunctionContext>,
+    ) -> Result<Arc<dyn Send + Sync + MetadataStorage<Value>>> {
+        self.create_default_metadata_storage_as::<DynValue, Value>(model, ctx)
+            .await
     }
 
     #[cfg(feature = "s3")]
@@ -480,4 +509,20 @@ pub type Stream<T> = Pin<Box<dyn Send + ::futures::Stream<Item = Result<T>>>>;
 mod name {
     pub const KIND_METADATA: &str = "metadata";
     pub const KIND_STORAGE: &str = "payloads";
+}
+
+// TODO: to be implemented!
+fn parse_flush_interval(
+    args: &StorageArgs,
+    mut ctx: Option<&mut FunctionContext>,
+) -> Option<Duration> {
+    if ctx
+        .as_mut()
+        .map(|ctx| ctx.is_disabled_store_metadata())
+        .unwrap_or_default()
+    {
+        None
+    } else {
+        args.flush()
+    }
 }

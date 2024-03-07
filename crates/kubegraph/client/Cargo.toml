@@ -20,13 +20,14 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-pipe-provider = { path = "../../dash/pipe/provider", features = [
-    "lancedb",
-] }
+dash-pipe-api = { path = "../../dash/pipe/api" }
 dash-query-provider = { path = "../../dash/query/provider" }
 kubegraph-api = { path = "../api" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
+infinitree = { workspace = true }
+infinitree-backends = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }

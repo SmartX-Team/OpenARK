@@ -452,28 +452,16 @@ where
 
 impl RuntimeIden {
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
-        // create a Sha256 object
-        let mut hasher = Sha256::new();
-
-        // write input message
-        hasher.update(bytes.as_ref());
-
         // read hash digest and consume hasher
-        let hash = hasher.finalize();
+        let hash = Sha256::digest(bytes.as_ref());
 
         // encode to hex format
         Self(format!("{hash:x}"))
     }
 
     fn from_str(s: impl AsRef<str>) -> Self {
-        // create a Sha256 object
-        let mut hasher = Sha256::new();
-
-        // write input message
-        hasher.update(s.as_ref());
-
         // read hash digest and consume hasher
-        let hash = hasher.finalize();
+        let hash = Sha256::digest(s.as_ref());
 
         // encode to hex format
         Self(format!("{hash:x}"))

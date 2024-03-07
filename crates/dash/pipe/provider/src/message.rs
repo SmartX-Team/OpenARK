@@ -10,6 +10,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use serde_json::Value as DynValue;
 use strum::{Display, EnumString};
 use tracing::{instrument, Level};
+use uuid::Uuid;
 
 use crate::storage::{StorageSet, StorageType};
 
@@ -127,6 +128,7 @@ impl<Value> PipeMessages<Value> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[::pyo3::pyclass]
 pub struct PyPipeMessage {
+    id: Uuid,
     #[serde(default, rename = "__payloads")]
     payloads: Vec<PipePayload>,
     #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
@@ -141,6 +143,7 @@ pub struct PyPipeMessage {
 impl From<PipeMessage> for PyPipeMessage {
     fn from(
         PipeMessage {
+            id,
             payloads,
             timestamp,
             reply,
@@ -148,6 +151,7 @@ impl From<PipeMessage> for PyPipeMessage {
         }: PipeMessage,
     ) -> Self {
         Self {
+            id,
             payloads,
             timestamp,
             reply,
@@ -160,6 +164,7 @@ impl From<PipeMessage> for PyPipeMessage {
 impl From<PyPipeMessage> for PipeMessage {
     fn from(
         PyPipeMessage {
+            id,
             payloads,
             timestamp,
             reply,
@@ -167,6 +172,7 @@ impl From<PyPipeMessage> for PipeMessage {
         }: PyPipeMessage,
     ) -> Self {
         Self {
+            id,
             payloads,
             timestamp,
             reply,
@@ -220,6 +226,7 @@ impl PyPipeMessage {
         }
 
         Ok(Self {
+            id: Uuid::new_v4(),
             payloads: payloads
                 .into_iter()
                 .map(|(key, value)| PipePayload::new(key, value.map(Into::into)))
@@ -323,6 +330,8 @@ pub struct MaybePipeMessage<Value = DynValue, Payload = Bytes>
 where
     Payload: JsonSchema,
 {
+    #[serde(default, rename = "__id", skip_serializing_if = "Option::is_none")]
+    id: Option<Uuid>,
     #[serde(default, rename = "__payloads", skip_serializing_if = "Vec::is_empty")]
     pub payloads: Vec<PipePayload<Payload>>,
     #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
@@ -340,6 +349,7 @@ where
 impl From<MaybePipeMessage> for PipeMessage {
     fn from(message: MaybePipeMessage) -> Self {
         let MaybePipeMessage {
+            id,
             payloads,
             reply,
             timestamp,
@@ -347,6 +357,7 @@ impl From<MaybePipeMessage> for PipeMessage {
         } = message;
 
         Self {
+            id: id.unwrap_or_else(Uuid::new_v4),
             payloads,
             reply,
             timestamp: timestamp.unwrap_or_else(Utc::now),
@@ -360,6 +371,8 @@ pub struct PipeMessage<Value = DynValue, Payload = Bytes>
 where
     Payload: JsonSchema,
 {
+    #[serde(rename = "__id")]
+    id: Uuid,
     #[serde(rename = "__payloads")]
     pub payloads: Vec<PipePayload<Payload>>,
     #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
@@ -453,6 +466,7 @@ where
 {
     pub fn new(value: Value) -> Self {
         Self {
+            id: Uuid::new_v4(),
             payloads: Vec::default(),
             timestamp: Utc::now(),
             reply: None,
@@ -462,6 +476,7 @@ where
 
     pub fn with_payloads(payloads: Vec<PipePayload<Payload>>, value: Value) -> Self {
         Self {
+            id: Uuid::new_v4(),
             payloads,
             timestamp: Utc::now(),
             reply: None,
@@ -478,6 +493,7 @@ where
         P: JsonSchema,
     {
         Self {
+            id: Uuid::new_v4(),
             payloads,
             timestamp: Utc::now(),
             reply: request.reply.clone(),
@@ -530,6 +546,7 @@ where
         P: JsonSchema,
     {
         PipeMessage {
+            id: self.id,
             payloads: self
                 .payloads
                 .into_iter()
@@ -547,6 +564,7 @@ where
         Value: Clone,
     {
         PipeMessage {
+            id: self.id,
             payloads: self
                 .payloads
                 .iter()
@@ -595,6 +613,7 @@ impl<Value> PipeMessage<Value> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn load_payloads(self, storage: &StorageSet) -> Result<Self> {
         Ok(Self {
+            id: self.id,
             payloads: self
                 .payloads
                 .into_iter()
@@ -616,6 +635,7 @@ impl<Value> PipeMessage<Value> {
         input_payloads: Option<&HashMap<String, PipePayload>>,
     ) -> Result<Self> {
         Ok(Self {
+            id: self.id,
             payloads: self
                 .payloads
                 .into_iter()

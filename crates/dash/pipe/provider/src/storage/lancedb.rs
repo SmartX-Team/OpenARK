@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use lancedb::{
     connection::{Connection, CreateTableBuilder, CreateTableMode},
-    table::{AddDataMode, AddDataOptions, WriteOptions},
     Error as LanceError, TableRef,
 };
 use object_store::aws::AwsCredential;
@@ -31,7 +30,6 @@ impl Storage {
     pub async fn try_new<Value>(
         args: &StorageS3Args,
         name: String,
-        mode: AddDataMode,
         model: Option<&Name>,
     ) -> Result<Self>
     where
@@ -40,7 +38,7 @@ impl Storage {
         Ok(Self {
             inner: match model {
                 Some(model) => {
-                    Some(StorageContext::try_new::<Value>(args, name, mode, model.storage()).await?)
+                    Some(StorageContext::try_new::<Value>(args, name, model.storage()).await?)
                 }
                 None => None,
             },
@@ -88,7 +86,6 @@ impl<Value> super::MetadataStorage<Value> for Storage {
 #[derive(Clone)]
 pub struct StorageContext {
     conn: Connection,
-    mode: AddDataMode,
     model_raw: String,
     name: String,
     table: Arc<RwLock<Option<TableRef>>>,
@@ -98,12 +95,7 @@ impl StorageContext {
     const STORAGE_TYPE: super::MetadataStorageType = super::MetadataStorageType::LanceDB;
 
     #[instrument(level = Level::INFO, skip(args), err(Display))]
-    pub async fn try_new<Value>(
-        args: &StorageS3Args,
-        name: String,
-        mode: AddDataMode,
-        model: &str,
-    ) -> Result<Self>
+    pub async fn try_new<Value>(args: &StorageS3Args, name: String, model: &str) -> Result<Self>
     where
         Value: JsonSchema,
     {
@@ -123,7 +115,6 @@ impl StorageContext {
 
         Ok(Self {
             conn,
-            mode,
             model_raw,
             name,
             table,
@@ -176,7 +167,6 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         skip_all,
         fields(
             data.len = %values.len(),
-            data.mode = ?self.mode,
             data.model = %self.model_raw,
             storage.name = &self.name,
             storage.r#type = %Self::STORAGE_TYPE,
@@ -201,13 +191,12 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
         let table = self.table.read().await;
         match table.as_ref() {
             Some(table) => {
-                let options = AddDataOptions {
-                    mode: self.mode.clone(),
-                    write_options: WriteOptions::default(),
-                };
-
-                table
-                    .add(batches, options)
+                let mut transaction = table.merge_insert(&["id"]);
+                transaction
+                    .when_matched_update_all(None)
+                    .when_not_matched_insert_all();
+                transaction
+                    .execute(batches)
                     .await
                     .map_err(|error| anyhow!("failed to put object metadata into LanceDB: {error}"))
             }
@@ -219,7 +208,7 @@ impl<Value> super::MetadataStorage<Value> for StorageContext {
                     *table = Some(
                         create_table(
                             &self.conn,
-                            self.model_raw.clone(),
+                            super::name::KIND_METADATA.into(),
                             CreateTableData::Batches(batches),
                         )
                         .await?,
@@ -259,6 +248,7 @@ async fn load_table(
             secret_key: secret_key.clone(),
             token: None,
         })
+        .host_override(s3_endpoint.as_str())
         .region(region)
         .execute()
         .await

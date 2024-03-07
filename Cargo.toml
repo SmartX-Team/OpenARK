@@ -105,15 +105,22 @@ gethostname = { version = "0.4" }
 home = { version = "0.5" }
 http-cache-reqwest = { version = "0.13", features = ["manager-cacache"] }
 image = { version = "0.24", default-features = false }
+infinitree = { version = "0.10", default-features = false, features = [
+    "cryptobox",
+    "mmap",
+] }
+infinitree-backends = { version = "0.10", default-features = false, features = [
+    "rustls",
+] }
 inflector = { package = "Inflector", version = "0.11" }
 ipnet = { version = "2.9", features = ["schemars", "serde"] }
 itertools = { version = "0.12" }
 k8s-openapi = { version = "0.21", features = ["latest", "schemars"] }
 kube = { version = "0.88", default-features = false }
-lancedb = { version = "0.4" }
+lancedb = { version = "0.4", default-features = false }
 mime = { version = "0.3" }
 # FIXME: push a PR: rustls-tls feature support
-minio = { version = "0.1", default-features = false, features = [
+minio = { git = "https://github.com/ulagbulag/minio-rs.git", version = "0.1", default-features = false, features = [
     "rustls-tls",
 ] } # not deployed to crates.io
 map-macro = { version = "0.3" }
@@ -194,7 +201,7 @@ serde_json = { version = "1.0" }
 serde_with = { version = "3.6" }
 serde_yaml = { version = "0.9" }
 sha2 = { version = "0.10" }
-sio = { version = "0.3" }
+sio = { git = "https://github.com/ulagbulag/sio-rs.git" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
 thiserror = { version = "1.0" }
@@ -218,8 +225,5 @@ uuid = { version = "1.7", features = ["js", "serde", "v4"] }
 which = { version = "6.0" }
 
 [patch.crates-io]
-# FIXME: push a PR: rustls-tls feature support
-minio = { git = "https://github.com/ulagbulag/minio-rs.git" }   # not deployed to crates.io
-or-tools = { git = "https://github.com/ulagbulag/or-tools-rs" }
+# FIXME: push a PR: Send trait support
 schemars = { git = "https://github.com/ulagbulag/schemars" }
-sio = { git = "https://github.com/ulagbulag/sio-rs.git" }

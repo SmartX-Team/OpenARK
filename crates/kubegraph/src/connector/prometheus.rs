@@ -75,7 +75,8 @@ impl super::Connector for Connector {
                 Some((key, value))
             });
 
-        graph.add_edges(edges).await
+        graph.add_edges(edges).await;
+        Ok(())
     }
 }
 

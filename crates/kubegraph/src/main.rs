@@ -25,11 +25,17 @@ async fn main() {
         }
     };
 
-    let handler = spawn(crate::connector::loop_forever(graph));
+    let handler = spawn(crate::connector::loop_forever(graph.clone()));
+
+    info!("Ready");
     signal.wait_to_terminate().await;
 
     info!("Terminating...");
     handler.abort();
+
+    if let Err(error) = graph.close().await {
+        error!("{error}");
+    };
 
     info!("Terminated.");
     global::shutdown_tracer_provider();
