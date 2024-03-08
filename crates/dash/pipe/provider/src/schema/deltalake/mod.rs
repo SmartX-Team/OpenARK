@@ -80,6 +80,7 @@ impl ToDataType for PrimitiveType {
             Self::String => DataType::Utf8,
             Self::Date => DataType::Date32,
             Self::Timestamp => DataType::Timestamp(TimeUnit::Microsecond, None),
+            Self::TimestampNtz => DataType::Timestamp(TimeUnit::Microsecond, None),
             // Self::Decimal(precision, scale) => DataType::Decimal128(*precision, *scale),
             Self::Decimal(_, _) => bail!("unsupported schema data type: {self}"),
         })

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use dash_pipe_api::storage::StorageS3Args;
 use lancedb::{
     connection::{Connection, CreateTableBuilder, CreateTableMode},
-    Error as LanceError, TableRef,
+    Error as LanceError, Table,
 };
 use object_store::aws::AwsCredential;
 use schemars::{schema::RootSchema, JsonSchema};
@@ -88,7 +88,7 @@ pub struct StorageContext {
     conn: Connection,
     model_raw: String,
     name: String,
-    table: Arc<RwLock<Option<TableRef>>>,
+    table: Arc<RwLock<Option<Table>>>,
 }
 
 impl StorageContext {
@@ -127,7 +127,7 @@ impl StorageContext {
         table.is_some()
     }
 
-    async fn get_table(&self) -> Result<TableRef> {
+    async fn get_table(&self) -> Result<Table> {
         self.table
             .read()
             .await
@@ -230,7 +230,7 @@ async fn load_table(
     }: &StorageS3Args,
     model: &str,
     schema: Option<RootSchema>,
-) -> Result<(Connection, Option<TableRef>)> {
+) -> Result<(Connection, Option<Table>)> {
     let allow_http = s3_endpoint.scheme() == "http";
     let table_uri = format!(
         "s3://{bucket_name}/{kind}/",
@@ -278,7 +278,7 @@ async fn load_table(
 }
 
 #[instrument(level = Level::INFO, skip_all, err(Display))]
-async fn create_table(conn: &Connection, name: String, data: CreateTableData) -> Result<TableRef> {
+async fn create_table(conn: &Connection, name: String, data: CreateTableData) -> Result<Table> {
     const MODE: CreateTableMode = CreateTableMode::Overwrite;
 
     fn error(error: impl ::std::error::Error) -> Error {
@@ -287,14 +287,14 @@ async fn create_table(conn: &Connection, name: String, data: CreateTableData) ->
 
     #[async_trait]
     trait Build {
-        async fn build(self) -> Result<TableRef>;
+        async fn build(self) -> Result<Table>;
     }
 
     macro_rules! impl_build {
         ( $has_data:expr ) => {
             #[async_trait]
             impl Build for CreateTableBuilder<$has_data> {
-                async fn build(self) -> Result<TableRef> {
+                async fn build(self) -> Result<Table> {
                     self.mode(MODE).execute().await.map_err(error)
                 }
             }
