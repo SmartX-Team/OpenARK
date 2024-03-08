@@ -5,19 +5,19 @@ use ark_core_k8s::data::Name;
 use async_trait::async_trait;
 use clap::Parser;
 use derivative::Derivative;
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value;
 use tracing::{instrument, Level};
 
 use crate::{
-    message::{Codec, PipeMessage},
+    message::{Codec, DynValue, PipeMessage},
     messengers::{init_messenger, Messenger, MessengerArgs, Publisher, Subscriber},
     storage::{MetadataStorageArgs, MetadataStorageType, StorageArgs, StorageSet},
 };
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct PipeClient {
+pub struct PipeClient<Value = DynValue> {
     encoder: Codec,
 
     #[derivative(Debug = "ignore")]
@@ -29,13 +29,31 @@ pub struct PipeClient {
 
 impl PipeClient {
     #[instrument(level = Level::INFO)]
-    pub async fn try_default() -> ::anyhow::Result<Self> {
+    pub async fn try_default_dynamic() -> ::anyhow::Result<Self> {
+        Self::try_default().await
+    }
+
+    #[instrument(level = Level::INFO, skip(args))]
+    pub async fn try_new_dynamic(args: &PipeClientArgs) -> ::anyhow::Result<Self> {
+        Self::try_new(args).await
+    }
+}
+
+impl<Value> PipeClient<Value> {
+    #[instrument(level = Level::INFO)]
+    pub async fn try_default() -> ::anyhow::Result<Self>
+    where
+        Value: JsonSchema,
+    {
         let args = PipeClientArgs::try_parse()?;
         Self::try_new(&args).await
     }
 
     #[instrument(level = Level::INFO, skip(args))]
-    pub async fn try_new(args: &PipeClientArgs) -> ::anyhow::Result<Self> {
+    pub async fn try_new(args: &PipeClientArgs) -> ::anyhow::Result<Self>
+    where
+        Value: JsonSchema,
+    {
         let PipeClientArgs {
             extra:
                 PipeClientExtraArgs {
@@ -74,7 +92,10 @@ impl PipeClient {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    pub async fn subscribe(&self, topic: Name) -> Result<PipeSubscriber<Value>> {
+    pub async fn subscribe(&self, topic: Name) -> Result<PipeSubscriber<Value>>
+    where
+        Value: Send + DeserializeOwned,
+    {
         let inner = self.messenger.subscribe(topic).await?;
 
         Ok(PipeSubscriber {
@@ -85,12 +106,22 @@ impl PipeClient {
     }
 
     #[instrument(level = Level::INFO, skip(self, data))]
-    pub async fn call(&self, topic: Name, data: PipeMessage) -> Result<PipeMessage<Value>> {
+    pub async fn call<ValueOut>(
+        &self,
+        topic: Name,
+        data: PipeMessage,
+    ) -> Result<PipeMessage<ValueOut>>
+    where
+        ValueOut: Send + DeserializeOwned,
+    {
         self.publish(topic).await?.request_one(data).await
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    pub async fn read(&self, topic: Name) -> Result<Option<PipeMessage<Value>>> {
+    pub async fn read(&self, topic: Name) -> Result<Option<PipeMessage<Value>>>
+    where
+        Value: Send + DeserializeOwned,
+    {
         self.subscribe(topic).await?.read_one().await
     }
 

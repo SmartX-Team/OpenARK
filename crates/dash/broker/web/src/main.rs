@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 mod routes;
 
 use std::net::SocketAddr;
@@ -29,7 +31,7 @@ async fn main() {
         // Initialize pipe
         let addr =
             infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
-        let ctx = Data::new(PipeClient::try_default().await?);
+        let ctx = Data::new(PipeClient::try_default_dynamic().await?);
 
         // Start web server
         HttpServer::new(move || {

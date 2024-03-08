@@ -4,7 +4,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use ark_core::result::Result;
-use dash_pipe_provider::{MaybePipeMessage, PipeClient};
+use dash_pipe_provider::{DynValue, MaybePipeMessage, PipeClient};
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO, skip(client))]
@@ -25,7 +25,9 @@ pub async fn post(
 ) -> impl Responder {
     match topic.replace('/', ".").parse() {
         Ok(topic) => HttpResponse::from(Result::from(
-            client.call(topic, message.into_inner().into()).await,
+            client
+                .call::<DynValue>(topic, message.into_inner().into())
+                .await,
         )),
         Err(error) => HttpResponse::from(Result::<()>::Err(error.to_string())),
     }
