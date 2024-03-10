@@ -66,10 +66,10 @@ pub struct FunctionArgs {
         default_value_t = FunctionArgs::default_python_tick_method(),
     )]
     #[serde(default = "FunctionArgs::default_python_tick_method")]
-    python_tick_method: String,
+    pub python_tick_method: String,
 
     #[arg(short, long, env = "PIPE_PYTHON_SCRIPT", value_name = "PATH")]
-    python_script: PathBuf,
+    pub python_script: PathBuf,
 }
 
 impl FunctionArgs {
