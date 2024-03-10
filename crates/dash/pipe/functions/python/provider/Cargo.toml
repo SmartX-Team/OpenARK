@@ -1,5 +1,5 @@
 [package]
-name = "dash-pipe-function-python"
+name = "dash-pipe-function-python-provider"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,7 +20,12 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-pipe-function-python-provider = { path = "./provider" }
-dash-pipe-provider = { path = "../../provider", features = ["pyo3"] }
+dash-pipe-provider = { path = "../../../provider", features = ["pyo3"] }
 
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+derivative = { workspace = true }
+pyo3 = { workspace = true, features = ["auto-initialize"] }
+serde = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }

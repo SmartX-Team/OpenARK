@@ -20,6 +20,7 @@ members = [
     "crates/dash/pipe/functions/identity",
     "crates/dash/pipe/functions/performance-test",
     "crates/dash/pipe/functions/python",           # exclude(alpine)
+    "crates/dash/pipe/functions/python/provider",  # exclude(alpine)
     "crates/dash/pipe/provider",
     "crates/dash/provider",
     "crates/dash/provider/api",
