@@ -59,6 +59,9 @@ impl ::dash_pipe_provider::Function for Function {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct FunctionArgs {
+    #[arg(short, long, env = "PIPE_PYTHON_SCRIPT", value_name = "PATH")]
+    pub python_script: PathBuf,
+
     #[arg(
         long,
         env = "PIPE_PYTHON_TICK_METHOD",
@@ -67,14 +70,15 @@ pub struct FunctionArgs {
     )]
     #[serde(default = "FunctionArgs::default_python_tick_method")]
     pub python_tick_method: String,
-
-    #[arg(short, long, env = "PIPE_PYTHON_SCRIPT", value_name = "PATH")]
-    pub python_script: PathBuf,
 }
 
 impl FunctionArgs {
     fn default_python_tick_method() -> String {
-        "tick".into()
+        Self::default_python_tick_method_str().into()
+    }
+
+    pub const fn default_python_tick_method_str() -> &'static str {
+        "tick"
     }
 }
 
