@@ -1,0 +1,212 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apt-ubuntu-security
+  namespace: devops-mirror
+data:
+  limit_bw: ""
+  mirror.list: |
+    ############# config ##################
+    #
+    set base_path    /var/spool/apt-mirror
+    #
+    # set mirror_path  $base_path/mirror
+    # set skel_path    $base_path/skel
+    # set var_path     $base_path/var
+    set cleanscript  /var/spool/apt-mirror/var/clean.sh
+    # set defaultarch  <running host architecture>
+    set postmirror_script /var/spool/apt-mirror/var/postmirror.sh
+    # set run_postmirror 0
+    set nthreads   24
+    set _tilde 0
+    # set limit_rate 100k   ## Per thread ##
+    #
+    ############# end config ##############
+
+    # Ubuntu Xenial (16.04)
+    # deb           http://security.ubuntu.com/ubuntu     xenial-security    main restricted universe multiverse
+    # deb-i386      http://security.ubuntu.com/ubuntu     xenial-security    main restricted universe multiverse
+    # deb-amd64     http://security.ubuntu.com/ubuntu     xenial-security    main restricted universe multiverse
+
+    # Ubuntu Bionic (18.04)
+    # deb           http://security.ubuntu.com/ubuntu     bionic-security    main restricted universe multiverse
+    # deb-i386      http://security.ubuntu.com/ubuntu     bionic-security    main restricted universe multiverse
+    # deb-amd64     http://security.ubuntu.com/ubuntu     bionic-security    main restricted universe multiverse
+
+    # Ubuntu Focal (20.04)
+    deb           http://security.ubuntu.com/ubuntu     focal-security     main restricted universe multiverse
+    deb-i386      http://security.ubuntu.com/ubuntu     focal-security     main restricted universe multiverse
+    deb-amd64     http://security.ubuntu.com/ubuntu     focal-security     main restricted universe multiverse
+
+    # Ubuntu Jammy (22.04)
+    deb           http://security.ubuntu.com/ubuntu     jammy-security     main restricted universe multiverse
+    deb-i386      http://security.ubuntu.com/ubuntu     jammy-security     main restricted universe multiverse
+    deb-amd64     http://security.ubuntu.com/ubuntu     jammy-security     main restricted universe multiverse
+
+    clean         http://security.ubuntu.com/ubuntu
+  nginx.conf: |
+    server {
+      listen 80 default_server;
+      server_name _;
+
+      access_log /var/log/nginx/access.log;
+      error_log  /var/log/nginx/error.log;
+
+      server_name_in_redirect off;
+
+      location /ubuntu {
+        alias /var/spool/apt-mirror/mirror/security.ubuntu.com/ubuntu;
+        autoindex on;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apt-ubuntu-security
+  namespace: devops-mirror
+  labels:
+    name: apt-ubuntu-security
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: apt-ubuntu-security
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "false"
+      labels:
+        name: apt-ubuntu-security
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+              weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: apt-mirror
+          image: docker.io/gregewing/apt-mirror:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 80
+          # resources:
+          #   requests:
+          #     cpu: "2"
+          #     memory: 4Gi
+          #   limits:
+          #     cpu: "8"
+          #     memory: 16Gi
+          volumeMounts:
+            - name: apt-ubuntu-security
+              mountPath: /etc/apt/mirror.list
+              subPath: mirror.list
+            - name: apt-ubuntu-security
+              mountPath: /etc/nginx/sites-enabled/default
+              subPath: nginx.conf
+            - name: apt-ubuntu-security
+              mountPath: /var/spool/apt-mirror/limit_bw
+              subPath: limit_bw
+            - name: data
+              mountPath: /var/spool/apt-mirror/mirror
+              subPath: mirror
+            - name: data
+              mountPath: /var/spool/apt-mirror/skel
+              subPath: skel
+            - name: data
+              mountPath: /var/spool/apt-mirror/var
+              subPath: var
+          workingDir: /var/spool/apt-mirror
+      dnsConfig:
+        nameservers:
+          - 8.8.8.8
+      dnsPolicy: None
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - name: apt-ubuntu-security
+          configMap:
+            defaultMode: 365
+            name: apt-ubuntu-security
+        - name: data
+          persistentVolumeClaim:
+            claimName: apt-ubuntu-security
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: apt-ubuntu-security
+  namespace: devops-mirror
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: ceph-block
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apt-ubuntu-security
+  namespace: devops-mirror
+spec:
+  selector:
+    name: apt-ubuntu-security
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apt-ubuntu-security
+  namespace: devops-mirror
+  annotations:
+    cert-manager.io/cluster-issuer: mobilex.kr
+    kubernetes.io/ingress.class: mobilex.kr
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "false"
+    vine.ulagbulag.io/service-kind: APT Mirror Server (Ubuntu Security)
+spec:
+  rules:
+    - host: security.ubuntu.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: apt-ubuntu-security
+                port:
+                  number: 80
+            path: /ubuntu/
+            pathType: Prefix

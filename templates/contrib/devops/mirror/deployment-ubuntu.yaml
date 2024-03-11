@@ -106,6 +106,21 @@ data:
     clean         http://archive.ubuntu.com/ubuntu
     # clean         http://ftp.us.debian.org/debian
     clean         http://security.ubuntu.com/ubuntu
+  nginx.conf: |
+    server {
+      listen 80 default_server;
+      server_name _;
+
+      access_log /var/log/nginx/access.log;
+      error_log  /var/log/nginx/error.log;
+
+      server_name_in_redirect off;
+
+      location /ubuntu {
+        alias /var/spool/apt-mirror/mirror/archive.ubuntu.com/ubuntu;
+        autoindex on;
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -172,6 +187,9 @@ spec:
             - name: apt-ubuntu
               mountPath: /etc/apt/mirror.list
               subPath: mirror.list
+            - name: apt-ubuntu-security
+              mountPath: /etc/nginx/sites-enabled/default
+              subPath: nginx.conf
             - name: apt-ubuntu
               mountPath: /var/spool/apt-mirror/limit_bw
               subPath: limit_bw
@@ -240,7 +258,7 @@ metadata:
     vine.ulagbulag.io/is-service: "true"
     vine.ulagbulag.io/is-service-public: "true"
     vine.ulagbulag.io/is-service-system: "false"
-    vine.ulagbulag.io/service-kind: APT Mirror Server
+    vine.ulagbulag.io/service-kind: APT Mirror Server (Ubuntu)
 spec:
   rules:
     - host: archive.ubuntu.com

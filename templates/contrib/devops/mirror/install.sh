@@ -9,17 +9,6 @@ set -e -o pipefail
 set -x
 
 ###########################################################
-#   Configuration                                         #
-###########################################################
-
-export DOMAIN_NAME="$(
-    kubectl -n kiss get configmap kiss-config -o yaml |
-        yq -r '.data.domain_name'
-)"
-
-APT_MIRROR_DOMAIN_NAME="mirror.${DOMAIN_NAME}"
-
-###########################################################
 #   Install APT Mirror                                    #
 ###########################################################
 
@@ -27,11 +16,7 @@ echo "- Installing APT Mirror ... "
 
 kubectl apply -f "./namespace.yaml"
 kubectl apply -f "./deployment-ubuntu.yaml"
-cat "./ingress.yaml" |
-    yq '.metadata.annotations."cert-manager.io/cluster-issuer" = "'"${DOMAIN_NAME}"'"' |
-    yq '.metadata.annotations."kubernetes.io/ingress.class" = "'"${DOMAIN_NAME}"'"' |
-    yq '.spec.rules[0].host = "'"${APT_MIRROR_DOMAIN_NAME}"'"' |
-    kubectl apply -f -
+kubectl apply -f "./deployment-ubuntu-security.yaml"
 
 # Finished!
 echo "Installed!"
