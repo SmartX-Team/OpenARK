@@ -4,7 +4,8 @@ use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use dash_pipe_provider::{
-    storage::StorageIO, DynValue, FunctionContext, PipeMessages, PyPipeMessage,
+    storage::StorageIO, DynValue, FunctionContext, PipeMessage, PipeMessages, PyPipeMessage,
+    RemoteFunction,
 };
 use derivative::Derivative;
 use pyo3::{types::PyModule, PyObject, Python};
@@ -32,18 +33,18 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 }
 
 #[async_trait]
-impl ::dash_pipe_provider::Function for Function {
+impl ::dash_pipe_provider::RemoteFunction for Function {
     type Input = DynValue;
     type Output = DynValue;
 
-    async fn tick(
-        &mut self,
-        inputs: PipeMessages<<Self as ::dash_pipe_provider::Function>::Input>,
-    ) -> Result<PipeMessages<<Self as ::dash_pipe_provider::Function>::Output>> {
+    async fn call(
+        &self,
+        inputs: PipeMessages<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output>> {
         let inputs: Vec<PyPipeMessage> = inputs.into();
         let outputs: Vec<PyPipeMessage> = Python::with_gil(|py| {
             self.tick
-                .call1(py, (inputs,))
+                .call1(py, ([inputs],))
                 .map_err(|error| anyhow!("failed to execute python script: {error}"))
                 .and_then(|outputs| {
                     outputs.extract(py).map_err(|error| {
@@ -54,6 +55,15 @@ impl ::dash_pipe_provider::Function for Function {
         Ok(PipeMessages::Batch(
             outputs.into_iter().map(Into::into).collect(),
         ))
+    }
+
+    async fn call_one(
+        &self,
+        input: PipeMessage<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output>> {
+        self.call(PipeMessages::Single(input))
+            .await?
+            .try_into_single()
     }
 }
 

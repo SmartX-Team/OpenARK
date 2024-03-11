@@ -66,6 +66,20 @@ where
         }
     }
 
+    pub fn try_into_single(self) -> Result<PipeMessage<Value, Payload>> {
+        match self {
+            Self::None => bail!("empty message"),
+            Self::Single(value) => Ok(value),
+            Self::Batch(mut values) => {
+                if values.len() == 1 {
+                    Ok(values.pop().unwrap())
+                } else {
+                    bail!("not single message")
+                }
+            }
+        }
+    }
+
     pub(crate) fn drop_payloads<P>(self) -> PipeMessages<Value, P>
     where
         P: JsonSchema,
@@ -663,7 +677,7 @@ where
     path: Option<String>,
     #[serde(default)]
     storage: Option<StorageType>,
-    value: Option<Value>,
+    pub value: Option<Value>,
 }
 
 impl<Value> PipePayload<Value>

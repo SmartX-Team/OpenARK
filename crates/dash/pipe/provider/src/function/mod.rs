@@ -174,16 +174,16 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call(
         &self,
-        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        inputs: PipeMessages<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output>> {
         self.0.call(inputs).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call_one(
         &self,
-        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
+        input: PipeMessage<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output>> {
         self.0.call_one(input).await
     }
 }
@@ -198,8 +198,8 @@ where
 
     async fn call(
         &self,
-        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        inputs: PipeMessages<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output>> {
         inputs
             .into_vec()
             .into_iter()
@@ -212,8 +212,8 @@ where
 
     async fn call_one(
         &self,
-        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>>;
+        input: PipeMessage<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output>>;
 }
 
 pub type GenericStatelessRemoteFunction =
@@ -269,8 +269,8 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call(
         &self,
-        inputs: PipeMessages<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output, ()>> {
+        inputs: PipeMessages<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessages<<Self as RemoteFunction>::Output>> {
         inputs
             .into_vec()
             .into_iter()
@@ -292,8 +292,8 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn call_one(
         &self,
-        input: PipeMessage<<Self as RemoteFunction>::Input, ()>,
-    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output, ()>> {
+        input: PipeMessage<<Self as RemoteFunction>::Input>,
+    ) -> Result<PipeMessage<<Self as RemoteFunction>::Output>> {
         let publisher = self.publisher.clone();
         publisher
             .request_one((&input).try_into()?)
