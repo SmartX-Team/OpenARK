@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-mirror
+  labels:
+    dash.ulagbulag.io/inject-nats: "false"
+    dash.ulagbulag.io/inject-otlp: "false"

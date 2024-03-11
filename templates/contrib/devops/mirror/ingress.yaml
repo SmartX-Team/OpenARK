@@ -1,0 +1,28 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mirror
+  namespace: devops-mirror
+  annotations:
+    cert-manager.io/cluster-issuer: example.com
+    kubernetes.io/ingress.class: example.com
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "false"
+    vine.ulagbulag.io/service-kind: Mirror Server
+spec:
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /ubuntu/
+            pathType: Prefix
+            backend:
+              service:
+                name: apt-ubuntu
+                port:
+                  number: 80

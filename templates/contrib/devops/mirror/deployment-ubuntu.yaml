@@ -1,0 +1,255 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apt-ubuntu
+  namespace: devops-mirror
+data:
+  limit_bw: ""
+  mirror.list: |
+    ############# config ##################
+    #
+    set base_path    /var/spool/apt-mirror
+    #
+    # set mirror_path  $base_path/mirror
+    # set skel_path    $base_path/skel
+    # set var_path     $base_path/var
+    set cleanscript  /var/spool/apt-mirror/var/clean.sh
+    # set defaultarch  <running host architecture>
+    set postmirror_script /var/spool/apt-mirror/var/postmirror.sh
+    # set run_postmirror 0
+    set nthreads   24
+    set _tilde 0
+    # set limit_rate 100k   ## Per thread ##
+    #
+    ############# end config ##############
+
+    # Debian NonFree
+    # deb         http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-alpha   http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-amd64   http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-armel   http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-hppa    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-i386    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-ia64    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-m68k    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-mips    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-mipsel  http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-powerpc http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-s390    http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-sparc   http://ftp.us.debian.org/debian         unstablemain contrib non-free
+    # deb-src     http://ftp.us.debian.org/debian         unstablemain contrib non-free
+
+    # Raspbian OS
+    #deb-armhf http://archive.raspbian.org/raspbian stretch main contrib non-free
+
+    # Ubuntu Xenial (16.04)
+    # deb           http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
+
+    # Ubuntu Bionic (18.04)
+    # deb           http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
+
+    # Ubuntu Focal (20.04)
+    deb           http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
+
+    # Ubuntu Jammy (22.04)
+    deb           http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
+
+    # Ubuntu Installer
+    # deb-amd64     http://archive.ubuntu.com/ubuntu xenial main main/debian-installer restricted restricted/debian-installer universe
+    # deb-i386      http://archive.ubuntu.com/ubuntu xenial main main/debian-installer restricted restricted/debian-installer universe
+
+    clean         http://archive.ubuntu.com/ubuntu
+    # clean         http://ftp.us.debian.org/debian
+    clean         http://security.ubuntu.com/ubuntu
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apt-ubuntu
+  namespace: devops-mirror
+  labels:
+    name: apt-ubuntu
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: apt-ubuntu
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "false"
+      labels:
+        name: apt-ubuntu
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+              weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: apt-mirror
+          image: docker.io/gregewing/apt-mirror:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 80
+          # resources:
+          #   requests:
+          #     cpu: "2"
+          #     memory: 4Gi
+          #   limits:
+          #     cpu: "8"
+          #     memory: 16Gi
+          volumeMounts:
+            - name: apt-ubuntu
+              mountPath: /etc/apt/mirror.list
+              subPath: mirror.list
+            - name: apt-ubuntu
+              mountPath: /var/spool/apt-mirror/limit_bw
+              subPath: limit_bw
+            - name: data
+              mountPath: /var/spool/apt-mirror/mirror
+              subPath: mirror
+            - name: data
+              mountPath: /var/spool/apt-mirror/skel
+              subPath: skel
+            - name: data
+              mountPath: /var/spool/apt-mirror/var
+              subPath: var
+          workingDir: /var/spool/apt-mirror
+      dnsConfig:
+        nameservers:
+          - 8.8.8.8
+      dnsPolicy: None
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - name: apt-ubuntu
+          configMap:
+            defaultMode: 365
+            name: apt-ubuntu
+        - name: data
+          persistentVolumeClaim:
+            claimName: apt-ubuntu
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: apt-ubuntu
+  namespace: devops-mirror
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: ceph-block
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apt-ubuntu
+  namespace: devops-mirror
+spec:
+  selector:
+    name: apt-ubuntu
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apt-ubuntu
+  namespace: devops-mirror
+  annotations:
+    cert-manager.io/cluster-issuer: mobilex.kr
+    kubernetes.io/ingress.class: mobilex.kr
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "false"
+    vine.ulagbulag.io/service-kind: APT Mirror Server
+spec:
+  rules:
+    - host: archive.ubuntu.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: apt-ubuntu
+                port:
+                  number: 80
+            path: /ubuntu/
+            pathType: Prefix
