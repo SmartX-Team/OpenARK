@@ -187,7 +187,7 @@ spec:
             - name: apt-ubuntu
               mountPath: /etc/apt/mirror.list
               subPath: mirror.list
-            - name: apt-ubuntu-security
+            - name: apt-ubuntu
               mountPath: /etc/nginx/sites-enabled/default
               subPath: nginx.conf
             - name: apt-ubuntu
@@ -262,6 +262,16 @@ metadata:
 spec:
   rules:
     - host: archive.ubuntu.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: apt-ubuntu
+                port:
+                  number: 80
+            path: /ubuntu/
+            pathType: Prefix
+    - host: kr.archive.ubuntu.com
       http:
         paths:
           - backend:
