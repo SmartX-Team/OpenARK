@@ -15,14 +15,15 @@ WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
 # Install dependencies
-RUN apk add --no-cache hwloc libgcc s3fs-fuse
+RUN apk add --no-cache hwloc libgcc libusb s3fs-fuse
 
 # Be ready for building
 FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
 
 # Install dependencies
 RUN apk add --no-cache bzip2-static clang-dev cmake git g++ \
-    hwloc-dev libcrypto3 libprotobuf libprotoc libressl-dev \
+    hwloc-dev \
+    libcrypto3 libprotobuf libprotoc libressl-dev libusb-dev \
     make mold musl-dev nasm protobuf-dev protoc \
     xz-static zlib-static
 
