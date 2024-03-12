@@ -324,10 +324,10 @@ function spawn_node_on_container() {
     fi
 
     # Create a default user if not exists
-    create_user ${CONTAINER_RUNTIME} exec -i "${name}"
+    create_user "${CONTAINER_RUNTIME} exec -i ${name}"
 
     # Get suitable access IP
-    local node_ip="$(find_public_ip ${CONTAINER_RUNTIME} exec "${name}")"
+    local node_ip="$(find_public_ip "${CONTAINER_RUNTIME} exec ${name}")"
 
     # Update SSH ListenAddress
     ${CONTAINER_RUNTIME} exec "${name}" sed -i \
