@@ -45,12 +45,17 @@ function check_dependencies() {
             echo "* Installing \"${CONTAINER_RUNTIME}\"..."
             curl --proto '=https' --tlsv1.2 -sSf 'https://get.docker.com' | sudo sh
 
-            if ! which "${CONTAINER_RUNTIME}" >/dev/null; then
-                exit 1
-            fi
         else
             exit 1
         fi
+    fi
+
+    # Check container runtime is running
+    if ! which "${CONTAINER_RUNTIME}" >/dev/null; then
+        exit 1
+    fi
+    if [ "x${CONTAINER_RUNTIME}" = 'xdocker' ]; then
+        sudo systemctl enable --now "${CONTAINER_RUNTIME}"
     fi
 }
 
