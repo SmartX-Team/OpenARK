@@ -33,6 +33,24 @@ XORRISO_IMAGE="${XORRISO_IMAGE:-$XORRISO_IMAGE_DEFAULT}"
 YQ_IMAGE="${YQ_IMAGE:-$YQ_IMAGE_DEFAULT}"
 
 ###########################################################
+#   Define Dependency Checker                             #
+###########################################################
+
+function check_dependencies() {
+    # Check container runtime and install if not exists
+    if ! which "${CONTAINER_RUNTIME}" >/dev/null; then
+        echo "WARN: Cannot find container runtime \"${CONTAINER_RUNTIME}\""
+
+        if [ "x${CONTAINER_RUNTIME}" = 'xdocker' ]; then
+            echo "* Installing \"${CONTAINER_RUNTIME}\"..."
+            curl --proto '=https' --tlsv1.2 -sSf 'https://get.docker.com' | sudo sh
+        else
+            exit 1
+        fi
+    fi
+}
+
+###########################################################
 #   Define Configuration Parser                           #
 ###########################################################
 
@@ -747,6 +765,9 @@ EOF
 
 # Define a main function
 function main() {
+    # Check host dependencies
+    check_dependencies
+
     # Validate Configurations
     kiss_validate_config_file
 
