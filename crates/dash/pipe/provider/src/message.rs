@@ -205,40 +205,6 @@ impl PyPipeMessage {
         value: &::pyo3::PyAny,
         reply: Option<(String, Option<String>)>,
     ) -> ::pyo3::PyResult<Self> {
-        fn value_to_native(value: &::pyo3::PyAny) -> DynValue {
-            if value.is_none() {
-                DynValue::Null
-            } else if let Ok(value) = value.extract::<bool>() {
-                DynValue::Bool(value)
-            } else if let Ok(value) = value.extract::<u64>() {
-                DynValue::Number(value.into())
-            } else if let Ok(value) = value.extract::<i64>() {
-                DynValue::Number(value.into())
-            } else if let Some(value) = value
-                .extract::<f64>()
-                .ok()
-                .and_then(::serde_json::Number::from_f64)
-            {
-                DynValue::Number(value)
-            } else if let Ok(value) = value.extract::<String>() {
-                DynValue::String(value)
-            } else if let Ok(values) = value.downcast::<::pyo3::types::PyList>() {
-                DynValue::Array(values.iter().map(value_to_native).collect())
-            } else if let Ok(values) = value.downcast::<::pyo3::types::PyDict>() {
-                DynValue::Object(
-                    values
-                        .iter()
-                        .filter_map(|(key, value)| {
-                            key.extract().ok().map(|key| (key, value_to_native(value)))
-                        })
-                        .collect(),
-                )
-            } else {
-                // do not save the value
-                DynValue::Null
-            }
-        }
-
         Ok(Self {
             id: Uuid::new_v4(),
             payloads: payloads
@@ -250,7 +216,7 @@ impl PyPipeMessage {
                 target: target.and_then(|target| target.parse().ok()),
             }),
             timestamp: Utc::now(),
-            value: value_to_native(value),
+            value: pyconvert::from_py(value),
         })
     }
 
@@ -282,39 +248,7 @@ impl PyPipeMessage {
 
     #[getter]
     fn get_value(&self, py: ::pyo3::Python) -> ::pyo3::PyObject {
-        use pyo3::{types::IntoPyDict, IntoPy};
-
-        fn value_to_py(py: ::pyo3::Python, value: &DynValue) -> ::pyo3::PyObject {
-            match value {
-                DynValue::Null => ().into_py(py),
-                DynValue::Bool(value) => value.into_py(py),
-                DynValue::Number(value) => match value.as_u64() {
-                    Some(value) => value.into_py(py),
-                    None => match value.as_i64() {
-                        Some(value) => value.into_py(py),
-                        None => match value.as_f64() {
-                            Some(value) => value.into_py(py),
-                            None => {
-                                unreachable!("one of the Rust Json Number type should be matched")
-                            }
-                        },
-                    },
-                },
-                DynValue::String(value) => value.into_py(py),
-                DynValue::Array(values) => values
-                    .iter()
-                    .map(|value| value_to_py(py, value))
-                    .collect::<Vec<_>>()
-                    .into_py(py),
-                DynValue::Object(values) => values
-                    .iter()
-                    .map(|(key, value)| (key, value_to_py(py, value)))
-                    .into_py_dict(py)
-                    .into(),
-            }
-        }
-
-        value_to_py(py, &self.value)
+        pyconvert::to_py(py, &self.value)
     }
 
     #[getter]
@@ -891,6 +825,78 @@ impl From<u8> for OpCode {
             value if value == Self::MessagePack as u8 => Self::MessagePack,
             value if value == Self::Cbor as u8 => Self::Cbor,
             _ => Self::Unsupported,
+        }
+    }
+}
+
+#[cfg(feature = "pyo3")]
+mod pyconvert {
+    use pyo3::{
+        types::{self, IntoPyDict},
+        IntoPy, PyObject, Python,
+    };
+
+    use crate::message::DynValue;
+
+    pub(super) fn from_py(value: &types::PyAny) -> DynValue {
+        if value.is_none() {
+            DynValue::Null
+        } else if let Ok(value) = value.extract::<bool>() {
+            DynValue::Bool(value)
+        } else if let Ok(value) = value.extract::<u64>() {
+            DynValue::Number(value.into())
+        } else if let Ok(value) = value.extract::<i64>() {
+            DynValue::Number(value.into())
+        } else if let Some(value) = value
+            .extract::<f64>()
+            .ok()
+            .and_then(::serde_json::Number::from_f64)
+        {
+            DynValue::Number(value)
+        } else if let Ok(value) = value.extract::<String>() {
+            DynValue::String(value)
+        } else if let Ok(values) = value.downcast::<types::PyList>() {
+            DynValue::Array(values.iter().map(from_py).collect())
+        } else if let Ok(values) = value.downcast::<types::PyDict>() {
+            DynValue::Object(
+                values
+                    .iter()
+                    .filter_map(|(key, value)| key.extract().ok().map(|key| (key, from_py(value))))
+                    .collect(),
+            )
+        } else {
+            // do not save the value
+            DynValue::Null
+        }
+    }
+
+    pub(super) fn to_py(py: Python, value: &DynValue) -> PyObject {
+        match value {
+            DynValue::Null => ().into_py(py),
+            DynValue::Bool(value) => value.into_py(py),
+            DynValue::Number(value) => match value.as_u64() {
+                Some(value) => value.into_py(py),
+                None => match value.as_i64() {
+                    Some(value) => value.into_py(py),
+                    None => match value.as_f64() {
+                        Some(value) => value.into_py(py),
+                        None => {
+                            unreachable!("one of the Rust Json Number type should be matched")
+                        }
+                    },
+                },
+            },
+            DynValue::String(value) => value.into_py(py),
+            DynValue::Array(values) => values
+                .iter()
+                .map(|value| to_py(py, value))
+                .collect::<Vec<_>>()
+                .into_py(py),
+            DynValue::Object(values) => values
+                .iter()
+                .map(|(key, value)| (key, to_py(py, value)))
+                .into_py_dict(py)
+                .into(),
         }
     }
 }
