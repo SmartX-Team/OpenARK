@@ -5,6 +5,8 @@ metadata:
   name: apt-ubuntu-security
   namespace: devops-mirror
 data:
+  crontab: |
+    0 * * * *	apt-mirror  /usr/bin/apt-mirror > /var/spool/apt-mirror/var/cron.log
   limit_bw: ""
   mirror.list: |
     ############# config ##################
@@ -115,17 +117,20 @@ spec:
             - name: http
               protocol: TCP
               containerPort: 80
-          # resources:
-          #   requests:
-          #     cpu: "2"
-          #     memory: 4Gi
-          #   limits:
-          #     cpu: "8"
-          #     memory: 16Gi
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
           volumeMounts:
             - name: apt-ubuntu-security
               mountPath: /etc/apt/mirror.list
               subPath: mirror.list
+            - name: apt-ubuntu-security
+              mountPath: /etc/cron.d/apt-mirror
+              subPath: crontab
             - name: apt-ubuntu-security
               mountPath: /etc/nginx/sites-enabled/default
               subPath: nginx.conf
