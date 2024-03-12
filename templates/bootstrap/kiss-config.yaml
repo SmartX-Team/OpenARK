@@ -38,7 +38,7 @@ data:
   bootstrapper_network_ipv4_address: 10.47.0.1
   bootstrapper_node_data_kubernetes_path: /opt/kiss/
   bootstrapper_node_image: quay.io/ulagbulag/openark-bootstrap-node:latest
-  bootstrapper_node_name: node1.master
+  bootstrapper_node_name: node1.master # set to "host" if you want to install on host machines
   bootstrapper_node_reuse_container: "true"
   bootstrapper_node_reuse_data_kubernetes: "false"
   bootstrapper_node_size: "1"
@@ -86,13 +86,13 @@ data:
   ###########################################################################
   # Service/CSI Configuration
   ###########################################################################
-  service_csi_enable_rook_ceph: "true"
+  service_csi_enable_rook_ceph: "false"
   service_csi_installer_image_template: quay.io/ulagbulag/openark-upgrade-csi-__NAME__:latest
 
   ###########################################################################
   # Service/Fabric Configuration
   ###########################################################################
-  service_fabric_enable_mellanox: "true"
+  service_fabric_enable_mellanox: "false"
   service_fabric_installer_image_template: quay.io/ulagbulag/openark-upgrade-fabric-__NAME__:latest
 
   ###########################################################################
@@ -104,7 +104,7 @@ data:
   ###########################################################################
   # Service/IPIS Configuration
   ###########################################################################
-  service_ipis_enable: "true"
+  service_ipis_enable: "false"
   service_ipis_installer_image: quay.io/ulagbulag/openark-upgrade-ipis:latest
 
   ###########################################################################

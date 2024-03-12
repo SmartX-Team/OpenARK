@@ -22,5 +22,11 @@ env INSTLLAER_TYPE=iso ./bootstrap.sh
 ## Install on Host Machine
 
 ```bash
+env INSTLLAER_TYPE=host ./bootstrap.sh
+```
+
+## Install on Host Machine over Contaienr
+
+```bash
 env INSTLLAER_TYPE=container ./bootstrap.sh
 ```

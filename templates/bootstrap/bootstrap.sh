@@ -119,6 +119,34 @@ function configure_linux_kernel() {
     sudo swapoff -a
 }
 
+function find_public_ip() {
+    prefix=$1
+
+    # Get suitable access IP
+    netdev="$(
+        ${prefix} ip route show |
+            grep -Po '^default via [0-9.]+ dev \K[a-z0-9]+' |
+            head -n1
+    )"
+    if [ ! "${netdev}" ]; then
+        echo "Err"
+        echo "Error: Cannot find an active network device"
+        exit 1
+    fi
+
+    public_ip="$(
+        ${prefix} ip addr show dev ${netdev} |
+            grep -Po '^ +inet \K[0-9.]+'
+    )"
+    if [ ! "${public_ip}" ]; then
+        echo "Err"
+        echo "Error: Cannot find a public host IP"
+        exit 1
+    fi
+
+    echo "${public_ip}"
+}
+
 # Generate a SSH keypair
 function generate_ssh_keypair() {
     local key_file="$(kiss_config 'bootstrapper_auth_ssh_key_path')"
@@ -139,11 +167,38 @@ function generate_ssh_keypair() {
 }
 
 ###########################################################
+#   Configure users                                       #
+###########################################################
+
+# Define a default user creation function
+function create_user() {
+    prefix=$1
+
+    # Configure user data
+    local USER_GID="2000"
+    local USER_NAME="$(kiss_config 'auth_ssh_username')"
+    local USER_SHELL="bash"
+    local USER_UID="2000"
+
+    # Create an user if not exists
+    if ! $(${prefix} cat /etc/passwd | grep -q '^user:'); then
+        ${prefix} groupadd -g "${USER_GID}" -o "${USER_NAME}"
+        ${prefix} useradd -u "${USER_UID}" -g "${USER_GID}" \
+            -G "audio,cdrom,input,pipewire,render,video" \
+            -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}"
+
+        # Enable cgroup2 namespace
+        echo -e "${USER_UID}:2001:65535" | ${prefix} tee -a /etc/subuid
+        echo -e "${USER_GID}:2001:65535" | ${prefix} tee -a /etc/subgid
+    fi
+}
+
+###########################################################
 #   Spawn nodes                                           #
 ###########################################################
 
-# Define a node spawner function
-function spawn_node() {
+# Define a containerized node spawner function
+function spawn_node_on_container() {
     local name="$1"
 
     # Parse variables
@@ -235,17 +290,11 @@ function spawn_node() {
         "${CONTAINER_RUNTIME}" exec "${name}" systemctl start sshd
     fi
 
+    # Create a default user if not exists
+    create_user "${CONTAINER_RUNTIME}" exec -i "${name}"
+
     # Get suitable access IP
-    node_ip=$(
-        "${CONTAINER_RUNTIME}" exec "${name}" ip a |
-            grep -o '10\.\(3[2-9]\|4[0-7]\)\(\.\(25[0-5]\|\(2[0-4]\|1[0-9]\|[1-9]\|\)[0-9]\)\)\{2\}' |
-            head -1
-    )
-    if [ ! "${node_ip}" ]; then
-        echo "Err"
-        echo "Error: Cannot find host IP (10.32.0.0/12)"
-        exit 1
-    fi
+    local node_ip="$(find_public_ip "${CONTAINER_RUNTIME}" exec "${name}")"
 
     # Update SSH ListenAddress
     "${CONTAINER_RUNTIME}" exec "${name}" sed -i \
@@ -287,6 +336,32 @@ function spawn_node() {
             break
         fi
     done
+
+    # Save as environment variable
+    local node="${name}:${node_ip}:${SSH_PORT}"
+    export nodes="${nodes} ${node}"
+
+    # Finished!
+    echo "OK (${node})"
+}
+
+# Define a host node spawner function
+function spawn_node_on_host() {
+    local name="$1"
+
+    # Parse variables
+    local KISS_BOOTSTRAP_NODE_IMAGE="$(kiss_config 'bootstrapper_node_image')"
+    local KUBERNETES_DATA="$(kiss_config 'bootstrapper_node_data_kubernetes_path')"
+    local REUSE_KUBERNETES_DATA="$(kiss_config 'bootstrapper_node_reuse_data_kubernetes')"
+    local REUSE_NODES="$(kiss_config 'bootstrapper_node_reuse_container')"
+    local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
+
+    # Create a default user if not exists
+    create_user "sudo"
+
+    # Get suitable access IP
+    local node_ip="$(find_public_ip)"
+    local SSH_PORT="22"
 
     # Save as environment variable
     local node="${name}:${node_ip}:${SSH_PORT}"
@@ -683,9 +758,14 @@ function main() {
 
         # Spawn k8s cluster nodes
         export nodes # results
-        for name in ${KUBESPRAY_NODES}; do
-            spawn_node "${name}"
-        done
+        if [ "x${KUBESPRAY_NODES}" = 'xhost' ]; then
+            export KUBESPRAY_NODES="$(sudo cat /sys/class/dmi/id/product_uuid)"
+            spawn_node_on_host "${name}"
+        else
+            for name in ${KUBESPRAY_NODES}; do
+                spawn_node_on_container "${name}"
+            done
+        fi
 
         # Install a k8s cluster within nodes
         install_k8s_cluster ${KUBESPRAY_NODES}
@@ -695,6 +775,14 @@ function main() {
 
         # Finished!
         echo "Installed!"
+        ;;
+    "host")
+        # Set default node name to 'host'
+        export KUBESPRAY_NODES="host"
+
+        # Same as `container`
+        export INSTLLAER_TYPE='container'
+        main "$@"
         ;;
     "iso")
         # Configure Host
