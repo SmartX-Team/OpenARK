@@ -25,7 +25,7 @@ pub struct FunctionArgs {}
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Function {
-    ctx: FunctionContext,
+    ctx: Option<FunctionContext>,
     #[derivative(Debug = "ignore")]
     items: Stream<PipeMessage<DynValue>>,
 }
@@ -36,16 +36,16 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
     async fn try_new(
         FunctionArgs {}: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        ctx: Option<&mut FunctionContext>,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self {
-            ctx: {
+            ctx: ctx.map(|ctx| {
                 ctx.disable_load();
                 ctx.disable_store();
                 ctx.disable_store_metadata();
                 ctx.clone()
-            },
+            }),
             items: storage.input.get_default_metadata().list_as_empty().await?,
         })
     }
@@ -67,7 +67,11 @@ impl ::dash_pipe_provider::Function for Function {
             .map_err(|error| anyhow!("failed to load data: {error}"))?
         {
             Some(value) => Ok(PipeMessages::Single(value)),
-            None => self.ctx.terminate_ok(),
+            None => self
+                .ctx
+                .as_ref()
+                .map(|ctx| ctx.terminate_ok())
+                .unwrap_or(Ok(PipeMessages::None)),
         }
     }
 }

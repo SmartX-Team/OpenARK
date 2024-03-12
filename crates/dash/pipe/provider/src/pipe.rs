@@ -369,7 +369,7 @@ where
         ctx: &mut FunctionContext,
         storage: &Arc<StorageIO>,
     ) -> Result<F> {
-        <F as FunctionBuilder>::try_new(&self.function_args, ctx, storage)
+        <F as FunctionBuilder>::try_new(&self.function_args, Some(ctx), storage)
             .await
             .map(Into::into)
             .map_err(|error| anyhow!("failed to init function: {error}"))

@@ -28,7 +28,7 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_new(
         args: &<Self as FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        ctx: Option<&mut FunctionContext>,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         Ok(Self {

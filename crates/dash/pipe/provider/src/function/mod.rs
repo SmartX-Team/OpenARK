@@ -124,7 +124,7 @@ where
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn try_new(
         OwnedFunctionBuilderArgs(f): &<Self as FunctionBuilder>::Args,
-        _ctx: &mut FunctionContext,
+        _ctx: Option<&mut FunctionContext>,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         match f {
@@ -311,7 +311,7 @@ where
 
     async fn try_new(
         args: &<Self as FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        ctx: Option<&mut FunctionContext>,
         storage: &Arc<StorageIO>,
     ) -> Result<Self>
     where

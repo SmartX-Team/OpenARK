@@ -48,7 +48,7 @@ pub struct FunctionArgs {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Function {
-    ctx: FunctionContext,
+    ctx: Option<FunctionContext>,
     metric: MetricData,
     next_stdout: Duration,
     save_metrics: bool,
@@ -70,7 +70,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
             save_metrics,
             total_messages,
         }: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        mut ctx: Option<&mut FunctionContext>,
         storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let metric = MetricData {
@@ -78,7 +78,10 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
                 .as_u128()
                 .try_into()
                 .map_err(|error| anyhow!("too large data size: {error}"))?,
-            messenger_type: ctx.messenger_type(),
+            messenger_type: ctx
+                .as_mut()
+                .map(|ctx| ctx.messenger_type())
+                .unwrap_or_default(),
             num_sent: 0,
             num_sent_bytes: 0,
             num_sent_payload_bytes: 0,
@@ -103,7 +106,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
         }
 
         Ok(Self {
-            ctx: ctx.clone(),
+            ctx: ctx.cloned(),
             metric,
             next_stdout: Self::TICK,
             save_metrics: *save_metrics,
@@ -144,7 +147,11 @@ impl ::dash_pipe_provider::Function for Function {
         if self.metric.is_finished() {
             self.flush_metric();
             self.metric.show_avg(elapsed);
-            return self.ctx.terminate_ok::<()>().map(|_| outputs);
+            return self
+                .ctx
+                .as_ref()
+                .map(|ctx| ctx.terminate_ok::<()>().map(|_| outputs))
+                .unwrap_or(Ok(PipeMessages::None));
         }
 
         while elapsed >= self.next_stdout {

@@ -40,10 +40,12 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        ctx: Option<&mut FunctionContext>,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
-        ctx.disable_load();
+        if let Some(ctx) = ctx {
+            ctx.disable_load();
+        }
 
         Ok(Self {
             args: args.clone(),

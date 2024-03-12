@@ -38,7 +38,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
-        _ctx: &mut FunctionContext,
+        _ctx: Option<&mut FunctionContext>,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let FunctionArgs {

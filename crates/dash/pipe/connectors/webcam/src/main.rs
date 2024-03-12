@@ -188,7 +188,7 @@ pub struct Function {
     camera_encoder: CameraEncoder,
     #[derivative(Debug = "ignore")]
     capture: VideoCapture,
-    ctx: FunctionContext,
+    ctx: Option<FunctionContext>,
     #[derivative(Debug = "ignore")]
     frame: Mat,
     frame_counter: FrameCounter,
@@ -205,7 +205,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
     async fn try_new(
         args: &<Self as ::dash_pipe_provider::FunctionBuilder>::Args,
-        ctx: &mut FunctionContext,
+        ctx: Option<&mut FunctionContext>,
         _storage: &Arc<StorageIO>,
     ) -> Result<Self> {
         let FunctionArgs {
@@ -231,10 +231,10 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
         Ok(Self {
             camera_encoder,
             capture,
-            ctx: {
+            ctx: ctx.map(|ctx| {
                 ctx.disable_load();
                 ctx.clone()
-            },
+            }),
             frame: Default::default(),
             frame_counter: Default::default(),
             frame_size: Default::default(),
@@ -308,9 +308,12 @@ impl ::dash_pipe_provider::Function for Function {
                 }
             }
             Ok(false) => {
+                let error = || anyhow!("video capture is disconnected!");
                 return self
                     .ctx
-                    .terminate_err(anyhow!("video capture is disconnected!"))
+                    .as_ref()
+                    .map(|ctx| ctx.terminate_err(error()))
+                    .unwrap_or_else(|| Err(error()));
             }
             Err(error) => bail!("failed to capture a frame: {error}"),
         };
