@@ -1,11 +1,16 @@
+mod actix;
 mod connector;
+mod routes;
 
 use std::process::exit;
 
-use kubegraph_client::NetworkGraphClient;
+use kubegraph_api::provider::NetworkGraphProvider;
 use opentelemetry::global;
 use tokio::spawn;
 use tracing::{error, info};
+
+#[cfg(feature = "local")]
+type DefaultNetworkGraphProvider = ::kubegraph_provider_local::NetworkGraphProvider;
 
 #[tokio::main]
 async fn main() {
@@ -17,21 +22,26 @@ async fn main() {
         return;
     }
 
-    let graph = match NetworkGraphClient::try_default().await {
+    let graph = match DefaultNetworkGraphProvider::try_default().await {
         Ok(graph) => graph,
         Err(error) => {
-            error!("failed to init network graph client: {error}");
+            error!("failed to init network graph provider: {error}");
             exit(1);
         }
     };
 
-    let handler = spawn(crate::connector::loop_forever(graph.clone()));
+    let handlers = vec![
+        spawn(crate::actix::loop_forever(graph.clone())),
+        spawn(crate::connector::loop_forever(graph.clone())),
+    ];
 
     info!("Ready");
     signal.wait_to_terminate().await;
 
     info!("Terminating...");
-    handler.abort();
+    for handler in handlers {
+        handler.abort();
+    }
 
     if let Err(error) = graph.close().await {
         error!("{error}");

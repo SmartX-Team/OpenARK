@@ -5,9 +5,9 @@ use async_trait::async_trait;
 use kubegraph_api::{
     connector::NetworkConnectorPrometheusSpec,
     graph::{NetworkEdgeKey, NetworkNodeKey, NetworkValue},
+    provider::NetworkGraphProvider,
     query::{NetworkQuery, NetworkQueryNodeType, NetworkQueryNodeValue},
 };
-use kubegraph_client::NetworkGraphClient;
 use prometheus_http_query::{response::InstantVector, Client};
 use tracing::{instrument, Level};
 
@@ -40,7 +40,7 @@ impl super::Connector for Connector {
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn pull(&self, graph: &NetworkGraphClient) -> Result<()> {
+    async fn pull(&self, graph: &impl NetworkGraphProvider) -> Result<()> {
         let NetworkQuery {
             link,
             query,
@@ -75,8 +75,7 @@ impl super::Connector for Connector {
                 Some((key, value))
             });
 
-        graph.add_edges(edges).await;
-        Ok(())
+        graph.add_edges(edges).await
     }
 }
 

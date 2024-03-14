@@ -1,37 +1,14 @@
 use std::fmt;
 
-use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkGraphRow {
-    id: String,
     #[serde(flatten)]
     pub key: NetworkEdgeKey,
     pub value: NetworkValue,
-}
-
-impl NetworkGraphRow {
-    pub fn try_new(key: NetworkEdgeKey, value: NetworkValue) -> Result<Self> {
-        Ok(Self {
-            id: {
-                // read hash digest and consume hasher
-                let hash = Sha256::digest(::serde_json::to_vec(&key)?);
-
-                // encode to hex format
-                format!("{hash:x}")
-            },
-            key,
-            value,
-        })
-    }
-
-    pub fn id(&self) -> &str {
-        &self.id
-    }
 }
 
 #[derive(

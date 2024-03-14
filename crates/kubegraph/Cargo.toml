@@ -19,14 +19,25 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["local", "prometheus"]
+
+# connectors
+prometheus = ["prometheus-http-query"]
+
+# providers
+local = ["kubegraph-provider-local"]
+
 [dependencies]
 ark-core = { path = "../ark/core", features = ["actix-web", "ctrlc"] }
 kubegraph-api = { path = "./api" }
-kubegraph-client = { path = "./client" }
+kubegraph-provider-local = { path = "./provider/local", optional = true }
 
+actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 opentelemetry = { workspace = true }
-prometheus-http-query = { workspace = true }
+prometheus-http-query = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

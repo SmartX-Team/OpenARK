@@ -36,7 +36,7 @@ members = [
     "crates/kiss/monitor",
     "crates/kubegraph",
     "crates/kubegraph/api",
-    "crates/kubegraph/client",
+    "crates/kubegraph/provider/local",
     "crates/straw/api",
     "crates/straw/provider",
     "crates/straw/provider/oci",
@@ -106,13 +106,6 @@ gethostname = { version = "0.4" }
 home = { version = "0.5" }
 http-cache-reqwest = { version = "0.13", features = ["manager-cacache"] }
 image = { version = "0.24", default-features = false }
-infinitree = { version = "0.10", default-features = false, features = [
-    "cryptobox",
-    "mmap",
-] }
-infinitree-backends = { version = "0.10", default-features = false, features = [
-    "rustls",
-] }
 inflector = { package = "Inflector", version = "0.11" }
 ipnet = { version = "2.9", features = ["schemars", "serde"] }
 itertools = { version = "0.12" }
@@ -203,6 +196,7 @@ serde_with = { version = "3.6" }
 serde_yaml = { version = "0.9" }
 sha2 = { version = "0.10" }
 sio = { git = "https://github.com/ulagbulag/sio-rs.git" }
+sled = { version = "0.34" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
 thiserror = { version = "1.0" }

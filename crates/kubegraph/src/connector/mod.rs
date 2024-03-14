@@ -1,3 +1,4 @@
+#[cfg(feature = "prometheus")]
 mod prometheus;
 
 use std::time::{Duration, Instant};
@@ -6,19 +7,20 @@ use anyhow::Result;
 use async_trait::async_trait;
 use kubegraph_api::{
     connector::NetworkConnectorPrometheusSpec,
+    provider::NetworkGraphProvider,
     query::{NetworkQuery, NetworkQueryNodeType, NetworkQueryNodeValue},
 };
-use kubegraph_client::NetworkGraphClient;
 use tokio::time::sleep;
 use tracing::error;
 
-pub async fn loop_forever(graph: NetworkGraphClient) {
+pub async fn loop_forever(graph: impl NetworkGraphProvider) {
     if let Err(error) = try_loop_forever(graph).await {
         error!("failed to run connect job: {error}")
     }
 }
 
-async fn try_loop_forever(graph: NetworkGraphClient) -> Result<()> {
+#[cfg(feature = "prometheus")]
+async fn try_loop_forever(graph: impl NetworkGraphProvider) -> Result<()> {
     let connector = NetworkConnectorPrometheusSpec {
         url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090".parse()?,
     };
@@ -55,7 +57,7 @@ trait Connector {
         Duration::from_secs(15)
     }
 
-    async fn loop_forever(self, graph: NetworkGraphClient)
+    async fn loop_forever(self, graph: impl NetworkGraphProvider)
     where
         Self: Sized,
     {
@@ -75,5 +77,5 @@ trait Connector {
         }
     }
 
-    async fn pull(&self, graph: &NetworkGraphClient) -> Result<()>;
+    async fn pull(&self, graph: &impl NetworkGraphProvider) -> Result<()>;
 }
