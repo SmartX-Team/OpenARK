@@ -15,8 +15,6 @@ eula --agreed
 firewall --disabled
 ## Keyboard Layouts
 keyboard us
-## Network
-network --activate --bootproto=dhcp
 ## SELinux Configuration
 selinux --permissive
 ## System Authorization
@@ -80,6 +78,13 @@ set -e
 # Verbose
 set -x
 
+# Network
+for netdev in $(ls /sys/class/net | grep '^e'); do
+    cat <<EOF >>/tmp/kiss-config
+network --activate --bootproto=dhcp --device=${netdev}
+EOF
+done
+
 # Minimum size of disk needed specified in GIBIBYTES
 MINSIZE=50
 
@@ -113,7 +118,7 @@ for DEV in $(lsblk -d | sed 's/^\(nvme[0-9]\+n[0-9]\+\)\?\([sv]d[a-z]\+\)\?.*$/\
     fi
 done
 
-cat <<EOF >/tmp/kiss-config
+cat <<EOF >>/tmp/kiss-config
 # Write partition table
 part /boot/efi --fstype=efi --size=200 --ondisk=${ROOTDEV}
 part /boot --fstype=ext4 --size=512 --ondisk=${ROOTDEV}
