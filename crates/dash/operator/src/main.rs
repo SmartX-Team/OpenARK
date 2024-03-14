@@ -7,7 +7,7 @@ use ark_core_k8s::manager::Ctx;
 use tokio::join;
 
 pub(crate) mod consts {
-    pub const NAME: &str = "dash-controller";
+    pub const NAME: &str = "dash-operator";
 }
 
 #[tokio::main]

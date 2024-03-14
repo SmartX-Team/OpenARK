@@ -524,7 +524,7 @@ impl AnsibleClient {
         };
         let pp = PostParams {
             dry_run: false,
-            field_manager: Some("kube-controller".into()),
+            field_manager: Some("kiss-ansible".into()),
         };
 
         match job.cron {

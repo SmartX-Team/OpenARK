@@ -180,6 +180,11 @@ function install_services() {
     __install_service "ipis" "${ipis_image}" "ipis" "${ipis_is_enabled}"
 }
 
+# Define all kind of legacy service operators uninstaller function
+function uninstall_services() {
+    kubectl --namespace kiss delete deploy controller || true
+}
+
 ###########################################################
 #   Main Function                                         #
 ###########################################################
@@ -191,6 +196,9 @@ function main() {
 
     # Install services operators
     install_services
+
+    # Uninstall legacy services
+    uninstall_services
 
     # Finished!
     echo "Installed!"

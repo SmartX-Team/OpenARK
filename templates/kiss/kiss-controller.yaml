@@ -2,10 +2,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
+  name: operator
   namespace: kiss
   labels:
-    name: controller
+    name: operator
     kissService: "true"
     serviceType: internal
 spec:
@@ -15,13 +15,13 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: controller
+      name: operator
   template:
     metadata:
       annotations:
         instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
-        name: controller
+        name: operator
         kissService: "true"
         serviceType: internal
     spec:
@@ -46,11 +46,11 @@ spec:
           type: RuntimeDefault
       serviceAccount: kiss-system
       containers:
-        - name: controller
+        - name: operator
           image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:
-            - kiss-controller
+            - kiss-operator
           env:
             - name: RUST_LOG
               value: INFO

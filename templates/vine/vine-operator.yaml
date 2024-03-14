@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
-  namespace: dash
+  name: operator
+  namespace: vine
   labels:
-    name: controller
-    dashService: "true"
+    name: operator
+    vineService: "true"
     serviceType: internal
 spec:
   replicas: 1
@@ -15,14 +15,14 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: controller
+      name: operator
   template:
     metadata:
       annotations:
         instrumentation.opentelemetry.io/inject-sdk: "true"
       labels:
-        name: controller
-        dashService: "true"
+        name: operator
+        vineService: "true"
         serviceType: internal
     spec:
       affinity:
@@ -44,24 +44,18 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: dash-system
+      serviceAccount: vine-system
       containers:
-        - name: controller
+        - name: operator
           image: quay.io/ulagbulag/openark:latest
           imagePullPolicy: Always
           command:
-            - dash-controller
+            - vine-operator
           env:
-            - name: NATS_ACCOUNT
-              value: dash-system
-            - name: NATS_ADDRS
-              value: nats
-            - name: NATS_PASSWORD_PATH
-              value: /var/run/secrets/nats.io/token
-            - name: NATS_TLS_REQUIRED
-              value: "false"
             - name: RUST_LOG
               value: INFO
+            - name: VINE_SESSION_TEMPLATES_HOME
+              value: /opt/vine/operator/templates
           resources:
             requests:
               cpu: 30m
@@ -70,14 +64,10 @@ spec:
               cpu: 100m
               memory: 100Mi
           volumeMounts:
-            - name: nats-token
-              mountPath: /var/run/secrets/nats.io
-              readOnly: true
+            - name: templates
+              mountPath: /opt/vine/operator/templates
       volumes:
-        - name: nats-token
-          secret:
-            secretName: dash-system-nats-bound-token
-            optional: false
-            items:
-              - key: token
-                path: token
+        - name: templates
+          configMap:
+            name: vine-template-session
+            defaultMode: 292

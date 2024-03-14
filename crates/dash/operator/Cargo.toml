@@ -1,5 +1,5 @@
 [package]
-name = "dash-controller"
+name = "dash-operator"
 
 authors = { workspace = true }
 description = { workspace = true }

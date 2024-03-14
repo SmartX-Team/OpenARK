@@ -78,16 +78,16 @@ oci-push-devel: oci-build-devel
 oci-push-full: oci-build-full
 
 oci-push-and-update-dash: oci-push
-  kubectl -n dash delete pods --selector name=controller
   kubectl -n dash delete pods --selector name=gateway
+  kubectl -n dash delete pods --selector name=operator
 
 oci-push-and-update-kiss: oci-push
-  kubectl -n dash delete pods --selector name=gateway
-  kubectl -n kiss delete pods --selector name=controller
+  # kubectl -n kiss delete pods --selector name=assets
   kubectl -n kiss delete pods --selector name=gateway
   kubectl -n kiss delete pods --selector name=monitor
+  kubectl -n kiss delete pods --selector name=operator
 
 oci-push-and-update-vine: oci-push
-  kubectl -n dash delete pods --selector name=gateway
   kubectl -n vine delete pods --selector name=bastion
-  kubectl -n vine delete pods --selector name=controller
+  kubectl -n vine delete pods --selector name=gateway
+  kubectl -n vine delete pods --selector name=operator
