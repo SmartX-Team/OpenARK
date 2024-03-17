@@ -70,6 +70,7 @@ async fn get_new(client: Data<Client>, Query(query): Query<BoxNewQuery>) -> impl
                         group: Default::default(),
                         machine: query.machine,
                         power: None,
+                        rack: None,
                     },
                     status: None,
                 };
@@ -129,6 +130,7 @@ async fn post_commission(
                         group: r#box.spec.group,
                         machine: query.machine,
                         power: query.power,
+                        rack: r#box.spec.rack,
                     },
                     "status": BoxStatus {
                         access: query.access.try_into()?,

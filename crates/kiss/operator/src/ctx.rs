@@ -4,6 +4,7 @@ use anyhow::Result;
 use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
+use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kiss_ansible::{AnsibleClient, AnsibleJob};
 use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxState, BoxStatus};
 use kube::{
@@ -23,6 +24,13 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::kiss_api::consts::NAMESPACE;
+
+    fn get_subcrds() -> Vec<CustomResourceDefinition> {
+        vec![
+            ::kiss_api::netbox::NetBoxCrd::crd(),
+            ::kiss_api::rack::RackCrd::crd(),
+        ]
+    }
 
     #[instrument(level = Level::INFO, skip_all, fields(name = %data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(

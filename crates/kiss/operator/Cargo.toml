@@ -27,6 +27,7 @@ kiss-api = { path = "../api" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+k8s-openapi = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",

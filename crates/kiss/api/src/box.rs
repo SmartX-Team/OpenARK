@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 use uuid::Uuid;
 
+use crate::rack::RackRef;
+
 impl BoxCrd {
     pub fn last_updated(&self) -> Option<&DateTime<Utc>> {
         self.status
@@ -18,6 +20,7 @@ impl BoxCrd {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
+    category = "kiss",
     group = "kiss.ulagbulag.io",
     version = "v1alpha1",
     kind = "Box",
@@ -29,6 +32,12 @@ impl BoxCrd {
         "type": "string",
         "description": "box alias",
         "jsonPath": ".metadata.labels.dash\\.ulagbulag\\.io/alias"
+    }"#,
+    printcolumn = r#"{
+        "name": "rack",
+        "type": "string",
+        "description": "rack name where the box is located",
+        "jsonPath": ".spec.rack.name"
     }"#,
     printcolumn = r#"{
         "name": "address",
@@ -92,6 +101,8 @@ pub struct BoxSpec {
     pub machine: BoxMachineSpec,
     #[serde(default)]
     pub power: Option<BoxPowerSpec>,
+    #[serde(default)]
+    pub rack: Option<RackRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
