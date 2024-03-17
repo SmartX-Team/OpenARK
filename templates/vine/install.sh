@@ -53,7 +53,7 @@ pushd "dex" && ./install.sh && popd
 ###########################################################
 
 # device plugins
-kubectl apply -f "./daemonset-fuse-device-plugin.yaml"
+kubectl apply -f "./plugins/daemonset-generic-device-plugin.yaml"
 
 ###########################################################
 #   Install VINE                                          #

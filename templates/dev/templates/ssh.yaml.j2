@@ -61,8 +61,8 @@ spec:
             limits:
               cpu: "{{ spec.resource.cpu }}"
               memory: "{{ spec.resource.memory }}"
-              github.com/fuse: "1"
               nvidia.com/gpu: "{{ spec.resource.gpu }}"
+              squat.ai/fuse: "1"
           securityContext:
             capabilities:
               add:

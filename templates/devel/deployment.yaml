@@ -138,8 +138,8 @@ spec:
             privileged: true
           resources:
             limits:
-              github.com/fuse: "1"
               nvidia.com/gpu: "1"
+              squat.ai/fuse: "1"
           volumeMounts:
             - name: home
               mountPath: /home/user

@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: generic-device-plugin
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: generic-device-plugin
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: generic-device-plugin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: generic-device-plugin
+    spec:
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: "Exists"
+          effect: "NoExecute"
+        - operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - image: squat/generic-device-plugin
+          args:
+            - --device
+            - |
+              name: audio
+              groups:
+                - count: 256
+                  paths:
+                    - path: /dev/snd
+            - --device
+            - |
+              name: audio-capture
+              groups:
+                - paths:
+                    - path: /dev/snd/controlC0
+                    - path: /dev/snd/pcmC0D0c
+                - paths:
+                    - path: /dev/snd/controlC1
+                      mountPath: /dev/snd/controlC0
+                    - path: /dev/snd/pcmC1D0c
+                      mountPath: /dev/snd/pcmC0D0c
+                - paths:
+                    - path: /dev/snd/controlC2
+                      mountPath: /dev/snd/controlC0
+                    - path: /dev/snd/pcmC2D0c
+                      mountPath: /dev/snd/pcmC0D0c
+                - paths:
+                    - path: /dev/snd/controlC3
+                      mountPath: /dev/snd/controlC0
+                    - path: /dev/snd/pcmC3D0c
+                      mountPath: /dev/snd/pcmC0D0c
+            - --device
+            - |
+              name: fuse
+              groups:
+                - count: 256
+                  paths:
+                    - path: /dev/fuse
+            - --device
+            - |
+              name: serial
+              groups:
+                - paths:
+                    - path: /dev/ttyUSB*
+                - paths:
+                    - path: /dev/ttyACM*
+                - paths:
+                    - path: /dev/tty.usb*
+                - paths:
+                    - path: /dev/cu.*
+                - paths:
+                    - path: /dev/cuaU*
+                - paths:
+                    - path: /dev/rfcomm*
+            - --device
+            - |
+              name: video0
+              groups:
+                - paths:
+                    - path: /dev/video0
+          name: generic-device-plugin
+          resources:
+            requests:
+              cpu: 50m
+              memory: 10Mi
+            limits:
+              cpu: 50m
+              memory: 20Mi
+          ports:
+            - containerPort: 8080
+              name: http
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dev
+              mountPath: /dev
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+  updateStrategy:
+    type: RollingUpdate
