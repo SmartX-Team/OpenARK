@@ -1,4 +1,12 @@
 ---
+ccManager:
+  enabled: false
+  defaultMode: "off"
+
+cdi:
+  enabled: false
+  default: false
+
 # standalone dcgm hostengine
 dcgm:
   # disabled by default to use embedded nv-hostengine by exporter
@@ -13,8 +21,78 @@ driver:
   image: openark-gpu-nvidia-driver
   enabled: false
 
+  # vGPU licensing configuration
+  licensingConfig:
+    configMapName: ""
+    nlsEnabled: false
+
+  manager:
+    env:
+      - name: DRAIN_USE_FORCE
+        value: "true"
+      - name: DRAIN_POD_SELECTOR_LABEL
+        value: ""
+      - name: DRAIN_TIMEOUT_SECONDS
+        value: "0s"
+      - name: DRAIN_DELETE_EMPTYDIR_DATA
+        value: "true"
+      - name: ENABLE_GPU_POD_EVICTION
+        value: "true"
+      - name: ENABLE_AUTO_DRAIN
+        value: "true"
+
+  rdma:
+    enabled: true
+    useHostMofed: false
+
+  useOpenKernelModules: false
+  usePrecompiled: false
+
 devicePlugin:
   enabled: true
+
+  # Plugin configuration
+  # Use "name" to either point to an existing ConfigMap or to create a new one with a list of configurations(i.e with create=true).
+  # Use "data" to build an integrated ConfigMap from a set of configurations as
+  # part of this helm chart. An example of setting "data" might be:
+  # config:
+  #   name: device-plugin-config
+  #   create: true
+  #   data:
+  #     default: |-
+  #       version: v1
+  #       flags:
+  #         migStrategy: none
+  #     mig-single: |-
+  #       version: v1
+  #       flags:
+  #         migStrategy: single
+  #     mig-mixed: |-
+  #       version: v1
+  #       flags:
+  #         migStrategy: mixed
+  config:
+    # Create a ConfigMap (default: false)
+    create: true
+    # ConfigMap name (either exiting or to create a new one with create=true above)
+    name: time-slicing-config
+    # Default config name within the ConfigMap
+    default: ""
+    # Data section for the ConfigMap to create (i.e only applies when create=true)
+    data:
+      kiss-Desktop: |-
+        version: v1
+        flags:
+          migStrategy: none  # options: [mixed, none, single]
+        sharing:
+          renameByDefault: false
+          timeSlicing:
+            resources:
+            - name: nvidia.com/gpu  # no MIG GPUs
+              replicas: 256  # unlimited, but no isolation (e.g. OOM-killed by other pods)
+
+gdrcopy:
+  enabled: false
 
 gds:
   enabled: false
@@ -25,8 +103,22 @@ gfd:
 kataManager:
   enabled: false
 
+mig:
+  strategy: single # options: [mixed, single]
+
 migManager:
   enabled: true
+  env:
+    - name: WITH_REBOOT
+      value: "false"
+  config:
+    name: default-mig-parted-config
+    default: all-disabled
+
+node-feature-discovery:
+  enableNodeFeatureApi: true
+  gc:
+    enable: true
 
 nodeStatusExporter:
   enabled: true
@@ -50,6 +142,9 @@ operator:
   # to be passed during helm upgrade.
   upgradeCRD: true
 
+platform:
+  openshift: false
+
 sandboxDevicePlugin:
   enabled: false
 
@@ -57,6 +152,16 @@ toolkit:
   enabled: true
   # Flatcar Container Linux has no write access to /usr directory
   installDir: /opt/nvidia-runtime
+
+  env:
+    - name: CONTAINERD_CONFIG
+      value: /etc/containerd/config.toml
+    - name: CONTAINERD_RUNTIME_CLASS
+      value: nvidia
+    - name: CONTAINERD_SET_AS_DEFAULT
+      value: "true"
+    - name: CONTAINERD_SOCKET
+      value: /var/run/containerd/containerd.sock
 
 validator:
   # NOTE: NVIDIA gpu-operator bug when using pre-installed driver
@@ -66,5 +171,11 @@ validator:
       - name: DISABLE_DEV_CHAR_SYMLINK_CREATION
         value: "true"
 
+vgpuDeviceManager:
+  enabled: false
+
 vgpuManager:
+  enabled: false
+
+vfioManager:
   enabled: false

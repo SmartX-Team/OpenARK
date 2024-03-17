@@ -1,0 +1,10 @@
+---
+- hosts: target
+  tasks:
+    - name: Allow NVIDIA GPU time-slicing for Desktops
+      when: kiss_group_role == 'Desktop'
+      delegate_to: "{{ groups['kube_control_plane'] | first }}"
+      shell: >
+        {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
+        --overwrite
+        "nvidia.com/device-plugin.config=kiss-Desktop"
