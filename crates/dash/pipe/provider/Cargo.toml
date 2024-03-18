@@ -33,7 +33,7 @@ nats = ["dep:async-nats"]
 ros2 = ["dep:r2r"]
 
 # storage
-storage = ["deltalake", "lancedb", "s3"]
+storage = ["deltalake", "s3"]
 deltalake = ["arrow", "dash-api", "dep:deltalake", "inflector", "map-macro"]
 lancedb = ["arrow", "dep:lancedb", "object_store/aws"]
 s3 = ["chrono", "minio"]

@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubegraph
+  namespace: kubegraph
+  labels:
+    name: kubegraph
+    dashService: "true"
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: kubegraph
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
+      labels:
+        name: kubegraph
+        dashService: "true"
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+              weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: kubegraph-system
+      containers:
+        - name: kubegraph
+          image: quay.io/ulagbulag/openark:latest
+          imagePullPolicy: Always
+          command:
+            - kubegraph
+          env:
+            - name: BIND_ADDR
+              value: 0.0.0.0:8080
+            - name: RUST_LOG
+              value: INFO
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 300m
+              memory: 200Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubegraph
+  namespace: kubegraph
+spec:
+  type: ClusterIP
+  selector:
+    name: kubegraph
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
