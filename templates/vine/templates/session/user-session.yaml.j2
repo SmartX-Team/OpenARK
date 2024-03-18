@@ -149,6 +149,8 @@ spec:
               value: {{ spec.boxQuota.desktop.user.template.git | json_encode() | safe }}
             - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
               value: {{ spec.boxQuota.desktop.user.template.gitBranch | json_encode() | safe }}
+            - name: KUBEGRAPH_URL
+              value: http://kubegraph.kubegraph.svc
             - name: LANG
               value: "{{ spec.boxQuota.desktop.user.lang }}"
             - name: LC_ALL
