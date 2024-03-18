@@ -7,7 +7,7 @@ use crate::query::NetworkQuery;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
-    group = "dash.ulagbulag.io",
+    group = "kubegraph.ulagbulag.io",
     version = "v1alpha1",
     kind = "NetworkConnector",
     root = "NetworkConnectorCrd",

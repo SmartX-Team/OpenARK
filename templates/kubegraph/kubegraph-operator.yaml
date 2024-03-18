@@ -44,7 +44,7 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: kubespray-system
+      serviceAccount: kubegraph-system
       containers:
         - name: operator
           image: quay.io/ulagbulag/openark:latest
