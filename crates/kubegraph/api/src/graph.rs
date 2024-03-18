@@ -6,12 +6,13 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkEntry {
+    #[serde(flatten)]
     pub key: NetworkEntrykey,
     pub value: NetworkValue,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", tag = "type", content = "key")]
+#[serde(rename_all = "camelCase", tag = "type")]
 pub enum NetworkEntrykey {
     Edge(NetworkEdgeKey),
     Node(NetworkNodeKey),
