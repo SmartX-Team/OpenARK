@@ -2,8 +2,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    connector::{NetworkConnectorSpec, NetworkConnectorTypeRef},
-    graph::{NetworkEdgeKey, NetworkGraphRow, NetworkValue},
+    connector::{NetworkConnectorSourceRef, NetworkConnectorSpec},
+    graph::NetworkEntry,
 };
 
 #[async_trait]
@@ -13,19 +13,19 @@ where
 {
     async fn add_connector(&self, namespace: String, name: String, spec: NetworkConnectorSpec);
 
-    async fn add_edges(
+    async fn add_entries(
         &self,
-        edges: impl Send + IntoIterator<Item = (NetworkEdgeKey, NetworkValue)>,
+        entries: impl Send + IntoIterator<Item = NetworkEntry>,
     ) -> Result<()>;
 
     async fn delete_connector(&self, namespace: String, name: String);
 
     async fn get_connectors(
         &self,
-        r#type: NetworkConnectorTypeRef,
+        r#type: NetworkConnectorSourceRef,
     ) -> Option<Vec<NetworkConnectorSpec>>;
 
-    async fn get_edges(&self) -> Vec<NetworkGraphRow>;
+    async fn get_entries(&self) -> Vec<NetworkEntry>;
 
     async fn close(self) -> Result<()>;
 }

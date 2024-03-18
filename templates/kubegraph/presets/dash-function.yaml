@@ -1,14 +1,15 @@
 ---
-apiVersion: dash.ulagbulag.io/v1alpha1
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkConnector
 metadata:
-  name: call-function
-  namespace: dash
+  name: dash-function
+  namespace: kubegraph
 spec:
-  type:
+  src:
     prometheus:
       url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
-  query:
+  template:
+    type: edge
     query: >
       sum by (data_model, data_model_from, job, k8s_namespace_name, le)
       (dash_metrics_duration_milliseconds_bucket{span_name="call_function"})

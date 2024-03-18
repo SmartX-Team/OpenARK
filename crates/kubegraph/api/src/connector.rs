@@ -25,27 +25,27 @@ use crate::query::NetworkQuery;
         "jsonPath": ".metadata.generation"
     }"#
 )]
-pub struct NetworkConnectorSpec<T = NetworkConnectorType> {
-    pub r#type: T,
-    pub query: NetworkQuery,
+pub struct NetworkConnectorSpec<T = NetworkConnectorSource> {
+    pub src: T,
+    pub template: NetworkQuery,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum NetworkConnectorType {
+pub enum NetworkConnectorSource {
     Prometheus(NetworkConnectorPrometheusSpec),
 }
 
-impl NetworkConnectorType {
-    pub const fn to_ref(&self) -> NetworkConnectorTypeRef {
+impl NetworkConnectorSource {
+    pub const fn to_ref(&self) -> NetworkConnectorSourceRef {
         match self {
-            Self::Prometheus(_) => NetworkConnectorTypeRef::Prometheus,
+            Self::Prometheus(_) => NetworkConnectorSourceRef::Prometheus,
         }
     }
 }
 
-impl PartialEq<NetworkConnectorTypeRef> for NetworkConnectorType {
-    fn eq(&self, other: &NetworkConnectorTypeRef) -> bool {
+impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSource {
+    fn eq(&self, other: &NetworkConnectorSourceRef) -> bool {
         self.to_ref() == *other
     }
 }
@@ -54,7 +54,7 @@ impl PartialEq<NetworkConnectorTypeRef> for NetworkConnectorType {
     Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub enum NetworkConnectorTypeRef {
+pub enum NetworkConnectorSourceRef {
     Prometheus,
 }
 

@@ -1,0 +1,25 @@
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: minio
+  namespace: kubegraph
+spec:
+  src:
+    prometheus:
+      url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  template:
+    type: node
+    query: >
+      sum by (namespace, bucket)
+      (bucket_usage_size{service="minio"})
+    node:
+      kind:
+        type: static
+        value: object-storage
+      name:
+        type: key
+        value: bucket
+      namespace:
+        type: key
+        value: namespace

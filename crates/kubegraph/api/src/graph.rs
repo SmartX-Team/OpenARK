@@ -5,7 +5,21 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkGraphRow {
+pub struct NetworkEntry {
+    pub key: NetworkEntrykey,
+    pub value: NetworkValue,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", tag = "type", content = "key")]
+pub enum NetworkEntrykey {
+    Edge(NetworkEdgeKey),
+    Node(NetworkNodeKey),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkEdge {
     #[serde(flatten)]
     pub key: NetworkEdgeKey,
     pub value: NetworkValue,
@@ -24,7 +38,7 @@ pub struct NetworkEdgeKey<NodeKey = NetworkNodeKey>
 where
     NodeKey: Ord,
 {
-    #[serde(rename = "le")]
+    #[serde(default, rename = "le", skip_serializing_if = "Option::is_none")]
     pub interval_ms: Option<u64>,
     #[serde(
         flatten,
@@ -44,6 +58,14 @@ where
         serialize_with = "self::prefix::src::serialize"
     )]
     pub src: NodeKey,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkNode {
+    #[serde(flatten)]
+    pub key: NetworkNodeKey,
+    pub value: NetworkValue,
 }
 
 #[derive(

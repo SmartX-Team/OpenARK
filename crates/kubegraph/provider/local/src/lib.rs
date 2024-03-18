@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
-    connector::{NetworkConnectorSpec, NetworkConnectorTypeRef},
-    graph::{NetworkEdgeKey, NetworkGraphRow, NetworkValue},
+    connector::{NetworkConnectorSourceRef, NetworkConnectorSpec},
+    graph::NetworkEntry,
 };
 use serde::{Deserialize, Serialize};
 use sled::{Batch, Config, Db};
@@ -66,15 +66,15 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn add_edges(
+    async fn add_entries(
         &self,
-        edges: impl Send + IntoIterator<Item = (NetworkEdgeKey, NetworkValue)>,
+        entries: impl Send + IntoIterator<Item = NetworkEntry>,
     ) -> Result<()> {
         let mut batch = Batch::default();
 
-        edges
+        entries
             .into_iter()
-            .filter_map(|(key, value)| {
+            .filter_map(|NetworkEntry { key, value }| {
                 let key = ::serde_json::to_vec(&key).ok()?;
                 let value = ::serde_json::to_vec(&value).ok()?;
                 Some((key, value))
@@ -94,13 +94,13 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
 
     async fn get_connectors(
         &self,
-        r#type: NetworkConnectorTypeRef,
+        r#type: NetworkConnectorSourceRef,
     ) -> Option<Vec<NetworkConnectorSpec>> {
         self.connectors.lock().await.list(r#type)
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn get_edges(&self) -> Vec<NetworkGraphRow> {
+    async fn get_entries(&self) -> Vec<NetworkEntry> {
         self.db
             .iter()
             .filter_map(|result| result.ok())
@@ -109,7 +109,7 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
                 let value = ::serde_json::from_slice(&value).ok()?;
                 Some((key, value))
             })
-            .map(|(key, value)| NetworkGraphRow { key, value })
+            .map(|(key, value)| NetworkEntry { key, value })
             .collect()
     }
 
@@ -127,28 +127,28 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
 #[derive(Default)]
 struct NetworkConnectors {
     db: BTreeMap<(String, String), NetworkConnectorSpec>,
-    has_updated: BTreeMap<NetworkConnectorTypeRef, bool>,
+    has_updated: BTreeMap<NetworkConnectorSourceRef, bool>,
 }
 
 impl NetworkConnectors {
     fn insert(&mut self, namespace: String, name: String, value: NetworkConnectorSpec) {
         let key = connector_key(namespace, name);
-        let r#type = value.r#type.to_ref();
+        let src = value.src.to_ref();
 
         self.db.insert(key, value);
         self.has_updated
-            .entry(r#type)
+            .entry(src)
             .and_modify(|updated| *updated = true);
     }
 
-    fn list(&mut self, r#type: NetworkConnectorTypeRef) -> Option<Vec<NetworkConnectorSpec>> {
-        let updated = self.has_updated.entry(r#type).or_insert(true);
+    fn list(&mut self, src: NetworkConnectorSourceRef) -> Option<Vec<NetworkConnectorSpec>> {
+        let updated = self.has_updated.entry(src).or_insert(true);
         if *updated {
             *updated = false;
             Some(
                 self.db
                     .values()
-                    .filter(|&spec| spec.r#type == r#type)
+                    .filter(|&spec| spec.src == src)
                     .cloned()
                     .collect(),
             )
@@ -163,7 +163,7 @@ impl NetworkConnectors {
 
         if let Some(object) = removed_object {
             self.has_updated
-                .entry(object.r#type.to_ref())
+                .entry(object.src.to_ref())
                 .and_modify(|updated| *updated = true);
         }
     }
