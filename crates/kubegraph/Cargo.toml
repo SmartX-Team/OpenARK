@@ -37,6 +37,14 @@ actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+futures = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 opentelemetry = { workspace = true }
 prometheus-http-query = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["full"] }

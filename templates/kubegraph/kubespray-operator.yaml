@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator
+  namespace: kubegraph
+  labels:
+    name: operator
+    dashService: "true"
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: operator
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "true"
+      labels:
+        name: operator
+        dashService: "true"
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          # KISS normal control plane nodes should be preferred
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                    operator: DoesNotExist
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - ControlPlane
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: kubespray-system
+      containers:
+        - name: operator
+          image: quay.io/ulagbulag/openark:latest
+          imagePullPolicy: Always
+          command:
+            - kubegraph-operator
+          env:
+            - name: RUST_LOG
+              value: INFO
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi

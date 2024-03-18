@@ -25,7 +25,7 @@ where
     NodeKey: Ord,
 {
     #[serde(rename = "le")]
-    pub interval_ms: u64,
+    pub interval_ms: Option<u64>,
     #[serde(
         flatten,
         deserialize_with = "self::prefix::link::deserialize",

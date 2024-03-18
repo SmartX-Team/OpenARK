@@ -5,7 +5,7 @@ use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::env::infer;
 use kubegraph_api::provider::NetworkGraphProvider;
-use tracing::{instrument, Level};
+use tracing::{error, instrument, Level};
 
 #[instrument(level = Level::INFO)]
 #[get("/_health")]
@@ -14,7 +14,9 @@ async fn health() -> impl Responder {
 }
 
 pub async fn loop_forever(graph: impl 'static + NetworkGraphProvider) {
-    try_loop_forever(graph).await.expect("running a server");
+    if let Err(error) = try_loop_forever(graph).await {
+        error!("failed to run http server: {error}")
+    }
 }
 
 async fn try_loop_forever(graph: impl 'static + NetworkGraphProvider) -> Result<()> {

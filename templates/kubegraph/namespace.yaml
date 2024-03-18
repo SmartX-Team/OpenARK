@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubegraph
+  labels:
+    dash.ulagbulag.io/inject-nats: "false"
+    dash.ulagbulag.io/inject-otlp: "true"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubegraph-system
+  namespace: kubegraph
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubegraph-system
+  namespace: kubegraph
+rules:
+  - apiGroups:
+      - dash.ulagbulag.io/v1alpha1
+    resources:
+      - NetworkConnector
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubegraph-system
+  namespace: kubegraph
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubegraph-system
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kubegraph-system
+    namespace: kubegraph
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubegraph-system
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io/v1
+      - dash.ulagbulag.io/v1alpha1
+    resources:
+      - CustomResourceDefinition
+      - NetworkConnector
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubegraph-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubegraph-system
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kubegraph-system
+    namespace: kubegraph

@@ -1,5 +1,6 @@
 mod actix;
 mod connector;
+mod reloader;
 mod routes;
 
 use std::process::exit;
@@ -33,6 +34,7 @@ async fn main() {
     let handlers = vec![
         spawn(crate::actix::loop_forever(graph.clone())),
         spawn(crate::connector::loop_forever(graph.clone())),
+        spawn(crate::reloader::loop_forever(graph.clone())),
     ];
 
     info!("Ready");

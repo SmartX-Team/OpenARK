@@ -25,7 +25,7 @@ ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = ["derive"] }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

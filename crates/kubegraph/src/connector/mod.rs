@@ -5,11 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use kubegraph_api::{
-    connector::NetworkConnectorPrometheusSpec,
-    provider::NetworkGraphProvider,
-    query::{NetworkQuery, NetworkQueryNodeType, NetworkQueryNodeValue},
-};
+use kubegraph_api::provider::NetworkGraphProvider;
 use tokio::time::sleep;
 use tracing::error;
 
@@ -21,29 +17,7 @@ pub async fn loop_forever(graph: impl NetworkGraphProvider) {
 
 #[cfg(feature = "prometheus")]
 async fn try_loop_forever(graph: impl NetworkGraphProvider) -> Result<()> {
-    let connector = NetworkConnectorPrometheusSpec {
-        url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090".parse()?,
-    };
-    let query =  NetworkQuery {
-        query: "sum by (data_model, data_model_from, job, k8s_namespace_name, le) (dash_metrics_duration_milliseconds_bucket{span_name=\"call_function\"})".into(),
-        link: NetworkQueryNodeType {
-            kind: NetworkQueryNodeValue::Static(Some("function".into())),
-            name: NetworkQueryNodeValue::Key("job".into()),
-            namespace: NetworkQueryNodeValue::Key("k8s_namespace_name".into()),
-        },
-        sink: NetworkQueryNodeType {
-            kind: NetworkQueryNodeValue::Static(Some("model".into())),
-            name: NetworkQueryNodeValue::Key("data_model_from".into()),
-            namespace: NetworkQueryNodeValue::Key("k8s_namespace_name".into()),
-        },
-        src: NetworkQueryNodeType {
-            kind: NetworkQueryNodeValue::Static(Some("model".into())),
-            name: NetworkQueryNodeValue::Key("data_model".into()),
-            namespace: NetworkQueryNodeValue::Key("k8s_namespace_name".into()),
-        },
-    };
-
-    self::prometheus::Connector::try_new(query, connector)?
+    self::prometheus::Connector::default()
         .loop_forever(graph)
         .await;
     Ok(())
@@ -57,16 +31,16 @@ trait Connector {
         Duration::from_secs(15)
     }
 
-    async fn loop_forever(self, graph: impl NetworkGraphProvider)
+    async fn loop_forever(mut self, graph: impl NetworkGraphProvider)
     where
         Self: Sized,
     {
-        let name = <Self as Connector>::name(&self);
         let interval = <Self as Connector>::interval(&self);
 
         loop {
             let instant = Instant::now();
             if let Err(error) = self.pull(&graph).await {
+                let name = <Self as Connector>::name(&self);
                 error!("failed to connect to dataset from {name:?}: {error}");
             }
 
@@ -77,5 +51,5 @@ trait Connector {
         }
     }
 
-    async fn pull(&self, graph: &impl NetworkGraphProvider) -> Result<()>;
+    async fn pull(&mut self, graph: &impl NetworkGraphProvider) -> Result<()>;
 }

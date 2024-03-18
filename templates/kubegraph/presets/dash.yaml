@@ -1,0 +1,47 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: call-function
+  namespace: dash
+spec:
+  type:
+    prometheus:
+      url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  query:
+    query: >
+      sum by (data_model, data_model_from, job, k8s_namespace_name, le)
+      (dash_metrics_duration_milliseconds_bucket{span_name="call_function"})
+    le:
+      type: key
+      value: le
+    link:
+      kind:
+        type: static
+        value: function
+      name:
+        type: key
+        value: job
+      namespace:
+        type: key
+        value: k8s_namespace_name
+    src:
+      kind:
+        type: static
+        value: model
+      name:
+        type: key
+        value: data_model_from
+      namespace:
+        type: key
+        value: k8s_namespace_name
+    sink:
+      kind:
+        type: static
+        value: model
+      name:
+        type: key
+        value: data_model
+      namespace:
+        type: key
+        value: k8s_namespace_name
