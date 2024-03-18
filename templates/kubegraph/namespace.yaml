@@ -10,14 +10,33 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: kubegraph
+  namespace: kubegraph
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: kubegraph-system
   namespace: kubegraph
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: kubegraph-system
-  namespace: kubegraph
+  name: kubegraph:kubegraph
+rules:
+  - apiGroups:
+      - kubegraph.ulagbulag.io
+    resources:
+      - networkconnectors
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubegraph:kubegraph-operator
 rules:
   - apiGroups:
       - kubegraph.ulagbulag.io
@@ -27,14 +46,39 @@ rules:
       - "*"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRole
 metadata:
-  name: kubegraph-system
-  namespace: kubegraph
+  name: kubegraph:customresourcedefinitions-mut
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubegraph:kubegraph
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: kubegraph-system
+  kind: ClusterRole
+  name: kubegraph:kubegraph
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: kubegraph
+    namespace: kubegraph
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubegraph:kubegraph-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubegraph:kubegraph-operator
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
@@ -42,27 +86,13 @@ subjects:
     namespace: kubegraph
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kubegraph-system
-rules:
-  - apiGroups:
-      - apiextensions.k8s.io
-      - kubegraph.ulagbulag.io
-    resources:
-      - customresourcedefinitions
-      - networkconnectors
-    verbs:
-      - "*"
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kubegraph-system
+  name: kubegraph:customresourcedefinitions-mut
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kubegraph-system
+  name: kubegraph:customresourcedefinitions-mut
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
