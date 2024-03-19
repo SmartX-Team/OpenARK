@@ -26,7 +26,7 @@ pub struct Connector {
 }
 
 #[async_trait]
-impl super::Connector for Connector {
+impl ::kubegraph_api::connector::Connector for Connector {
     #[inline]
     fn name(&self) -> &str {
         "prometheus"

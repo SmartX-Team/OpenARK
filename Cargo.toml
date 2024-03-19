@@ -38,6 +38,8 @@ members = [
     "crates/kubegraph/api",
     "crates/kubegraph/operator",
     "crates/kubegraph/provider/local",
+    "crates/kubegraph/simulator",
+    "crates/kubegraph/simulator/schema",
     "crates/straw/api",
     "crates/straw/provider",
     "crates/straw/provider/oci",
@@ -104,6 +106,7 @@ dirs = { version = "5.0" }
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.4" }
+glob = { version = "0.3" }
 home = { version = "0.5" }
 http-cache-reqwest = { version = "0.13", features = ["manager-cacache"] }
 image = { version = "0.25", default-features = false }

@@ -1,9 +1,46 @@
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
 use ark_core_k8s::data::Url;
+use async_trait::async_trait;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
+use tracing::error;
 
-use crate::query::NetworkQuery;
+use crate::{provider::NetworkGraphProvider, query::NetworkQuery};
+
+#[async_trait]
+pub trait Connector {
+    fn name(&self) -> &str;
+
+    fn interval(&self) -> Duration {
+        Duration::from_secs(15)
+    }
+
+    async fn loop_forever(mut self, graph: impl NetworkGraphProvider)
+    where
+        Self: Sized,
+    {
+        let interval = <Self as Connector>::interval(&self);
+
+        loop {
+            let instant = Instant::now();
+            if let Err(error) = self.pull(&graph).await {
+                let name = <Self as Connector>::name(&self);
+                error!("failed to connect to dataset from {name:?}: {error}");
+            }
+
+            let elapsed = instant.elapsed();
+            if elapsed < interval {
+                sleep(interval - elapsed).await;
+            }
+        }
+    }
+
+    async fn pull(&mut self, graph: &impl NetworkGraphProvider) -> Result<()>;
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
