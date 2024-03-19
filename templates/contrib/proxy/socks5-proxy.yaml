@@ -1,0 +1,85 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: socks5-proxy
+  labels:
+    name: socks5-proxy
+    kissService: "false"
+    serviceType: internal
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: socks5-proxy
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: "false"
+      labels:
+        name: socks5-proxy
+        kissService: "false"
+        serviceType: internal
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: socks5-proxy
+          image: docker.io/serjs/go-socks5-proxy:latest
+          imagePullPolicy: Always
+          env:
+            # TODO(user): change your own username!
+            - name: PROXY_USER
+              value: username
+            # TODO(user): change your own password!
+            - name: PROXY_PASSWORD
+              value: myPassword!
+            - name: PROXY_PORT
+              value: "1080"
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 1080
+          resources:
+            requests:
+              cpu: 30m
+              memory: 20Mi
+            limits:
+              cpu: "1"
+              memory: 200Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: socks5-proxy
+spec:
+  type: LoadBalancer
+  selector:
+    name: socks5-proxy
+  ports:
+    - name: http
+      protocol: TCP
+      port: 1080
+      targetPort: 1080
