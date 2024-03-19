@@ -9,17 +9,17 @@ spec:
     prometheus:
       url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
   template:
-    type: node
+    type: Node
     query: >
       sum by (namespace, bucket)
       (bucket_usage_size{service="minio"})
     node:
       kind:
-        type: static
+        type: Static
         value: object-storage
       name:
-        type: key
+        type: Key
         value: bucket
       namespace:
-        type: key
+        type: Key
         value: namespace

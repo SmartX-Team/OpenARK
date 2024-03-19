@@ -14,7 +14,7 @@ pub struct NetworkQuery {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(tag = "type")]
 pub enum NetworkQueryType {
     Edge {
         #[serde(default)]
@@ -37,7 +37,6 @@ mod impl_json_schema_for_network_query_type {
 
     #[allow(dead_code)]
     #[derive(JsonSchema)]
-    #[serde(rename_all = "camelCase")]
     enum NetworkQueryTypeRef {
         Edge,
         Node,
@@ -95,7 +94,7 @@ pub struct NetworkQueryNodeType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type", content = "value")]
+#[serde(tag = "type", content = "value")]
 pub enum NetworkQueryNodeValue {
     Key(String),
     Static(#[serde(default, skip_serializing_if = "Option::is_none")] Option<String>),
@@ -115,7 +114,6 @@ mod impl_json_schema_for_network_query_node_value {
 
     #[allow(dead_code)]
     #[derive(Default, JsonSchema)]
-    #[serde(rename_all = "camelCase")]
     enum NetworkQueryNodeValueRef {
         Key,
         #[default]

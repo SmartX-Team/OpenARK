@@ -9,40 +9,40 @@ spec:
     prometheus:
       url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
   template:
-    type: edge
+    type: Edge
     query: >
       sum by (data_model, data_model_from, job, k8s_namespace_name, le)
       (dash_metrics_duration_milliseconds_bucket{span_name="call_function"})
     le:
-      type: key
+      type: Key
       value: le
     link:
       kind:
-        type: static
+        type: Static
         value: function
       name:
-        type: key
+        type: Key
         value: job
       namespace:
-        type: key
+        type: Key
         value: k8s_namespace_name
     src:
       kind:
-        type: static
+        type: Static
         value: model
       name:
-        type: key
+        type: Key
         value: data_model_from
       namespace:
-        type: key
+        type: Key
         value: k8s_namespace_name
     sink:
       kind:
-        type: static
+        type: Static
         value: model
       name:
-        type: key
+        type: Key
         value: data_model
       namespace:
-        type: key
+        type: Key
         value: k8s_namespace_name
