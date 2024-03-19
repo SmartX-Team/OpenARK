@@ -131,34 +131,19 @@ EOF
 # Get OS Version
 VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
 
-# Check whether the current dist is latest
-if curl -fs "http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/" >/dev/null; then
-    VERSION_LATEST="1"
-fi
-
 # Installation Source Configuration
-if test "x${VERSION_LATEST}" -eq "x1"; then
-    cat <<EOF >>/tmp/kiss-config
-url --mirrorlist="http://mirrors.rockylinux.org/mirrorlist?repo=rocky-AppStream-${VERSION_ID}&arch=$(uname -m)"
-url --mirrorlist="http://mirrors.rockylinux.org/mirrorlist?repo=rocky-BaseOS-${VERSION_ID}&arch=$(uname -m)"
-url --mirrorlist="http://mirrors.rockylinux.org/mirrorlist?repo=rocky-extras-${VERSION_ID}&arch=$(uname -m)"
+cat <<EOF >>/tmp/kiss-config
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-AppStream-${VERSION_ID}&arch=$(uname -m)"
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-BaseOS-${VERSION_ID}&arch=$(uname -m)"
+url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-extras-${VERSION_ID}&arch=$(uname -m)"
 EOF
-fi
 
 # Repository Information
-if test "x${VERSION_LATEST}" -eq "x1"; then
-    cat <<EOF >>/tmp/kiss-config
+cat <<EOF >>/tmp/kiss-config
 repo --name=AppStream --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
 repo --name=BaseOS --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/BaseOS/$(uname -m)/os/"
 repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
 EOF
-else
-    cat <<EOF >>/tmp/kiss-config
-repo --name=AppStream --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
-repo --name=BaseOS --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/BaseOS/$(uname -m)/os/"
-repo --name=extras --baseurl="http://dl.rockylinux.org/vault/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
-EOF
-fi
 
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
