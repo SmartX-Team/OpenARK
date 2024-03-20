@@ -198,8 +198,9 @@ EOF
         ## Reload NetworkManager
         nmcli connection reload
 
-        ## Enable WIFI Connection
-        nmcli connection up "10-kiss-enable-$interface"
+        ## Try to enable WIFI Connection
+        ### NOTE: the latest Wi-Fi chipset may not be supported on the kickstart OS.
+        nmcli connection up "10-kiss-enable-$interface" || true
     done
 fi
 
@@ -280,7 +281,9 @@ psk=NETWORK_WIRELESS_WIFI_KEY_PSK
 [proxy]
 EOF
         chmod 600 /etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
-        nmcli connection up "10-kiss-enable-$interface"
+
+        ### NOTE: the latest Wi-Fi chipset may not be supported on the kickstart OS.
+        nmcli connection up "10-kiss-enable-$interface" || true
     done
 
     ## Disable Power Saving Mode (iwlmvm)
