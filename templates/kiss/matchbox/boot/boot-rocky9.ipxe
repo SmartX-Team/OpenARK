@@ -10,7 +10,7 @@ iseq ${buildarch} arm64 && set arch aarch64 ||
 iseq ${buildarch} i386 && set arch x86_64 ||
 
 :kernel
-kernel http://download.rockylinux.org/pub/rocky/${os_ver}/BaseOS/${arch}/os/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=http://download.rockylinux.org/pub/rocky/${os_ver}/BaseOS/${arch}/os/ inst.ks=http://matchbox.kiss.svc.ops.openark/assets/boot/rocky${os_ver}.ks || goto kernel
+kernel http://download.rockylinux.org/pub/rocky/${os_ver}/BaseOS/${arch}/os/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=http://download.rockylinux.org/pub/rocky/${os_ver}/BaseOS/${arch}/os/ inst.ks=http://matchbox.kiss.svc.ops.openark/assets/boot/rocky${os_ver}.ks nameserver=10.64.0.3 || goto kernel
 
 :initrd
 initrd http://download.rockylinux.org/pub/rocky/${os_ver}/BaseOS/${arch}/os/images/pxeboot/initrd.img || goto initrd
