@@ -8,5 +8,5 @@ set -e -o pipefail
 # Verbose
 set -x
 
-# Start user-level dbus session
-systemctl --user enable --now dbus
+# Try to run iBus daemon
+ibus-daemon -dvxn xfce4 || true
