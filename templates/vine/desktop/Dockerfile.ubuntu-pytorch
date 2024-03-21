@@ -221,7 +221,6 @@ RUN apt-get update && apt-get install -y \
     s3fs \
     sqlite \
     ssh-askpass \
-    steam \
     thunar thunar-archive-plugin thunar-volman \
     tumbler \
     xdg-dbus-proxy \
@@ -359,6 +358,7 @@ RUN apt-get update && apt-get install -y \
     python3-pillow \
     python3-requests \
     python3-yaml \
+    steam \
     wine \
     $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
     # Cleanup
