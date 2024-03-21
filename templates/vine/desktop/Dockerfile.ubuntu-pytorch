@@ -77,6 +77,8 @@ RUN true \
     # Update repositories
     && find /etc/apt/sources.list.d/ -type f -exec sh -c \
     'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
+    # Enable multiarch support
+    && if test "X${ARCH}" = 'Xx86_64'; then dpkg --add-architecture 'i386'; fi \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -208,9 +210,10 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 \
     file-roller \
     gnome-bluetooth \
-    ibus-hangul \
+    ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
     network-manager \
     network-manager-gnome \
+    pavucontrol \
     picom \
     plank \
     s3fs \
@@ -354,6 +357,7 @@ RUN apt-get update && apt-get install -y \
     python3-requests \
     python3-yaml \
     wine \
+    $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
