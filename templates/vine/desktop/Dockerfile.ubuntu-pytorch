@@ -133,9 +133,11 @@ RUN apt-get update && apt-get install -y \
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
     crun \
+    dnsutils \
     fuse-overlayfs \
     git \
     iptables \
+    iputils-ping \
     kubectl \
     nano \
     nodejs \
@@ -219,6 +221,7 @@ RUN apt-get update && apt-get install -y \
     s3fs \
     sqlite \
     ssh-askpass \
+    steam \
     thunar thunar-archive-plugin thunar-volman \
     tumbler \
     xdg-dbus-proxy \
