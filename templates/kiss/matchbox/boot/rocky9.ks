@@ -59,11 +59,14 @@ group --gid 11 --name cdrom
 group --gid 39 --name video
 group --gid 63 --name audio
 group --gid 100 --name users
+group --gid 171 --name pulse
+group --gid 983 --name pulse-rt
+group --gid 984 --name pulse-access
 group --gid 989 --name pipewire
 group --gid 999 --name input
 group --gid 1000 --name docker
 user --uid 1000 --gid 1001 --name ENV_USERNAME --groups docker,users,wheel
-user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,render,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
+user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,pulse,pulse-access,pulse-rt,render,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
 sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
 
 # Disk Configuration
@@ -525,8 +528,7 @@ if [ "x${_IS_DESKTOP}" == "xtrue" ]; then
         mesa-dri-drivers \
         "mesa-dri-drivers.${ARCH_WIN32}" \
         "mesa-libGLU.${ARCH_WIN32}" \
-        pipewire \
-        "pipewire.${ARCH_WIN32}" \
+        pulseaudio \
         vulkan \
         "vulkan-loader.${ARCH_WIN32}" \
         wireplumber \
@@ -706,10 +708,8 @@ EOF
     SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
 
     for service in \
-        "pipewire.service default.target.wants/pipewire.service" \
-        "pipewire.socket sockets.target.wants/pipewire.socket" \
-        "wireplumber.service pipewire-session-manager.service" \
-        "wireplumber.service pipewire.service.wants/wireplumber.service"; do
+        "pulseaudio.service default.target.wants/pulseaudio.service" \
+        "pulseaudio.socket sockets.target.wants/pulseaudio.socket"; do
         SERVICE_SRC="/usr/lib/systemd/user/$(echo "${service}" | awk '{print $1}')"
         SERVICE_DST="${SERVICE_HOME}/$(echo "${service}" | awk '{print $2}')"
         if [ -f "${SERVICE_SRC}" ]; then
