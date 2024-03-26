@@ -74,7 +74,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         .unwrap_or(<Self as ::ark_core_k8s::manager::Ctx>::FALLBACK),
                 ))
             }
-            Some(_) | None => Ok(Action::await_change()),
+            Some(_) => Ok(Action::await_change()),
+            None => Ok(Action::requeue(
+                <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+            )),
         }
     }
 }
