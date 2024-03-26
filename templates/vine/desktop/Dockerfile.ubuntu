@@ -132,6 +132,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
+    clang \
     crun \
     dnsutils \
     fuse-overlayfs \
