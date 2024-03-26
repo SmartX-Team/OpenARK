@@ -32,7 +32,11 @@ ADD . /src
 WORKDIR /src
 
 # Build it!
-RUN mkdir /out \
+RUN \
+    # Cache build outputs
+    --mount=type=cache,target=/src/target \
+    # Create an output directory
+    mkdir /out \
     # Exclude non-musl packages
     && find ./ -type f -name Cargo.toml -exec sed -i 's/^\( *\)\(.*\# *exclude *( *alpine *)\)$/\1# \2/g' {} + \
     && find ./ -type f -name Cargo.toml -exec sed -i 's/^\( *\)\# *\(.*\# *include *( *alpine *)\)$/\1\2/g' {} + \
@@ -42,9 +46,7 @@ RUN mkdir /out \
     # Build
     && cargo build --all --workspace --release \
     && find ./target/release/ -maxdepth 1 -type f -perm +a=x -print0 | xargs -0 -I {} mv {} /out \
-    && mv ./LICENSE /LICENSE \
-    # Cleanup
-    && rm -rf /src
+    && mv ./LICENSE /LICENSE
 
 # Copy executable files
 FROM server

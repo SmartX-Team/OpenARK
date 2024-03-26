@@ -88,7 +88,11 @@ WORKDIR /src
 # Build it!
 ARG FUNCTION_HOME
 ARG ROS_DISTRO
-RUN mkdir -p /out/bin /out/lib \
+RUN \
+    # Cache build outputs
+    --mount=type=cache,target=/src/target \
+    # Create output directories
+    mkdir -p /out/bin /out/lib \
     # Setup ROS2 development environment
     && source "/opt/ros/${ROS_DISTRO}/setup.sh" \
     # Include target-dependent packages
@@ -104,9 +108,7 @@ RUN mkdir -p /out/bin /out/lib \
     && find ./target/release/ -name 'libortools*.so*' -type l -print0 | xargs -0 -I {} mv {} /out/lib \
     # Copy pipe functions
     && mkdir -p "${FUNCTION_HOME}" \
-    && mv ./crates/dash/pipe/functions/python/examples "${FUNCTION_HOME}/python" \
-    # Cleanup
-    && rm -rf /src
+    && mv ./crates/dash/pipe/functions/python/examples "${FUNCTION_HOME}/python"
 
 # Copy executable files
 FROM server
