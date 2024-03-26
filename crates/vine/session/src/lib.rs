@@ -25,6 +25,83 @@ pub(crate) mod consts {
     pub const NAME: &str = "vine-session";
 }
 
+#[cfg(feature = "batch")]
+pub struct BatchCommandArgs<C, U> {
+    pub command: C,
+    pub user_pattern: Option<U>,
+}
+
+#[cfg(feature = "batch")]
+impl<C, U> BatchCommandArgs<C, U> {
+    pub async fn exec(&self, kube: &Client) -> Result<usize>
+    where
+        C: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        <C as IntoIterator>::Item: Sync + Into<String>,
+        U: AsRef<str>,
+    {
+        use anyhow::anyhow;
+        use futures::{stream::FuturesUnordered, StreamExt};
+        use tracing::{debug, warn};
+
+        let Self {
+            command,
+            user_pattern,
+        } = self;
+
+        let user_re = match user_pattern {
+            Some(re) => Some(
+                ::regex::Regex::new(re.as_ref())
+                    .map_err(|error| anyhow!("failed to parse box regex pattern: {error}"))?,
+            ),
+            None => None,
+        };
+
+        let sessions_all = {
+            let api = Api::<Node>::all(kube.clone());
+            let lp = ListParams::default();
+            api.list_metadata(&lp)
+                .await
+                .map(|list| {
+                    list.items
+                        .into_iter()
+                        .filter_map(|item| match item.get_session_ref() {
+                            Ok(session) => Some(session.into_owned()),
+                            Err(error) => {
+                                let name = item.name_any();
+                                debug!("failed to get session {name}: {error}");
+                                None
+                            }
+                        })
+                })
+                .map_err(|error| anyhow!("failed to list nodes: {error}"))?
+        };
+
+        let sessions_filtered: Vec<_> = match user_re {
+            Some(re) => sessions_all
+                .filter(|session| re.is_match(&session.user_name))
+                .collect(),
+            None => sessions_all.collect(),
+        };
+
+        let sessions_exec = sessions_filtered
+            .iter()
+            .map(|session| async move { session.exec(kube.clone(), command.clone()).await });
+
+        ::futures::stream::iter(sessions_exec)
+            .collect::<FuturesUnordered<_>>()
+            .await
+            .map(|result| match result {
+                Ok(_) => (),
+                Err(error) => {
+                    warn!("failed to command: {error}");
+                }
+            })
+            .collect::<()>()
+            .await;
+        Ok(sessions_filtered.len())
+    }
+}
+
 pub struct SessionManager {
     client: TaskActorJobClient,
 }
@@ -381,14 +458,10 @@ pub trait SessionExec {
         Item: Send + Sync + AsRef<str>,
         [Item]: fmt::Debug;
 
-    async fn exec<I, T>(
-        &self,
-        kube: Client,
-        command: I,
-    ) -> Result<Vec<::kube::api::AttachedProcess>>
+    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
     where
-        I: Send + Sync + Clone + fmt::Debug + IntoIterator<Item = T>,
-        T: Sync + Into<String>;
+        I: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        <I as IntoIterator>::Item: Sync + Into<String>;
 }
 
 #[cfg(feature = "exec")]
@@ -432,14 +505,10 @@ impl<'a> SessionExec for SessionRef<'a> {
     }
 
     #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
-    async fn exec<I, T>(
-        &self,
-        kube: Client,
-        command: I,
-    ) -> Result<Vec<::kube::api::AttachedProcess>>
+    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
     where
-        I: Send + Sync + Clone + fmt::Debug + IntoIterator<Item = T>,
-        T: Sync + Into<String>,
+        I: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        <I as IntoIterator>::Item: Sync + Into<String>,
     {
         use futures::{stream::FuturesUnordered, TryStreamExt};
         use k8s_openapi::api::core::v1::PodCondition;

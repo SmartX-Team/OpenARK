@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use anyhow::{bail, Result};
-use chrono::{DateTime, Duration, Utc};
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 
@@ -42,22 +41,6 @@ where
             != Some("true")
         {
             bail!("session is not binded: {name:?}")
-        }
-
-        let duration_session_start = Duration::try_seconds(5).unwrap();
-        match labels
-            .get(self::consts::LABEL_BIND_TIMESTAMP)
-            .and_then(|timestamp| {
-                let timestamp: i64 = timestamp.parse().ok()?;
-                DateTime::<Utc>::from_timestamp_millis(timestamp)
-            }) {
-            Some(timestamp) if Utc::now() - timestamp >= duration_session_start => {}
-            Some(_) => {
-                bail!("session is in starting (timeout: {duration_session_start}): {name:?}")
-            }
-            None => {
-                bail!("session timestamp is missing: {name:?}")
-            }
         }
 
         let namespace = match labels.get(self::consts::LABEL_BIND_NAMESPACE) {

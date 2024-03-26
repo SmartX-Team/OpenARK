@@ -30,17 +30,18 @@ dash-pipe-api = { path = "../../dash/pipe/api" }
 dash-query-cli = { path = "../../dash/query/cli" }
 vine-api = { path = "../../vine/api" }
 vine-rbac = { path = "../../vine/rbac" }
+vine-session = { path = "../../vine/session", features = ["batch"] }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
 itertools = { workspace = true }
-procfs = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",
     "rustls-tls",
     "ws",
 ] }
+procfs = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

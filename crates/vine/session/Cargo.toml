@@ -21,6 +21,7 @@ workspace = true
 
 [features]
 default = []
+batch = ["exec", "regex"]
 exec = ["async-trait", "kube/ws"]
 
 [dependencies]
@@ -38,6 +39,7 @@ chrono = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
+regex = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
