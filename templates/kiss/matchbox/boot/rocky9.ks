@@ -59,6 +59,7 @@ group --gid 11 --name cdrom
 group --gid 39 --name video
 group --gid 63 --name audio
 group --gid 100 --name users
+group --gid 101 --name winbindd_privileged
 group --gid 171 --name pulse
 group --gid 983 --name pulse-rt
 group --gid 984 --name pulse-access

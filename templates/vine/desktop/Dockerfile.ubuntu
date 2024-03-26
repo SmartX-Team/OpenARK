@@ -3,9 +3,8 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG CUDA_VERSION="12.2.0"
-ARG NVIDIA_IMAGE_NAME="cuda"
-ARG UBUNTU_VERSION="22.04"
+ARG PYTORCH_RELEASE="23.08"
+ARG PYTHON_VERSION="3"
 
 # Configure user-specific environment variables
 ARG USER_GID="2000"
@@ -15,7 +14,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/${NVIDIA_IMAGE_NAME}:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}"
+FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
 
 # Load user-specific environment variables
 ARG USER_GID
@@ -23,6 +22,9 @@ ARG USER_NAME
 ARG USER_SHELL
 ARG USER_SUDO
 ARG USER_UID
+
+ENV SHELL="${USER_SHELL}"
+ENV USER_SHELL="${USER_SHELL}"
 
 # Package Manager Configuration
 ARG DEBIAN_FRONTEND='noninteractive'
@@ -40,6 +42,20 @@ CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--system" ]
 ## home.user
 VOLUME [ "/home/${USER_NAME}" ]
 
+# Fix base image bugs
+RUN true \
+    # NVIDIA
+    ## Fix library link issue (duplicated library binaries)
+    && ( which find >/dev/null \
+    && /sbin/ldconfig.real 2>&1 | grep -Po '/usr/local/lib/lib[a-z0-9_.]+' | xargs rm -f \
+    && /sbin/ldconfig.real ) \
+    || true
+
+# Configure package manager
+RUN dst='/etc/apt/apt.conf.d/docker-minimal' \
+    && echo 'APT::Install-Recommends "false";' >"${dst}" \
+    && echo 'APT::Install-Suggests "false";' >>"${dst}"
+
 # Add core repositories
 ADD ./apt/keyrings/* /etc/apt/keyrings/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
@@ -49,11 +65,10 @@ RUN true \
     && apt-get update && apt-get install -y \
     gettext-base \
     && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
-    # Remove conflicting repositories
-    && rm -f '/etc/apt/sources.list.d/cuda.list' \
     # Get OS informations
     && . /etc/os-release \
     && export ARCH="$(uname -m)" \
+    && export VERSION_CODENAME="${VERSION_CODENAME}" \
     && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
     && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \
     # Update keyrings
@@ -62,28 +77,8 @@ RUN true \
     # Update repositories
     && find /etc/apt/sources.list.d/ -type f -exec sh -c \
     'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install init program
-ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
-ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
-ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-RUN apt-get update && apt-get install -y \
-    curl \
-    procps \
-    python3 \
-    && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
-    && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
-    && rm -rf '/etc/systemd/system/multi-user.target.wants' \
-    && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
-    && ln -sf \
-    '/usr/lib/systemd/system/vine-desktop.service' \
-    '/etc/systemd/system/multi-user.target.wants/vine-desktop.service' \
-    && mkdir -p '/opt/scripts' \
-    && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
-    && chmod a+x /opt/scripts/* \
+    # Enable multiarch support
+    && if test "X${ARCH}" = 'Xx86_64'; then dpkg --add-architecture 'i386'; fi \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -91,24 +86,36 @@ RUN apt-get update && apt-get install -y \
 # Install core dependencies
 RUN apt-get update && apt-get install -y \
     apt-transport-https \
+    apt-utils \
     curl \
+    dbus-user-session \
+    dialog \
+    fancontrol \
     gpg \
-    libgles2-mesa-dev \
-    libglfw3-dev \
+    i2c-tools \
     libhwloc-dev \
     libldacbt-abr2 \
     libldacbt-enc2 \
+    libosmesa6 \
+    libpipewire-0.3-common \
     libspa-0.2-bluetooth \
-    mesa-vulkan-drivers \
+    libvulkan1 \
+    lm-sensors \
+    mesa-utils \
+    pciutils \
     pipewire \
     pipewire-audio-client-libraries \
     pipewire-media-session- \
     pipewire-pulse \
     pulseaudio-module-bluetooth- \
+    read-edid \
+    vulkan-icd \
     wireplumber \
     wmctrl \
     x11-utils \
     xdotool \
+    # DBus Configuration
+    && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -126,8 +133,11 @@ RUN apt-get update && apt-get install -y \
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
     crun \
+    dnsutils \
     fuse-overlayfs \
     git \
+    iptables \
+    iputils-ping \
     kubectl \
     nano \
     nodejs \
@@ -138,7 +148,9 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     screen \
+    slirp4netns \
     sudo \
+    uidmap \
     "${USER_SHELL}" \
     vim \
     wget \
@@ -152,6 +164,7 @@ RUN apt-get update && apt-get install -y \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
     ## chmod containers.conf and adjust storage.conf to enable Fuse storage.
+    && mkdir -p /etc/containers/ \
     && echo '[storage]' >/etc/containers/storage.conf \
     && echo 'driver = "overlay"' >>/etc/containers/storage.conf \
     && echo 'runroot = "/run/containers/storage"' >>/etc/containers/storage.conf \
@@ -185,7 +198,8 @@ RUN apt-get update && apt-get install -y \
     && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && ldconfig \
+    # SystemD Configuration
+    && chmod u+x /usr/bin/systemctl \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -198,9 +212,10 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 \
     file-roller \
     gnome-bluetooth \
-    ibus-hangul \
+    ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
     network-manager \
     network-manager-gnome \
+    pavucontrol \
     picom \
     plank \
     s3fs \
@@ -219,13 +234,167 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Install internet browsers
+# Install init program
+ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
+ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
+ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 RUN apt-get update && apt-get install -y \
-    firefox \
-    google-chrome-stable \
+    curl \
+    procps \
+    python3 \
+    && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
+    && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
+    && rm -rf '/etc/systemd/system/multi-user.target.wants' \
+    && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
+    && ln -sf \
+    '/usr/lib/systemd/system/vine-desktop.service' \
+    '/etc/systemd/system/multi-user.target.wants/vine-desktop.service' \
+    && mkdir -p '/opt/scripts' \
+    && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
+    && chmod a+x /opt/scripts/* \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
+
+# Install internet browsers, mail client, etc
+RUN apt-get update && apt-get install -y \
+    firefox \
+    google-chrome-stable \
+    thunderbird \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AI dev dependencies
+ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
+ARG DEEPSTREAM_VERSION_MAJOR="6"
+ARG DEEPSTREAM_VERSION_MINOR="4"
+ARG DEEPSTREAM_VERSION_PATCH="0"
+ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
+RUN apt-get update && apt-get install -y \
+    gstreamer1.0-alsa \
+    gstreamer1.0-gl \
+    gstreamer1.0-gtk3 \
+    gstreamer1.0-libav \
+    gstreamer1.0-pipewire \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-pulseaudio \
+    gstreamer1.0-qt5 \
+    gstreamer1.0-tools \
+    gstreamer1.0-vaapi \
+    gstreamer1.0-x \
+    libgles2-mesa-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libgstrtspserver-1.0 \
+    libjansson4 \
+    libssl3 \
+    libssl-dev \
+    libyaml-cpp-dev \
+    # Get the latest version
+    && DEEPSTREAM_VERSION="$( \
+    curl -s "${DEEPSTREAM_VERSION_URL}" \
+    | grep -Po '^version\=\K[0-9\.]+$' \
+    )" \
+    # Parse the version information
+    && DEEPSTREAM_HOME="/opt/nvidia/deepstream/deepstream" \
+    && DEEPSTREAM_VERSION_MAJOR="${DEEPSTREAM_VERSION_MAJOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $1}')"}" \
+    && DEEPSTREAM_VERSION_MINOR="${DEEPSTREAM_VERSION_MINOR:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $2}')"}" \
+    && DEEPSTREAM_VERSION_PATCH="${DEEPSTREAM_VERSION_PATCH:-"$(echo "${DEEPSTREAM_VERSION}" | awk -F '.' '{print $3}')"}" \
+    && DEEPSTREAM_VERSION_RELEASE="${DEEPSTREAM_VERSION_MAJOR}.${DEEPSTREAM_VERSION_MINOR}" \
+    && DEEPSTREAM_VERSION_FULL="${DEEPSTREAM_VERSION_RELEASE}.${DEEPSTREAM_VERSION_PATCH}" \
+    && DEEPSTREAM_URL_DOWNLOAD="${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_VERSION_RELEASE}/files" \
+    && DEEPSTREAM_FILE_DOWNLOAD="$( \
+    curl -s "${DEEPSTREAM_URL_DOWNLOAD}" \
+    | grep -Po "deepstream-${DEEPSTREAM_VERSION_RELEASE}_${DEEPSTREAM_VERSION_FULL}-[0-9]*_$(dpkg --print-architecture).deb" \
+    | sort \
+    | tail -n1 \
+    )" \
+    # Download
+    && DEEPSTREAM_FILE="/opt/deepstream-sdk.deb" \
+    && wget -qO "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
+    # Decompress the downloaded file
+    && apt-get install -y "${DEEPSTREAM_FILE}" \
+    # Install
+    && pushd "${DEEPSTREAM_HOME}" \
+    && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
+    && ./install.sh \
+    && rm -f *.sh \
+    && popd \
+    # Download the latest configuration files
+    && DEEPSTREAM_MODELS_DIR="${DEEPSTREAM_HOME}/samples/configs/tao_pretrained_models" \
+    && DEEPSTREAM_SAMPLE_HOME="/opt/deepstream_reference_apps" \
+    && git clone "${DEEPSTREAM_REFERENCES_REPO_URL}" "${DEEPSTREAM_SAMPLE_HOME}" \
+    && pushd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
+    && cp -a * "${DEEPSTREAM_MODELS_DIR}" \
+    && popd \
+    # Download the models
+    && pushd "${DEEPSTREAM_MODELS_DIR}" \
+    && ./download_models.sh \
+    && popd \
+    # Change permissions for user-level modification
+    && chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
+    # Cleanup
+    && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
+    && rm -f "${DEEPSTREAM_FILE}"
+
+# Install utility
+RUN apt-get update && apt-get install -y \
+    # Games (Lutris)
+    libegl1-mesa \
+    libglu1-mesa \
+    libnsl2 \
+    libunwind-dev \
+    libvulkan1 \
+    libwebkit2gtk-4.1 \
+    lutris \
+    python3-certifi \
+    python3-dbus \
+    python3-distro \
+    python3-lxml \
+    python3-pillow \
+    python3-requests \
+    python3-yaml \
+    steam \
+    wine \
+    $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install utility - WINE staging
+ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
+RUN true \
+    # Get the latest version
+    ## ARCH
+    && case "$(uname -m)" in \
+    'i386') \
+    WINE_ARCH='x86' \
+    ;; \
+    'x86_64') \
+    WINE_ARCH='amd64' \
+    ;; \
+    *) \
+    echo "Unsupported WINE Architechure: '$(uname -m)'" \
+    exit 1 \
+    ;; \
+    esac \
+    && WINE_VERSION="9.2" \
+    # Download
+    && WINE_OBJ_NAME="wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}" \
+    && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
+    && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
+    && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
+    && wget -qO "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
+    # Decompress the downloaded file
+    && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
+    && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
+    # Cleanup
+    && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
 
 # Install utilities - Custom
 ARG ADDONS_HOME="/opt/openark/vdi/desktop"
@@ -260,9 +429,9 @@ ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*
 
 # Add a user
-RUN ldconfig \
+RUN /sbin/ldconfig.real \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
-    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,pulse,render,video" \
+    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
     && echo -e "${USER_UID}:2001:65535" > /etc/subuid \
     && echo -e "${USER_GID}:2001:65535" > /etc/subgid
