@@ -35,6 +35,7 @@ WORKDIR /src
 RUN \
     # Cache build outputs
     --mount=type=cache,target=/src/target \
+    --mount=type=cache,target=/usr/local/cargo/registry \
     # Create an output directory
     mkdir /out \
     # Exclude non-musl packages
