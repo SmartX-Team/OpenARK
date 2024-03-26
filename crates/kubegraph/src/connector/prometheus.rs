@@ -47,11 +47,11 @@ impl ::kubegraph_api::connector::Connector for Connector {
             info!("Reloading prometheus connector...");
             self.db = db
                 .into_iter()
-                .filter_map(|spec| {
+                .map(|spec| {
                     let NetworkConnectorSpec { src, template } = spec;
                     match src {
                         NetworkConnectorSource::Prometheus(src) => {
-                            Some(NetworkConnectorSpec { src, template })
+                            NetworkConnectorSpec { src, template }
                         }
                     }
                 })

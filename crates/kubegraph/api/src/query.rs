@@ -13,6 +13,15 @@ pub struct NetworkQuery {
     pub r#type: NetworkQueryType,
 }
 
+impl NetworkQuery {
+    pub const fn name(&self) -> &'static str {
+        match &self.r#type {
+            NetworkQueryType::Edge { .. } => "edge",
+            NetworkQueryType::Node { .. } => "node",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum NetworkQueryType {

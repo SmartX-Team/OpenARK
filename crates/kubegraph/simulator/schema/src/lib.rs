@@ -34,3 +34,13 @@ pub enum NetworkObjectTemplate {
     Function(#[serde(default)] self::function::NetworkFunction),
     Node(#[serde(default)] self::node::NetworkNode),
 }
+
+impl NetworkObjectTemplate {
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Self::Constraint(_) => "constraint",
+            Self::Function(_) => "function",
+            Self::Node(_) => "node",
+        }
+    }
+}

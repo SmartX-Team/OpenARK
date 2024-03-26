@@ -64,8 +64,9 @@ async fn handle_apply(
 ) -> Result<(), Error> {
     let name = object.name_any();
     let namespace = object.namespace().unwrap_or_else(default_namespace);
+    let r#type = object.spec.template.name();
 
-    info!("Applying network connector: {namespace}/{name}");
+    info!("Applying {type} connector: {namespace}/{name}");
     graph.add_connector(namespace, name, object.spec).await;
     Ok(())
 }
@@ -77,8 +78,9 @@ async fn handle_delete(
 ) -> Result<(), Error> {
     let name = object.name_any();
     let namespace = object.namespace().unwrap_or_else(default_namespace);
+    let r#type = object.spec.template.name();
 
-    info!("Deleting network connector: {namespace}/{name}");
+    info!("Deleting {type} connector: {namespace}/{name}");
     graph.delete_connector(namespace, name).await;
     Ok(())
 }

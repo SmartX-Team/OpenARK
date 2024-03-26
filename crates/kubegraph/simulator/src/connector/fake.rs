@@ -9,7 +9,10 @@ use async_trait::async_trait;
 use clap::Parser;
 use glob::glob;
 use kubegraph_api::provider::NetworkGraphProvider;
-use kubegraph_simulator_schema::{NetworkObjectCrd, NetworkObjectMetadata, NetworkObjectTemplate};
+use kubegraph_simulator_schema::{
+    constraint::NetworkConstraint, function::NetworkFunction, node::NetworkNode, NetworkObjectCrd,
+    NetworkObjectMetadata, NetworkObjectTemplate,
+};
 use serde::Deserialize;
 use tracing::{info, instrument, warn, Level};
 
@@ -26,26 +29,58 @@ pub struct ConnectorArgs {
 
 #[derive(Default)]
 pub struct Connector {
-    templates: BTreeMap<NetworkObjectMetadata, NetworkObjectTemplate>,
+    constraints: BTreeMap<NetworkObjectMetadata, NetworkConstraint>,
+    functions: BTreeMap<NetworkObjectMetadata, NetworkFunction>,
+    nodes: BTreeMap<NetworkObjectMetadata, NetworkNode>,
 }
 
 impl Connector {
     pub fn try_new(args: &ConnectorArgs) -> Result<Self> {
         let ConnectorArgs { base_dir } = args;
+        let mut connector = Self::default();
 
-        Ok(Self {
-            templates: load_templates(base_dir)
-                .map_err(|error| anyhow!("failed to load simulator templates: {error}"))?
-                .into_iter()
-                .map(
-                    |NetworkObjectCrd {
-                         api_version: _,
-                         metadata,
-                         template,
-                     }| { (metadata, template) },
-                )
-                .collect(),
-        })
+        load_templates(base_dir)
+            .map_err(|error| anyhow!("failed to load simulator templates: {error}"))?
+            .into_iter()
+            .for_each(|crd| connector.apply(crd));
+        Ok(connector)
+    }
+
+    fn apply(&mut self, crd: NetworkObjectCrd) {
+        let NetworkObjectCrd {
+            api_version,
+            metadata: NetworkObjectMetadata { name, namespace },
+            template: _,
+        } = &crd;
+
+        match api_version.as_str() {
+            "kubegraph.ulagbulag.io/v1alpha1" => self.apply_unchecked(crd),
+            api_version => warn!("Unsupported API version {api_version:?}: {namespace}/{name}"),
+        }
+    }
+
+    fn apply_unchecked(&mut self, crd: NetworkObjectCrd) {
+        let NetworkObjectCrd {
+            api_version: _,
+            metadata,
+            template,
+        } = crd;
+
+        let NetworkObjectMetadata { name, namespace } = &metadata;
+        let r#type = template.name();
+        info!("Applying {type} connector: {namespace}/{name}");
+
+        match template {
+            NetworkObjectTemplate::Constraint(spec) => {
+                self.constraints.insert(metadata, spec);
+            }
+            NetworkObjectTemplate::Function(spec) => {
+                self.functions.insert(metadata, spec);
+            }
+            NetworkObjectTemplate::Node(spec) => {
+                self.nodes.insert(metadata, spec);
+            }
+        }
     }
 }
 
@@ -80,16 +115,15 @@ fn load_templates(base_dir: &Path) -> Result<impl IntoIterator<Item = NetworkObj
             Err(error) => {
                 let path = error.path();
                 let error = error.error();
-                warn!("Skipping errorous template ({path:?}): {error}");
+                warn!("Skipping errorous template file ({path:?}): {error}");
                 None
             }
         })
         .filter_map(|path| match ::std::fs::read_to_string(&path) {
             Ok(raw) => {
-                info!("Loading template: {path:?}");
+                info!("Loading template file: {path:?}");
                 Some(
                     ::serde_yaml::Deserializer::from_str(&raw)
-                        .into_iter()
                         .filter_map(
                             move |document| match NetworkObjectCrd::deserialize(document) {
                                 Ok(item) => Some(item),
@@ -103,7 +137,7 @@ fn load_templates(base_dir: &Path) -> Result<impl IntoIterator<Item = NetworkObj
                 )
             }
             Err(error) => {
-                warn!("Skipping errorous template ({path:?}): {error}");
+                warn!("Skipping errorous template file ({path:?}): {error}");
                 None
             }
         })
