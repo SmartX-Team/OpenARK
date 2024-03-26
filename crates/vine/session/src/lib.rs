@@ -149,7 +149,10 @@ impl SessionManager {
 
     #[instrument(level = Level::INFO, skip(self, node), fields(node_name = %node.name_any()), err(Display))]
     pub async fn try_delete(&self, node: &Node) -> Result<Option<String>> {
-        match node.get_session_ref() {
+        match node
+            .get_session_ref()
+            .and_then(|session| session.assert_started().map(|()| session))
+        {
             Ok(SessionRef { user_name, .. }) => {
                 let spec = SessionContextSpec {
                     box_quota: None,

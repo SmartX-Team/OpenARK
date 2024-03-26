@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use anyhow::{bail, Result};
+use chrono::{DateTime, Duration, TimeDelta, Utc};
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +58,13 @@ where
             }
         };
 
+        let timestamp = labels
+            .get(self::consts::LABEL_BIND_TIMESTAMP)
+            .and_then(|timestamp| {
+                let timestamp: i64 = timestamp.parse().ok()?;
+                DateTime::<Utc>::from_timestamp_millis(timestamp)
+            });
+
         let user_name = match labels.get(self::consts::LABEL_BIND_BY_USER) {
             Some(user_name) => user_name.into(),
             None => {
@@ -67,6 +75,7 @@ where
         Ok(SessionRef {
             namespace,
             node_name,
+            timestamp,
             user_name,
         })
     }
@@ -77,20 +86,46 @@ where
 pub struct SessionRef<'a> {
     pub namespace: Cow<'a, str>,
     pub node_name: Cow<'a, str>,
+    pub timestamp: Option<DateTime<Utc>>,
     pub user_name: Cow<'a, str>,
 }
 
 impl<'a> SessionRef<'a> {
+    pub fn assert_started(&self) -> Result<()> {
+        match self.is_started() {
+            Some(true) => Ok(()),
+            Some(false) => {
+                let name = &self.node_name;
+                let timeout = duration_session_start();
+                bail!("session is in starting (timeout: {timeout}): {name:?}")
+            }
+            None => {
+                let name = &self.node_name;
+                bail!("session namespace is missing: {name:?}")
+            }
+        }
+    }
+
+    pub fn is_started(&self) -> Option<bool> {
+        Some(Utc::now() >= self.timestamp? + duration_session_start())
+    }
+
     pub fn into_owned(self) -> SessionRef<'static> {
         let Self {
             namespace,
             node_name,
+            timestamp,
             user_name,
         } = self;
         SessionRef {
             namespace: namespace.into_owned().into(),
             node_name: node_name.into_owned().into(),
+            timestamp,
             user_name: user_name.into_owned().into(),
         }
     }
+}
+
+fn duration_session_start() -> TimeDelta {
+    Duration::try_seconds(5).unwrap()
 }

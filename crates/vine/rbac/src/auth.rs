@@ -105,6 +105,7 @@ impl AuthUserSessionRef for UserSessionRef {
                 Some(box_name) => box_name.into(),
                 None => bail!("session is not binded: {user_name}"),
             },
+            timestamp: None,
             user_name: user_name.into(),
         })
     }

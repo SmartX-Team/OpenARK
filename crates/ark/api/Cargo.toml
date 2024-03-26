@@ -21,5 +21,6 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+chrono = { workspace = true }
 kube = { workspace = true, features = ["derive"] }
 serde = { workspace = true }
