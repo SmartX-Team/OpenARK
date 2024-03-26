@@ -129,7 +129,7 @@ impl From<UserAuthError> for UserAuthResponse {
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserSessionResponse {
     Accept {
-        box_quota: Option<UserBoxQuotaSpec>,
+        box_quota: UserBoxQuotaSpec,
         user: UserSpec,
     },
     Error(UserSessionError),
@@ -150,12 +150,14 @@ pub enum UserSessionError {
     AlreadyLoggedInByUser { user_name: String },
     #[error("{0}")]
     AuthError(UserAuthError),
-    #[error("The user {user_name:?} has no permission to sign in. Please contact the administrator.", user_name = &user.name)]
-    Deny { user: UserSpec },
     #[error("This node is not registered. Please contact the administrator.")]
     NodeNotFound,
     #[error("This node is not permitted. Please contact the administrator.")]
     NodeNotInCluster,
+    #[error("This node is reserved to other user.")]
+    NodeReserved,
+    #[error("This node does not meet quota requirements. Please contact the administrator.")]
+    QuotaMismatched,
 }
 
 impl From<UserAuthError> for UserSessionError {

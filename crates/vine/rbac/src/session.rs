@@ -31,36 +31,42 @@ where
     let now: DateTime<Utc> = Utc::now();
 
     // get the user CR
-    let api = Api::<UserCrd>::all(client.clone());
-    let user = match api.get_opt(user_name).await? {
-        Some(user) => match assert_allocable(&user, box_name, user_name, now) {
-            Some(error) => return Ok(error),
-            None => user,
-        },
-        None => {
-            warn!("[{now}] failed to find an user: {user_name:?} => {box_name:?}");
-            return Ok(UserAuthError::UserNotRegistered.into());
+    let user = {
+        let api = Api::<UserCrd>::all(client.clone());
+        match api.get_opt(user_name).await? {
+            Some(user) => match assert_allocable(&user, box_name, user_name, now) {
+                Some(error) => return Ok(error),
+                None => user,
+            },
+            None => {
+                warn!("[{now}] failed to find an user: {user_name:?} => {box_name:?}");
+                return Ok(UserAuthError::UserNotRegistered.into());
+            }
         }
     };
 
     // check the box state
-    let api = Api::<Node>::all(client.clone());
-    match api.get_opt(box_name).await? {
-        Some(_) => {}
-        None => return Ok(UserSessionResponse::Error(UserSessionError::NodeNotFound)),
+    {
+        let api = Api::<Node>::all(client.clone());
+        match api.get_opt(box_name).await? {
+            Some(_) => {}
+            None => return Ok(UserSessionResponse::Error(UserSessionError::NodeNotFound)),
+        }
     }
 
     // get the box as a node
-    let api = Api::<Node>::all(client.clone());
-    let node = match api.get_opt(box_name).await? {
-        Some(node) => match assert_allocable(&node, box_name, user_name, now) {
-            Some(error) => return Ok(error),
-            None => node,
-        },
-        None => {
-            return Ok(UserSessionResponse::Error(
-                UserSessionError::NodeNotInCluster,
-            ))
+    let node = {
+        let api = Api::<Node>::all(client.clone());
+        match api.get_opt(box_name).await? {
+            Some(node) => match assert_allocable(&node, box_name, user_name, now) {
+                Some(error) => return Ok(error),
+                None => node,
+            },
+            None => {
+                return Ok(UserSessionResponse::Error(
+                    UserSessionError::NodeNotInCluster,
+                ))
+            }
         }
     };
 
@@ -73,9 +79,44 @@ where
         }
     });
 
-    // parse box quota
-    let box_quota = {
+    // check the box bindings
+    {
         let api = Api::<UserBoxBindingCrd>::all(client.clone());
+        let lp = ListParams::default();
+        let bindings: Vec<_> = api
+            .list(&lp)
+            .await?
+            .items
+            .into_iter()
+            .filter(|item| item.spec.r#box == box_name)
+            .filter(|item| {
+                item.spec
+                    .expired_timestamp
+                    .as_ref()
+                    .map(|timestamp| timestamp < &now)
+                    .unwrap_or(true)
+            })
+            .collect();
+
+        if !bindings.is_empty() && bindings.iter().all(|item| item.spec.user != user_name) {
+            return Ok(UserSessionResponse::Error(UserSessionError::NodeReserved));
+        }
+    }
+
+    let box_quota = {
+        // get available quotas
+        let quotas = {
+            let api = Api::<UserBoxQuotaCrd>::all(client.clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await?
+                .items
+                .into_iter()
+                .map(|item| (item.name_any(), item.spec))
+                .collect::<BTreeMap<_, _>>()
+        };
+
+        let api = Api::<UserBoxQuotaBindingCrd>::all(client.clone());
         let lp = ListParams::default();
         api.list(&lp)
             .await?
@@ -89,46 +130,8 @@ where
                     .map(|timestamp| timestamp < &now)
                     .unwrap_or(true)
             })
-            .map(|_| None)
-            .next()
-    };
-
-    let box_quota = match box_quota {
-        Some(_) => box_quota,
-        None => {
-            // get available quotas
-            let quotas = {
-                let api = Api::<UserBoxQuotaCrd>::all(client.clone());
-                let lp = ListParams::default();
-                api.list(&lp)
-                    .await?
-                    .items
-                    .into_iter()
-                    .map(|item| (item.name_any(), item.spec))
-                    .collect::<BTreeMap<_, _>>()
-            };
-
-            let api = Api::<UserBoxQuotaBindingCrd>::all(client.clone());
-            let lp = ListParams::default();
-            api.list(&lp)
-                .await?
-                .items
-                .into_iter()
-                .filter(|item| item.spec.user == user_name)
-                .filter(|item| {
-                    item.spec
-                        .expired_timestamp
-                        .as_ref()
-                        .map(|timestamp| timestamp < &now)
-                        .unwrap_or(true)
-                })
-                .filter_map(|item| quotas.get(&item.spec.quota).cloned())
-                .filter(|item| {
-                    crate::node_selector::is_affordable(available_resources, &item.compute)
-                })
-                .map(Some)
-                .next()
-        }
+            .filter_map(|item| quotas.get(&item.spec.quota).cloned())
+            .find(|item| crate::node_selector::is_affordable(available_resources, &item.compute))
     };
 
     // parse user role
@@ -172,7 +175,7 @@ where
 
             let persistence = is_persistent(&node);
             let spec = SessionContextSpecOwned {
-                box_quota: box_quota.clone(),
+                box_quota: Some(box_quota.clone()),
                 node,
                 persistence,
                 role: Some(role),
@@ -187,10 +190,10 @@ where
                 })
         }
         None => {
-            warn!("[{now}] login denied: {user_name:?} => {box_name:?}");
-            Ok(UserSessionResponse::Error(UserSessionError::Deny {
-                user: user.spec,
-            }))
+            warn!("[{now}] quota mismatched: {user_name:?} => {box_name:?}");
+            Ok(UserSessionResponse::Error(
+                UserSessionError::QuotaMismatched,
+            ))
         }
     }
 }

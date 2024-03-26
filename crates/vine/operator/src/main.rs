@@ -13,6 +13,7 @@ pub(crate) mod consts {
 async fn main() {
     join!(
         self::ctx::user_auth::Ctx::spawn_crd(),
+        self::ctx::user_box_binding::Ctx::spawn_crd(),
         self::ctx::user_session::Ctx::spawn(),
     );
 }

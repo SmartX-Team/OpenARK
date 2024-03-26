@@ -531,6 +531,15 @@ pub fn is_persistent(node: &Node) -> bool {
         .unwrap_or_default()
 }
 
+pub fn is_persistent_by(node: &Node, user_name: &str) -> bool {
+    is_persistent(node)
+        && node
+            .labels()
+            .get(::ark_api::consts::LABEL_BIND_BY_USER)
+            .map(|value| value == user_name || value.is_empty())
+            .unwrap_or_default()
+}
+
 fn get_label(node_name: &str, user_name: Option<&str>, persistent: bool) -> Value {
     json!({
         ::ark_api::consts::LABEL_BIND_BY_USER: user_name,

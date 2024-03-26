@@ -24,9 +24,6 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             ::vine_api::user::UserCrd::crd(),
             ::vine_api::user_auth::UserAuthCrd::crd(),
             ::vine_api::user_auth_binding::UserAuthBindingCrd::crd(),
-            ::vine_api::user_box_binding::UserBoxBindingCrd::crd(),
-            ::vine_api::user_box_quota::UserBoxQuotaCrd::crd(),
-            ::vine_api::user_box_quota_binding::UserBoxQuotaBindingCrd::crd(),
             ::vine_api::user_role::UserRoleCrd::crd(),
             ::vine_api::user_role_binding::UserRoleBindingCrd::crd(),
         ]

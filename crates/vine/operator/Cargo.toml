@@ -23,6 +23,7 @@ workspace = true
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["manager"] }
 ark-api = { path = "../../ark/api" }
 vine-api = { path = "../api" }
+vine-rbac = { path = "../rbac" }
 vine-session = { path = "../session" }
 
 anyhow = { workspace = true }
