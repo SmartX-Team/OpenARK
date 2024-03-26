@@ -222,6 +222,7 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-color-emoji \
     fonts-noto-extra \
     fonts-noto-mono \
+    fonts-noto-ui-core \
     fonts-noto-ui-extra \
     fonts-noto-unhinted \
     pavucontrol \
