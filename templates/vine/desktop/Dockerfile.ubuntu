@@ -217,6 +217,13 @@ RUN apt-get update && apt-get install -y \
     ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
     network-manager \
     network-manager-gnome \
+    fonts-noto \
+    fonts-noto-cjk-extra \
+    fonts-noto-color-emoji \
+    fonts-noto-extra \
+    fonts-noto-mono \
+    fonts-noto-ui-extra \
+    fonts-noto-unhinted \
     pavucontrol \
     picom \
     plank \
