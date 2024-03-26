@@ -256,10 +256,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Install internet browsers, mail client, etc
+# Install internet browsers, mail client, remote desktop, etc
 RUN apt-get update && apt-get install -y \
     firefox \
     google-chrome-stable \
+    rdesktop \
     thunderbird \
     # Cleanup
     && apt-get clean all \
