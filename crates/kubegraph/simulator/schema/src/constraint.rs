@@ -1,8 +1,9 @@
+use kubegraph_api::graph::NetworkValue;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use crate::{derive::NetworkDerive, value::NetworkValue};
+use crate::derive::NetworkDerive;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

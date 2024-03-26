@@ -118,27 +118,22 @@ async fn pull_with(
     let dataset = vector.into_iter().map(InstantVector::into_inner);
 
     let entries = dataset.clone().filter_map(|(metric, sample)| {
-        let key = match r#type {
-            NetworkQueryType::Edge { link, sink, src } => NetworkEntrykey::Edge(NetworkEdgeKey {
-                interval_ms: interval_ms
-                    .search(&metric)
-                    .and_then(|value| value.parse().ok()),
-                link: link.search(&metric)?,
-                sink: sink.search(&metric)?,
-                src: src.search(&metric)?,
-            }),
-            NetworkQueryType::Node { node } => NetworkEntrykey::Node(node.search(&metric)?),
-        };
-
-        let value = NetworkValue({
-            let count = sample.value();
-            if count < u64::MIN as f64 || count > u64::MAX as f64 {
-                return None;
-            }
-            count as u64
-        });
-
-        Some(NetworkEntry { key, value })
+        Some(NetworkEntry {
+            key: match r#type {
+                NetworkQueryType::Edge { link, sink, src } => {
+                    NetworkEntrykey::Edge(NetworkEdgeKey {
+                        interval_ms: interval_ms
+                            .search(&metric)
+                            .and_then(|value| value.parse().ok()),
+                        link: link.search(&metric)?,
+                        sink: sink.search(&metric)?,
+                        src: src.search(&metric)?,
+                    })
+                }
+                NetworkQueryType::Node { node } => NetworkEntrykey::Node(node.search(&metric)?),
+            },
+            value: NetworkValue(sample.value()),
+        })
     });
 
     graph.add_entries(entries).await

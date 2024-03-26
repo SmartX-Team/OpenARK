@@ -92,10 +92,10 @@ impl fmt::Display for NetworkNodeKey {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Copy, Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(transparent)]
-pub struct NetworkValue(pub u64);
+pub struct NetworkValue(pub f64);
 
 mod prefix {
     ::serde_with::with_prefix!(pub(super) link "link_");

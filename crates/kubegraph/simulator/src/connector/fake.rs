@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    mem::swap,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -8,7 +9,10 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
 use glob::glob;
-use kubegraph_api::provider::NetworkGraphProvider;
+use kubegraph_api::{
+    graph::{NetworkEntry, NetworkEntrykey, NetworkNodeKey},
+    provider::NetworkGraphProvider,
+};
 use kubegraph_simulator_schema::{
     constraint::NetworkConstraint, function::NetworkFunction, node::NetworkNode, NetworkObjectCrd,
     NetworkObjectMetadata, NetworkObjectTemplate,
@@ -32,6 +36,7 @@ pub struct Connector {
     constraints: BTreeMap<NetworkObjectMetadata, NetworkConstraint>,
     functions: BTreeMap<NetworkObjectMetadata, NetworkFunction>,
     nodes: BTreeMap<NetworkObjectMetadata, NetworkNode>,
+    nodes_new: Vec<(NetworkObjectMetadata, NetworkNode)>,
 }
 
 impl Connector {
@@ -78,7 +83,8 @@ impl Connector {
                 self.functions.insert(metadata, spec);
             }
             NetworkObjectTemplate::Node(spec) => {
-                self.nodes.insert(metadata, spec);
+                self.nodes.insert(metadata.clone(), spec.clone());
+                self.nodes_new.push((metadata, spec));
             }
         }
     }
@@ -99,7 +105,38 @@ impl ::kubegraph_api::connector::Connector for Connector {
     #[instrument(level = Level::INFO, skip_all)]
     async fn pull(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
         // TODO: to be implemented
+        self.pull_nodes(graph).await?;
         Ok(())
+    }
+}
+
+impl Connector {
+    async fn pull_nodes(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
+        if self.nodes_new.is_empty() {
+            return Ok(());
+        }
+
+        // unregister new nodes, taking the values to a local variable `nodes`
+        let mut nodes = vec![];
+        swap(&mut self.nodes_new, &mut nodes);
+
+        let entries = nodes.into_iter().flat_map(|(key, value)| {
+            let NetworkObjectMetadata { name, namespace } = key;
+            let NetworkNode { values } = value;
+
+            let entry_key = move |kind| NetworkNodeKey {
+                kind,
+                name: name.clone(),
+                namespace: namespace.clone(),
+            };
+
+            values.into_iter().map(move |(kind, value)| NetworkEntry {
+                key: NetworkEntrykey::Node(entry_key(kind)),
+                value,
+            })
+        });
+
+        graph.add_entries(entries).await
     }
 }
 
@@ -115,7 +152,7 @@ fn load_templates(base_dir: &Path) -> Result<impl IntoIterator<Item = NetworkObj
             Err(error) => {
                 let path = error.path();
                 let error = error.error();
-                warn!("Skipping errorous template file ({path:?}): {error}");
+                warn!("Skipping erroneous template file ({path:?}): {error}");
                 None
             }
         })
@@ -137,7 +174,7 @@ fn load_templates(base_dir: &Path) -> Result<impl IntoIterator<Item = NetworkObj
                 )
             }
             Err(error) => {
-                warn!("Skipping errorous template file ({path:?}): {error}");
+                warn!("Skipping erroneous template file ({path:?}): {error}");
                 None
             }
         })
