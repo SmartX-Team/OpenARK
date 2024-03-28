@@ -83,19 +83,14 @@ impl BatchArgs {
         let mut command = vec![];
 
         if terminal {
-            command.push("dbus-launch".into());
-            command.push("--auto-syntax".into());
-            command.push("--close-stderr".into());
-            command.push("--exit-with-session".into());
             command.push("xfce4-terminal".into());
-            command.push("-e".into());
-            command.push(format!("/usr/bin/env sh -c {:?}", shell.join(" ")));
-        } else {
-            command.push("/usr/bin/env".into());
-            command.push("sh".into());
-            command.push("-c".into());
-            command.push(shell.join(" "));
+            command.push("-x".into());
         }
+
+        command.push("/usr/bin/env".into());
+        command.push("sh".into());
+        command.push("-c".into());
+        command.push(shell.join(" "));
 
         let num_boxes = ::vine_session::BatchCommandArgs {
             command: &command,
