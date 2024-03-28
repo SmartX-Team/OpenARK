@@ -81,10 +81,10 @@ impl BatchArgs {
         } = self;
 
         let mut command = vec![
-            // "dbus-launch".into(),
-            // "--auto-syntax".into(),
-            // "--close-stderr".into(),
-            // "--exit-with-session".into(),
+            "dbus-launch".into(),
+            "--auto-syntax".into(),
+            "--close-stderr".into(),
+            "--exit-with-session".into(),
         ];
 
         if terminal {
