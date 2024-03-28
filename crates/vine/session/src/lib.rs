@@ -29,6 +29,7 @@ pub(crate) mod consts {
 pub struct BatchCommandArgs<C, U> {
     pub command: C,
     pub user_pattern: Option<U>,
+    pub wait: bool,
 }
 
 #[cfg(feature = "batch")]
@@ -41,11 +42,12 @@ impl<C, U> BatchCommandArgs<C, U> {
     {
         use anyhow::anyhow;
         use futures::{stream::FuturesUnordered, StreamExt};
-        use tracing::{debug, warn};
+        use tracing::{debug, error, warn};
 
         let Self {
             command,
             user_pattern,
+            wait,
         } = self;
 
         let user_re = match user_pattern {
@@ -90,10 +92,29 @@ impl<C, U> BatchCommandArgs<C, U> {
         ::futures::stream::iter(sessions_exec)
             .collect::<FuturesUnordered<_>>()
             .await
-            .map(|result| match result {
-                Ok(_) => (),
-                Err(error) => {
-                    warn!("failed to command: {error}");
+            .then(|result| async move {
+                match result {
+                    Ok(processes) => {
+                        if *wait {
+                            ::futures::stream::iter(processes.into_iter().map(
+                                |process| async move {
+                                    match process.join().await {
+                                        Ok(()) => (),
+                                        Err(error) => {
+                                            error!("failed to execute: {error}");
+                                        }
+                                    }
+                                },
+                            ))
+                            .collect::<FuturesUnordered<_>>()
+                            .await
+                            .collect::<()>()
+                            .await;
+                        }
+                    }
+                    Err(error) => {
+                        warn!("failed to command: {error}");
+                    }
                 }
             })
             .collect::<()>()

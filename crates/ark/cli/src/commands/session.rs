@@ -57,6 +57,9 @@ impl Command {
 
 #[derive(Clone, Debug, Parser)]
 pub(crate) struct BatchArgs {
+    #[arg(long, default_value_t = false)]
+    detach: bool,
+
     #[arg(action = ArgAction::Append, value_name = "COMMAND")]
     shell: Vec<String>,
 
@@ -71,16 +74,17 @@ impl BatchArgs {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn run(self, kube: Client) -> Result<()> {
         let Self {
+            detach,
             shell,
             terminal,
             user_pattern,
         } = self;
 
         let mut command = vec![
-            "dbus-launch".into(),
-            "--auto-syntax".into(),
-            "--close-stderr".into(),
-            "--exit-with-session".into(),
+            // "dbus-launch".into(),
+            // "--auto-syntax".into(),
+            // "--close-stderr".into(),
+            // "--exit-with-session".into(),
         ];
 
         if terminal {
@@ -92,6 +96,7 @@ impl BatchArgs {
         let num_boxes = ::vine_session::BatchCommandArgs {
             command: &command,
             user_pattern: user_pattern.as_ref(),
+            wait: !detach,
         }
         .exec(&kube)
         .await?;
