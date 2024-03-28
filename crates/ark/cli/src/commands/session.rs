@@ -80,14 +80,13 @@ impl BatchArgs {
             user_pattern,
         } = self;
 
-        let mut command = vec![
-            "dbus-launch".into(),
-            "--auto-syntax".into(),
-            "--close-stderr".into(),
-            "--exit-with-session".into(),
-        ];
+        let mut command = vec![];
 
         if terminal {
+            command.push("dbus-launch".into());
+            command.push("--auto-syntax".into());
+            command.push("--close-stderr".into());
+            command.push("--exit-with-session".into());
             command.push("xfce4-terminal".into());
             command.push("-e".into());
         }
