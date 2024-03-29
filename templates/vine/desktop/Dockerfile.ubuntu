@@ -210,13 +210,10 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     blueman \
     bluez \
+    chktex \
     code \
     dbus-x11 \
     file-roller \
-    gnome-bluetooth \
-    ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
-    network-manager \
-    network-manager-gnome \
     fonts-noto \
     fonts-noto-cjk-extra \
     fonts-noto-color-emoji \
@@ -225,13 +222,21 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-ui-core \
     fonts-noto-ui-extra \
     fonts-noto-unhinted \
+    gnome-bluetooth \
+    ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
+    latexmk \
+    libreoffice \
+    network-manager \
+    network-manager-gnome \
     pavucontrol \
     picom \
     plank \
     s3fs \
     sqlite \
     ssh-askpass \
+    texlive-full \
     thunar thunar-archive-plugin thunar-volman \
+    trash-cli \
     tumbler \
     xdg-dbus-proxy \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
