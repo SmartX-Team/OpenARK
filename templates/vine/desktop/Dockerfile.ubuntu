@@ -223,6 +223,7 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-ui-extra \
     fonts-noto-unhinted \
     gnome-bluetooth \
+    gvfs \
     ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
     latexmk \
     libreoffice \
