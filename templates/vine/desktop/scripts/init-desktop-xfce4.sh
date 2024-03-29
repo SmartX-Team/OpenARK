@@ -19,7 +19,7 @@ function update_screen() {
 
     local target_xml="${HOME}/.config/xfce4/xfconf/xfce-perchannel-xml/displays.xml"
     for monitor in $(echo -en "${monitors}"); do
-        echo "Fixing monitor screen size to perferred (${monitor})..."
+        echo "Fixing monitor screen size to preferred (${monitor})..."
         spec=$(
             xrandr |
                 awk -v monitor="^${monitor} connected" '/disconnected/ {p = 0} $0 ~ monitor {p = 1} p' |
@@ -40,7 +40,7 @@ function update_screen() {
         if [ "${monitor}" = "${monitors}" ]; then
             xrandr --output "${monitor}" \
                 --size "${monitor_resolution}" \
-                --refresh "${monitor_refresh_rate}"
+                --refresh "${monitor_refresh_rate}" || true
         fi
 
         xmlstarlet edit \
@@ -59,8 +59,8 @@ function update_screen() {
 # Apply
 update_screen
 
-# Remove caches
-rm -rf "${HOME}/.cache" || true
+# Remove cached sessions (saved sessions, etc.)
+rm -rf "${HOME}/.cache/sessions/" || true
 
 # Run desktop environment
 exec /usr/bin/dbus-launch --auto-syntax xfce4-session

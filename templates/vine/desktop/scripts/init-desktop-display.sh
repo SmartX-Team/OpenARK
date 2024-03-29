@@ -18,8 +18,8 @@ function update_screen_size() {
     fi
 
     for screen in $(echo -en "${screens}"); do
-        echo "Fixing screen size to perferred (${screen})..."
-        xrandr --output "${screen}" --preferred
+        echo "Fixing screen size to preferred (${screen})..."
+        xrandr --output "${screen}" --preferred || true
     done
 
     # Disable screen blanking

@@ -28,7 +28,7 @@ function update_screen_size() {
                 grep -Po '[0-9]+x[0-9]+' |
                 head -n1
         )" == "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" ]; do
-            xrandr --output "${screen}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
+            xrandr --output "${screen}" --mode "${SCREEN_WIDTH}x${SCREEN_HEIGHT}" || true
             sleep 1
         done
     done
