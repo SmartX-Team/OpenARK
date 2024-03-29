@@ -226,6 +226,8 @@ RUN apt-get update && apt-get install -y \
     ibus-hangul ibus-gtk ibus-gtk3 ibus-gtk4 \
     latexmk \
     libreoffice \
+    libreoffice-gtk2 \
+    libreoffice-gtk3 \
     network-manager \
     network-manager-gnome \
     pavucontrol \
