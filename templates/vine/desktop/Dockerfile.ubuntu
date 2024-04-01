@@ -36,7 +36,7 @@ STOPSIGNAL SIGRTMIN+3
 # Client Configuration
 WORKDIR /root/
 ENTRYPOINT [ "/usr/bin/env" ]
-CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--system" ]
+CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--user" ]
 
 # Volumes Configuration
 ## home.user
@@ -253,7 +253,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install init program
-ADD ./systemd/vine-desktop.service "/usr/lib/systemd/system/vine-desktop.service"
+ADD ./systemd/vine-desktop.service "/usr/lib/systemd/user/vine-desktop.service"
 ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
 ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 RUN apt-get update && apt-get install -y \
@@ -265,8 +265,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf '/etc/systemd/system/multi-user.target.wants' \
     && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
     && ln -sf \
-    '/usr/lib/systemd/system/vine-desktop.service' \
-    '/etc/systemd/system/multi-user.target.wants/vine-desktop.service' \
+    '/usr/lib/systemd/user/vine-desktop.service' \
+    '/etc/systemd/user/default.target.wants/vine-desktop.service' \
     && mkdir -p '/opt/scripts' \
     && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
     && chmod a+x /opt/scripts/* \

@@ -29,7 +29,7 @@ STOPSIGNAL SIGRTMIN+3
 # Client Configuration
 WORKDIR /root/
 ENTRYPOINT [ "/usr/bin/env" ]
-CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--system" ]
+CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--user" ]
 
 # Volumes Configuration
 ## home.user
