@@ -2,7 +2,7 @@ use std::{env, ffi::OsStr};
 
 #[cfg(feature = "otlp")]
 use opentelemetry_otlp as otlp;
-use tracing::{dispatcher, Subscriber};
+use tracing::{debug, dispatcher, Subscriber};
 use tracing_subscriber::{
     layer::SubscriberExt, registry::LookupSpan, util::SubscriberInitExt, Layer, Registry,
 };
@@ -92,7 +92,8 @@ fn init_once_opentelemetry(export: bool) {
         .with(init_layer_env_filter())
         .with(init_layer_stdfmt());
 
-    if export {
+    let is_otel_exporter_activated = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").is_ok();
+    if export && is_otel_exporter_activated {
         #[cfg(feature = "logs")]
         let layer = layer.with(init_layer_otlp_logger());
         #[cfg(feature = "metrics")]
@@ -102,6 +103,10 @@ fn init_once_opentelemetry(export: bool) {
 
         layer.init()
     } else {
+        if export && !is_otel_exporter_activated {
+            debug!("OTEL exporter is not activated.");
+        }
+
         layer.init()
     }
 }
@@ -117,7 +122,7 @@ pub fn init_once_with(level: impl AsRef<OsStr>, export: bool) {
     }
 
     // set custom tracing level
-    ::std::env::set_var(KEY, level);
+    env::set_var(KEY, level);
 
     init_once_opentelemetry(export)
 }
@@ -129,8 +134,8 @@ pub fn init_once_with_default(export: bool) {
     }
 
     // set default tracing level
-    if ::std::env::var_os(KEY).is_none() {
-        ::std::env::set_var(KEY, "INFO");
+    if env::var_os(KEY).is_none() {
+        env::set_var(KEY, "INFO");
     }
 
     init_once_opentelemetry(export)
