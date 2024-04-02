@@ -1,0 +1,2 @@
+deb [arch=amd64] https://repo.hamonikr.org jammy main
+#deb-src [arch=amd64] https://repo.hamonikr.org jammy main

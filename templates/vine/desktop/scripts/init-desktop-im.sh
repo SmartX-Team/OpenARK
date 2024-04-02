@@ -8,5 +8,5 @@ set -e -o pipefail
 # Verbose
 set -x
 
-# Try to run iBus daemon
-ibus-daemon -dvxn xfce4 || true
+# Try to run nimf daemon
+nimf || true
