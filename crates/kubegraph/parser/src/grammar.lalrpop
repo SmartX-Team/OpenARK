@@ -1,0 +1,153 @@
+use std::str::FromStr;
+
+use crate::*;
+
+
+grammar;
+
+pub Script: Script = {
+    <values: MultiLine<Stmt>> => Script(values),
+};
+
+Stmt: Stmt = {
+    <lhs: Literal> "=" <rhs: Expr> => Stmt::Set {
+        lhs,
+        rhs,
+    },
+    // "if" <r#if: Expr> ":" <then: MultiLine<Stmt>> => Stmt::IfThen {
+    //     r#if,
+    //     then,
+    //     r#else: None,
+    // },
+};
+
+pub Filter: Filter = {
+    <value: Literal> "!" => Filter::Ensure {
+        value,
+    },
+    <value: Expr> => Filter::Expr {
+        value,
+    },
+};
+
+Expr: Expr = {
+    <x: OrExpr> => x,
+};
+
+OrExpr: Expr = {
+    <x: AndExpr> => x,
+    <lhs: OrExpr> "or" <rhs: AndExpr> => Expr::And {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+};
+
+AndExpr: Expr = {
+    <x: CompExpr> => x,
+    <lhs: AndExpr> "and" <rhs: CompExpr> => Expr::And {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+};
+
+CompExpr: Expr = {
+    <x: AddExpr> => x,
+    <lhs: CompExpr> "==" <rhs: AddExpr> => Expr::Eq {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: CompExpr> ">=" <rhs: AddExpr> => Expr::Ge {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: CompExpr> ">" <rhs: AddExpr> => Expr::Gt {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: CompExpr> "<=" <rhs: AddExpr> => Expr::Le {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: CompExpr> "<" <rhs: AddExpr> => Expr::Lt {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: Literal> "->" <rhs: Literal> => Expr::Feature {
+        lhs,
+        rhs,
+    },
+};
+
+AddExpr: Expr = {
+    <x: MulExpr> => x,
+    <lhs: AddExpr> "+" <rhs: MulExpr> => Expr::Add {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: AddExpr> "-" <rhs: MulExpr> => Expr::Sub {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+};
+
+MulExpr: Expr = {
+    <x: UnaryExpr> => x,
+    <lhs: MulExpr> "*" <rhs: UnaryExpr> => Expr::Mul {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+    <lhs: MulExpr> "/" <rhs: UnaryExpr> => Expr::Div {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    },
+};
+
+UnaryExpr: Expr = {
+    <value: UnitExpr> => value,
+    "-" <value: UnitExpr> => Expr::Negative {
+        value: Box::new(value),
+    },
+    "!" <value: UnitExpr> => Expr::Not {
+        value: Box::new(value),
+    },
+};
+
+UnitExpr: Expr = {
+    <value: Value> => Expr::Identity {
+        value,
+    },
+    "(" <x: Expr> ")" => x,
+};
+
+Value: Value = {
+    <x: Number> => Value::Number(x),
+    <x: Literal> => Value::Variable(x),
+};
+
+pub Provide: Provide = {
+    <value: Literal> => Provide::Ensure {
+        value,
+    },
+    <lhs: Literal> "->" <rhs: Literal> => Provide::Feature {
+        lhs,
+        rhs,
+    },
+};
+
+Literal: Literal = {
+    <s: r"[a-z]+(-[a-z])*"> => Literal(s.into()),
+};
+
+Number: f64 = {
+    <s: r"-?[0-9]+(\.[0-9]*)?"> => f64::from_str(s).unwrap(),
+};
+
+MultiLine<T>: Vec<T> = {
+    <mut v: (<T> ",")*> <e: T?> => match e {
+        Some(e) => {
+            v.push(e);
+            v
+        },
+        None => v,
+    } 
+};

@@ -13,6 +13,7 @@ use kubegraph_api::{
     graph::{NetworkEntry, NetworkEntrykey, NetworkNodeKey},
     provider::NetworkGraphProvider,
 };
+use kubegraph_parser::{Filter, FilterParser, Literal};
 use kubegraph_simulator_schema::{
     constraint::NetworkConstraint, function::NetworkFunction, node::NetworkNode, NetworkObjectCrd,
     NetworkObjectMetadata, NetworkObjectTemplate,
@@ -33,7 +34,7 @@ pub struct ConnectorArgs {
 
 #[derive(Default)]
 pub struct Connector {
-    constraints: BTreeMap<NetworkObjectMetadata, NetworkConstraint>,
+    constraints: BTreeMap<NetworkObjectMetadata, NetworkConstraint<Filter>>,
     functions: BTreeMap<NetworkObjectMetadata, NetworkFunction>,
     nodes: BTreeMap<NetworkObjectMetadata, NetworkNode>,
     nodes_new: Vec<(NetworkObjectMetadata, NetworkNode)>,
@@ -76,9 +77,14 @@ impl Connector {
         info!("Applying {type} connector: {namespace}/{name}");
 
         match template {
-            NetworkObjectTemplate::Constraint(spec) => {
-                self.constraints.insert(metadata, spec);
-            }
+            NetworkObjectTemplate::Constraint(spec) => match spec.parse() {
+                Ok(spec) => {
+                    self.constraints.insert(metadata, spec);
+                }
+                Err(error) => {
+                    warn!("Failed to parse constraint ({namespace}/{name}): {error}");
+                }
+            },
             NetworkObjectTemplate::Function(spec) => {
                 self.functions.insert(metadata, spec);
             }
@@ -104,8 +110,11 @@ impl ::kubegraph_api::connector::Connector for Connector {
 
     #[instrument(level = Level::INFO, skip_all)]
     async fn pull(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
-        // TODO: to be implemented
+        // NOTE: ordered
         self.pull_nodes(graph).await?;
+        // self.pull_edges(graph).await?;
+        self.pull_constraints(graph).await?;
+        self.pull_functions(graph).await?;
         Ok(())
     }
 }
@@ -137,6 +146,16 @@ impl Connector {
         });
 
         graph.add_entries(entries).await
+    }
+
+    async fn pull_constraints(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
+        // TODO: to be implemented
+        todo!()
+    }
+
+    async fn pull_functions(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
+        // TODO: to be implemented
+        todo!()
     }
 }
 
@@ -179,4 +198,59 @@ fn load_templates(base_dir: &Path) -> Result<impl IntoIterator<Item = NetworkObj
             }
         })
         .flatten())
+}
+
+trait NetworkComputer {
+    type Output;
+
+    fn compute(
+        &self,
+        graph: &impl NetworkGraphProvider,
+    ) -> Result<<Self as NetworkComputer>::Output>;
+}
+
+impl NetworkComputer for NetworkConstraint<Filter> {
+    type Output = bool;
+
+    fn compute(
+        &self,
+        graph: &impl NetworkGraphProvider,
+    ) -> Result<<Self as NetworkComputer>::Output> {
+        todo!()
+    }
+}
+
+trait NetworkParser {
+    type Output;
+
+    fn parse(&self) -> Result<<Self as NetworkParser>::Output>;
+}
+
+impl NetworkParser for NetworkConstraint {
+    type Output = NetworkConstraint<Filter>;
+
+    fn parse(&self) -> Result<<Self as NetworkParser>::Output> {
+        let Self { filters, r#where } = self;
+
+        let filter_parser = FilterParser::default();
+
+        Ok(NetworkConstraint {
+            filters: filters
+                .iter()
+                .map(|input| {
+                    filter_parser
+                        .parse(input)
+                        .map_err(|error| anyhow!("{error}"))
+                })
+                .collect::<Result<_, _>>()?,
+            r#where: r#where
+                .iter()
+                .map(|input| {
+                    filter_parser
+                        .parse(input)
+                        .map_err(|error| anyhow!("{error}"))
+                })
+                .collect::<Result<_>>()?,
+        })
+    }
 }

@@ -1,57 +1,81 @@
 use std::collections::BTreeMap;
 
-use kubegraph_api::graph::NetworkValue;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::derive::NetworkDerive;
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkFunction {
-    #[serde(default)]
-    pub handlers: BTreeMap<String, NetworkHandler>,
-
-    #[serde(default)]
-    pub recursive: bool,
-
-    #[serde(default)]
-    pub values: BTreeMap<String, NetworkFunctionValue>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkHandler {
-    #[serde(default)]
-    pub values: BTreeMap<String, NetworkHandlerValue>,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkHandlerValue {
+pub struct NetworkFunction<Filter = String, Provide = String, Script = String>
+where
+    Script: Default,
+{
     #[serde(default)]
-    pub input: NetworkHandlerDelta,
-    #[serde(default)]
-    pub output: NetworkHandlerDelta,
+    pub handlers: NetworkHandlers<Filter, Provide, Script>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum NetworkHandlerDelta {
-    Constant(NetworkValue),
-}
-
-impl Default for NetworkHandlerDelta {
-    #[inline]
+impl<Filter, Provide, Script> Default for NetworkFunction<Filter, Provide, Script>
+where
+    Script: Default,
+{
     fn default() -> Self {
-        Self::Constant(NetworkValue::default())
+        Self {
+            handlers: Default::default(),
+        }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkFunctionValue {
-    pub input: String,
-    pub output: String,
-    pub derive: NetworkDerive,
+pub struct NetworkHandlers<Filter = String, Provide = String, Script = String>
+where
+    Script: Default,
+{
+    #[serde(default)]
+    pub fake: NetworkFakeHandler<Filter, Provide, Script>,
+}
+
+impl<Filter, Provide, Script> Default for NetworkHandlers<Filter, Provide, Script>
+where
+    Script: Default,
+{
+    fn default() -> Self {
+        Self {
+            fake: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkFakeHandler<Filter = String, Provide = String, Script = String>
+where
+    Script: Default,
+{
+    #[serde(default)]
+    pub data: BTreeMap<String, NetworkFakeHandlerData<Filter, Provide>>,
+
+    #[serde(default)]
+    pub script: Script,
+}
+
+impl<Filter, Provide, Script> Default for NetworkFakeHandler<Filter, Provide, Script>
+where
+    Script: Default,
+{
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            script: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkFakeHandlerData<Filter = String, Provide = String> {
+    #[serde(default)]
+    pub filters: Vec<Filter>,
+
+    #[serde(default)]
+    pub provides: Vec<Provide>,
 }

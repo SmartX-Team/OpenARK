@@ -28,6 +28,7 @@ local = ["kubegraph-provider-local"]
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "ctrlc"] }
 kubegraph-api = { path = "../api" }
+kubegraph-parser = { path = "../parser" }
 kubegraph-provider-local = { path = "../provider/local", optional = true }
 kubegraph-simulator-schema = { path = "./schema" }
 

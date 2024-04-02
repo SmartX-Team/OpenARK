@@ -132,7 +132,7 @@ async fn pull_with(
                 }
                 NetworkQueryType::Node { node } => NetworkEntrykey::Node(node.search(&metric)?),
             },
-            value: NetworkValue(sample.value()),
+            value: NetworkValue::Number(sample.value()),
         })
     });
 

@@ -1,0 +1,55 @@
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+type: Node
+metadata:
+  name: warehouse-a
+  namespace: default
+spec:
+  payload: 300
+  warehouse: true
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+type: Node
+metadata:
+  name: warehouse-b
+  namespace: default
+spec:
+  payload: 0
+  warehouse: true
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+type: Constraint
+metadata:
+  name: optimize-warehouse
+  namespace: default
+spec:
+  filters:
+    - payload >= 100
+    - payload <= 200
+    - payload -> send
+  where:
+    - payload!
+    - warehouse
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+type: Function
+metadata:
+  name: delivery
+  namespace: default
+spec:
+  handlers:
+    fake:
+      data:
+        input:
+          filters:
+            - payload!
+          provides:
+            - payload -> send
+        output:
+          filters:
+            - payload!
+          provides:
+            - payload -> send
+      script: |
+        input.payload -= 3
+        output.payload += 3
