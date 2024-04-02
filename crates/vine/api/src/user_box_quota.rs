@@ -94,12 +94,16 @@ impl UserBoxQuotaDesktopContainerSpec {
     }
 
     fn default_command() -> Option<Vec<String>> {
+        // Some(vec![
+        //     "/usr/bin/env".into(),
+        //     "/usr/bin/systemctl".into(),
+        //     "init".into(),
+        //     "vine-desktop.service".into(),
+        //     "--user".into(),
+        // ])
         Some(vec![
             "/usr/bin/env".into(),
-            "/usr/bin/systemctl".into(),
-            "init".into(),
-            "vine-desktop.service".into(),
-            "--system".into(),
+            "/opt/scripts/entrypoint-desktop.sh".into(),
         ])
     }
 
