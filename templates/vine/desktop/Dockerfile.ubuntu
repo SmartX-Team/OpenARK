@@ -226,6 +226,7 @@ RUN apt-get update && apt-get install -y \
     gvfs \
     latexmk \
     libnimf1 \
+    libnotify-bin \
     libreoffice libreoffice-gtk2 libreoffice-gtk3 \
     network-manager network-manager-gnome \
     nimf nimf-anthy nimf-dev nimf-libhangul nimf-m17n nimf-rime \
