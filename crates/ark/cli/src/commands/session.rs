@@ -84,6 +84,7 @@ impl BatchArgs {
 
         if terminal {
             command.push("xfce4-terminal".into());
+            command.push("--disable-server".into());
             command.push("-x".into());
         }
 
