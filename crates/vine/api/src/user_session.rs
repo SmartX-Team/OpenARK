@@ -27,6 +27,8 @@ pub struct UserSessionCommandBatch<Command = UserSessionCommand, UserNames = Vec
     pub command: Command,
     #[serde(default)]
     pub user_names: Option<UserNames>,
+    #[serde(default)]
+    pub wait: bool,
 }
 
 pub type UserSessionCommand = Vec<String>;

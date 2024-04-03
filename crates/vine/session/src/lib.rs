@@ -28,8 +28,42 @@ pub(crate) mod consts {
 #[cfg(feature = "batch")]
 pub struct BatchCommandArgs<C, U> {
     pub command: C,
-    pub user_pattern: Option<U>,
+    pub users: BatchCommandUsers<U>,
     pub wait: bool,
+}
+
+#[cfg(feature = "batch")]
+pub enum BatchCommandUsers<U> {
+    All,
+    List(Vec<U>),
+    Pattern(U),
+}
+
+impl<U> BatchCommandUsers<U>
+where
+    U: AsRef<str>,
+{
+    fn filter(
+        &self,
+        sessions_all: impl Iterator<Item = SessionRef<'static>>,
+    ) -> Result<Vec<SessionRef<'static>>> {
+        use anyhow::anyhow;
+
+        match self {
+            Self::All => Ok(sessions_all.collect()),
+            Self::List(items) => Ok(sessions_all
+                .filter(|session| items.iter().any(|item| item.as_ref() == session.user_name))
+                .collect()),
+            Self::Pattern(re) => {
+                let re = ::regex::Regex::new(re.as_ref())
+                    .map_err(|error| anyhow!("failed to parse box regex pattern: {error}"))?;
+
+                Ok(sessions_all
+                    .filter(|session| re.is_match(&session.user_name))
+                    .collect())
+            }
+        }
+    }
 }
 
 #[cfg(feature = "batch")]
@@ -46,17 +80,9 @@ impl<C, U> BatchCommandArgs<C, U> {
 
         let Self {
             command,
-            user_pattern,
+            users,
             wait,
         } = self;
-
-        let user_re = match user_pattern {
-            Some(re) => Some(
-                ::regex::Regex::new(re.as_ref())
-                    .map_err(|error| anyhow!("failed to parse box regex pattern: {error}"))?,
-            ),
-            None => None,
-        };
 
         let sessions_all = {
             let api = Api::<Node>::all(kube.clone());
@@ -78,12 +104,7 @@ impl<C, U> BatchCommandArgs<C, U> {
                 .map_err(|error| anyhow!("failed to list nodes: {error}"))?
         };
 
-        let sessions_filtered: Vec<_> = match user_re {
-            Some(re) => sessions_all
-                .filter(|session| re.is_match(&session.user_name))
-                .collect(),
-            None => sessions_all.collect(),
-        };
+        let sessions_filtered = users.filter(sessions_all)?;
 
         let sessions_exec = sessions_filtered
             .iter()

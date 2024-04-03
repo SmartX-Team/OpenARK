@@ -24,10 +24,9 @@ ark-core = { path = "../../ark/core", features = ["actix-web"] }
 ark-api = { path = "../../ark/api" }
 vine-api = { path = "../api" }
 vine-rbac = { path = "../rbac", features = ["actix", "serde"] }
-vine-session = { path = "../session", features = ["exec"] }
+vine-session = { path = "../session", features = ["batch", "exec"] }
 
 actix-web = { workspace = true }
-futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",
