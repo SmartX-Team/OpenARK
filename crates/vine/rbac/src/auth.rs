@@ -173,8 +173,26 @@ pub fn get_user_name(request: &::actix_web::HttpRequest) -> Result<String, UserA
     get_user_name_with_timestamp(request, now)
 }
 
-#[cfg(feature = "actix")]
+#[cfg(all(feature = "actix", feature = "unsafe-mock"))]
 fn get_user_name_with_timestamp(
+    request: &::actix_web::HttpRequest,
+    now: ::chrono::DateTime<Utc>,
+) -> Result<String, UserAuthError> {
+    ::std::env::var("DASH_UNSAFE_MOCK_USERNAME")
+        .or_else(|_| get_user_name_with_timestamp_impl(request, now))
+}
+
+#[cfg(all(feature = "actix", not(feature = "unsafe-mock")))]
+#[inline]
+fn get_user_name_with_timestamp(
+    request: &::actix_web::HttpRequest,
+    now: ::chrono::DateTime<Utc>,
+) -> Result<String, UserAuthError> {
+    get_user_name_with_timestamp_impl(request, now)
+}
+
+#[cfg(feature = "actix")]
+fn get_user_name_with_timestamp_impl(
     request: &::actix_web::HttpRequest,
     now: ::chrono::DateTime<Utc>,
 ) -> Result<String, UserAuthError> {

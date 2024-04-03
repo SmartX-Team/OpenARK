@@ -19,6 +19,15 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# --- FOR TESTING ONLY ---
+unsafe-mock = [
+    "vine-rbac/unsafe-mock",
+] # set the "DASH_UNSAFE_MOCK_USERNAME" env to your own username
+
+
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web"] }
 dash-api = { path = "../api" }

@@ -24,6 +24,9 @@ default = []
 actix = ["actix-web", "base64", "serde_json"]
 serde = ["dep:schemars", "dep:serde"]
 
+# --- FOR TESTING ONLY ---
+unsafe-mock = [] # set the "DASH_UNSAFE_MOCK_USERNAME" env to your own username
+
 [dependencies]
 ark-api = { path = "../../ark/api" }
 vine-api = { path = "../api" }
