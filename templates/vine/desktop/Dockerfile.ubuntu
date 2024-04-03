@@ -244,6 +244,7 @@ RUN apt-get update && apt-get install -y \
     xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop4 xfwm4 \
     xmlstarlet \
+    zenity \
     # Remove confliected repositories
     && rm /etc/apt/sources.list.d/microsoft.list \
     # Cleanup
