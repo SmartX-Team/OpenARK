@@ -194,6 +194,7 @@ RUN apt-get update && apt-get install -y \
     && chown -R "${USER_UID}:${USER_GID}" /etc/cdi/ \
     # Environment Variables Configuration
     && echo '# local binary path registration' >/etc/profile.d/path-local-bin.sh \
+    && echo 'export PATH=${PATH}:/usr/games' >>/etc/profile.d/path-local-bin.sh \
     && echo 'export PATH=${PATH}:/usr/local/bin' >>/etc/profile.d/path-local-bin.sh \
     && echo 'export PATH=${PATH}:/opt/bin' >>/etc/profile.d/path-local-bin.sh \
     && ln -sf /usr/local/bin /opt/bin \
@@ -205,6 +206,7 @@ RUN apt-get update && apt-get install -y \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
+ENV PATH="${PATH}:/usr/games:/usr/local/bin:/opt/bin"
 
 # Install desktop environment dependencies
 RUN apt-get update && apt-get install -y \
