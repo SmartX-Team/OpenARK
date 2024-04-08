@@ -19,7 +19,7 @@ spec:
         kissService: "false"
         serviceType: dash
     spec:
-{% if spec.hard or spec.power == "on" %}
+{% if ( spec.hard and 'power' in spec.box.spec ) or spec.power == "on" %}
       affinity:
         nodeAffinity:
           # KISS normal control plane nodes should be preferred
