@@ -99,7 +99,7 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
-{% if not spec.hard and spec.power != "on" %}
+{% if not ( spec.hard and 'power' in spec.box.spec ) and spec.power != "on" %}
       hostIPC: true
       restartPolicy: Never
       volumes:
