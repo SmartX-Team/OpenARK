@@ -173,6 +173,8 @@ impl UserBoxQuotaDesktopContextSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserBoxQuotaDesktopHostSpec {
+    #[serde(default = "UserBoxQuotaDesktopHostSpec::default_dbus")]
+    pub dbus: bool,
     #[serde(default = "UserBoxQuotaDesktopHostSpec::default_ipc")]
     pub ipc: bool,
     #[serde(default = "UserBoxQuotaDesktopHostSpec::default_network")]
@@ -184,6 +186,7 @@ pub struct UserBoxQuotaDesktopHostSpec {
 impl Default for UserBoxQuotaDesktopHostSpec {
     fn default() -> Self {
         Self {
+            dbus: Self::default_dbus(),
             ipc: Self::default_ipc(),
             network: Self::default_network(),
             privileged: Self::default_privileged(),
@@ -192,6 +195,10 @@ impl Default for UserBoxQuotaDesktopHostSpec {
 }
 
 impl UserBoxQuotaDesktopHostSpec {
+    fn default_dbus() -> bool {
+        true
+    }
+
     fn default_ipc() -> bool {
         true
     }

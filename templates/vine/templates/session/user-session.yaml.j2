@@ -358,9 +358,13 @@ spec:
         - name: logs
           emptyDir: {}
         - name: runtime-dbus
+{% if spec.boxQuota.desktop.host.dbus %}
           hostPath:
             path: /run/dbus
             type: Directory
+{% else %}
+          emptyDir: {}
+{% endif %}
         - name: runtime-user
           hostPath:
             path: "/run/user/{{ spec.boxQuota.desktop.context.uid }}"

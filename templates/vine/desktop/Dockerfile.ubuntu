@@ -242,7 +242,7 @@ RUN apt-get update && apt-get install -y \
     thunar thunar-archive-plugin thunar-volman \
     trash-cli \
     tumbler \
-    xdg-dbus-proxy \
+    xdg-dbus-proxy xdg-desktop-portal-gtk xdg-user-dirs \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
     xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop4 xfwm4 \

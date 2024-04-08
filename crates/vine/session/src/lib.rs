@@ -39,6 +39,7 @@ pub enum BatchCommandUsers<U> {
     Pattern(U),
 }
 
+#[cfg(feature = "batch")]
 impl<U> BatchCommandUsers<U>
 where
     U: AsRef<str>,

@@ -9,4 +9,7 @@ set -e -o pipefail
 set -x
 
 # Start user-level dbus session
+if [ ! -S /run/dbus/system_bus_socket ]; then
+    /etc/init.d/dbus start || true
+fi
 systemctl --user enable --now dbus
