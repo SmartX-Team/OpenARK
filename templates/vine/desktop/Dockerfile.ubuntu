@@ -326,7 +326,6 @@ RUN apt-get update && apt-get install -y \
     libgstreamer-plugins-base1.0-dev \
     libgstrtspserver-1.0 \
     libjansson4 \
-    libssl3 \
     libssl-dev \
     libyaml-cpp-dev \
     # Get the latest version
