@@ -1,4 +1,4 @@
-mod cluster;
+pub mod cluster;
 mod config;
 pub mod job;
 

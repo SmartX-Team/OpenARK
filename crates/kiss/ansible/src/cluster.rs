@@ -227,7 +227,7 @@ impl ClusterControlPlaneState {
         self.nodes
             .iter()
             .filter(|node| node.is_running || filter.contains(node.uuid))
-            .sorted_by_key(|node| (&node.created_at, node))
+            .sorted_by_key(|&node| (&node.created_at, node))
     }
 
     fn num_running(&self) -> usize {
@@ -252,7 +252,7 @@ impl ClusterControlPlaneFilter {
     fn contains(&self, target: Uuid) -> bool {
         match self {
             Self::Running => false,
-            Self::RunningWith { uuid } => uuid == target,
+            Self::RunningWith { uuid } => *uuid == target,
         }
     }
 }
@@ -264,17 +264,17 @@ where
 {
     nodes
         .into_iter()
-        .map(|node| node.as_ref())
         .sorted_by_key(|node| {
+            let node = node.as_ref();
             (
                 // Place the unready node to the last
                 // so that the cluster info should be preferred.
                 !node.is_running,
-                &node.created_at,
-                node,
+                node.created_at.clone(),
+                node.clone(),
             )
         })
-        .filter_map(|node| node.get_host())
+        .filter_map(|node| node.as_ref().get_host())
         .map(|host| format!("{node_role}:{host}"))
         .join(" ")
 }
