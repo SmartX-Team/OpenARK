@@ -101,6 +101,20 @@ data:
     deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
     deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
 
+    # Ubuntu Noble (24.04)
+    deb           http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
+
     # Ubuntu Installer
     # deb-amd64     http://archive.ubuntu.com/ubuntu xenial main main/debian-installer restricted restricted/debian-installer universe
     # deb-i386      http://archive.ubuntu.com/ubuntu xenial main main/debian-installer restricted restricted/debian-installer universe

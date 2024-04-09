@@ -1,6 +1,7 @@
 # Configure environment variables
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.19')
 export K8S_VERSION := env_var_or_default('K8S_VERSION', '1.27.4')
+export OCI_BUILD_LOG_DIR := env_var_or_default('OCI_BUILD_LOG_DIR', './logs/')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/amd64')
@@ -8,20 +9,20 @@ export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/amd64')
 default:
   @just push 'rockylinux'
 
-build DIST NVIDIA_IMAGE_NAME='cuda':
+build DIST:
+  mkdir -p "${OCI_BUILD_LOG_DIR}"
   docker buildx build \
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --build-arg "K8S_VERSION=${K8S_VERSION}" \
-    --build-arg "NVIDIA_IMAGE_NAME={{ NVIDIA_IMAGE_NAME }}" \
     --file "./Dockerfile.{{ DIST }}" \
     --platform "${OCI_PLATFORMS}" \
     --progress 'plain' \
     --pull \
     --push \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-{{ DIST }}" \
-    .
+    . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-{{ DIST }}-$( date -u +%s ).log"
 
-push DIST NVIDIA_IMAGE_NAME='cuda': (build DIST NVIDIA_IMAGE_NAME)
+push DIST: (build DIST)
 
 push-all:
   for src_file in Dockerfile.*; do true \

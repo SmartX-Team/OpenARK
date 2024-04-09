@@ -1,0 +1,5 @@
+/*.sh
+/.gitignore
+/Dockerfile*
+/Justfile
+/logs

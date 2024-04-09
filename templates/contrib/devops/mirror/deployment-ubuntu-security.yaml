@@ -46,6 +46,11 @@ data:
     deb-i386      http://security.ubuntu.com/ubuntu     jammy-security     main restricted universe multiverse
     deb-amd64     http://security.ubuntu.com/ubuntu     jammy-security     main restricted universe multiverse
 
+    # Ubuntu Noble (24.04)
+    deb           http://security.ubuntu.com/ubuntu     noble-security     main restricted universe multiverse
+    deb-i386      http://security.ubuntu.com/ubuntu     noble-security     main restricted universe multiverse
+    deb-amd64     http://security.ubuntu.com/ubuntu     noble-security     main restricted universe multiverse
+
     clean         http://security.ubuntu.com/ubuntu
   nginx.conf: |
     server {

@@ -7,6 +7,7 @@ set dotenv-load
 
 # Configure environment variables
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.18')
+export OCI_BUILD_LOG_DIR := env_var_or_default('OCI_BUILD_LOG_DIR', './logs/')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
@@ -42,6 +43,7 @@ run *ARGS:
   cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release -- {{ ARGS }}
 
 oci-build:
+  mkdir -p "${OCI_BUILD_LOG_DIR}"
   docker buildx build \
     --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
@@ -49,7 +51,7 @@ oci-build:
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \
-    .
+    . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-base-$( date -u +%s ).log"
 
 oci-build-devel:
   docker buildx build \
@@ -59,7 +61,7 @@ oci-build-devel:
     --platform "linux/amd64" \
     --pull \
     --push \
-    .
+    . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-devel-$( date -u +%s ).log"
 
 oci-build-full:
   docker buildx build \
@@ -69,7 +71,7 @@ oci-build-full:
     --platform "${OCI_PLATFORMS}" \
     --pull \
     --push \
-    .
+    . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-full-$( date -u +%s ).log"
 
 oci-push: oci-build
 

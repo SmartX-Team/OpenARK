@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG PYTORCH_RELEASE="23.08"
-ARG PYTHON_VERSION="3"
+ARG DEBIAN_IMAGE="docker.io/library/ubuntu"
+ARG DEBIAN_IMAGE_VERSION="24.04"
 
 # Configure user-specific environment variables
 ARG USER_GID="2000"
@@ -14,7 +14,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
+FROM "${DEBIAN_IMAGE}:${DEBIAN_IMAGE_VERSION}" as server
 
 # Load user-specific environment variables
 ARG USER_GID
@@ -61,14 +61,22 @@ ADD ./apt/keyrings/* /etc/apt/keyrings/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
 RUN true \
     # Install dependencies
-    && mv '/etc/apt/sources.list.d/' '/etc/apt/sources.list.d.bak/' \
     && apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
     gettext-base \
-    && mv '/etc/apt/sources.list.d.bak/' '/etc/apt/sources.list.d/' \
+    gnupg \
+    openssl \
+    # Get the latest kubernetes informations
+    && export KUBERNETES_VERSION="$( \
+    curl -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest \
+    | grep -Po '"tag_name": +"v\K[0-9]+\.[0-9]+' \
+    )" \
     # Get OS informations
     && . /etc/os-release \
     && export ARCH="$(uname -m)" \
     && export VERSION_CODENAME="${VERSION_CODENAME}" \
+    && export VERSION_ID="${VERSION_ID}" \
     && export VERSION_ID_MAJOR="${VERSION_ID%\.[0-9]*}" \
     && export VERSION_ID_MINOR="${VERSION_ID#[0-9]*\.}" \
     # Update keyrings
@@ -123,9 +131,11 @@ RUN apt-get update && apt-get install -y \
 # Install locale dependencies
 RUN apt-get update && apt-get install -y \
     language-pack-ko \
+    locales \
     # Set default locale
     && locale-gen --purge en_US.UTF-8 \
-    && echo -e 'LANG="en_US.UTF-8"\nLANGUAGE="en_US:en"\n' | tee /etc/default/locale \
+    && echo 'LANG="en_US.UTF-8"' >/etc/default/locale \
+    && echo 'LANGUAGE="en_US:en"' >>/etc/default/locale \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -229,14 +239,14 @@ RUN apt-get update && apt-get install -y \
     latexmk \
     libnimf1 \
     libnotify-bin \
-    libreoffice libreoffice-gtk2 libreoffice-gtk3 \
+    libreoffice libreoffice-gtk3 \
     network-manager network-manager-gnome \
     nimf nimf-anthy nimf-dev nimf-libhangul nimf-m17n nimf-rime \
     pavucontrol \
     picom \
     plank \
     s3fs \
-    sqlite \
+    sqlite3 \
     ssh-askpass \
     texlive-full \
     thunar thunar-archive-plugin thunar-volman \
@@ -432,7 +442,7 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     ; done
 
 # Install utilities - Podman
-ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/libpod/master/contrib/podmanimage/stable"
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/image_build/main/podman"
 ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
 ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
 ENV _CONTAINERS_USERNS_CONFIGURED=""
@@ -457,7 +467,7 @@ RUN /sbin/ldconfig.real \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
-    && echo -e "${USER_UID}:2001:65535" > /etc/subuid \
-    && echo -e "${USER_GID}:2001:65535" > /etc/subgid
+    && printf "${USER_UID}:2001:65535" > /etc/subuid \
+    && printf "${USER_GID}:2001:65535" > /etc/subgid
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"
