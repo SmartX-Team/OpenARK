@@ -248,6 +248,9 @@ RUN apt-get update && apt-get install -y \
     xfconf xfdesktop4 xfwm4 \
     xmlstarlet \
     zenity \
+    # Link default system-wide font config
+    && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
+    && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
     # Remove confliected repositories
     && rm /etc/apt/sources.list.d/microsoft.list \
     # Cleanup
