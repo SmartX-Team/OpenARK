@@ -64,6 +64,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -114,6 +118,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -166,6 +174,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -217,6 +229,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -273,6 +289,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -323,6 +343,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -375,6 +399,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -425,6 +453,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -477,6 +509,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -527,6 +563,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -579,6 +619,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -629,6 +673,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
@@ -681,6 +729,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -732,6 +784,10 @@ jobs:
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
 
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
         with:
@@ -782,6 +838,10 @@ jobs:
           && sudo apt-get install -y podman
           && mkdir -p /home/runner/.docker/
           && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
 
       - name: Log in to ${{ env.REGISTRY }}
         uses: redhat-actions/podman-login@v1
