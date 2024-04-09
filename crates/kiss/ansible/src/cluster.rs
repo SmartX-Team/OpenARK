@@ -257,24 +257,19 @@ impl ClusterControlPlaneFilter {
     }
 }
 
-fn get_nodes_as_string<I, Item>(nodes: I, node_role: &str) -> String
-where
-    I: IntoIterator<Item = Item>,
-    Item: AsRef<ClusterBoxState>,
-{
+fn get_nodes_as_string(nodes: Vec<&ClusterBoxState>, node_role: &str) -> String {
     nodes
-        .into_iter()
-        .sorted_by_key(|node| {
-            let node = node.as_ref();
+        .iter()
+        .sorted_by_key(|&&node| {
             (
                 // Place the unready node to the last
                 // so that the cluster info should be preferred.
                 !node.is_running,
-                node.created_at.clone(),
-                node.clone(),
+                &node.created_at,
+                node,
             )
         })
-        .filter_map(|node| node.as_ref().get_host())
+        .filter_map(|node| node.get_host())
         .map(|host| format!("{node_role}:{host}"))
         .join(" ")
 }
