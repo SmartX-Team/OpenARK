@@ -180,13 +180,23 @@ impl SessionManager {
     const THRESHOLD_SESSION_TIMEOUT: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
     #[instrument(level = Level::INFO, skip(self, spec), fields(node_name = %spec.node.name_any(), user_name = %spec.user_name), err(Display))]
-    pub async fn try_create(&self, spec: &SessionContextSpec<'_>) -> Result<()> {
+    pub async fn try_create(
+        &self,
+        spec: &SessionContextSpec<'_>,
+        delete_on_fail: bool,
+    ) -> Result<()> {
         match self.create(spec).await {
             Ok(()) => Ok(()),
-            Err(error_create) => match self.delete(spec).await {
-                Ok(()) => Err(error_create),
-                Err(error_revert) => bail!("{error_create}\n{error_revert}"),
-            },
+            Err(error_create) => {
+                if delete_on_fail {
+                    match self.delete(spec).await {
+                        Ok(()) => Err(error_create),
+                        Err(error_revert) => bail!("{error_create}\n{error_revert}"),
+                    }
+                } else {
+                    Err(error_create)
+                }
+            }
         }
     }
 

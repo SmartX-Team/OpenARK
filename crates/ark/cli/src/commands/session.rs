@@ -116,6 +116,9 @@ pub(crate) struct LoginArgs {
 
     #[arg(long, env = "VINE_SESSION_USER", value_name = "NAME")]
     user: String,
+
+    #[arg(long, env = "VINE_SESSION_LOGOUT_ON_FAILED")]
+    logout_on_failed: bool,
 }
 
 impl LoginArgs {
@@ -124,9 +127,10 @@ impl LoginArgs {
         let Self {
             r#box: box_name,
             user: user_name,
+            logout_on_failed,
         } = &self;
 
-        ::vine_rbac::login::execute(&kube, box_name, user_name).await
+        ::vine_rbac::login::execute(&kube, box_name, user_name, logout_on_failed).await
     }
 }
 

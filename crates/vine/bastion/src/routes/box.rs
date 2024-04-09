@@ -24,7 +24,14 @@ pub mod login {
     ) -> impl Responder {
         match match ::vine_rbac::auth::get_user_name(&request) {
             Ok(user_name) => {
-                ::vine_rbac::login::execute(&client, &box_name.to_string(), &user_name).await
+                const LOGOUT_ON_FAILED: bool = false;
+                ::vine_rbac::login::execute(
+                    &client,
+                    &box_name.to_string(),
+                    &user_name,
+                    LOGOUT_ON_FAILED,
+                )
+                .await
             }
             Err(response) => Ok(response.into()),
         } {

@@ -98,7 +98,8 @@ async fn enable_autologin(kube: &Client, node_name: &str, user_name: &str) -> Re
 
     update_node_autologin(kube, node_name, Some(user_name)).await?;
 
-    match ::vine_rbac::login::execute(kube, node_name, user_name).await {
+    const LOGOUT_ON_FAILED: bool = false;
+    match ::vine_rbac::login::execute(kube, node_name, user_name, LOGOUT_ON_FAILED).await {
         Ok(UserSessionResponse::Accept { .. }) => {
             info!("binded node: {node_name:?} => {user_name:?}");
             Ok(())
