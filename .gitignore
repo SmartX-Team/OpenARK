@@ -24,4 +24,5 @@ Cargo.lock
 
 # Temporary files
 **/*.sled
+/logs
 /test-*

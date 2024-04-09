@@ -57,4 +57,5 @@ Cargo.lock
 !/templates/devel/scripts/
 
 # Temporary files
+/logs
 /test-*
