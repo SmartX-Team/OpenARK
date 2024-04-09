@@ -1,0 +1,3 @@
+# FIXME: Waiting for official Ubuntu 24.04 release
+#deb [signed-by=/etc/apt/keyrings/nvidia-compute-cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${VERSION_ID_MAJOR}${VERSION_ID_MINOR}/${ARCH}/ /
+deb [signed-by=/etc/apt/keyrings/nvidia-compute-cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/${ARCH}/ /
