@@ -128,9 +128,9 @@ impl LoginArgs {
             r#box: box_name,
             user: user_name,
             logout_on_failed,
-        } = &self;
+        } = self;
 
-        ::vine_rbac::login::execute(&kube, box_name, user_name, logout_on_failed).await
+        ::vine_rbac::login::execute(&kube, &box_name, &user_name, logout_on_failed).await
     }
 }
 
