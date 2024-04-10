@@ -42,34 +42,39 @@ CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--user" ]
 ## home.user
 VOLUME [ "/home/${USER_NAME}" ]
 
-# Fix base image bugs
+# Configure OS-specific settings
 RUN true \
-    # NVIDIA
-    ## Fix library link issue (duplicated library binaries)
+    # Fix base image bugs
+    ## NVIDIA
+    ### Fix library link issue (duplicated library binaries)
     && ( which find >/dev/null \
     && /sbin/ldconfig.real 2>&1 | grep -Po '/usr/local/lib/lib[a-z0-9_.]+' | xargs rm -f \
     && /sbin/ldconfig.real ) \
-    || true
-
-# Configure package manager
-RUN dst='/etc/apt/apt.conf.d/docker-minimal' \
+    || true \
+    # Configure package manager
+    && dst='/etc/apt/apt.conf.d/docker-minimal' \
     && echo 'APT::Install-Recommends "false";' >"${dst}" \
-    && echo 'APT::Install-Suggests "false";' >>"${dst}"
-
-# Add core repositories
-ADD ./apt/keyrings/* /etc/apt/keyrings/
-ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
-RUN true \
-    # Install dependencies
+    && echo 'APT::Install-Suggests "false";' >>"${dst}" \
+    # Install base dependencies
     && apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     gettext-base \
     gnupg \
     openssl \
+    # Enable multiarch support
+    && if test "X$(uname -m)" = 'Xx86_64'; then dpkg --add-architecture 'i386'; fi \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add core repositories
+ADD ./apt/keyrings/* /etc/apt/keyrings/
+ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
+RUN true \
     # Get the latest kubernetes informations
     && export KUBERNETES_VERSION="$( \
-    curl -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest \
+    curl -s "https://api.github.com/repos/kubernetes/kubernetes/releases/latest" \
     | grep -Po '"tag_name": +"v\K[0-9]+\.[0-9]+' \
     )" \
     # Get OS informations
@@ -85,8 +90,6 @@ RUN true \
     # Update repositories
     && find /etc/apt/sources.list.d/ -type f -exec sh -c \
     'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
-    # Enable multiarch support
-    && if test "X${ARCH}" = 'Xx86_64'; then dpkg --add-architecture 'i386'; fi \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -122,6 +125,7 @@ RUN apt-get update && apt-get install -y \
     wmctrl \
     x11-utils \
     xdotool \
+    zsh \
     # DBus Configuration
     && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
     # Cleanup
@@ -142,7 +146,12 @@ RUN apt-get update && apt-get install -y \
 
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
-    clang \
+    bash-completion \
+    "$(apt-cache search '^clang-[0-9]+$' \
+    | awk '{print $1}' \
+    | sort -r \
+    | head -n 1 \
+    )" \
     crun \
     dnsutils \
     fuse-overlayfs \
@@ -167,6 +176,9 @@ RUN apt-get update && apt-get install -y \
     vim \
     wget \
     zip \
+    zsh-autosuggestions \
+    zsh-completions \
+    zsh-syntax-highlighting \
     # Allow passwordless sudo command
     && test "x${USER_SUDO}" = "xtrue" \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
@@ -219,6 +231,8 @@ RUN apt-get update && apt-get install -y \
 ENV PATH="${PATH}:/usr/games:/usr/local/bin:/opt/bin"
 
 # Install desktop environment dependencies
+# ARG IME_NIMF_INPUTS="nimf-anthy nimf-libhangul nimf-m17n nimf-rime"
+ARG NIMF_INPUTS="nimf-libhangul"
 RUN apt-get update && apt-get install -y \
     blueman \
     bluez \
@@ -241,7 +255,7 @@ RUN apt-get update && apt-get install -y \
     libnotify-bin \
     libreoffice libreoffice-gtk3 \
     network-manager network-manager-gnome \
-    nimf nimf-anthy nimf-dev nimf-libhangul nimf-m17n nimf-rime \
+    nimf nimf-dev ${NIMF_INPUTS} \
     pavucontrol \
     picom \
     plank \
@@ -328,6 +342,12 @@ RUN apt-get update && apt-get install -y \
     libjansson4 \
     libssl-dev \
     libyaml-cpp-dev \
+    # FIXME: Waiting for fixing TensorRT release issue: https://github.com/NVIDIA/TensorRT/issues/3774
+    libnvinfer-dev="8.6.1.6-1+cuda12.0" \
+    libnvinfer-headers-dev="8.6.1.6-1+cuda12.0" \
+    libnvinfer-headers-plugin-dev="8.6.1.6-1+cuda12.0" \
+    libnvinfer-plugin-dev="8.6.1.6-1+cuda12.0" \
+    libnvonnxparsers-dev="8.6.1.6-1+cuda12.0" \
     # Get the latest version
     && DEEPSTREAM_VERSION="$( \
     curl -s "${DEEPSTREAM_VERSION_URL}" \
@@ -353,22 +373,22 @@ RUN apt-get update && apt-get install -y \
     # Decompress the downloaded file
     && apt-get install -y "${DEEPSTREAM_FILE}" \
     # Install
-    && pushd "${DEEPSTREAM_HOME}" \
+    && cd "${DEEPSTREAM_HOME}" \
     && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
     && ./install.sh \
     && rm -f *.sh \
-    && popd \
+    && cd - \
     # Download the latest configuration files
     && DEEPSTREAM_MODELS_DIR="${DEEPSTREAM_HOME}/samples/configs/tao_pretrained_models" \
     && DEEPSTREAM_SAMPLE_HOME="/opt/deepstream_reference_apps" \
     && git clone "${DEEPSTREAM_REFERENCES_REPO_URL}" "${DEEPSTREAM_SAMPLE_HOME}" \
-    && pushd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
+    && cd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
     && cp -a * "${DEEPSTREAM_MODELS_DIR}" \
-    && popd \
+    && cd - \
     # Download the models
-    && pushd "${DEEPSTREAM_MODELS_DIR}" \
+    && cd "${DEEPSTREAM_MODELS_DIR}" \
     && ./download_models.sh \
-    && popd \
+    && cd - \
     # Change permissions for user-level modification
     && chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
     # Cleanup
@@ -378,7 +398,7 @@ RUN apt-get update && apt-get install -y \
 # Install utility
 RUN apt-get update && apt-get install -y \
     # Games (Lutris)
-    libegl1-mesa \
+    libegl1-mesa-dev \
     libglu1-mesa \
     libnsl2 \
     libunwind-dev \

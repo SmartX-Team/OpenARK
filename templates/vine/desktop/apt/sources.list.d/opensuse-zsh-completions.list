@@ -1,0 +1,3 @@
+# FIXME: Waiting for official Ubuntu 24.04 release
+#deb [signed-by=/etc/apt/keyrings/opensuse-zsh-completions.gpg, trusted=yes] http://download.opensuse.org/repositories/shells:/zsh-users:/zsh-completions/xUbuntu_${VERSION_ID_MAJOR}.${VERSION_ID_MINOR}/ /
+deb [signed-by=/etc/apt/keyrings/opensuse-zsh-completions.gpg, trusted=yes] http://download.opensuse.org/repositories/shells:/zsh-users:/zsh-completions/Debian_Testing/ /
