@@ -139,6 +139,8 @@ RUN apt-get update && apt-get install -y \
     binutils \
     cmake \
     curl \
+    fakeroot \
+    make \
     pkg-config \
     sudo \
     uidmap \
@@ -177,6 +179,7 @@ RUN apt-get update && apt-get install -y \
     # Kubernetes
     kubectl \
     # Language-specific (Assembly)
+    # FIXME: release version lock after amd64 generic package is released: https://packages.ubuntu.com/noble/llvm-dev
     "$(apt-cache search '^llvm-[0-9]+-dev$' \
     | awk '{print $1}' \
     | sort -r \
@@ -185,11 +188,14 @@ RUN apt-get update && apt-get install -y \
     nasm \
     # Language-specific (C/C++)
     build-essential \
+    # FIXME: release version lock after amd64 generic package is released: https://packages.ubuntu.com/noble/clang
     "$(apt-cache search '^clang-[0-9]+$' \
     | awk '{print $1}' \
     | sort -r \
     | head -n 1 \
     )" \
+    gcc \
+    g++ \
     # Language-specific (Javascript)
     nodejs \
     # Language-specific (Python)
