@@ -177,11 +177,19 @@ RUN apt-get update && apt-get install -y \
     # Kubernetes
     kubectl \
     # Language-specific (Assembly)
-    llvm-dev \
+    "$(apt-cache search '^llvm-[0-9]+-dev$' \
+    | awk '{print $1}' \
+    | sort -r \
+    | head -n 1 \
+    )" \
     nasm \
     # Language-specific (C/C++)
     build-essential \
-    clang \
+    "$(apt-cache search '^clang-[0-9]+$' \
+    | awk '{print $1}' \
+    | sort -r \
+    | head -n 1 \
+    )" \
     # Language-specific (Javascript)
     nodejs \
     # Language-specific (Python)
