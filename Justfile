@@ -42,7 +42,7 @@ test: clippy
 run *ARGS:
   cargo run --package "${DEFAULT_RUNTIME_PACKAGE}" --release -- {{ ARGS }}
 
-oci-build:
+oci-build *ARGS:
   mkdir -p "${OCI_BUILD_LOG_DIR}"
   docker buildx build \
     --file './Dockerfile' \
@@ -50,34 +50,34 @@ oci-build:
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
-    --push \
+    {{ ARGS }} \
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-base-$( date -u +%s ).log"
 
-oci-build-devel:
+oci-build-devel *ARGS:
   docker buildx build \
     --file './Dockerfile.devel' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     --platform "linux/amd64" \
     --pull \
-    --push \
+    {{ ARGS }} \
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-devel-$( date -u +%s ).log"
 
-oci-build-full:
+oci-build-full *ARGS:
   docker buildx build \
     --file './Dockerfile.full' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
     --platform "${OCI_PLATFORMS}" \
     --pull \
-    --push \
+    {{ ARGS }} \
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-full-$( date -u +%s ).log"
 
-oci-push: oci-build
+oci-push: (oci-build "--push")
 
-oci-push-devel: oci-build-devel
+oci-push-devel: (oci-build-devel "--push")
 
-oci-push-full: oci-build-full
+oci-push-full: (oci-build-full "--push")
 
 oci-push-and-update-dash: oci-push
   kubectl -n dash delete pods --selector name=gateway

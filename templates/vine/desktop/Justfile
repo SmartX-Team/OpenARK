@@ -9,7 +9,7 @@ export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/amd64')
 default:
   @just push 'rockylinux'
 
-build DIST:
+build DIST *ARGS:
   mkdir -p "${OCI_BUILD_LOG_DIR}"
   docker buildx build \
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
@@ -18,11 +18,11 @@ build DIST:
     --platform "${OCI_PLATFORMS}" \
     --progress 'plain' \
     --pull \
-    --push \
     --tag "${OCI_IMAGE}:{{ DIST }}-${OCI_IMAGE_VERSION}" \
+    {{ ARGS }} \
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-{{ DIST }}-$( date -u +%s ).log"
 
-push DIST: (build DIST)
+push DIST: (build DIST "--push")
 
 push-all:
   for src_file in Dockerfile.*; do true \

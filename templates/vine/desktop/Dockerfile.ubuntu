@@ -68,8 +68,9 @@ RUN true \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Add core repositories
+# Configure 3rd-party repositories
 ADD ./apt/keyrings/* /etc/apt/keyrings/
+ADD ./apt/preferences.d/* /etc/apt/preferences.d/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
 RUN true \
     # Get the latest kubernetes informations
@@ -94,40 +95,28 @@ RUN true \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Install core dependencies
+# Install init program (SystemD)
+ADD ./systemd/vine-desktop.service "/usr/lib/systemd/user/vine-desktop.service"
+ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
+ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 RUN apt-get update && apt-get install -y \
-    apt-transport-https \
-    apt-utils \
     curl \
-    dbus-user-session \
-    dialog \
-    fancontrol \
-    gpg \
-    i2c-tools \
-    libhwloc-dev \
-    libldacbt-abr2 \
-    libldacbt-enc2 \
-    libosmesa6 \
-    libpipewire-0.3-common \
-    libspa-0.2-bluetooth \
-    libvulkan1 \
-    lm-sensors \
-    mesa-utils \
-    pciutils \
-    pipewire \
-    pipewire-audio-client-libraries \
-    pipewire-media-session- \
-    pipewire-pulse \
-    pulseaudio-module-bluetooth- \
-    read-edid \
-    vulkan-icd \
-    wireplumber \
-    wmctrl \
-    x11-utils \
-    xdotool \
-    zsh \
-    # DBus Configuration
-    && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
+    procps \
+    python3 \
+    systemd \
+    && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
+    && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
+    && rm -rf '/etc/systemd/system/multi-user.target.wants' \
+    && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
+    && mkdir -p '/etc/systemd/user/default.target.wants' \
+    && ln -sf \
+    '/usr/lib/systemd/user/vine-desktop.service' \
+    '/etc/systemd/user/default.target.wants/vine-desktop.service' \
+    && mkdir -p '/opt/scripts' \
+    && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
+    && chmod a+x /opt/scripts/* \
+    # SystemD Configuration
+    && chmod u+x /usr/bin/journalctl /usr/bin/systemctl \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -146,36 +135,71 @@ RUN apt-get update && apt-get install -y \
 
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
-    bash-completion \
-    "$(apt-cache search '^clang-[0-9]+$' \
-    | awk '{print $1}' \
-    | sort -r \
-    | head -n 1 \
-    )" \
-    crun \
-    dnsutils \
-    fuse-overlayfs \
-    git \
-    iptables \
-    iputils-ping \
-    kubectl \
-    mold \
-    nano \
-    nodejs \
-    nvidia-container-toolkit-base \
-    openssh-client \
-    pciutils \
-    podman-docker \
-    python3 \
-    python3-pip \
-    screen \
-    slirp4netns \
+    # Core
+    binutils \
+    cmake \
+    curl \
+    pkg-config \
     sudo \
     uidmap \
     "${USER_SHELL}" \
-    vim \
     wget \
     zip \
+    # Core (Devops, CI/CD)
+    git \
+    # Core (Container)
+    crun \
+    nvidia-container-toolkit-base \
+    podman-docker \
+    slirp4netns \
+    # Core (Filesystem)
+    fuse-overlayfs \
+    # Core (H/W)
+    fancontrol \
+    i2c-tools \
+    lm-sensors \
+    pciutils \
+    read-edid \
+    # Core (Networking)
+    dnsutils \
+    gpg \
+    iptables \
+    iputils-ping \
+    openssh-client \
+    openssh-server \
+    # Core (Package Manager)
+    apt-transport-https \
+    apt-utils \
+    # Editor (CLI)
+    nano \
+    screen \
+    vim \
+    # Kubernetes
+    kubectl \
+    # Language-specific (Assembly)
+    llvm-dev \
+    nasm \
+    # Language-specific (C/C++)
+    build-essential \
+    clang \
+    # Language-specific (Javascript)
+    nodejs \
+    # Language-specific (Python)
+    python3 \
+    python3-pip \
+    # Library (GTK)
+    libgtk2.0-dev \
+    # Library (H/W)
+    libhwloc-dev \
+    libudev-dev \
+    # Library (Networking)
+    libprotobuf-dev \
+    libprotoc-dev \
+    libssl-dev \
+    # Linkers
+    mold \
+    # Shell Complementary
+    bash-completion \
     zsh-autosuggestions \
     zsh-completions \
     zsh-syntax-highlighting \
@@ -223,8 +247,6 @@ RUN apt-get update && apt-get install -y \
     && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    # SystemD Configuration
-    && chmod u+x /usr/bin/systemctl \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -234,12 +256,70 @@ ENV PATH="${PATH}:/usr/games:/usr/local/bin:/opt/bin"
 # ARG IME_NIMF_INPUTS="nimf-anthy nimf-libhangul nimf-m17n nimf-rime"
 ARG NIMF_INPUTS="nimf-libhangul"
 RUN apt-get update && apt-get install -y \
+    # Core
     blueman \
     bluez \
-    chktex \
-    code \
-    dbus-x11 \
+    dialog \
+    gvfs \
+    libnotify-bin \
+    libunwind-dev \
+    network-manager \
+    picom \
+    plank \
+    s3fs \
+    trash-cli \
+    tumbler \
+    xdg-dbus-proxy xdg-desktop-portal-gtk xdg-user-dirs \
+    xmlstarlet \
+    zenity \
+    # Core (Acceleration)
+    libegl1-mesa-dev \
+    libgles2-mesa-dev \
+    libglu1-mesa \
+    libnsl2 \
+    libosmesa6 \
+    libvulkan1 \
+    mesa-utils \
+    vulkan-icd \
+    # Core (Audio/PipeWire)
+    libldacbt-abr2 libldacbt-enc2 \
+    libpipewire-0.3-common \
+    libspa-0.2-bluetooth \
+    pavucontrol \
+    pipewire \
+    pipewire-audio-client-libraries \
+    pipewire-media-session- \
+    pipewire-pulse \
+    pulseaudio-module-bluetooth- \
+    wireplumber \
+    # Core (DBus)
+    dbus-user-session \
+    # Core (GTK)
     file-roller \
+    gnome-bluetooth \
+    libwebkit2gtk-4.1 \
+    network-manager-gnome \
+    # Core (Python)
+    python3-certifi \
+    python3-dbus \
+    python3-distro \
+    python3-lxml \
+    python3-pillow \
+    python3-requests \
+    python3-yaml \
+    # Core (X11)
+    dbus-x11 \
+    wmctrl \
+    x11-utils \
+    xdotool \
+    # Desktop Environment (Xfce4)
+    thunar thunar-archive-plugin thunar-volman \
+    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
+    xfce4-session xfce4-settings xfce4-terminal \
+    xfconf xfdesktop4 xfwm4 \
+    # Editor
+    code \
+    # Fonts
     fonts-noto \
     fonts-noto-cjk-extra \
     fonts-noto-color-emoji \
@@ -248,79 +328,12 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-ui-core \
     fonts-noto-ui-extra \
     fonts-noto-unhinted \
-    gnome-bluetooth \
-    gvfs \
-    latexmk \
-    libnimf1 \
-    libnotify-bin \
-    libreoffice libreoffice-gtk3 \
-    network-manager network-manager-gnome \
-    nimf nimf-dev ${NIMF_INPUTS} \
-    pavucontrol \
-    picom \
-    plank \
-    s3fs \
-    sqlite3 \
-    ssh-askpass \
-    texlive-full \
-    thunar thunar-archive-plugin thunar-volman \
-    trash-cli \
-    tumbler \
-    xdg-dbus-proxy xdg-desktop-portal-gtk xdg-user-dirs \
-    xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
-    xfce4-session xfce4-settings xfce4-terminal \
-    xfconf xfdesktop4 xfwm4 \
-    xmlstarlet \
-    zenity \
-    # Link default system-wide font config
-    && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
-    && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
-    # Remove confliected repositories
-    && rm /etc/apt/sources.list.d/microsoft.list \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install init program
-ADD ./systemd/vine-desktop.service "/usr/lib/systemd/user/vine-desktop.service"
-ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/journalctl3.py"
-ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-RUN apt-get update && apt-get install -y \
-    curl \
-    procps \
-    python3 \
-    && curl -s "${INIT_JOURNALCTL_URL}" -o '/usr/bin/journalctl' \
-    && curl -s "${INIT_SYSTEMCTL_URL}" -o '/usr/bin/systemctl' \
-    && rm -rf '/etc/systemd/system/multi-user.target.wants' \
-    && mkdir -p '/etc/systemd/system/multi-user.target.wants' \
-    && ln -sf \
-    '/usr/lib/systemd/user/vine-desktop.service' \
-    '/etc/systemd/user/default.target.wants/vine-desktop.service' \
-    && mkdir -p '/opt/scripts' \
-    && echo 'sleep infinity' >'/opt/scripts/entrypoint-desktop.sh' \
-    && chmod a+x /opt/scripts/* \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install internet browsers, mail client, remote desktop, etc
-RUN apt-get update && apt-get install -y \
-    firefox \
-    google-chrome-stable \
-    rdesktop \
-    thunderbird \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install AI dev dependencies
-ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
-ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
-ARG DEEPSTREAM_VERSION_MAJOR="6"
-ARG DEEPSTREAM_VERSION_MINOR="4"
-ARG DEEPSTREAM_VERSION_PATCH="0"
-ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
-RUN apt-get update && apt-get install -y \
+    # Games (Wine)
+    lutris \
+    steam \
+    wine \
+    $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
+    # GStreamer
     gstreamer1.0-alsa \
     gstreamer1.0-gl \
     gstreamer1.0-gtk3 \
@@ -335,12 +348,49 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-tools \
     gstreamer1.0-vaapi \
     gstreamer1.0-x \
-    libgles2-mesa-dev \
+    libges-1.0-dev \
     libgstreamer1.0-dev \
+    libgstreamer-plugins-bad1.0-dev \
     libgstreamer-plugins-base1.0-dev \
-    libgstrtspserver-1.0 \
+    libgstrtspserver-1.0-dev \
+    # IME (nimf)
+    libnimf1 \
+    nimf nimf-dev ${NIMF_INPUTS} \
+    # Internet Browsers & Applications
+    firefox \
+    google-chrome-stable \
+    rdesktop \
+    thunderbird \
+    # Office
+    chktex \
+    latexmk \
+    libreoffice libreoffice-gtk3 \
+    texlive-full \
+    # Utility
+    sqlite3 \
+    ssh-askpass \
+    # Backup SSH Configurations
+    && cp -r /etc/ssh /etc/.ssh \
+    # DBus Configuration
+    && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
+    # Link default system-wide font config
+    && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
+    && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
+    # Remove confliected repositories
+    && rm /etc/apt/sources.list.d/microsoft.list \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AI dev dependencies
+ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
+ARG DEEPSTREAM_VERSION_MAJOR="6"
+ARG DEEPSTREAM_VERSION_MINOR="4"
+ARG DEEPSTREAM_VERSION_PATCH="0"
+ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
+RUN apt-get update && apt-get install -y \
     libjansson4 \
-    libssl-dev \
     libyaml-cpp-dev \
     # Version-specific packages
     # FIXME: Waiting for fixing TensorRT release issue: https://github.com/NVIDIA/TensorRT/issues/3774
@@ -401,30 +451,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
     && rm -f "${DEEPSTREAM_FILE}"
-
-# Install utility
-RUN apt-get update && apt-get install -y \
-    # Games (Lutris)
-    libegl1-mesa-dev \
-    libglu1-mesa \
-    libnsl2 \
-    libunwind-dev \
-    libvulkan1 \
-    libwebkit2gtk-4.1 \
-    lutris \
-    python3-certifi \
-    python3-dbus \
-    python3-distro \
-    python3-lxml \
-    python3-pillow \
-    python3-requests \
-    python3-yaml \
-    steam \
-    wine \
-    $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install utility - WINE staging
 ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
