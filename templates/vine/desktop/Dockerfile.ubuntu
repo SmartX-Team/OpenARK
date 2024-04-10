@@ -342,12 +342,17 @@ RUN apt-get update && apt-get install -y \
     libjansson4 \
     libssl-dev \
     libyaml-cpp-dev \
+    # Version-specific packages
     # FIXME: Waiting for fixing TensorRT release issue: https://github.com/NVIDIA/TensorRT/issues/3774
     libnvinfer-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-headers-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-headers-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvonnxparsers-dev="8.6.1.6-1+cuda12.0" \
+    "$( \
+    curl -sL "http://archive.ubuntu.com/ubuntu/pool/main/y/yaml-cpp/libyaml-cpp0.7_0.7.0+dfsg-8build1_amd64.deb" -o '/tmp/libyaml-cpp.deb' \
+    && echo '/tmp/libyaml-cpp.deb' \
+    )" \
     # Get the latest version
     && DEEPSTREAM_VERSION="$( \
     curl -s "${DEEPSTREAM_VERSION_URL}" \
@@ -392,6 +397,8 @@ RUN apt-get update && apt-get install -y \
     # Change permissions for user-level modification
     && chown -R "${USER_UID}:${USER_GID}" "${DEEPSTREAM_HOME}/samples" \
     # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/* \
     && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
     && rm -f "${DEEPSTREAM_FILE}"
 
