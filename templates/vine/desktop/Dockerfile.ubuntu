@@ -336,8 +336,6 @@ RUN apt-get update && apt-get install -y \
     xfce4-appfinder xfce4-notifyd xfce4-panel xfce4-pulseaudio-plugin \
     xfce4-session xfce4-settings xfce4-terminal \
     xfconf xfdesktop4 xfwm4 \
-    # Editor
-    code \
     # Fonts
     fonts-noto \
     fonts-noto-cjk-extra \
@@ -434,6 +432,15 @@ RUN true \
     && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
     # Cleanup
     && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
+
+# Install visual editors
+ARG NIMF_INPUTS="nimf-libhangul"
+RUN apt-get update && apt-get install -y \
+    android-studio \
+    code \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
