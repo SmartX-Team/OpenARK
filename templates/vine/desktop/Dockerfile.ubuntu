@@ -134,6 +134,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development environment dependencies
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/image_build/main/podman"
+ENV _CONTAINERS_USERNS_CONFIGURED=""
 RUN apt-get update && apt-get install -y \
     # Core
     binutils \
@@ -222,6 +224,9 @@ RUN apt-get update && apt-get install -y \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
     && chmod 440 /etc/sudoers.d/10-wheel \
     # Docker (Podman) Configuration
+    && curl -sL -o '/etc/containers/containers.conf' "${PODMAN_REPO}/containers.conf" \
+    && curl -sL -o '/etc/containers/podman-containers.conf' "${PODMAN_REPO}/podman-containers.conf" \
+    && chmod 644 '/etc/containers/containers.conf' '/etc/containers/podman-containers.conf' \
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
@@ -396,6 +401,40 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
+# Install cutting-edge Wine
+ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
+ARG WINE_VERSION_API="https://api.github.com/repos/Kron4ek/Wine-Builds/releases/latest"
+RUN true \
+    # Get the latest version
+    ## ARCH
+    && case "$(uname -m)" in \
+    'i386') \
+    WINE_ARCH='x86' \
+    ;; \
+    'x86_64') \
+    WINE_ARCH='amd64' \
+    ;; \
+    *) \
+    echo "Unsupported WINE Architechure: '$(uname -m)'" \
+    exit 1 \
+    ;; \
+    esac \
+    && WINE_VERSION="$( \
+    curl -s https://api.github.com/repos/Kron4ek/Wine-Builds/releases/latest \
+    | grep -Po '"tag_name": +"\K[0-9.]+' \
+    )" \
+    # Download
+    && WINE_OBJ_NAME="wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}" \
+    && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
+    && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
+    && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
+    && wget -qO "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
+    # Decompress the downloaded file
+    && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
+    && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
+    # Cleanup
+    && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
+
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
@@ -405,15 +444,15 @@ ARG DEEPSTREAM_VERSION_PATCH="0"
 ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN apt-get update && apt-get install -y \
     libjansson4 \
-    libyaml-cpp-dev \
+    # libyaml-cpp-dev \
     # Version-specific packages
     # FIXME: Waiting for fixing TensorRT release issue: https://github.com/NVIDIA/TensorRT/issues/3774
+    libcufft11 \
     libnvinfer-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-headers-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-headers-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvonnxparsers-dev="8.6.1.6-1+cuda12.0" \
-    "$( \
     curl -sL "http://archive.ubuntu.com/ubuntu/pool/main/y/yaml-cpp/libyaml-cpp0.7_0.7.0+dfsg-8build1_amd64.deb" -o '/tmp/libyaml-cpp.deb' \
     && echo '/tmp/libyaml-cpp.deb' \
     )" \
@@ -440,7 +479,9 @@ RUN apt-get update && apt-get install -y \
     && DEEPSTREAM_FILE="/opt/deepstream-sdk.deb" \
     && wget -qO "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
     # Decompress the downloaded file
-    && apt-get install -y "${DEEPSTREAM_FILE}" \
+    # NOTE: nvidia cuda packages are given by host OS
+    # && apt-get install -y "${DEEPSTREAM_FILE}" \
+    && dpkg --force-all -i "${DEEPSTREAM_FILE}" \
     # Install
     && cd "${DEEPSTREAM_HOME}" \
     && sed -i 's/"rhel"/"rocky"/g' ./*.sh \
@@ -466,36 +507,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf "${DEEPSTREAM_SAMPLE_HOME}" \
     && rm -f "${DEEPSTREAM_FILE}"
 
-# Install utility - WINE staging
-ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
-RUN true \
-    # Get the latest version
-    ## ARCH
-    && case "$(uname -m)" in \
-    'i386') \
-    WINE_ARCH='x86' \
-    ;; \
-    'x86_64') \
-    WINE_ARCH='amd64' \
-    ;; \
-    *) \
-    echo "Unsupported WINE Architechure: '$(uname -m)'" \
-    exit 1 \
-    ;; \
-    esac \
-    && WINE_VERSION="9.2" \
-    # Download
-    && WINE_OBJ_NAME="wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}" \
-    && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
-    && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
-    && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
-    && wget -qO "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
-    # Decompress the downloaded file
-    && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
-    && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
-    # Cleanup
-    && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
-
 # Install utilities - Custom
 ARG ADDONS_HOME="/opt/openark/vdi/desktop"
 ADD ./addons "${ADDONS_HOME}"
@@ -506,15 +517,6 @@ RUN chmod -R a+x "${ADDONS_HOME}/bin" \
     && for file in ${ADDONS_HOME}/share/autostart/*.desktop; do true \
     && ln -s "${file}" "/etc/xdg/autostart/$(basename "${file}")" \
     ; done
-
-# Install utilities - Podman
-ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/image_build/main/podman"
-ADD "${PODMAN_REPO}/containers.conf" /etc/containers/containers.conf
-ADD "${PODMAN_REPO}/podman-containers.conf" /etc/containers/podman-containers.conf
-ENV _CONTAINERS_USERNS_CONFIGURED=""
-RUN chmod 644 \
-    /etc/containers/containers.conf \
-    /etc/containers/podman-containers.conf
 
 # Add firefox preferences
 ADD ./browser/firefox/autoconfig.js /usr/lib64/firefox/defaults/pref/
