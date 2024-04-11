@@ -453,6 +453,7 @@ RUN apt-get update && apt-get install -y \
     libnvinfer-headers-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvinfer-plugin-dev="8.6.1.6-1+cuda12.0" \
     libnvonnxparsers-dev="8.6.1.6-1+cuda12.0" \
+    "$( \
     curl -sL "http://archive.ubuntu.com/ubuntu/pool/main/y/yaml-cpp/libyaml-cpp0.7_0.7.0+dfsg-8build1_amd64.deb" -o '/tmp/libyaml-cpp.deb' \
     && echo '/tmp/libyaml-cpp.deb' \
     )" \
