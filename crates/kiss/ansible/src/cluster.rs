@@ -1,6 +1,6 @@
-use std::{borrow::Cow, collections::BTreeSet, net::IpAddr};
+use std::{borrow::Cow, collections::BTreeMap, net::IpAddr};
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxSpec, BoxState};
@@ -45,7 +45,7 @@ impl<'a> ClusterState<'a> {
         // load a master node
         let filter = ClusterControlPlaneFilter::Running;
         let owner = match control_planes.iter(filter).next() {
-            Some(owner) => owner.clone(),
+            Some((owner, _)) => owner.clone(),
             None => bail!("cluster {cluster_name:?} is not running"),
         };
 
@@ -58,6 +58,19 @@ impl<'a> ClusterState<'a> {
             }),
             owner_uuid: owner.uuid,
         })
+    }
+
+    pub fn get_first_control_plane(&self) -> Result<&BoxCrd> {
+        self.control_planes
+            .iter(ClusterControlPlaneFilter::Running)
+            .map(|(_, r#box)| r#box)
+            .next()
+            .ok_or_else(|| {
+                anyhow!(
+                    "Cluster \"{}\" status: control-plane nodes are ready",
+                    &self.owner_group.cluster_name,
+                )
+            })
     }
 
     pub fn get_control_planes_as_string(&self) -> String {
@@ -170,7 +183,7 @@ struct ClusterLockState {
 }
 
 struct ClusterControlPlaneState {
-    nodes: BTreeSet<ClusterBoxState>,
+    nodes: BTreeMap<ClusterBoxState, BoxCrd>,
 }
 
 impl ClusterControlPlaneState {
@@ -188,50 +201,60 @@ impl ClusterControlPlaneState {
                     r#box.spec.group.cluster_name == cluster_name
                         && r#box.spec.group.role == BoxGroupRole::ControlPlane
                 })
-                .map(|r#box| ClusterBoxState {
-                    created_at: r#box.metadata.creation_timestamp.clone(),
-                    hostname: r#box.spec.machine.hostname(),
-                    ip: r#box
-                        .status
-                        .as_ref()
-                        .and_then(|status| status.access.primary.as_ref())
-                        .map(|interface| interface.address),
-                    is_running: r#box
-                        .status
-                        .as_ref()
-                        .map(|status| matches!(status.state, BoxState::Running))
-                        .unwrap_or_default(),
-                    uuid: r#box.spec.machine.uuid,
+                .map(|r#box| {
+                    let key = ClusterBoxState {
+                        created_at: r#box.metadata.creation_timestamp.clone(),
+                        hostname: r#box.spec.machine.hostname(),
+                        ip: r#box
+                            .status
+                            .as_ref()
+                            .and_then(|status| status.access.primary.as_ref())
+                            .map(|interface| interface.address),
+                        is_running: r#box
+                            .status
+                            .as_ref()
+                            .map(|status| matches!(status.state, BoxState::Running))
+                            .unwrap_or_default(),
+                        uuid: r#box.spec.machine.uuid,
+                    };
+                    let value = r#box;
+                    (key, value)
                 })
                 .collect(),
         })
     }
 
     fn contains(&self, uuid: Uuid) -> bool {
-        self.nodes.iter().any(|node| node.uuid == uuid)
+        self.nodes.iter().any(|(node, _)| node.uuid == uuid)
     }
 
     fn is_next(&self, uuid: Uuid) -> bool {
         self.nodes
             .iter()
-            .find(|node| !node.is_running)
-            .map(|node| node.uuid == uuid)
+            .find(|(node, _)| !node.is_running)
+            .map(|(node, _)| node.uuid == uuid)
             .unwrap_or_default()
     }
 
     fn is_running(&self) -> bool {
-        self.nodes.iter().any(|node| node.is_running)
+        self.nodes.iter().any(|(node, _)| node.is_running)
     }
 
-    fn iter(&self, filter: ClusterControlPlaneFilter) -> impl Iterator<Item = &ClusterBoxState> {
+    fn iter(
+        &self,
+        filter: ClusterControlPlaneFilter,
+    ) -> impl Iterator<Item = (&ClusterBoxState, &BoxCrd)> {
         self.nodes
             .iter()
-            .filter(|node| node.is_running || filter.contains(node.uuid))
-            .sorted_by_key(|&node| (&node.created_at, node))
+            .filter(|(node, _)| node.is_running || filter.contains(node.uuid))
+            .sorted_by_key(|&(node, _)| (&node.created_at, node))
     }
 
     fn num_running(&self) -> usize {
-        self.nodes.iter().filter(|node| node.is_running).count()
+        self.nodes
+            .iter()
+            .filter(|(node, _)| node.is_running)
+            .count()
     }
 
     fn num_total(&self) -> usize {
@@ -239,7 +262,7 @@ impl ClusterControlPlaneState {
     }
 
     fn to_vec(&self, filter: ClusterControlPlaneFilter) -> Vec<&ClusterBoxState> {
-        self.iter(filter).collect()
+        self.iter(filter).map(|(node, _)| node).collect()
     }
 }
 

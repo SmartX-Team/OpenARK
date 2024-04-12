@@ -28,6 +28,7 @@ ark-core = { path = "../core" }
 ark-core-k8s = { path = "../core/k8s", features = ["data"] }
 dash-pipe-api = { path = "../../dash/pipe/api" }
 dash-query-cli = { path = "../../dash/query/cli" }
+kiss-cli = { path = "../../kiss/cli" }
 vine-api = { path = "../../vine/api" }
 vine-rbac = { path = "../../vine/rbac" }
 vine-session = { path = "../../vine/session", features = ["batch"] }

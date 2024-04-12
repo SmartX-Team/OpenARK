@@ -30,6 +30,7 @@ members = [
     "crates/kiss/ansible",
     "crates/kiss/api",
     # "crates/kiss/assets",
+    "crates/kiss/cli",
     "crates/kiss/gateway",
     "crates/kiss/manager",
     "crates/kiss/monitor",

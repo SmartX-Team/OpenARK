@@ -1,5 +1,5 @@
 [package]
-name = "kiss-ansible"
+name = "kiss-cli"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,21 +20,14 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-core = { path = "../../ark/core" }
-kiss-api = { path = "../api" }
+kiss-ansible = { path = "../../kiss/ansible" }
 
 anyhow = { workspace = true }
-inflector = { workspace = true }
-ipnet = { workspace = true }
-itertools = { workspace = true }
-k8s-openapi = { workspace = true }
+clap = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",
     "rustls-tls",
     "ws",
 ] }
-schemars = { workspace = true }
-serde = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }

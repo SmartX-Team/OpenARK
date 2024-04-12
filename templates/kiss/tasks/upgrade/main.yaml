@@ -1,0 +1,8 @@
+---
+# TODO: to be implemented!
+- hosts: target
+  tasks:
+    - name: Just check that node is running and Ignore errors
+      set_fact:
+        assert_kiss_node_is_running: false
+        update_state_when_kiss_node_is_running: true

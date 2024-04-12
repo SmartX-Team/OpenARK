@@ -78,15 +78,17 @@ impl AnsibleClient {
         // realize mutual exclusivity (QUEUE)
         let cluster_state =
             self::cluster::ClusterState::load(kube, &self.kiss, &job.r#box.spec).await?;
-        if matches!(job.new_state, BoxState::Joining) && !cluster_state.is_joinable() {
-            info!(
-                "Cluster is not ready: {} {} {} -> {}",
-                &job.new_state,
-                job.r#box.spec.group.role,
-                &box_name,
-                &job.r#box.spec.group.cluster_name,
-            );
-            return Ok(false);
+        if let Some(new_state) = job.new_state {
+            if matches!(new_state, BoxState::Joining) && !cluster_state.is_joinable() {
+                info!(
+                    "Cluster is not ready: {} {} {} -> {}",
+                    new_state,
+                    job.r#box.spec.group.role,
+                    &box_name,
+                    &job.r#box.spec.group.cluster_name,
+                );
+                return Ok(false);
+            }
         }
 
         // define the object
@@ -102,7 +104,7 @@ impl AnsibleClient {
                     )),
                     Some(("serviceType".into(), "ansible-task".to_string())),
                     job.new_state
-                        .complete()
+                        .and_then(|state| state.complete())
                         .as_ref()
                         .map(ToString::to_string)
                         .map(|state| (Self::LABEL_COMPLETED_STATE.into(), state)),
@@ -194,20 +196,24 @@ impl AnsibleClient {
                             },
                             EnvVar {
                                 name: "kiss_cluster_control_planes".into(),
-                                value: Some(if matches!(job.new_state, BoxState::Joining) {
-                                    cluster_state.get_control_planes_as_string()
-                                } else {
-                                    Default::default()
-                                }),
+                                value: Some(
+                                    if matches!(job.new_state, None | Some(BoxState::Joining)) {
+                                        cluster_state.get_control_planes_as_string()
+                                    } else {
+                                        Default::default()
+                                    },
+                                ),
                                 ..Default::default()
                             },
                             EnvVar {
                                 name: "kiss_cluster_etcd_nodes".into(),
-                                value: Some(if matches!(job.new_state, BoxState::Joining) {
-                                    cluster_state.get_etcd_nodes_as_string()
-                                } else {
-                                    Default::default()
-                                }),
+                                value: Some(
+                                    if matches!(job.new_state, None | Some(BoxState::Joining)) {
+                                        cluster_state.get_etcd_nodes_as_string()
+                                    } else {
+                                        Default::default()
+                                    },
+                                ),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -589,5 +595,5 @@ pub struct AnsibleJob<'a> {
     pub task: &'static str,
     pub r#box: &'a BoxCrd,
     pub new_group: Option<&'a BoxGroupSpec>,
-    pub new_state: BoxState,
+    pub new_state: Option<BoxState>,
 }

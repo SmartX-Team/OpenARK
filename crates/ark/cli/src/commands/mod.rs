@@ -7,6 +7,9 @@ use tracing::{instrument, Level};
 
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Command {
+    #[command(flatten)]
+    Cluster(::kiss_cli::ClusterArgs),
+
     Query(::dash_query_cli::QueryArgs),
 
     #[command(flatten)]
@@ -20,9 +23,10 @@ impl Command {
     #[instrument(level = Level::INFO, err(Display))]
     pub(crate) async fn run(self) -> Result<()> {
         match self {
-            Command::Query(command) => command.run().await,
-            Command::Session(command) => command.run().await,
-            Command::Storage(command) => command.run().await,
+            Self::Cluster(command) => command.run().await,
+            Self::Query(command) => command.run().await,
+            Self::Session(command) => command.run().await,
+            Self::Storage(command) => command.run().await,
         }
     }
 }
