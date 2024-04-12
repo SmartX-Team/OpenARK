@@ -198,6 +198,8 @@ RUN apt-get update && apt-get install -y \
     )" \
     gcc \
     g++ \
+    # Language-specific (Mobile/Android)
+    android-build-tools-installer \
     # Language-specific (Javascript)
     nodejs \
     # Language-specific (Python)
@@ -393,8 +395,6 @@ RUN apt-get update && apt-get install -y \
     # Link default system-wide font config
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
-    # Remove confliected repositories
-    && rm /etc/apt/sources.list.d/microsoft.list \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -438,6 +438,8 @@ ARG NIMF_INPUTS="nimf-libhangul"
 RUN apt-get update && apt-get install -y \
     android-studio \
     code \
+    # Remove conflicted repositories
+    && rm /etc/apt/sources.list.d/vscode.list \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*

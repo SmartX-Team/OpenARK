@@ -1,0 +1,2 @@
+deb [signed-by=/etc/apt/keyrings/android-build-tools.gpg, trusted=yes] https://ppa.launchpadcontent.net/maarten-fonville/android-build-tools/ubuntu/ ${VERSION_CODENAME} main
+# deb-src [signed-by=/etc/apt/keyrings/android-build-tools.gpg, trusted=yes] https://ppa.launchpadcontent.net/maarten-fonville/android-build-tools/ubuntu/ ${VERSION_CODENAME} main
