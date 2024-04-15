@@ -3,6 +3,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: openark-devel
+  labels:
+    dash.ulagbulag.io/inject-nats: "false"
+    dash.ulagbulag.io/inject-otlp: "true"
 ---
 apiVersion: v1
 kind: ServiceAccount
