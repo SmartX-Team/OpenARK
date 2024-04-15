@@ -128,7 +128,7 @@
   when: interfaces | length > 0
   set_fact:
     interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
-    interface_primary_is_current: "{{ False }}"
+    interface_primary_is_current: "{{ interfaces[0].name == 'master' }}"
     interface_primary_name: "{{ interfaces[0].name }}"
     interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
@@ -159,8 +159,8 @@
   when:
     - interfaces | length > 0
     - interface_primary is defined
-    - interface_primary_mac_address.rc == 0
     - not interface_primary_is_current
+    - interface_primary_mac_address.rc == 0
     - kiss_network_service == 'NetworkManager'
   set_fact:
     interface_primary: >
@@ -257,6 +257,7 @@
 - name: Wait for primary interface to be linked up
   when:
     - interfaces | length > 0
+    - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   command: >
     ping -4 -c 4
