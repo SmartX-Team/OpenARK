@@ -90,6 +90,14 @@ spec:
               sudo sed -i 's/:tenant$/:user/g' /opt/group-dst/group
               sudo sed -i 's/,tenant$/,user/g' /opt/group-dst/group
 
+              # Network Optimizations
+              if [ -d /host-sys/module/mac80211/parameters ]; then
+                # Make roaming algorithm more aggressive
+                echo 1 | sudo tee /host-sys/module/mac80211/parameters/beacon_loss_count
+                echo 1 | sudo tee /host-sys/module/mac80211/parameters/max_probe_tries
+                echo 100 | sudo tee /host-sys/module/mac80211/parameters/probe_wait_ms
+              fi
+
               # Device Permissions
               find /dev -maxdepth 1 -name 'video[0-9]*' -type c -exec sudo chown "$(id -u):$(id -g)" '{}' \;
               exec true
@@ -127,6 +135,8 @@ spec:
 {% endif %}
             - name: home-public
               mountPath: /mnt/public
+            - name: host-sys
+              mountPath: /host-sys
       containers:
         - name: desktop-environment
           image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
@@ -352,6 +362,10 @@ spec:
 {% else %}
           emptyDir: {}
 {% endif %}
+        - name: host-sys
+          hostPath:
+            path: /sys
+            type: Directory
         - name: machine-id
           configMap:
             defaultMode: 365
