@@ -1,0 +1,2 @@
+# TODO: release rsa1024 support when resolved (android-studio, mozilla)
+APT::Key::Assert-Pubkey-Algo ">=rsa1024,ed25529,ed448";

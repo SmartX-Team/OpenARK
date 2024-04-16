@@ -51,10 +51,6 @@ RUN true \
     && /sbin/ldconfig.real 2>&1 | grep -Po '/usr/local/lib/lib[a-z0-9_.]+' | xargs rm -f \
     && /sbin/ldconfig.real ) \
     || true \
-    # Configure package manager
-    && dst='/etc/apt/apt.conf.d/docker-minimal' \
-    && echo 'APT::Install-Recommends "false";' >"${dst}" \
-    && echo 'APT::Install-Suggests "false";' >>"${dst}" \
     # Install base dependencies
     && apt-get update && apt-get install -y \
     ca-certificates \
@@ -69,6 +65,7 @@ RUN true \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure 3rd-party repositories
+ADD ./apt/apt.conf.d/* /etc/apt/apt.conf.d/
 ADD ./apt/keyrings/* /etc/apt/keyrings/
 ADD ./apt/preferences.d/* /etc/apt/preferences.d/
 ADD ./apt/sources.list.d/*.list /etc/apt/sources.list.d/
@@ -377,9 +374,11 @@ RUN apt-get update && apt-get install -y \
     nimf nimf-dev ${NIMF_INPUTS} \
     # Internet Browsers & Applications
     firefox \
+    firefox-locale-ko \
     google-chrome-stable \
     rdesktop \
     thunderbird \
+    thunderbird-locale-ko \
     # Office
     chktex \
     latexmk \
@@ -489,9 +488,7 @@ RUN apt-get update && apt-get install -y \
     && DEEPSTREAM_FILE="/opt/deepstream-sdk.deb" \
     && wget -qO "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
     # Decompress the downloaded file
-    # NOTE: nvidia cuda packages are given by host OS
-    # && apt-get install -y "${DEEPSTREAM_FILE}" \
-    && dpkg --force-all -i "${DEEPSTREAM_FILE}" \
+    && apt-get install -y "${DEEPSTREAM_FILE}" \
     # Install
     && cd "${DEEPSTREAM_HOME}" \
     && sed -i 's/"rhel"/"rocky"/g' ./*.sh \

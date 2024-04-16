@@ -1,1 +1,1 @@
-deb [signed-by=/etc/apt/keyrings/mozilla.gpg] https://packages.mozilla.org/apt mozilla main
+deb [signed-by=/etc/apt/keyrings/mozilla.gpg] https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu/ ${VERSION_CODENAME} main
