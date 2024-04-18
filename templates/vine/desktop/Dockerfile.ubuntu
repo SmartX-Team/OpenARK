@@ -146,6 +146,8 @@ RUN apt-get update && apt-get install -y \
     "${USER_SHELL}" \
     wget \
     zip \
+    # Core (Debian)
+    software-properties-common \
     # Core (Devops, CI/CD)
     git \
     # Core (Container)
