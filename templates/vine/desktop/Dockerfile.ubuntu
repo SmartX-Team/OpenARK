@@ -197,6 +197,8 @@ RUN apt-get update && apt-get install -y \
     g++ \
     # Language-specific (Mobile/Android)
     android-build-tools-installer \
+    # Language-specific (Java)
+    default-jre \
     # Language-specific (Javascript)
     nodejs \
     # Language-specific (Python)
