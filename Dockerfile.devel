@@ -3,11 +3,11 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG DESKTOP_DIST="ubuntu-pytorch"
+ARG DESKTOP_DIST="ubuntu"
 ARG DESKTOP_VERSION="latest"
 
 # Be ready for serving
-FROM "quay.io/ulagbulag/openark-vine-desktop:${DESKTOP_VERSION}-${DESKTOP_DIST}" as server
+FROM "quay.io/ulagbulag/openark-vine-desktop:${DESKTOP_DIST}-${DESKTOP_VERSION}" as server
 
 # Server Configuration
 CMD [ "/opt/openark/entrypoint.sh" ]
@@ -21,6 +21,7 @@ WORKDIR /
 RUN true \
     # Remove podman
     && apt-get purge -y podman \
+    && apt-get autoremove -y \
     && apt-get update && apt-get install -y \
     build-essential \
     clang \
@@ -38,7 +39,7 @@ RUN true \
     nasm \
     openssh-server \
     pkg-config \
-    python3.10-venv \
+    python3-full \
     s3fs \
     # GStreamer
     libges-1.0-dev \
@@ -74,7 +75,8 @@ RUN apt-get update && apt-get install -y \
     && sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' /requirements.txt \
     && sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" /requirements.txt \
     # Install python dependencies
-    && python3 -m pip install --no-cache-dir --requirement /requirements.txt \
+    && python3 -m pip install --break-system-packages --no-cache-dir nvidia-pyindex \
+    && python3 -m pip install --break-system-packages --no-cache-dir --requirement /requirements.txt \
     # Cleanup
     && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
     && rm /requirements.txt \
