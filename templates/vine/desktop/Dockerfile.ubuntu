@@ -316,6 +316,8 @@ RUN apt-get update && apt-get install -y \
     wireplumber \
     # Core (DBus)
     dbus-user-session \
+    # Core (Games)
+    gamemode \
     # Core (GTK)
     file-roller \
     gnome-bluetooth \
@@ -329,6 +331,8 @@ RUN apt-get update && apt-get install -y \
     python3-pillow \
     python3-requests \
     python3-yaml \
+    # Core (Scheduling)
+    schedtool \
     # Core (X11)
     dbus-x11 \
     wmctrl \
@@ -399,6 +403,22 @@ RUN apt-get update && apt-get install -y \
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
     # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cutting-edge ananicy
+ARG ANANICY_REPO="https://github.com/kuche1/minq-ananicy.git"
+RUN apt-get update && \
+    # Download
+    && ANANICY_TMP="/opt/ananicy" \
+    && git clone "${ANANICY_REPO}" "${ANANICY_TMP}" \
+    && cd "${ANANICY_TMP}" \
+    # Build
+    && ./package.sh debian \
+    && apt-get install -y ./ananicy-*.deb \
+    # Cleanup
+    && cd - \
+    && rm -rf "${ANANICY_TMP}" \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 

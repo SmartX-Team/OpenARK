@@ -138,6 +138,33 @@ spec:
             - name: host-sys
               mountPath: /host-sys
       containers:
+        - name: ananicy
+          # TODO: use dedicated image
+          image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
+          imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
+          command:
+            - /usr/bin/env
+            - /usr/bin/ananicy
+          args:
+            - start
+          env:
+            - name: USER
+              value: "0"
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+                - seccomp:unconfined
+            privileged: true
+            runAsNonRoot: false
+            runAsUser: 0
+          workingDir: /
+          volumeMounts:
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: dev
+              mountPath: /dev
         - name: desktop-environment
           image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
           imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
@@ -167,8 +194,6 @@ spec:
               value: {{ spec.boxQuota.desktop.user.template.git | json_encode() | safe }}
             - name: KISS_DESKTOP_TEMPLATE_GIT_BRANCH
               value: {{ spec.boxQuota.desktop.user.template.gitBranch | json_encode() | safe }}
-            - name: KUBEGRAPH_URL
-              value: http://kubegraph.kubegraph.svc
             - name: LANG
               value: "{{ spec.boxQuota.desktop.user.lang }}"
             - name: LC_ALL
@@ -195,6 +220,14 @@ spec:
                 - seccomp:unconfined
 {% if spec.boxQuota.desktop.host.privileged %}
             privileged: true
+{% endif %}
+{% if spec.boxQuota.desktop.context.root or spec.boxQuota.desktop.context.sudo %}
+            runAsNonRoot: false
+{% endif %}
+{% if spec.boxQuota.desktop.context.root %}
+            runAsUser: 0
+{% else %}
+            runAsUser: {{ spec.boxQuota.desktop.context.uid | json_encode() | safe }}
 {% endif %}
 {% if spec.boxQuota.desktop.context.root %}
           workingDir: /root
@@ -278,19 +311,14 @@ spec:
 {% if not spec.persistence %}
       restartPolicy: Never
 {% endif %}
-      securityContext:
-{% if spec.boxQuota.desktop.context.root or spec.boxQuota.desktop.context.sudo %}
-        runAsNonRoot: false
-{% endif %}
-{% if spec.boxQuota.desktop.context.root %}
-        runAsUser: 0
-{% else %}
-        runAsUser: {{ spec.boxQuota.desktop.context.uid | json_encode() | safe }}
-{% endif %}
       serviceAccount: account
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 60
       volumes:
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
         - name: dev
           hostPath:
             path: /dev
