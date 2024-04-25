@@ -395,6 +395,9 @@ RUN apt-get update && apt-get install -y \
     # Utility
     sqlite3 \
     ssh-askpass \
+    # Visual Editors
+    android-studio \
+    code \
     # Backup SSH Configurations
     && cp -r /etc/ssh /etc/.ssh \
     # DBus Configuration
@@ -402,13 +405,15 @@ RUN apt-get update && apt-get install -y \
     # Link default system-wide font config
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
+    # Remove conflicted repositories
+    && rm /etc/apt/sources.list.d/vscode.list \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cutting-edge ananicy
 ARG ANANICY_REPO="https://github.com/kuche1/minq-ananicy.git"
-RUN apt-get update && \
+RUN apt-get update \
     # Download
     && ANANICY_TMP="/opt/ananicy" \
     && git clone "${ANANICY_REPO}" "${ANANICY_TMP}" \
@@ -455,17 +460,6 @@ RUN true \
     && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
     # Cleanup
     && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
-
-# Install visual editors
-ARG NIMF_INPUTS="nimf-libhangul"
-RUN apt-get update && apt-get install -y \
-    android-studio \
-    code \
-    # Remove conflicted repositories
-    && rm /etc/apt/sources.list.d/vscode.list \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install AI dev dependencies
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
