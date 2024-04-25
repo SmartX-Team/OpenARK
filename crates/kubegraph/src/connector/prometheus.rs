@@ -12,7 +12,7 @@ use kubegraph_api::{
         NetworkConnectorPrometheusSpec, NetworkConnectorSource, NetworkConnectorSourceRef,
         NetworkConnectorSpec,
     },
-    graph::{NetworkEdgeKey, NetworkEntry, NetworkEntrykey, NetworkNodeKey, NetworkValue},
+    graph::{NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkNodeKey, NetworkValue},
     provider::NetworkGraphProvider,
     query::{NetworkQuery, NetworkQueryNodeType, NetworkQueryNodeValue, NetworkQueryType},
 };
@@ -121,7 +121,7 @@ async fn pull_with(
         Some(NetworkEntry {
             key: match r#type {
                 NetworkQueryType::Edge { link, sink, src } => {
-                    NetworkEntrykey::Edge(NetworkEdgeKey {
+                    NetworkEntryKey::Edge(NetworkEdgeKey {
                         interval_ms: interval_ms
                             .search(&metric)
                             .and_then(|value| value.parse().ok()),
@@ -130,7 +130,7 @@ async fn pull_with(
                         src: src.search(&metric)?,
                     })
                 }
-                NetworkQueryType::Node { node } => NetworkEntrykey::Node(node.search(&metric)?),
+                NetworkQueryType::Node { node } => NetworkEntryKey::Node(node.search(&metric)?),
             },
             value: NetworkValue::Number(sample.value()),
         })

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
     connector::{NetworkConnectorSourceRef, NetworkConnectorSpec},
-    graph::NetworkEntry,
+    graph::{NetworkEntry, NetworkEntryKeyFilter, NetworkEntryMap},
 };
 use serde::{Deserialize, Serialize};
 use sled::{Batch, Config, Db};
@@ -100,7 +100,7 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn get_entries(&self) -> Vec<NetworkEntry> {
+    async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap {
         self.db
             .iter()
             .filter_map(|result| result.ok())
@@ -109,8 +109,12 @@ impl ::kubegraph_api::provider::NetworkGraphProvider for NetworkGraphProvider {
                 let value = ::serde_json::from_slice(&value).ok()?;
                 Some((key, value))
             })
+            .filter(|(key, _)| filter.map(|filter| filter.contains(key)).unwrap_or(true))
             .map(|(key, value)| NetworkEntry { key, value })
-            .collect()
+            .fold(NetworkEntryMap::default(), |mut map, entry| {
+                map.push(entry);
+                map
+            })
     }
 
     async fn close(self) -> Result<()> {

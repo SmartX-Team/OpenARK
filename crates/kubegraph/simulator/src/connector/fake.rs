@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use clap::Parser;
 use glob::glob;
 use kubegraph_api::{
-    graph::{NetworkEntry, NetworkEntrykey, NetworkNodeKey},
+    graph::{NetworkEntry, NetworkEntryKey, NetworkNodeKey},
     provider::NetworkGraphProvider,
 };
-use kubegraph_parser::{Filter, FilterParser, Literal};
+use kubegraph_parser::{Filter, FilterParser};
 use kubegraph_simulator_schema::{
     constraint::NetworkConstraint, function::NetworkFunction, node::NetworkNode, NetworkObjectCrd,
     NetworkObjectMetadata, NetworkObjectTemplate,
@@ -140,7 +140,7 @@ impl Connector {
             };
 
             values.into_iter().map(move |(kind, value)| NetworkEntry {
-                key: NetworkEntrykey::Node(entry_key(kind)),
+                key: NetworkEntryKey::Node(entry_key(kind)),
                 value,
             })
         });
@@ -150,12 +150,12 @@ impl Connector {
 
     async fn pull_constraints(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
         // TODO: to be implemented
-        todo!()
+        Ok(())
     }
 
     async fn pull_functions(&mut self, graph: &impl NetworkGraphProvider) -> Result<()> {
         // TODO: to be implemented
-        todo!()
+        Ok(())
     }
 }
 

@@ -28,7 +28,11 @@ async fn try_loop_forever(graph: impl 'static + NetworkGraphProvider) -> Result<
     // Start web server
     HttpServer::new(move || {
         let app = App::new().app_data(Data::clone(&graph));
-        let app = app.service(health).service(crate::routes::network::get);
+        let app = app
+            .service(health)
+            .service(crate::routes::network::get)
+            .service(crate::routes::network::get_kind)
+            .service(crate::routes::network::get_kind_namespace);
         app.wrap(RequestTracing::default())
             .wrap(RequestMetrics::default())
     })

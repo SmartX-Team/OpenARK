@@ -6,5 +6,5 @@ use tracing::{instrument, Level};
 #[instrument(level = Level::INFO, skip(graph))]
 #[get("/")]
 pub async fn get(graph: Data<crate::DefaultNetworkGraphProvider>) -> impl Responder {
-    HttpResponse::Ok().json(Result::Ok(graph.get_entries().await))
+    HttpResponse::Ok().json(Result::Ok(graph.get_entries(None).await))
 }

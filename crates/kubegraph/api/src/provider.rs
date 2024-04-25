@@ -3,7 +3,7 @@ use async_trait::async_trait;
 
 use crate::{
     connector::{NetworkConnectorSourceRef, NetworkConnectorSpec},
-    graph::NetworkEntry,
+    graph::{NetworkEntry, NetworkEntryKeyFilter, NetworkEntryMap},
 };
 
 #[async_trait]
@@ -25,7 +25,7 @@ where
         r#type: NetworkConnectorSourceRef,
     ) -> Option<Vec<NetworkConnectorSpec>>;
 
-    async fn get_entries(&self) -> Vec<NetworkEntry>;
+    async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap;
 
     async fn close(self) -> Result<()>;
 }

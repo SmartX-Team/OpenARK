@@ -3,17 +3,77 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkEntryMap {
+    #[serde(default)]
+    pub edges: Vec<NetworkEdge>,
+    #[serde(default)]
+    pub nodes: Vec<NetworkNode>,
+}
+
+impl NetworkEntryMap {
+    pub fn push(&mut self, entry: NetworkEntry) {
+        let NetworkEntry { key, value } = entry;
+        match key {
+            NetworkEntryKey::Edge(key) => {
+                self.edges.push(NetworkEdge { key, value });
+            }
+            NetworkEntryKey::Node(key) => {
+                self.nodes.push(NetworkNode { key, value });
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkEntry {
     #[serde(flatten)]
-    pub key: NetworkEntrykey,
+    pub key: NetworkEntryKey,
     pub value: NetworkValue,
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkEntryKeyFilter {
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<String>,
+}
+
+impl NetworkEntryKeyFilter {
+    pub fn contains(&self, key: &NetworkEntryKey) -> bool {
+        match key {
+            NetworkEntryKey::Edge(key) => {
+                self.contains_node_key(&key.link)
+                    && self.contains_node_key(&key.sink)
+                    && self.contains_node_key(&key.src)
+            }
+            NetworkEntryKey::Node(key) => self.contains_node_key(key),
+        }
+    }
+
+    fn contains_node_key(&self, key: &NetworkNodeKey) -> bool {
+        let Self { kind, namespace } = self;
+
+        fn test(a: &Option<String>, b: &String) -> bool {
+            match a.as_ref() {
+                Some(a) => a == b,
+                None => true,
+            }
+        }
+
+        test(kind, &key.kind) && test(namespace, &key.namespace)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum NetworkEntrykey {
+pub enum NetworkEntryKey {
     Edge(NetworkEdgeKey),
     Node(NetworkNodeKey),
 }
