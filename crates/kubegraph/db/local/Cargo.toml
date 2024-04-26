@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-api"
+name = "kubegraph-db-local"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -19,19 +19,16 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = []
-
 [dependencies]
-ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
+dash-query-provider = { path = "../../../dash/query/provider" }
+kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-k8s-openapi = { workspace = true }
-kube = { workspace = true, features = ["derive"] }
-schemars = { workspace = true }
+clap = { workspace = true }
+kube = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
-tokio = { workspace = true, features = ["time"] }
+sled = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }

@@ -9,26 +9,26 @@ use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use tracing::error;
 
-use crate::{provider::NetworkGraphProvider, query::NetworkQuery};
+use crate::{db::NetworkGraphDB, query::NetworkQuery};
 
 #[async_trait]
-pub trait Connector {
+pub trait NetworkConnector {
     fn name(&self) -> &str;
 
     fn interval(&self) -> Duration {
         Duration::from_secs(15)
     }
 
-    async fn loop_forever(mut self, graph: impl NetworkGraphProvider)
+    async fn loop_forever(mut self, graph: impl NetworkGraphDB)
     where
         Self: Sized,
     {
-        let interval = <Self as Connector>::interval(&self);
+        let interval = <Self as NetworkConnector>::interval(&self);
 
         loop {
             let instant = Instant::now();
             if let Err(error) = self.pull(&graph).await {
-                let name = <Self as Connector>::name(&self);
+                let name = <Self as NetworkConnector>::name(&self);
                 error!("failed to connect to dataset from {name:?}: {error}");
             }
 
@@ -39,7 +39,7 @@ pub trait Connector {
         }
     }
 
-    async fn pull(&mut self, graph: &impl NetworkGraphProvider) -> Result<()>;
+    async fn pull(&mut self, graph: &impl NetworkGraphDB) -> Result<()>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]

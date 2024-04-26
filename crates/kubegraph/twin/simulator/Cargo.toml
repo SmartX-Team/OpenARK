@@ -1,0 +1,55 @@
+[package]
+name = "kubegraph-twin-simulator"
+
+authors = { workspace = true }
+description = { workspace = true }
+documentation = { workspace = true }
+edition = { workspace = true }
+include = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+rust-version = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lints]
+workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["local"]
+
+# databases
+local = ["kubegraph-db-local"]
+
+[dependencies]
+ark-core = { path = "../../../ark/core", features = ["actix-web", "ctrlc"] }
+kubegraph-api = { path = "../../api" }
+kubegraph-computer-http = { path = "../../computer/http" }
+kubegraph-db-local = { path = "../../db/local", optional = true }
+kubegraph-parser = { path = "../../parser" }
+kubegraph-simulator-schema = { path = "./schema" }
+kubegraph-twin-api = { path = "../api" }
+
+actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+futures = { workspace = true }
+glob = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
+opentelemetry = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
