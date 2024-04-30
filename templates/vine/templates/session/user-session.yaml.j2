@@ -81,15 +81,6 @@ spec:
               sudo chmod 700 "${HOME}"
               sudo chmod 777 '/mnt/public'
 
-              # GID Mappings
-              sudo cp /opt/group-src /opt/group-dst/group
-              sudo sed -i '/^kiss:.*$/ d' /opt/group-dst/group
-              sudo sed -i 's/:kiss$/:/g' /opt/group-dst/group
-              sudo sed -i 's/,kiss$/,/g' /opt/group-dst/group
-              sudo sed -i 's/^tenant:/user:/g' /opt/group-dst/group
-              sudo sed -i 's/:tenant$/:user/g' /opt/group-dst/group
-              sudo sed -i 's/,tenant$/,user/g' /opt/group-dst/group
-
               # Network Optimizations
               if [ -d /host-sys/module/mac80211/parameters ]; then
                 # Make roaming algorithm more loose
@@ -112,10 +103,8 @@ spec:
             privileged: true
           workingDir: /
           volumeMounts:
-            - name: group-src
-              mountPath: /opt/group-src
-            - name: group-dst
-              mountPath: /opt/group-dst
+            - name: dev
+              mountPath: /dev
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root
@@ -248,9 +237,6 @@ spec:
             - name: egl-icd-loader
               mountPath: /etc/glvnd/egl_vendor.d
               readOnly: true
-            - name: group-dst
-              mountPath: /etc/group
-              subPath: group
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: {{ "/home/user" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
@@ -340,12 +326,6 @@ spec:
           hostPath:
             path: /usr/share/glvnd/egl_vendor.d
             type: Directory
-        - name: group-src
-          hostPath:
-            path: /etc/group
-            type: File
-        - name: group-dst
-          emptyDir: {}
         - name: home
 {% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
           hostPath:
