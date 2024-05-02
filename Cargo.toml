@@ -168,7 +168,7 @@ polars = { version = "0.39", features = [
     "diff",
     "fmt",
     "lazy",
-    "nightly",
+    # "nightly",  # include(nightly)
     "parquet",
     "performant",
     "random",
