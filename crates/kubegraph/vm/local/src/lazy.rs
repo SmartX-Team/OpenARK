@@ -47,18 +47,42 @@ mod impl_call {
         },
     };
 
-    use crate::df::{DataFrame, DataSlice};
+    use crate::df::{IntoLazySlice, LazyFrame, LazySlice};
 
     impl super::LazyVirtualMachine {
-        pub(crate) fn call(&self, graph: &Graph<DataFrame>) -> Result<DataFrame> {
+        pub(crate) fn call(
+            &self,
+            graph: &Graph<LazyFrame>,
+            filter: Option<LazySlice>,
+        ) -> Result<Graph<LazyFrame>> {
+            Context::new(graph)
+                .call(&self.local_variables, filter)
+                .and_then(|ctx| ctx.try_into_graph())
+        }
+
+        pub(crate) fn call_filter(&self, graph: &Graph<LazyFrame>) -> Result<LazySlice> {
+            Context::new(graph)
+                .call(&self.local_variables, None)
+                .and_then(|ctx| ctx.try_into_filter())
+        }
+    }
+
+    struct Context {
+        heap: Heap,
+        stack: Stack,
+    }
+
+    impl Context {
+        fn new(graph: &Graph<LazyFrame>) -> Self {
             let Graph { edges, nodes } = graph;
 
+            // unify two dataframes
             let graph = {
                 let edges = match edges {
-                    DataFrame::PolarsLazy(ldf) => ldf,
+                    LazyFrame::Polars(ldf) => ldf,
                 };
                 let nodes = match nodes {
-                    DataFrame::PolarsLazy(ldf) => ldf,
+                    LazyFrame::Polars(ldf) => ldf,
                 };
 
                 let edges_src = nodes
@@ -81,13 +105,26 @@ mod impl_call {
                         ::pl::lazy::dsl::col("sink.name"),
                     );
 
-                DataFrame::PolarsLazy(graph)
+                LazyFrame::Polars(graph)
             };
 
-            let mut heap = Heap::new(graph);
-            let mut stack = Stack::default();
+            Self {
+                heap: Heap::new(graph),
+                stack: Stack::default(),
+            }
+        }
 
-            for (pc, ins) in self.local_variables.iter().enumerate() {
+        fn call<'a, Code>(mut self, code: Code, filter: Option<LazySlice>) -> Result<Self>
+        where
+            Code: IntoIterator<Item = &'a Instruction>,
+        {
+            let Self { heap, stack } = &mut self;
+
+            if let Some(filter) = filter {
+                heap.graph.apply_filter(filter);
+            }
+
+            for (pc, ins) in code.into_iter().enumerate() {
                 let Instruction { name, stmt } = ins;
 
                 // fetch from stack
@@ -125,19 +162,27 @@ mod impl_call {
                 // store
                 stack.push(value);
             }
+            Ok(self)
+        }
 
-            Ok(heap.into_graph())
+        /// Pop the last instruction result.
+        fn try_into_filter(mut self) -> Result<LazySlice> {
+            self.stack.pop_slice(&self.heap.graph)
+        }
+
+        /// Disaggregate two dataframes.
+        fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
+            self.heap.try_into_graph()
         }
     }
 
-    #[derive(Clone)]
     struct Heap {
-        graph: DataFrame,
+        graph: LazyFrame,
         variables: BTreeMap<String, Variable>,
     }
 
     impl Heap {
-        fn new(graph: DataFrame) -> Self {
+        fn new(graph: LazyFrame) -> Self {
             Self {
                 graph,
                 variables: BTreeMap::default(),
@@ -162,12 +207,12 @@ mod impl_call {
             self.variables
                 .get(key)
                 .cloned()
-                .unwrap_or_else(|| Variable::DataSlice(self.graph.get_column(key)))
+                .unwrap_or_else(|| Variable::LazySlice(self.graph.get_column(key)))
         }
 
         fn insert(&mut self, key: String, value: Variable) -> Result<()> {
             match &value {
-                Variable::DataSlice(column) => {
+                Variable::LazySlice(column) => {
                     self.graph.insert_column(&key, column.clone());
                 }
                 Variable::Feature(Some(value)) => {
@@ -183,8 +228,8 @@ mod impl_call {
             Ok(())
         }
 
-        fn into_graph(self) -> DataFrame {
-            self.graph
+        fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
+            self.graph.try_into_graph()
         }
     }
 
@@ -207,27 +252,40 @@ mod impl_call {
         fn push(&mut self, value: Variable) {
             self.0.push(value)
         }
+
+        fn pop_slice(&mut self, graph: &LazyFrame) -> Result<LazySlice> {
+            self.0
+                .pop()
+                .map(|value| match value {
+                    Variable::LazySlice(value) => Ok(value),
+                    Variable::Feature(Some(value)) => Ok(value.into_lazy_slice(graph)),
+                    Variable::Feature(None) => error_undefined_feature(),
+                    Variable::Number(Some(value)) => Ok(value.into_lazy_slice(graph)),
+                    Variable::Number(None) => error_undefined_number(),
+                })
+                .unwrap_or_else(|| Ok(graph.all()))
+        }
     }
 
     #[derive(Clone)]
     enum Variable {
-        DataSlice(DataSlice),
+        LazySlice(LazySlice),
         Feature(Option<Feature>),
         Number(Option<Number>),
     }
 
-    impl From<DataSlice> for Variable {
-        fn from(value: DataSlice) -> Self {
-            Self::DataSlice(value)
+    impl From<LazySlice> for Variable {
+        fn from(value: LazySlice) -> Self {
+            Self::LazySlice(value)
         }
     }
 
-    impl TryFrom<Variable> for DataSlice {
+    impl TryFrom<Variable> for LazySlice {
         type Error = Error;
 
         fn try_from(value: Variable) -> Result<Self, <Self as TryFrom<Variable>>::Error> {
             match value {
-                Variable::DataSlice(value) => Ok(value),
+                Variable::LazySlice(value) => Ok(value),
                 _ => bail!("unexpected variable"),
             }
         }
@@ -262,15 +320,15 @@ mod impl_call {
     macro_rules! impl_expr_unary {
         ( impl $fn:ident for $src:ident as Feature ) => {{
             match $src {
-                Variable::DataSlice(src) => Ok(Variable::DataSlice(src.not())),
+                Variable::LazySlice(src) => Ok(Variable::LazySlice(src.not())),
                 Variable::Feature(Some(src)) => Ok(Variable::Feature(Some(src.not()))),
                 Variable::Feature(None) => error_undefined_feature(),
-                Variable::Number(src) => error_unexpected_type_number(),
+                Variable::Number(_) => error_unexpected_type_number(),
             }
         }};
         ( impl $fn:ident for $src:ident as Number ) => {{
             match $src {
-                Variable::DataSlice(src) => Ok(Variable::DataSlice(src.neg())),
+                Variable::LazySlice(src) => Ok(Variable::LazySlice(src.neg())),
                 Variable::Feature(_) => error_unexpected_type_feature(),
                 Variable::Number(Some(src)) => Ok(Variable::Number(Some(src.neg()))),
                 Variable::Number(None) => error_undefined_number(),
@@ -301,14 +359,14 @@ mod impl_call {
 
                 fn $fn(self, rhs: Self) -> Self::Output {
                     match self {
-                        Variable::DataSlice(lhs) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
-                            Variable::Feature(Some(rhs)) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                        Variable::LazySlice(lhs) => match rhs {
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
+                            Variable::Feature(Some(rhs)) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(None) => error_undefined_feature(),
                             Variable::Number(_) => error_unexpected_type_number(),
                         },
                         Variable::Feature(Some(lhs)) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(Some(rhs)) => {
                                 Ok(Variable::Feature(Some(lhs.$fn(rhs))))
                             }
@@ -327,15 +385,15 @@ mod impl_call {
 
                 fn $fn(self, rhs: Self) -> Self::Output {
                     match self {
-                        Variable::DataSlice(lhs) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                        Variable::LazySlice(lhs) => match rhs {
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
-                            Variable::Number(Some(rhs)) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::Number(Some(rhs)) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Number(None) => error_undefined_number(),
                         },
                         Variable::Feature(_) => error_unexpected_type_feature(),
                         Variable::Number(Some(lhs)) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
                             Variable::Number(Some(rhs)) => {
                                 Ok(Variable::Feature(Some(lhs.$fn(rhs))))
@@ -353,15 +411,15 @@ mod impl_call {
 
                 fn $fn(self, rhs: Self) -> Self::Output {
                     match self {
-                        Variable::DataSlice(lhs) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                        Variable::LazySlice(lhs) => match rhs {
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
-                            Variable::Number(Some(rhs)) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::Number(Some(rhs)) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Number(None) => error_undefined_number(),
                         },
                         Variable::Feature(_) => error_unexpected_type_feature(),
                         Variable::Number(Some(lhs)) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
                             Variable::Number(Some(rhs)) => Ok(Variable::Number(Some(lhs.$fn(rhs)))),
                             Variable::Number(None) => error_undefined_number(),
@@ -377,15 +435,15 @@ mod impl_call {
 
                 fn $fn(self, rhs: Self) -> Self::Output {
                     match self {
-                        Variable::DataSlice(lhs) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                        Variable::LazySlice(lhs) => match rhs {
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
-                            Variable::Number(Some(rhs)) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::Number(Some(rhs)) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Number(None) => error_undefined_number(),
                         },
                         Variable::Feature(_) => error_unexpected_type_feature(),
                         Variable::Number(Some(lhs)) => match rhs {
-                            Variable::DataSlice(rhs) => Ok(Variable::DataSlice(lhs.$fn(rhs))),
+                            Variable::LazySlice(rhs) => Ok(Variable::LazySlice(lhs.$fn(rhs))),
                             Variable::Feature(_) => error_unexpected_type_feature(),
                             Variable::Number(Some(rhs)) => {
                                 Ok(Variable::Number(Some(lhs.$fn(rhs)?)))

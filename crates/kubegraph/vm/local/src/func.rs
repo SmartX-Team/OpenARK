@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 use kubegraph_api::graph::Graph;
 
-use crate::{df::DataFrame, lazy::LazyVirtualMachine};
+use crate::{df::LazyFrame, lazy::LazyVirtualMachine};
 
 pub trait IntoFunction
 where
@@ -16,7 +16,7 @@ pub enum Function {
 }
 
 impl Function {
-    pub(crate) fn call(&self, graph: &Graph<DataFrame>) -> Result<DataFrame> {
+    pub(crate) fn call(&self, graph: &Graph<LazyFrame>) -> Result<Graph<LazyFrame>> {
         match self {
             Function::Script(inner) => inner.call(graph),
         }
@@ -50,9 +50,14 @@ where
 }
 
 impl FunctionTemplate<LazyVirtualMachine> {
-    fn call(&self, graph: &Graph<DataFrame>) -> Result<DataFrame> {
-        // TODO: add filter support
-        self.action.call(graph)
+    fn call(&self, graph: &Graph<LazyFrame>) -> Result<Graph<LazyFrame>> {
+        let filter = self
+            .filter
+            .as_ref()
+            .map(|filter| filter.call_filter(graph))
+            .transpose()?;
+
+        self.action.call(graph, filter)
     }
 }
 
@@ -63,16 +68,17 @@ mod tests {
     #[cfg(feature = "polars")]
     #[test]
     fn expand_polars_dataframe_simple() {
-        // Step 1. Add nodes & edges
+        use pl::prelude::NamedFrom;
 
-        let nodes: DataFrame = ::pl::df!(
+        // Step 1. Add nodes & edges
+        let nodes: LazyFrame = ::pl::df!(
             "name" => &["a", "b"],
             "payload" => &[300.0, 0.0],
         )
         .expect("failed to create nodes dataframe")
         .into();
 
-        let edges: DataFrame = ::pl::df!(
+        let edges: LazyFrame = ::pl::df!(
             "src" => &["a"],
             "sink" => &["b"],
         )
@@ -100,25 +106,94 @@ mod tests {
         let next_graph = function.call(&graph).expect("failed to call a function");
 
         // Step 4. Test outputs
-        let next_graph = match next_graph {
-            DataFrame::PolarsLazy(df) => df.collect().expect("failed to collect polars LazyFrame"),
-            _ => panic!("failed to unwrap polars dataframe"),
+        let next_nodes = match next_graph.nodes {
+            LazyFrame::Polars(df) => df
+                .collect()
+                .expect("failed to collect polars edges LazyFrame"),
+            #[allow(unreachable_patterns)]
+            _ => panic!("failed to unwrap polars edges LazyFrame"),
         };
         assert_eq!(
-            next_graph.column("src.payload").unwrap(),
-            &::pl::series::Series::from_iter(&[297.0]).with_name("src.payload"),
+            next_nodes.column("name").unwrap(),
+            &::pl::series::Series::new("name", vec!["a".to_string(), "b".to_string()]),
         );
         assert_eq!(
-            next_graph.column("sink.payload").unwrap(),
-            &::pl::series::Series::from_iter(&[3.0]).with_name("sink.payload"),
+            next_nodes.column("payload").unwrap(),
+            &::pl::series::Series::new("payload", vec![297.0, 3.0]),
         );
         assert_eq!(
-            next_graph.column("src.moved_out").unwrap(),
-            &::pl::series::Series::from_iter(&[3.0]).with_name("src.moved_out"),
+            next_nodes.column("moved_out").unwrap(),
+            &::pl::series::Series::new("moved_out", vec![Some(3.0), None]),
         );
         assert_eq!(
-            next_graph.column("sink.moved_in").unwrap(),
-            &::pl::series::Series::from_iter(&[3.0]).with_name("sink.moved_in"),
+            next_nodes.column("moved_in").unwrap(),
+            &::pl::series::Series::new("moved_in", vec![None, Some(3.0)]),
+        );
+    }
+
+    #[cfg(feature = "polars")]
+    #[test]
+    fn expand_polars_dataframe_simple_with_filter() {
+        use pl::prelude::NamedFrom;
+
+        // Step 1. Add nodes & edges
+        let nodes: LazyFrame = ::pl::df!(
+            "name" => &["a", "b"],
+            "payload" => &[300.0, 0.0],
+        )
+        .expect("failed to create nodes dataframe")
+        .into();
+
+        let edges: LazyFrame = ::pl::df!(
+            "src" => &["a", "b"],
+            "sink" => &["b", "a"],
+        )
+        .expect("failed to create edges dataframe")
+        .into();
+
+        let graph = Graph { edges, nodes };
+
+        // Step 2. Add functions
+        let function_template = FunctionTemplate {
+            action: r"
+                src.payload = src.payload - 3;
+                sink.payload = sink.payload + 3;
+
+                src.moved_out = 3;
+                sink.moved_in = 3;
+            ",
+            filter: Some("src.payload >= 3"),
+        };
+        let function: Function = function_template
+            .try_into()
+            .expect("failed to build a function");
+
+        // Step 3. Call a function
+        let next_graph = function.call(&graph).expect("failed to call a function");
+
+        // Step 4. Test outputs
+        let next_nodes = match next_graph.nodes {
+            LazyFrame::Polars(df) => df
+                .collect()
+                .expect("failed to collect polars edges LazyFrame"),
+            #[allow(unreachable_patterns)]
+            _ => panic!("failed to unwrap polars edges LazyFrame"),
+        };
+        assert_eq!(
+            next_nodes.column("name").unwrap(),
+            &::pl::series::Series::new("name", vec!["a".to_string(), "b".to_string()]),
+        );
+        assert_eq!(
+            next_nodes.column("payload").unwrap(),
+            &::pl::series::Series::new("payload", vec![297.0, 3.0]),
+        );
+        assert_eq!(
+            next_nodes.column("moved_out").unwrap(),
+            &::pl::series::Series::new("moved_out", vec![Some(3.0), None]),
+        );
+        assert_eq!(
+            next_nodes.column("moved_in").unwrap(),
+            &::pl::series::Series::new("moved_in", vec![None, Some(3.0)]),
         );
     }
 }

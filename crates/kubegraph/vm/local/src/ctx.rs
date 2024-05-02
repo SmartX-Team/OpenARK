@@ -1,9 +1,9 @@
-use crate::df::DataFrame;
+use crate::df::LazyFrame;
 
 #[derive(Default)]
 pub struct Context {
-    pub(crate) edges: Option<DataFrame>,
-    pub(crate) nodes: Option<DataFrame>,
+    pub(crate) edges: Option<LazyFrame>,
+    pub(crate) nodes: Option<LazyFrame>,
     pub(crate) vm: crate::lazy::LazyVirtualMachine,
 }
 

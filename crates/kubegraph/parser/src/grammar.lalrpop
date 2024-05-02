@@ -27,13 +27,14 @@ pub Filter: Filter = {
     <value: Literal> "!" => Filter::Ensure {
         value,
     },
-    <value: Expr> => Filter::Expr {
+    <value: OrExpr> => Filter::Expr {
         value,
     },
 };
 
 Expr: Expr = {
     <x: OrExpr> => x,
+    <x: AddExpr> => x,
 };
 
 OrExpr: Expr = {
@@ -46,42 +47,41 @@ OrExpr: Expr = {
 };
 
 AndExpr: Expr = {
-    <x: CompExpr> => x,
-    <lhs: AndExpr> "and" <rhs: CompExpr> => Expr::Binary {
+    <x: CmpExpr> => x,
+    <lhs: AndExpr> "and" <rhs: CmpExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::And,
     },
 };
 
-CompExpr: Expr = {
-    <x: AddExpr> => x,
-    <lhs: CompExpr> "==" <rhs: AddExpr> => Expr::Binary {
+CmpExpr: Expr = {
+    <lhs: CmpExprBase> "==" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Eq,
     },
-    <lhs: CompExpr> "!=" <rhs: AddExpr> => Expr::Binary {
+    <lhs: CmpExprBase> "!=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Ne,
     },
-    <lhs: CompExpr> ">=" <rhs: AddExpr> => Expr::Binary {
+    <lhs: CmpExprBase> ">=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Ge,
     },
-    <lhs: CompExpr> ">" <rhs: AddExpr> => Expr::Binary {
+    <lhs: CmpExprBase> ">" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Gt,
     },
-    <lhs: CompExpr> "<=" <rhs: AddExpr> => Expr::Binary {
+    <lhs: CmpExprBase> "<=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Le,
     },
-    <lhs: CompExpr> "<" <rhs: AddExpr> => Expr::Binary {
+    <lhs: CmpExprBase> "<" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
         op: BinaryExpr::Lt,
@@ -91,6 +91,11 @@ CompExpr: Expr = {
         rhs,
     },
 };
+
+CmpExprBase: Expr = {
+    CmpExpr => <>,
+    AddExpr => <>,
+}
 
 AddExpr: Expr = {
     <x: MulExpr> => x,

@@ -11,7 +11,7 @@ use std::collections::{btree_map::Entry, BTreeMap};
 use anyhow::Result;
 
 use self::{ctx::Context, func::Function};
-pub use self::{df::IntoDataFrame, func::IntoFunction};
+pub use self::{df::IntoLazyFrame, func::IntoFunction};
 
 #[derive(Default)]
 pub struct VirtualMachine<K> {
@@ -23,7 +23,7 @@ impl<K> VirtualMachine<K>
 where
     K: Ord,
 {
-    pub fn insert_edges(&mut self, key: K, edges: impl IntoDataFrame) {
+    pub fn insert_edges(&mut self, key: K, edges: impl IntoLazyFrame) {
         let edges = Some(edges.into());
         match self.contexts.entry(key) {
             Entry::Occupied(ctx) => ctx.into_mut().edges = edges,
@@ -36,7 +36,7 @@ where
         }
     }
 
-    pub fn insert_nodes(&mut self, key: K, nodes: impl IntoDataFrame) {
+    pub fn insert_nodes(&mut self, key: K, nodes: impl IntoLazyFrame) {
         let nodes = Some(nodes.into());
         match self.contexts.entry(key) {
             Entry::Occupied(ctx) => ctx.into_mut().nodes = nodes,
