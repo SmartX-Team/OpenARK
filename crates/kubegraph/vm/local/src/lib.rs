@@ -80,7 +80,7 @@ pub struct Problem<T>
 where
     T: AsRef<str>,
 {
-    pub cost: T,
+    pub cost: Option<T>,
     pub value: T,
 }
 
@@ -123,7 +123,7 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = Problem {
-            cost: "src.traffic",
+            cost: None,
             value: "src.traffic",
         };
 

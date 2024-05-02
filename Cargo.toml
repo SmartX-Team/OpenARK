@@ -39,6 +39,7 @@ members = [
     "crates/kubegraph/db/local",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
+    "crates/kubegraph/solver/ortools",
     "crates/kubegraph/twin/api",
     "crates/kubegraph/twin/k8s",
     "crates/kubegraph/twin/simulator",
@@ -247,4 +248,5 @@ which = { version = "6.0" }
 
 [patch.crates-io]
 # FIXME: push a PR: Send trait support
+or-tools = { git = "https://github.com/ulagbulag/or-tools-rs" }
 schemars = { git = "https://github.com/ulagbulag/schemars" }
