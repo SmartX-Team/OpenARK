@@ -127,6 +127,7 @@ MulExpr: Expr = {
 
 UnaryExpr: Expr = {
     <value: UnitExpr> => value,
+    "+" <value: UnitExpr> => value,
     "-" <value: UnitExpr> => Expr::Unary {
         value: Box::new(value),
         op: UnaryExpr::Neg,

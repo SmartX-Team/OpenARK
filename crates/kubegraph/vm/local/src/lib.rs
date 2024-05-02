@@ -108,25 +108,23 @@ mod tests {
         // Step 3. Add functions
         let function = FunctionTemplate {
             action: r"
-                src.payload = src.payload - 3;
-                sink.payload = sink.payload + 3;
+                src.payload = -3;
+                sink.payload = +3;
 
-                src.moved_out = 3;
-                sink.moved_in = 3;
+                src.traffic = 3;
+                src.traffic_out = 3;
+                sink.traffic = 3;
+                sink.traffic_in = 3;
             ",
-            filter: Some(
-                r"
-                src.payload >= 3 + 2
-            ",
-            ),
+            filter: Some("src.payload >= 3"),
         };
         vm.insert_function("move".into(), function)
             .expect("failed to insert function");
 
         // Step 4. Add cost & value function (heuristic)
         let problem = Problem {
-            cost: "node.moved_out",
-            value: "node.moved_out",
+            cost: "src.traffic",
+            value: "src.traffic",
         };
 
         // Step 5. Do optimize

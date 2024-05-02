@@ -8,6 +8,13 @@ use kubegraph_api::{
 #[cfg(feature = "polars")]
 use pl::lazy::frame::IntoLazy;
 
+pub trait IntoGraph {
+    /// Disaggregate two dataframes.
+    fn try_into_graph(self) -> Result<Graph<LazyFrame>>
+    where
+        Self: Sized;
+}
+
 pub trait IntoLazyFrame
 where
     Self: Into<LazyFrame>,
@@ -84,42 +91,51 @@ impl LazyFrame {
             }
         }
     }
+}
 
-    pub(crate) fn try_into_graph(self) -> Result<Graph<Self>> {
+impl IntoGraph for LazyFrame {
+    fn try_into_graph(self) -> Result<Graph<Self>> {
         match self {
             #[cfg(feature = "polars")]
-            LazyFrame::Polars(graph_df) => {
-                let nodes_src = graph_df.clone().select(&[
-                    ::pl::lazy::dsl::col("src").alias("name"),
-                    ::pl::lazy::dsl::col(r"^src\..*$")
-                        .name()
-                        .map(|name| Ok(name["src.".len()..].into())),
-                ]);
-                let nodes_sink = graph_df.clone().select(&[
-                    ::pl::lazy::dsl::col("sink").alias("name"),
-                    ::pl::lazy::dsl::col(r"^sink\..*$")
-                        .name()
-                        .map(|name| Ok(name["sink.".len()..].into())),
-                ]);
-
-                let args = ::pl::lazy::prelude::UnionArgs::default();
-                let nodes = ::pl::lazy::prelude::concat_lf_diagonal(&[nodes_src, nodes_sink], args)
-                    .map_err(|error| anyhow!("failed to stack sink over src: {error}"))?;
-
-                let edges = graph_df.clone().select(&[
-                    ::pl::lazy::dsl::col("src"),
-                    ::pl::lazy::dsl::col("sink"),
-                    ::pl::lazy::dsl::col(r"^link\..*$")
-                        .name()
-                        .map(|name| Ok(name["link.".len()..].into())),
-                ]);
-
-                Ok(Graph {
-                    edges: LazyFrame::Polars(edges),
-                    nodes: LazyFrame::Polars(nodes),
-                })
-            }
+            LazyFrame::Polars(df) => df.try_into_graph(),
         }
+    }
+}
+
+#[cfg(feature = "polars")]
+impl IntoGraph for ::pl::lazy::frame::LazyFrame {
+    fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
+        let nodes_src = self.clone().select([
+            ::pl::lazy::dsl::col("src").alias("name"),
+            ::pl::lazy::dsl::col(r"^src\..*$")
+                .name()
+                .map(|name| Ok(name["src.".len()..].into())),
+        ]);
+        let nodes_sink = self.clone().select([
+            ::pl::lazy::dsl::col("sink").alias("name"),
+            ::pl::lazy::dsl::col(r"^sink\..*$")
+                .name()
+                .map(|name| Ok(name["sink.".len()..].into())),
+        ]);
+
+        let args = ::pl::lazy::prelude::UnionArgs::default();
+        let nodes = ::pl::lazy::prelude::concat_lf_diagonal([nodes_src, nodes_sink], args)
+            .map_err(|error| anyhow!("failed to stack sink over src: {error}"))?
+            .group_by([::pl::lazy::dsl::col("name")])
+            .agg([::pl::lazy::dsl::all().sum()]);
+
+        let edges = self.clone().select([
+            ::pl::lazy::dsl::col("src"),
+            ::pl::lazy::dsl::col("sink"),
+            ::pl::lazy::dsl::col(r"^link\..*$")
+                .name()
+                .map(|name| Ok(name["link.".len()..].into())),
+        ]);
+
+        Ok(Graph {
+            edges: LazyFrame::Polars(edges),
+            nodes: LazyFrame::Polars(nodes),
+        })
     }
 }
 

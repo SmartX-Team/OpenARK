@@ -47,7 +47,7 @@ mod impl_call {
         },
     };
 
-    use crate::df::{IntoLazySlice, LazyFrame, LazySlice};
+    use crate::df::{IntoGraph, IntoLazySlice, LazyFrame, LazySlice};
 
     impl super::LazyVirtualMachine {
         pub(crate) fn call(
@@ -87,10 +87,10 @@ mod impl_call {
 
                 let edges_src = nodes
                     .clone()
-                    .select(&[::pl::lazy::dsl::all().name().prefix("src.")]);
+                    .select([::pl::lazy::dsl::all().name().prefix("src.")]);
                 let edges_sink = nodes
                     .clone()
-                    .select(&[::pl::lazy::dsl::all().name().prefix("sink.")]);
+                    .select([::pl::lazy::dsl::all().name().prefix("sink.")]);
 
                 let graph = edges
                     .clone()
@@ -169,8 +169,9 @@ mod impl_call {
         fn try_into_filter(mut self) -> Result<LazySlice> {
             self.stack.pop_slice(&self.heap.graph)
         }
+    }
 
-        /// Disaggregate two dataframes.
+    impl IntoGraph for Context {
         fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
             self.heap.try_into_graph()
         }
@@ -227,7 +228,9 @@ mod impl_call {
             self.variables.insert(key, value);
             Ok(())
         }
+    }
 
+    impl IntoGraph for Heap {
         fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
             self.graph.try_into_graph()
         }

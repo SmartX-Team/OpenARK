@@ -165,12 +165,14 @@ ordered-float = { version = "4.2", default-features = false, features = [
 ] }
 polars = { version = "0.39", features = [
     "diagonal_concat",
+    "diff",
     "fmt",
     "lazy",
     "nightly",
     "parquet",
     "performant",
     "random",
+    "rank",
     "serde",
     "serde-lazy",
     "sql",
