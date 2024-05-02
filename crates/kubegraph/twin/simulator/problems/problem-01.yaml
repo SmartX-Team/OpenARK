@@ -26,7 +26,7 @@ spec:
   filters:
     - payload >= 100
     - payload <= 200
-    - payload -> send
+    # - payload -> send
   where:
     - payload!
     - warehouse
@@ -40,16 +40,16 @@ spec:
   handlers:
     fake:
       data:
-        input:
+        src:
           filters:
             - payload!
-          provides:
-            - payload -> send
-        output:
+          # provides:
+          #   - payload -> send
+        sink:
           filters:
             - payload!
-          provides:
-            - payload -> send
+          # provides:
+          #   - payload -> send
       script: |
-        input.payload -= 3
-        output.payload += 3
+        src.payload -= 3
+        sink.payload += 3

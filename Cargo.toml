@@ -36,7 +36,6 @@ members = [
     "crates/kiss/monitor",
     "crates/kiss/operator",
     "crates/kubegraph/api",
-    "crates/kubegraph/computer/http",
     "crates/kubegraph/db/local",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
@@ -44,6 +43,8 @@ members = [
     "crates/kubegraph/twin/k8s",
     "crates/kubegraph/twin/simulator",
     "crates/kubegraph/twin/simulator/schema",
+    "crates/kubegraph/vm/http",
+    "crates/kubegraph/vm/local",
     "crates/straw/api",
     "crates/straw/provider",
     "crates/straw/provider/oci",
@@ -161,6 +162,18 @@ ordered-float = { version = "4.2", default-features = false, features = [
     "schemars",
     "serde",
     "std",
+] }
+polars = { version = "0.39", features = [
+    "fmt",
+    "lazy",
+    "nightly",
+    "parquet",
+    "performant",
+    "random",
+    "serde",
+    "serde-lazy",
+    "sql",
+    "streaming",
 ] }
 procfs = { version = "0.16" }
 prometheus-http-query = { version = "0.8", default-features = false, features = [

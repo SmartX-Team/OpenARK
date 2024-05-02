@@ -28,11 +28,11 @@ local = ["kubegraph-db-local"]
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["actix-web", "ctrlc"] }
 kubegraph-api = { path = "../../api" }
-kubegraph-computer-http = { path = "../../computer/http" }
 kubegraph-db-local = { path = "../../db/local", optional = true }
 kubegraph-parser = { path = "../../parser" }
 kubegraph-simulator-schema = { path = "./schema" }
 kubegraph-twin-api = { path = "../api" }
+kubegraph-vm-http = { path = "../../vm/http" }
 
 actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }

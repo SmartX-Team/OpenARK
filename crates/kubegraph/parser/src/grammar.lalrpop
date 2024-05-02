@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use kubegraph_api::vm::Number;
+
 use crate::*;
 
 
@@ -36,41 +38,53 @@ Expr: Expr = {
 
 OrExpr: Expr = {
     <x: AndExpr> => x,
-    <lhs: OrExpr> "or" <rhs: AndExpr> => Expr::And {
+    <lhs: OrExpr> "or" <rhs: AndExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Or,
     },
 };
 
 AndExpr: Expr = {
     <x: CompExpr> => x,
-    <lhs: AndExpr> "and" <rhs: CompExpr> => Expr::And {
+    <lhs: AndExpr> "and" <rhs: CompExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::And,
     },
 };
 
 CompExpr: Expr = {
     <x: AddExpr> => x,
-    <lhs: CompExpr> "==" <rhs: AddExpr> => Expr::Eq {
+    <lhs: CompExpr> "==" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Eq,
     },
-    <lhs: CompExpr> ">=" <rhs: AddExpr> => Expr::Ge {
+    <lhs: CompExpr> "!=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Ne,
     },
-    <lhs: CompExpr> ">" <rhs: AddExpr> => Expr::Gt {
+    <lhs: CompExpr> ">=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Ge,
     },
-    <lhs: CompExpr> "<=" <rhs: AddExpr> => Expr::Le {
+    <lhs: CompExpr> ">" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Gt,
     },
-    <lhs: CompExpr> "<" <rhs: AddExpr> => Expr::Lt {
+    <lhs: CompExpr> "<=" <rhs: AddExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Le,
+    },
+    <lhs: CompExpr> "<" <rhs: AddExpr> => Expr::Binary {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+        op: BinaryExpr::Lt,
     },
     <lhs: Literal> "->" <rhs: Literal> => Expr::Feature {
         lhs,
@@ -80,35 +94,41 @@ CompExpr: Expr = {
 
 AddExpr: Expr = {
     <x: MulExpr> => x,
-    <lhs: AddExpr> "+" <rhs: MulExpr> => Expr::Add {
+    <lhs: AddExpr> "+" <rhs: MulExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Add,
     },
-    <lhs: AddExpr> "-" <rhs: MulExpr> => Expr::Sub {
+    <lhs: AddExpr> "-" <rhs: MulExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Sub,
     },
 };
 
 MulExpr: Expr = {
     <x: UnaryExpr> => x,
-    <lhs: MulExpr> "*" <rhs: UnaryExpr> => Expr::Mul {
+    <lhs: MulExpr> "*" <rhs: UnaryExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Mul,
     },
-    <lhs: MulExpr> "/" <rhs: UnaryExpr> => Expr::Div {
+    <lhs: MulExpr> "/" <rhs: UnaryExpr> => Expr::Binary {
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
+        op: BinaryExpr::Div,
     },
 };
 
 UnaryExpr: Expr = {
     <value: UnitExpr> => value,
-    "-" <value: UnitExpr> => Expr::Negative {
+    "-" <value: UnitExpr> => Expr::Unary {
         value: Box::new(value),
+        op: UnaryExpr::Neg,
     },
-    "!" <value: UnitExpr> => Expr::Not {
+    "!" <value: UnitExpr> => Expr::Unary {
         value: Box::new(value),
+        op: UnaryExpr::Not,
     },
 };
 
@@ -135,15 +155,15 @@ pub Provide: Provide = {
 };
 
 Literal: Literal = {
-    <s: r"[a-z]+(-[a-z])*"> => Literal(s.into()),
+    <s: r"[a-z]+([\._][a-z]+)*"> => Literal(s.into()),
 };
 
-Number: f64 = {
-    <s: r"-?[0-9]+(\.[0-9]*)?"> => f64::from_str(s).unwrap(),
+Number: Number = {
+    <s: r"-?[0-9]+(\.[0-9]*)?"> => Number::new(f64::from_str(s).unwrap()),
 };
 
 MultiLine<T>: Vec<T> = {
-    <mut v: (<T> ",")*> <e: T?> => match e {
+    <mut v: (<T> ";")*> <e: T?> => match e {
         Some(e) => {
             v.push(e);
             v

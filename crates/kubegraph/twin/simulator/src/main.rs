@@ -1,5 +1,4 @@
 mod actix;
-mod computer;
 mod connector;
 mod routes;
 

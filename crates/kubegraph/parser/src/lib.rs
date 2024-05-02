@@ -1,3 +1,4 @@
+use kubegraph_api::vm::{BinaryExpr, Number, UnaryExpr};
 use lalrpop_util::lalrpop_mod;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,29 +31,30 @@ pub enum Expr {
     //
     // unary
     //
-    Identity { value: Value },
-    Negative { value: Box<Expr> },
-    Not { value: Box<Expr> },
+    Identity {
+        value: Value,
+    },
+    Unary {
+        value: Box<Expr>,
+        op: UnaryExpr,
+    },
     //
     // binary
     //
-    Mul { lhs: Box<Expr>, rhs: Box<Expr> },
-    Div { lhs: Box<Expr>, rhs: Box<Expr> },
-    Add { lhs: Box<Expr>, rhs: Box<Expr> },
-    Sub { lhs: Box<Expr>, rhs: Box<Expr> },
-    Eq { lhs: Box<Expr>, rhs: Box<Expr> },
-    Ge { lhs: Box<Expr>, rhs: Box<Expr> },
-    Gt { lhs: Box<Expr>, rhs: Box<Expr> },
-    Le { lhs: Box<Expr>, rhs: Box<Expr> },
-    Lt { lhs: Box<Expr>, rhs: Box<Expr> },
-    Feature { lhs: Literal, rhs: Literal },
-    And { lhs: Box<Expr>, rhs: Box<Expr> },
-    Or { lhs: Box<Expr>, rhs: Box<Expr> },
+    Binary {
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+        op: BinaryExpr,
+    },
+    Feature {
+        lhs: Literal,
+        rhs: Literal,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum Value {
-    Number(f64),
+    Number(Number),
     Variable(Literal),
 }
 

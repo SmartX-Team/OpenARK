@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-computer-http"
+name = "kubegraph-vm-http"
 
 authors = { workspace = true }
 description = { workspace = true }
