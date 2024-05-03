@@ -90,7 +90,7 @@ fn min_cost_flow_simple() {
     // Step 2. Define edges
     let nodes = df!(
         "name"      => [  0,   1,   2,   3,   4],
-        "supply"      => [ 20,   0,   0,  -5, -15],
+        "supply"    => [ 20,   0,   0,  -5, -15],
     )
     .expect("failed to create nodes dataframe");
 
