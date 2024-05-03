@@ -25,5 +25,4 @@ kubegraph-api = { path = "../../api" }
 or-tools = { workspace = true }
 
 [dev-dependencies]
-itertools = { workspace = true }
 polars = { workspace = true }
