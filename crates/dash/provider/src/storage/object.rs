@@ -18,6 +18,7 @@ use dash_api::{
         ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
+use dash_provider_api::data::Capacity;
 use futures::{stream::FuturesUnordered, FutureExt, TryFutureExt, TryStreamExt};
 use k8s_openapi::{
     api::{
@@ -54,6 +55,7 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Method;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use tokio::try_join;
 use tracing::{info, instrument, Level};
 
 pub struct ObjectStorageClient {
@@ -327,6 +329,12 @@ impl<'model> ObjectStorageSession {
     pub fn fetch_provider(&self) -> Credentials {
         self.provider.fetch()
     }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub async fn get_capacity_global(&self) -> Result<Capacity> {
+        let admin = MinioAdminClient { storage: self };
+        admin.get_capacity_global().await
+    }
 }
 
 pub struct ObjectStorageRef<'client, 'model, 'source> {
@@ -411,6 +419,23 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
                 }
                 _ => bail!("failed to get object ({bucket_name}/{ref_name}): {error}"),
             },
+        }
+    }
+
+    pub async fn get_capacity(&self) -> Result<Capacity> {
+        let admin = self.admin();
+        let global_capacity = admin.get_capacity_global().await?;
+
+        let bucket_name = self.get_bucket_name();
+        match admin
+            .get_capacity_bucket(&bucket_name)
+            .await
+            .unwrap_or_else(|error| {
+                info!("failed to get bucket capacity: {error}");
+                None
+            }) {
+            Some(bucket_capacity) => Ok(bucket_capacity.limit_on(global_capacity.capacity)),
+            None => Ok(global_capacity),
         }
     }
 
@@ -924,6 +949,87 @@ impl<'storage> MinioAdminClient<'storage> {
                 target = &target.endpoint,
             )
         })
+    }
+
+    async fn get_capacity_bucket(&self, bucket_name: &str) -> Result<Option<Capacity>> {
+        match try_join!(
+            self.get_capacity_bucket_capacity(bucket_name),
+            self.get_capacity_bucket_usage(bucket_name),
+        )? {
+            (Some(capacity), Some(usage)) => Ok(Some(Capacity { capacity, usage })),
+            _ => Ok(None),
+        }
+    }
+
+    async fn get_capacity_bucket_capacity(&self, bucket_name: &str) -> Result<Option<Byte>> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Data {
+            #[serde(default)]
+            quota: Option<Byte>,
+        }
+
+        self.execute::<&str>(
+            Method::GET,
+            "/admin/v3/get-bucket-quota",
+            &[("bucket", bucket_name)],
+            None,
+        )
+        .map_err(Error::from)
+        .map(|result| result.and_then(|bytes| ::serde_json::from_slice(&bytes).map_err(Into::into)))
+        .map_ok(|data: Data| data.quota)
+        .map_err(|error| {
+            anyhow!(
+                "failed to get total bucket capacity ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+        .await
+    }
+
+    async fn get_capacity_bucket_usage(&self, _bucket_name: &str) -> Result<Option<Byte>> {
+        // NOTE(2023-11-12): minio API does not provide bucket usage in O(1)
+        Ok(None)
+    }
+
+    async fn get_capacity_global(&self) -> Result<Capacity> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Data {
+            pools: BTreeMap<String, BTreeMap<String, DataPool>>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct DataPool {
+            raw_capacity: Byte,
+            usage: Byte,
+        }
+
+        self.execute::<&str>(Method::GET, "/admin/v3/info", &[], None)
+            .map_err(Error::from)
+            .map(|result| {
+                result.and_then(|bytes| ::serde_json::from_slice(&bytes).map_err(Into::into))
+            })
+            .map_ok(|data: Data| {
+                data.pools
+                    .into_values()
+                    .flatten()
+                    .map(|(_, pool)| Capacity {
+                        capacity: pool.raw_capacity,
+                        usage: pool.usage,
+                    })
+                    .sum()
+            })
+            .map_err(|error| {
+                anyhow!(
+                    "failed to get available storage capacity ({name}: {origin}): {error}",
+                    name = &self.storage.name,
+                    origin = &self.storage.endpoint,
+                )
+            })
+            .await
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]

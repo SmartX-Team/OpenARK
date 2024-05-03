@@ -1,8 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use dash_api::model_claim::{ModelClaimCrd, ModelClaimDeletionPolicy, ModelClaimState};
 use dash_provider::storage::KubernetesStorageClient;
 use kube::ResourceExt;
 use tracing::{instrument, Level};
+
+use crate::optimizer::model_claim::ModelClaimOptimizer;
 
 pub struct ModelClaimValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
@@ -31,9 +33,18 @@ impl<'namespace, 'kube> ModelClaimValidator<'namespace, 'kube> {
             return Ok(ModelClaimState::Ready);
         }
 
-        // notify the model claim
-        // TODO: to be implemented!
-        Ok(ModelClaimState::Pending)
+        // create model storage binding
+        let optimizer = ModelClaimOptimizer::new(self.kubernetes_storage);
+        match optimizer
+            .optimize_model_storage_binding(field_manager, &model, crd.spec.storage)
+            .await?
+        {
+            Some(_) => Ok(ModelClaimState::Ready),
+            None => bail!(
+                "failed to bind to proper model storage: {name:?}",
+                name = crd.name_any(),
+            ),
+        }
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
