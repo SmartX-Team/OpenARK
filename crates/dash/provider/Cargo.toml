@@ -34,6 +34,7 @@ argon2 = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 byte-unit = { workspace = true, features = ["serde"] }
+bytes = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 inflector = { workspace = true }

@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 
 mod ctx;
+mod optimizer;
 mod validator;
 
 use ark_core_k8s::manager::Ctx;

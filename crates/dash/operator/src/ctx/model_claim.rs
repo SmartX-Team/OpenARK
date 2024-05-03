@@ -144,7 +144,7 @@ impl Ctx {
     ) -> Result<Action, Error> {
         match Self::update_fields(namespace, kube, name, spec, state).await {
             Ok(()) => {
-                info!("model claim is ready: {namespace}/{name}");
+                info!("model claim is {state}: {namespace}/{name}");
                 Ok(Action::requeue(
                     <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
                 ))

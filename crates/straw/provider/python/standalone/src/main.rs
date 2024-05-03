@@ -8,7 +8,10 @@ use dash_pipe_provider::{
     storage::StorageIO, DynValue, FunctionContext, PipeArgs, PipeMessages, PyPipeMessage,
 };
 use derivative::Derivative;
-use pyo3::{types::PyModule, PyObject, Python};
+use pyo3::{
+    types::{PyAnyMethods, PyModule},
+    PyObject, Python,
+};
 use serde::{Deserialize, Serialize};
 use straw_provider_python::PluginBuilder;
 
@@ -50,7 +53,7 @@ impl ::dash_pipe_provider::FunctionBuilder for Function {
 
         Ok(Self {
             tick: Python::with_gil(|py| {
-                let module = PyModule::from_code(py, code, "__straw__.py", "__straw__")?;
+                let module = PyModule::from_code_bound(py, code, "__straw__.py", "__straw__")?;
                 let loader = module.getattr("load")?;
                 let tick = loader.call1((model.to_string(), kind))?;
                 Ok(tick.into())

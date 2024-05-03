@@ -1080,7 +1080,7 @@ impl FieldSchema for DataType {
             DataType::Float32 => Some(DeltaDataType::Primitive(DeltaPrimitiveType::Float)),
             DataType::Float64 => Some(DeltaDataType::Primitive(DeltaPrimitiveType::Double)),
             DataType::Decimal128(precision, scale) | DataType::Decimal256(precision, scale) => {
-                Some(DeltaDataType::decimal(*precision, *scale))
+                Some(DeltaDataType::decimal(*precision, *scale)?)
             }
             // BEGIN binary formats
             DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => {

@@ -23,11 +23,12 @@ pub mod deltalake {
     use std::sync::Arc;
 
     use anyhow::anyhow;
+    use arrow::array::RecordBatch;
     use deltalake::{
         arrow::{
             array::{Array, StructArray},
             datatypes::Schema,
-            json::{writer::array_to_json_array, ReaderBuilder},
+            json::{writer::ArrayWriter, ReaderBuilder},
         },
         datafusion::{error::DataFusionError, physical_plan::ColumnarValue},
     };
@@ -76,14 +77,15 @@ pub mod deltalake {
 
             let mut decoder = ReaderBuilder::new(self.output.clone()).build_decoder()?;
 
-            for arrays in (0..inputs.len())
+            for array in (0..inputs.len())
                 .step_by(self.chunk_size)
                 .map(|offset| inputs.slice(offset, self.chunk_size.min(num_rows - offset)))
             {
-                let inputs = array_to_json_array(&arrays)?
-                    .into_iter()
-                    .map(::serde_json::from_value)
-                    .collect::<Result<_, _>>()
+                let mut writer = ArrayWriter::new(vec![]);
+                writer.write(&RecordBatch::try_new(self.output.clone(), vec![array])?)?;
+                writer.finish()?;
+
+                let inputs = ::serde_json::from_slice(&writer.into_inner())
                     .map(PipeMessages::Batch)
                     .map_err(|error| DataFusionError::External(error.into()))?;
 

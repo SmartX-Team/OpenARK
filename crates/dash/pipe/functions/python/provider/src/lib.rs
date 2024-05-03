@@ -8,7 +8,10 @@ use dash_pipe_provider::{
     RemoteFunction,
 };
 use derivative::Derivative;
-use pyo3::{types::PyModule, PyObject, Python};
+use pyo3::{
+    types::{PyAnyMethods, PyModule},
+    PyObject, Python,
+};
 use serde::{Deserialize, Serialize};
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -114,7 +117,7 @@ impl FunctionArgs {
 
         Ok(Function {
             tick: Python::with_gil(|py| {
-                let module = PyModule::from_code(py, &code, file_name, "__dash_pipe__")?;
+                let module = PyModule::from_code_bound(py, &code, file_name, "__dash_pipe__")?;
                 let tick = module.getattr(tick_name.as_str()).map_err(|error| {
                     anyhow!("failed to load python tick function {tick_name:?}: {error}")
                 })?;

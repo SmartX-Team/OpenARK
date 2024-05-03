@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 use anyhow::{anyhow, bail, Error, Result};
 use ark_core_k8s::{data::Url, domain::get_cluster_domain};
 use byte_unit::Byte;
+use bytes::{BufMut, Bytes, BytesMut};
 use chrono::Utc;
 use dash_api::{
     model::{ModelCrd, ModelCustomResourceDefinitionRefSpec},
@@ -17,7 +18,7 @@ use dash_api::{
         ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
-use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
+use futures::{stream::FuturesUnordered, FutureExt, TryFutureExt, TryStreamExt};
 use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
@@ -41,12 +42,12 @@ use kube::{
 use maplit::btreemap;
 use minio::s3::{
     args::{
-        BucketExistsArgs, GetBucketReplicationArgs, GetObjectArgs, ListObjectsV2Args,
-        MakeBucketArgs, SetBucketReplicationArgs, SetBucketVersioningArgs,
+        BucketExistsArgs, GetBucketReplicationArgs, MakeBucketArgs, SetBucketReplicationArgs,
+        SetBucketVersioningArgs,
     },
     creds::{Credentials, Provider, StaticProvider},
     http::BaseUrl,
-    types::{Destination, ReplicationConfig, ReplicationRule},
+    types::{Destination, ReplicationConfig, ReplicationRule, S3Api},
     utils::Multimap,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
@@ -56,9 +57,9 @@ use serde_json::{json, Map, Value};
 use tracing::{info, instrument, Level};
 
 pub struct ObjectStorageClient {
-    source: Option<(ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    source: Option<(ObjectStorageSession, ModelStorageBindingSyncPolicy)>,
     source_binding_name: Option<String>,
-    target: ObjectStorageRef,
+    target: ObjectStorageSession,
 }
 
 impl ObjectStorageClient {
@@ -75,14 +76,19 @@ impl ObjectStorageClient {
                     storage: source,
                     sync_policy,
                 }) => Some(
-                    ObjectStorageRef::load_storage_provider(kube, namespace, source_name, source)
-                        .await
-                        .map(|source| (source, sync_policy))?,
+                    ObjectStorageSession::load_storage_provider(
+                        kube,
+                        namespace,
+                        source_name,
+                        source,
+                    )
+                    .await
+                    .map(|source| (source, sync_policy))?,
                 ),
                 None => None,
             },
             source_binding_name: storage.source_binding_name.map(Into::into),
-            target: ObjectStorageRef::load_storage_provider(
+            target: ObjectStorageSession::load_storage_provider(
                 kube,
                 namespace,
                 storage.target_name,
@@ -97,8 +103,8 @@ impl ObjectStorageClient {
         kube: &'model Client,
         namespace: &'model str,
         model: &'model ModelCrd,
-    ) -> ObjectStorageSession<'_, 'model, '_> {
-        ObjectStorageSession {
+    ) -> ObjectStorageRef<'_, 'model, '_> {
+        ObjectStorageRef {
             kube,
             model,
             namespace,
@@ -107,20 +113,19 @@ impl ObjectStorageClient {
                 .as_ref()
                 .map(|(source, sync_policy)| (source, *sync_policy)),
             source_binding_name: self.source_binding_name.as_deref(),
-            target: self.target.get_client(),
-            target_ref: &self.target,
+            target: &self.target,
         }
     }
 }
 
-pub struct ObjectStorageRef {
-    pub base_url: BaseUrl,
+pub struct ObjectStorageSession {
+    pub client: ::minio::s3::client::Client,
     pub endpoint: Url,
     pub name: String,
     pub provider: StaticProvider,
 }
 
-impl<'model> ObjectStorageRef {
+impl<'model> ObjectStorageSession {
     #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     pub async fn load_storage_provider(
         kube: &Client,
@@ -222,11 +227,24 @@ impl<'model> ObjectStorageRef {
         let access_key = get_secret_data(map_access_key)?;
         let secret_key = get_secret_data(map_secret_key)?;
 
+        let base_url: BaseUrl = endpoint
+            .as_str()
+            .parse()
+            .map_err(|error| anyhow!("failed to parse s3 storage endpoint: {error}"))?;
+        let provider = StaticProvider::new(&access_key, &secret_key, None);
+        let ssl_cert_file = None;
+        let ignore_cert_check = Some(!base_url.https);
+
         Ok(Self {
-            base_url: BaseUrl::from_string(endpoint.to_string())?,
+            client: ::minio::s3::client::Client::new(
+                base_url,
+                Some(Box::new(provider.clone())),
+                ssl_cert_file,
+                ignore_cert_check,
+            )?,
             endpoint: endpoint.clone(),
             name: name.to_string(),
-            provider: StaticProvider::new(&access_key, &secret_key, None),
+            provider,
         })
     }
 
@@ -311,24 +329,23 @@ impl<'model> ObjectStorageRef {
     }
 }
 
-pub struct ObjectStorageSession<'client, 'model, 'source> {
+pub struct ObjectStorageRef<'client, 'model, 'source> {
     kube: &'model Client,
     model: &'model ModelCrd,
     namespace: &'model str,
-    source: Option<(&'source ObjectStorageRef, ModelStorageBindingSyncPolicy)>,
+    source: Option<(&'source ObjectStorageSession, ModelStorageBindingSyncPolicy)>,
     source_binding_name: Option<&'client str>,
-    target: ::minio::s3::client::Client<'client>,
-    target_ref: &'source ObjectStorageRef,
+    target: &'source ObjectStorageSession,
 }
 
-impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
+impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
     fn get_bucket_name(&self) -> String {
         self.model.name_any()
     }
 
     fn admin(&self) -> MinioAdminClient<'_> {
         MinioAdminClient {
-            storage: self.target_ref,
+            storage: self.target,
         }
     }
 
@@ -337,15 +354,14 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         'source: 'client,
     {
         match self.source.as_ref() {
-            Some((source_ref, sync_policy)) => Ok((
+            Some((source, sync_policy)) => Ok((
                 Self {
                     kube: self.kube,
                     model: self.model,
                     namespace: self.namespace,
-                    source: Some((self.target_ref, *sync_policy)),
+                    source: Some((self.target, *sync_policy)),
                     source_binding_name: Some(bucket),
-                    target: source_ref.get_client(),
-                    target_ref: source_ref,
+                    target: source,
                 },
                 self.source_binding_name.unwrap_or(bucket),
             )),
@@ -357,6 +373,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     async fn is_bucket_exists(&self) -> Result<bool> {
         let bucket_name = self.get_bucket_name();
         self.target
+            .client
             .bucket_exists(&BucketExistsArgs::new(&bucket_name)?)
             .await
             .map_err(|error| anyhow!("failed to check bucket ({bucket_name}): {error}"))
@@ -365,12 +382,29 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get(&self, ref_name: &str) -> Result<Option<Value>> {
         let bucket_name = self.get_bucket_name();
-        let args = GetObjectArgs::new(&bucket_name, ref_name)?;
 
-        match self.target.get_object(&args).await {
-            Ok(response) => response.json().await.map_err(|error| {
-                anyhow!("failed to parse object ({bucket_name}/{ref_name}): {error}")
-            }),
+        match self
+            .target
+            .client
+            .get_object(&bucket_name, ref_name)
+            .send()
+            .await
+        {
+            Ok(response) => {
+                response
+                    .content
+                    .to_stream()
+                    .and_then(|(stream, _size)| stream.try_collect().map_err(Into::into))
+                    .map(|result| {
+                        result.and_then(|bytes: BytesMut| {
+                            ::serde_json::from_slice(&bytes).map_err(Into::into)
+                        })
+                    })
+                    .map_err(|error| {
+                        anyhow!("failed to parse object ({bucket_name}/{ref_name}): {error}")
+                    })
+                    .await
+            }
             Err(error) => match &error {
                 ::minio::s3::error::Error::S3Error(response) if response.code == "NoSuchKey" => {
                     Ok(None)
@@ -382,13 +416,15 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     pub async fn get_list(&self) -> Result<Vec<Value>> {
-        const LIMIT: u16 = 30;
-
         let bucket_name = self.get_bucket_name();
-        let mut args = ListObjectsV2Args::new(&bucket_name)?;
-        args.max_keys = Some(LIMIT);
 
-        match self.target.list_objects_v2(&args).await {
+        match self
+            .target
+            .client
+            .list_objects_v2(&bucket_name)
+            .send()
+            .await
+        {
             Ok(response) => response
                 .contents
                 .into_iter()
@@ -407,7 +443,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         let mut bucket_name = self.get_bucket_name();
         if !self.is_bucket_exists().await? {
             let args = MakeBucketArgs::new(&bucket_name)?;
-            bucket_name = match self.target.make_bucket(&args).await {
+            bucket_name = match self.target.client.make_bucket(&args).await {
                 Ok(response) => response.bucket_name,
                 Err(error) => bail!("failed to create a bucket ({bucket_name}): {error}"),
             };
@@ -447,6 +483,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn sync_bucket_pull_always(&self, bucket: &str) -> Result<()> {
         self.target
+            .client
             .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
             .await
             .map_err(|error| {
@@ -454,14 +491,14 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             })?;
 
         let (source_session, bucket) = self.inverted(bucket)?;
-        let source = self.target_ref;
+        let source = self.target;
         source_session.sync_bucket_push_always(source, bucket).await
     }
 
     #[instrument(level = Level::INFO, skip(self, source), err(Display))]
     async fn sync_bucket_pull_on_create(
         &self,
-        source: &ObjectStorageRef,
+        source: &ObjectStorageSession,
         bucket: &str,
     ) -> Result<()> {
         let spec = BucketJobSpec {
@@ -473,8 +510,13 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     }
 
     #[instrument(level = Level::INFO, skip(self, source), err(Display))]
-    async fn sync_bucket_push_always(&self, source: &ObjectStorageRef, bucket: &str) -> Result<()> {
+    async fn sync_bucket_push_always(
+        &self,
+        source: &ObjectStorageSession,
+        bucket: &str,
+    ) -> Result<()> {
         self.target
+            .client
             .set_bucket_versioning(&SetBucketVersioningArgs::new(bucket, true)?)
             .await
             .map_err(|error| {
@@ -488,6 +530,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
 
         let mut rules = self
             .target
+            .client
             .get_bucket_replication(&GetBucketReplicationArgs {
                 bucket,
                 ..Default::default()
@@ -530,6 +573,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         }
 
         self.target
+            .client
             .set_bucket_replication(&SetBucketReplicationArgs {
                 extra_headers: None,
                 extra_query_params: None,
@@ -605,7 +649,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
     async fn unsync_bucket_pull_always(
         &self,
-        _source: &ObjectStorageRef,
+        _source: &ObjectStorageSession,
         _bucket: &str,
     ) -> Result<bool> {
         info!("unsyncing on Pull=Always is not supported");
@@ -615,7 +659,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
     #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
     async fn unsync_bucket_push_always(
         &self,
-        _source: &ObjectStorageRef,
+        _source: &ObjectStorageSession,
         _bucket: &str,
     ) -> Result<bool> {
         info!("unsyncing on Push=Always is not supported");
@@ -631,7 +675,7 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
         let (source_session, bucket) = self.inverted(bucket)?;
         let spec = BucketJobSpec {
             delete_source: delete_bucket,
-            source: Some(self.target_ref),
+            source: Some(self.target),
             sync_source: true,
             ..Default::default()
         };
@@ -665,10 +709,10 @@ impl<'client, 'model, 'source> ObjectStorageSession<'client, 'model, 'source> {
             let target_bucket = bucket.to_string();
 
             let source_creds = source.as_ref().map(|source| source.provider.fetch());
-            let target_creds = self.target_ref.provider.fetch();
+            let target_creds = self.target.provider.fetch();
 
             let source_endpoint = source.as_ref().map(|source| source.endpoint.to_string());
-            let target_endpoint = self.target_ref.endpoint.to_string();
+            let target_endpoint = self.target.endpoint.to_string();
 
             let labels = btreemap! {
                 "dash.ulagbulag.io/modelstorage.name".into() => bucket.into(),
@@ -828,22 +872,13 @@ exec true
     }
 }
 
-impl ObjectStorageRef {
-    fn get_client(&self) -> ::minio::s3::client::Client<'_> {
-        let mut client =
-            ::minio::s3::client::Client::new(self.base_url.clone(), Some(&self.provider));
-        client.ignore_cert_check = true;
-        client
-    }
-}
-
 struct MinioAdminClient<'storage> {
-    storage: &'storage ObjectStorageRef,
+    storage: &'storage ObjectStorageSession,
 }
 
 impl<'storage> MinioAdminClient<'storage> {
     #[instrument(level = Level::INFO, skip(self, target), err(Display))]
-    async fn add_site_replication(&self, target: &ObjectStorageRef) -> Result<()> {
+    async fn add_site_replication(&self, target: &ObjectStorageSession) -> Result<()> {
         let origin_creds = self.storage.provider.fetch();
         let target_creds = target.provider.fetch();
 
@@ -877,7 +912,7 @@ impl<'storage> MinioAdminClient<'storage> {
             Method::PUT,
             "/admin/v3/site-replication/add",
             &[],
-            Some(&ciphertext),
+            Some(ciphertext),
         )
         .await
         .map(|_| ())
@@ -894,17 +929,20 @@ impl<'storage> MinioAdminClient<'storage> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn is_site_replication_enabled(&self) -> Result<bool> {
         self.execute::<&str>(Method::GET, "/admin/v3/site-replication/info", &[], None)
-            .and_then(|resp| async move {
-                #[derive(Deserialize)]
-                #[serde(rename_all = "camelCase")]
-                struct Data {
-                    enabled: bool,
-                }
+            .map_err(Error::from)
+            .map(|result| {
+                result.and_then(|bytes| {
+                    #[derive(Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Data {
+                        enabled: bool,
+                    }
 
-                let data: Data = resp.json().await?;
-                Ok(data.enabled)
+                    ::serde_json::from_slice(&bytes)
+                        .map(|data: Data| data.enabled)
+                        .map_err(Into::into)
+                })
             })
-            .await
             .map_err(|error| {
                 anyhow!(
                     "failed to check site replication ({name}: {origin}): {error}",
@@ -912,6 +950,7 @@ impl<'storage> MinioAdminClient<'storage> {
                     origin = &self.storage.endpoint,
                 )
             })
+            .await
     }
 
     #[allow(dead_code)]
@@ -923,11 +962,7 @@ impl<'storage> MinioAdminClient<'storage> {
             &[("type", "replication"), ("bucket", bucket_name)],
             None,
         )
-        .and_then(|resp| async move {
-            let targets = resp.json().await?;
-            Ok(targets)
-        })
-        .await
+        .map(|result| result.and_then(|bytes| ::serde_json::from_slice(&bytes).map_err(Into::into)))
         .map_err(|error| {
             anyhow!(
                 "failed to list remote targets ({name}: {origin}): {error}",
@@ -935,6 +970,7 @@ impl<'storage> MinioAdminClient<'storage> {
                 origin = &self.storage.endpoint,
             )
         })
+        .await
     }
 
     #[allow(dead_code)]
@@ -946,8 +982,7 @@ impl<'storage> MinioAdminClient<'storage> {
             &[("arn", arn), ("bucket", bucket_name)],
             None,
         )
-        .await
-        .map(|_| ())
+        .map_ok(|_| ())
         .map_err(|error| {
             anyhow!(
                 "failed to remove remote target ({name}: {origin}): {error}",
@@ -955,12 +990,13 @@ impl<'storage> MinioAdminClient<'storage> {
                 origin = &self.storage.endpoint,
             )
         })
+        .await
     }
 
     #[instrument(level = Level::INFO, skip(self, target), err(Display))]
     async fn set_remote_target(
         &self,
-        target: &ObjectStorageRef,
+        target: &ObjectStorageSession,
         bucket_source: Option<&str>,
         bucket_target: &str,
     ) -> Result<String> {
@@ -986,13 +1022,9 @@ impl<'storage> MinioAdminClient<'storage> {
             Method::PUT,
             "/admin/v3/set-remote-target",
             &[("bucket", bucket_target)],
-            Some(&ciphertext),
+            Some(ciphertext),
         )
-        .and_then(|resp| async move {
-            let arn: String = resp.json().await?;
-            Ok(arn)
-        })
-        .await
+        .map(|result| result.and_then(|bytes| ::serde_json::from_slice(&bytes).map_err(Into::into)))
         .map_err(|error| {
             anyhow!(
                 "failed to set remote target ({name}: {origin}): {error}",
@@ -1000,6 +1032,7 @@ impl<'storage> MinioAdminClient<'storage> {
                 origin = &self.storage.endpoint,
             )
         })
+        .await
     }
 
     #[instrument(level = Level::INFO, skip(self, params, data), fields(data.len = data.as_ref().map(|data| data.len())), err(Display))]
@@ -1008,18 +1041,20 @@ impl<'storage> MinioAdminClient<'storage> {
         method: Method,
         base_url: &str,
         params: &[(Param, Param)],
-        data: Option<&[u8]>,
-    ) -> Result<::reqwest::Response, ::minio::s3::error::Error>
+        data: Option<Bytes>,
+    ) -> Result<Bytes>
     where
         Param: ToString,
     {
+        let method = method.as_str().try_into().unwrap();
+
         let mut query_params = Multimap::default();
         for (key, value) in params {
             query_params.insert(key.to_string(), value.to_string());
         }
 
         self.storage
-            .get_client()
+            .client
             .execute(
                 method,
                 &Default::default(),
@@ -1029,6 +1064,8 @@ impl<'storage> MinioAdminClient<'storage> {
                 Some(base_url),
                 data,
             )
+            .map_err(Into::into)
+            .and_then(|response| response.bytes().map_err(Into::into))
             .await
     }
 
@@ -1036,7 +1073,7 @@ impl<'storage> MinioAdminClient<'storage> {
         &self,
         creds: Option<&Credentials>,
         data: &T,
-    ) -> Result<Vec<u8>, ::minio::s3::error::Error>
+    ) -> Result<Bytes, ::minio::s3::error::Error>
     where
         T: ?Sized + Serialize,
     {
@@ -1064,7 +1101,7 @@ impl<'storage> MinioAdminClient<'storage> {
         let mut nonce = [0u8; 8];
         rng.fill(&mut nonce);
 
-        let mut encrypted_data = {
+        let encrypted_data = {
             // Load your secret keys from a secure location or derive
             // them using a secure (password-based) key-derivation-function, like Argon2id.
             // Obviously, don't use this all-zeros key for anything real.
@@ -1089,12 +1126,12 @@ impl<'storage> MinioAdminClient<'storage> {
         };
 
         // Prefix the ciphertext with salt, AEAD ID and nonce
-        let mut ciphertext = Vec::new();
-        ciphertext.append(&mut salt.to_vec());
-        ciphertext.push(ID);
-        ciphertext.append(&mut nonce.to_vec());
-        ciphertext.append(&mut encrypted_data);
-        Ok(ciphertext)
+        let mut ciphertext = BytesMut::default();
+        ciphertext.extend(salt.to_vec());
+        ciphertext.put_u8(ID);
+        ciphertext.extend(nonce.to_vec());
+        ciphertext.extend(encrypted_data);
+        Ok(ciphertext.into())
     }
 }
 
@@ -1414,7 +1451,7 @@ export MINIO_ROOT_PASSWORD="{password}"
 struct BucketJobSpec<'a> {
     delete_source: bool,
     delete_target: bool,
-    source: Option<&'a ObjectStorageRef>,
+    source: Option<&'a ObjectStorageSession>,
     sync_source: bool,
     sync_source_overwrite: bool,
 }

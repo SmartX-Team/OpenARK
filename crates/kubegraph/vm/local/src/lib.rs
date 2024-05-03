@@ -10,7 +10,10 @@ use std::collections::{btree_map::Entry, BTreeMap};
 
 use anyhow::Result;
 
-use self::{ctx::Context, func::Function};
+use self::{
+    ctx::Context,
+    func::{Function, FunctionTemplate},
+};
 pub use self::{df::IntoLazyFrame, func::IntoFunction};
 
 #[derive(Default)]

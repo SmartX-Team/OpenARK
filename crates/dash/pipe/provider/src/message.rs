@@ -202,7 +202,7 @@ impl PyPipeMessage {
     #[pyo3(signature = (payloads, value, reply = None))]
     fn new(
         payloads: Vec<(String, Option<Vec<u8>>)>,
-        value: &::pyo3::PyAny,
+        value: ::pyo3::Bound<::pyo3::PyAny>,
         reply: Option<(String, Option<String>)>,
     ) -> ::pyo3::PyResult<Self> {
         Ok(Self {
@@ -258,7 +258,7 @@ impl PyPipeMessage {
     }
 
     #[classmethod]
-    fn from_json(_cls: &pyo3::types::PyType, data: &str) -> ::pyo3::PyResult<String> {
+    fn from_json(_cls: ::pyo3::Bound<pyo3::types::PyType>, data: &str) -> ::pyo3::PyResult<String> {
         ::serde_json::from_str(data)
             .map_err(|error| ::pyo3::exceptions::PyException::new_err(error.to_string()))
     }
@@ -832,13 +832,13 @@ impl From<u8> for OpCode {
 #[cfg(feature = "pyo3")]
 mod pyconvert {
     use pyo3::{
-        types::{self, IntoPyDict},
+        types::{self, IntoPyDict, PyAnyMethods, PyDictMethods, PyListMethods},
         IntoPy, PyObject, Python,
     };
 
     use crate::message::DynValue;
 
-    pub(super) fn from_py(value: &types::PyAny) -> DynValue {
+    pub(super) fn from_py(value: ::pyo3::Bound<::pyo3::PyAny>) -> DynValue {
         if value.is_none() {
             DynValue::Null
         } else if let Ok(value) = value.extract::<bool>() {
@@ -856,11 +856,10 @@ mod pyconvert {
         } else if let Ok(value) = value.extract::<String>() {
             DynValue::String(value)
         } else if let Ok(values) = value.downcast::<types::PyList>() {
-            DynValue::Array(values.iter().map(from_py).collect())
+            DynValue::Array(PyListMethods::iter(values).map(from_py).collect())
         } else if let Ok(values) = value.downcast::<types::PyDict>() {
             DynValue::Object(
-                values
-                    .iter()
+                PyDictMethods::iter(values)
                     .filter_map(|(key, value)| key.extract().ok().map(|key| (key, from_py(value))))
                     .collect(),
             )
@@ -895,7 +894,7 @@ mod pyconvert {
             DynValue::Object(values) => values
                 .iter()
                 .map(|(key, value)| (key, to_py(py, value)))
-                .into_py_dict(py)
+                .into_py_dict_bound(py)
                 .into(),
         }
     }

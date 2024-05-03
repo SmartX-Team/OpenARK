@@ -25,7 +25,7 @@ use tracing::{instrument, Level};
 pub use self::{
     db::DatabaseStorageClient,
     kubernetes::KubernetesStorageClient,
-    object::{ObjectStorageClient, ObjectStorageRef},
+    object::{ObjectStorageClient, ObjectStorageSession},
 };
 
 #[async_trait]

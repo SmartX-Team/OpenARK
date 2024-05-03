@@ -29,7 +29,7 @@ use dash_pipe_provider::{
         Stream,
     },
 };
-use dash_provider::storage::ObjectStorageRef;
+use dash_provider::storage::ObjectStorageSession;
 use deltalake::datafusion::prelude::DataFrame;
 use futures::{
     stream::{self, FuturesUnordered},
@@ -204,17 +204,22 @@ async fn load_models<'a>(
             let args = {
                 let model_name = model_name.clone();
                 async move {
-                    ObjectStorageRef::load_storage_provider(&kube, namespace, &model_name, &storage)
-                        .await
-                        .map(|object_storage| {
-                            let credentials = object_storage.fetch_provider();
-                            StorageS3Args {
-                                access_key: credentials.access_key,
-                                region: StorageS3Args::default_region().into(),
-                                s3_endpoint: object_storage.endpoint,
-                                secret_key: credentials.secret_key,
-                            }
-                        })
+                    ObjectStorageSession::load_storage_provider(
+                        &kube,
+                        namespace,
+                        &model_name,
+                        &storage,
+                    )
+                    .await
+                    .map(|object_storage| {
+                        let credentials = object_storage.fetch_provider();
+                        StorageS3Args {
+                            access_key: credentials.access_key,
+                            region: StorageS3Args::default_region().into(),
+                            s3_endpoint: object_storage.endpoint,
+                            secret_key: credentials.secret_key,
+                        }
+                    })
                 }
             };
 
