@@ -2,19 +2,16 @@
 extern crate polars as pl;
 
 mod ctx;
-mod df;
 mod func;
 mod lazy;
 
 use std::collections::{btree_map::Entry, BTreeMap};
 
 use anyhow::Result;
+use kubegraph_api::frame::IntoLazyFrame;
 
-use self::{
-    ctx::Context,
-    func::{Function, FunctionTemplate},
-};
-pub use self::{df::IntoLazyFrame, func::IntoFunction};
+pub use self::func::IntoFunction;
+use self::{ctx::Context, func::Function};
 
 #[derive(Default)]
 pub struct VirtualMachine<K> {

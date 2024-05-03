@@ -14,7 +14,7 @@ use pl::{
 };
 
 #[test]
-fn max_flow_simple() {
+fn max_flow() {
     // Step 1. Add edges
     let edges = df!(
         "src"      => [ 0,  0,  0,  1,  1,  2,  2,  3,  3],
@@ -69,7 +69,7 @@ fn max_flow_simple() {
         num_edges = graph.num_arcs(),
     );
 
-    // 4. Find the maximum flow between node 0 and node 4.
+    // Step 4. Find the maximum flow between node 0 and node 4.
     let output = max_flow.solve().expect("failed to solve maximum flow");
     if output.status() != MaxFlowStatus::Optimal {
         eprintln!("Solving the max flow is not optimal!");
@@ -79,21 +79,21 @@ fn max_flow_simple() {
     println!("Total flow: {total_flow}");
     assert_eq!(total_flow, 60);
 
-    let edges_traffic =
+    let edges_flow =
         Series::from_iter((0..edges_capacity.len()).map(|edge| output.flow(edge as ArcIndex)))
-            .with_name("traffic");
+            .with_name("flow");
 
     let mut optimized_edges = edges.clone();
     optimized_edges
-        .with_column(edges_traffic)
-        .expect("failed to attach traffic column");
+        .with_column(edges_flow)
+        .expect("failed to attach flow column");
 
     println!();
     println!("{optimized_edges}");
 }
 
 #[test]
-fn min_cost_flow_simple() {
+fn min_cost_flow() {
     // Step 1. Add edges
     let edges = df!(
         "src"       => [ 0,  0,  1,  1,  1,  2,  2,  3,  4],
@@ -169,7 +169,7 @@ fn min_cost_flow_simple() {
         num_edges = graph.num_arcs(),
     );
 
-    // 4. Find the minimum cost flow.
+    // Step 4. Find the minimum cost flow.
     let mut output = min_cost_flow
         .solve()
         .expect("failed to solve minimum cost flow");
@@ -180,15 +180,15 @@ fn min_cost_flow_simple() {
     let total_flow_cost = output.get_optimal_cost();
     println!("Minimum cost flow: {total_flow_cost}");
 
-    let edges_traffic =
+    let edges_flow =
         Series::from_iter((0..edges_capacity.len()).map(|edge| output.flow(edge as ArcIndex)))
-            .with_name("traffic");
-    let edges_cost = (edges_traffic.clone() * edges_unit_cost).with_name("cost");
+            .with_name("flow");
+    let edges_cost = (edges_flow.clone() * edges_unit_cost).with_name("cost");
 
     let mut optimized_edges = edges.clone();
     optimized_edges
-        .with_column(edges_traffic)
-        .expect("failed to attach traffic column")
+        .with_column(edges_flow)
+        .expect("failed to attach flow column")
         .with_column(edges_cost)
         .expect("failed to attach cost column");
 

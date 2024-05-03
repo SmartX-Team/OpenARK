@@ -1,19 +1,14 @@
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
 use anyhow::{anyhow, Result};
-use kubegraph_api::{
-    graph::Graph,
-    vm::{And, Eq, Feature, Ge, Gt, Le, Lt, Ne, Number, Or},
-};
 #[cfg(feature = "polars")]
 use pl::lazy::frame::IntoLazy;
 
-pub trait IntoGraph {
-    /// Disaggregate two dataframes.
-    fn try_into_graph(self) -> Result<Graph<LazyFrame>>
-    where
-        Self: Sized;
-}
+use crate::{
+    graph::{Graph, IntoGraph},
+    ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+    vm::{Feature, Number},
+};
 
 pub trait IntoLazyFrame
 where
@@ -44,21 +39,21 @@ impl From<::pl::lazy::frame::LazyFrame> for LazyFrame {
 }
 
 impl LazyFrame {
-    pub(crate) fn all(&self) -> LazySlice {
+    pub fn all(&self) -> LazySlice {
         match self {
             #[cfg(feature = "polars")]
             Self::Polars(_) => LazySlice::Polars(::pl::lazy::dsl::all()),
         }
     }
 
-    pub(crate) fn get_column(&self, name: &str) -> LazySlice {
+    pub fn get_column(&self, name: &str) -> LazySlice {
         match self {
             #[cfg(feature = "polars")]
             Self::Polars(_) => LazySlice::Polars(::pl::lazy::dsl::col(name)),
         }
     }
 
-    pub(crate) fn insert_column(&mut self, name: &str, column: LazySlice) {
+    pub fn insert_column(&mut self, name: &str, column: LazySlice) {
         match (self, column) {
             #[cfg(feature = "polars")]
             (Self::Polars(df), LazySlice::Polars(column)) => {
@@ -67,14 +62,14 @@ impl LazyFrame {
         }
     }
 
-    pub(crate) fn apply_filter(&mut self, filter: LazySlice) {
+    pub fn apply_filter(&mut self, filter: LazySlice) {
         match (self, filter) {
             #[cfg(feature = "polars")]
             (Self::Polars(df), LazySlice::Polars(filter)) => *df = df.clone().filter(filter),
         }
     }
 
-    pub(crate) fn fill_column_with_feature(&mut self, name: &str, value: Feature) {
+    pub fn fill_column_with_feature(&mut self, name: &str, value: Feature) {
         match self {
             #[cfg(feature = "polars")]
             Self::Polars(df) => {
@@ -83,7 +78,7 @@ impl LazyFrame {
         }
     }
 
-    pub(crate) fn fill_column_with_value(&mut self, name: &str, value: Number) {
+    pub fn fill_column_with_value(&mut self, name: &str, value: Number) {
         match self {
             #[cfg(feature = "polars")]
             Self::Polars(df) => {
@@ -93,7 +88,7 @@ impl LazyFrame {
     }
 }
 
-impl IntoGraph for LazyFrame {
+impl IntoGraph<Self> for LazyFrame {
     fn try_into_graph(self) -> Result<Graph<Self>> {
         match self {
             #[cfg(feature = "polars")]
@@ -103,7 +98,7 @@ impl IntoGraph for LazyFrame {
 }
 
 #[cfg(feature = "polars")]
-impl IntoGraph for ::pl::lazy::frame::LazyFrame {
+impl IntoGraph<LazyFrame> for ::pl::lazy::frame::LazyFrame {
     fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
         let nodes_src = self.clone().select([
             ::pl::lazy::dsl::col("src").alias("name"),

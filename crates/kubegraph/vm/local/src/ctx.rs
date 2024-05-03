@@ -1,4 +1,4 @@
-use crate::df::LazyFrame;
+use kubegraph_api::frame::LazyFrame;
 
 #[derive(Default)]
 pub struct Context {

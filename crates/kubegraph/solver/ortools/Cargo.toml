@@ -19,10 +19,19 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["full"]
+
+# DataFrame
+full = ["polars"]
+polars = ["dep:polars", "kubegraph-api/polars"]
+
 [dependencies]
 kubegraph-api = { path = "../../api" }
 
+anyhow = { workspace = true }
 or-tools = { workspace = true }
+polars = { workspace = true, optional = true }
 
 [dev-dependencies]
 polars = { workspace = true }

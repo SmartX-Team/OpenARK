@@ -40,14 +40,11 @@ mod impl_call {
 
     use anyhow::{bail, Error, Result};
     use kubegraph_api::{
-        graph::Graph,
-        vm::{
-            And, BinaryExpr, Eq, Feature, Ge, Gt, Instruction, Le, Lt, Ne, Number, Or, Stmt,
-            UnaryExpr, Value,
-        },
+        frame::{IntoLazySlice, LazyFrame, LazySlice},
+        graph::{Graph, IntoGraph},
+        ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+        vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
     };
-
-    use crate::df::{IntoGraph, IntoLazySlice, LazyFrame, LazySlice};
 
     impl super::LazyVirtualMachine {
         pub(crate) fn call(
@@ -171,7 +168,7 @@ mod impl_call {
         }
     }
 
-    impl IntoGraph for Context {
+    impl IntoGraph<LazyFrame> for Context {
         fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
             self.heap.try_into_graph()
         }
@@ -230,7 +227,7 @@ mod impl_call {
         }
     }
 
-    impl IntoGraph for Heap {
+    impl IntoGraph<LazyFrame> for Heap {
         fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
             self.graph.try_into_graph()
         }
@@ -703,7 +700,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_eq(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Eq;
+            use kubegraph_api::ops::Eq;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -711,7 +708,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_ne(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Ne;
+            use kubegraph_api::ops::Ne;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -719,7 +716,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_ge(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Ge;
+            use kubegraph_api::ops::Ge;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -727,7 +724,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_gt(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Gt;
+            use kubegraph_api::ops::Gt;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -735,7 +732,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_le(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Le;
+            use kubegraph_api::ops::Le;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -743,7 +740,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_lt(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Lt;
+            use kubegraph_api::ops::Lt;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -751,7 +748,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_and(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::And;
+            use kubegraph_api::ops::And;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
@@ -759,7 +756,7 @@ mod impl_execute {
         }
 
         fn execute_expr_binary_or(&mut self, lhs: Expr, rhs: Expr) -> Result<LazyStmt> {
-            use kubegraph_api::vm::Or;
+            use kubegraph_api::ops::Or;
 
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;

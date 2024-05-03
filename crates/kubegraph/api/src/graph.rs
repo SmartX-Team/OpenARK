@@ -1,13 +1,60 @@
 use std::fmt;
 
+use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use crate::frame::LazyFrame;
+
+pub trait IntoGraph<T> {
+    /// Disaggregate two dataframes.
+    fn try_into_graph(self) -> Result<Graph<T>>
+    where
+        Self: Sized;
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Graph<T> {
     pub edges: T,
     pub nodes: T,
+}
+
+#[cfg(feature = "polars")]
+impl From<Graph<::pl::lazy::frame::LazyFrame>> for Graph<LazyFrame> {
+    fn from(graph: Graph<::pl::lazy::frame::LazyFrame>) -> Self {
+        let Graph { edges, nodes } = graph;
+        Self {
+            edges: LazyFrame::Polars(edges),
+            nodes: LazyFrame::Polars(nodes),
+        }
+    }
+}
+
+#[cfg(feature = "polars")]
+impl From<Graph<::pl::frame::DataFrame>> for Graph<::pl::lazy::frame::LazyFrame> {
+    fn from(graph: Graph<::pl::frame::DataFrame>) -> Self {
+        use pl::lazy::frame::IntoLazy;
+
+        let Graph { edges, nodes } = graph;
+        Self {
+            edges: edges.lazy(),
+            nodes: nodes.lazy(),
+        }
+    }
+}
+
+#[cfg(feature = "polars")]
+impl TryFrom<Graph<::pl::lazy::frame::LazyFrame>> for Graph<::pl::frame::DataFrame> {
+    type Error = ::pl::error::PolarsError;
+
+    fn try_from(graph: Graph<::pl::lazy::frame::LazyFrame>) -> Result<Self, Self::Error> {
+        let Graph { edges, nodes } = graph;
+        Ok(Self {
+            edges: edges.collect()?,
+            nodes: nodes.collect()?,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

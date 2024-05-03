@@ -21,7 +21,10 @@ workspace = true
 
 [features]
 default = ["full"]
+
+# DataFrame
 full = ["polars"]
+polars = ["dep:polars", "kubegraph-api/polars"]
 
 [dependencies]
 kubegraph-api = { path = "../../api" }

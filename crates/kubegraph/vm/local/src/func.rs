@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
-use kubegraph_api::graph::Graph;
+use kubegraph_api::{frame::LazyFrame, graph::Graph};
 
-use crate::{df::LazyFrame, lazy::LazyVirtualMachine};
+use crate::lazy::LazyVirtualMachine;
 
 pub trait IntoFunction
 where
