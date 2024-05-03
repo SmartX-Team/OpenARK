@@ -60,12 +60,9 @@ spec:
               protocol: TCP
               containerPort: 6080
           resources:
-            requests:
-              cpu: 2000m
-              memory: 100Mi
             limits:
-              cpu: 4000m
-              memory: 2Gi
+              cpu: "1"
+              memory: 500Mi
       hostIPC: true
       hostNetwork: true
       securityContext:
