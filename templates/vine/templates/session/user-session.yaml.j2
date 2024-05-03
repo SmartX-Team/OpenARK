@@ -99,6 +99,10 @@ spec:
 {% else %}
               value: /home/user
 {% endif %}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 100Mi
           securityContext:
             privileged: true
           workingDir: /
@@ -139,6 +143,10 @@ spec:
           env:
             - name: USER
               value: "0"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
           securityContext:
             capabilities:
               add:
@@ -474,12 +482,9 @@ spec:
               protocol: TCP
               containerPort: 5900
           resources:
-            requests:
-              cpu: 2000m
-              memory: 100Mi
             limits:
-              cpu: 4000m
-              memory: 2Gi
+              cpu: "1"
+              memory: 500Mi
           volumeMounts:
             - name: x11
               mountPath: /tmp/.X11-unix
@@ -494,12 +499,9 @@ spec:
               protocol: TCP
               containerPort: 6080
           resources:
-            requests:
-              cpu: 2000m
-              memory: 100Mi
             limits:
-              cpu: 4000m
-              memory: 2Gi
+              cpu: "1"
+              memory: 500Mi
       hostIPC: true
       securityContext:
 {% if spec.boxQuota.desktop.context.root %}

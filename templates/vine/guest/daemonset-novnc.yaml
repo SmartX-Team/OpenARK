@@ -43,12 +43,9 @@ spec:
               protocol: TCP
               containerPort: 5900
           resources:
-            requests:
-              cpu: 2000m
-              memory: 100Mi
             limits:
-              cpu: 4000m
-              memory: 2Gi
+              cpu: "1"
+              memory: 500Mi
           volumeMounts:
             - name: x11
               mountPath: /tmp/.X11-unix
