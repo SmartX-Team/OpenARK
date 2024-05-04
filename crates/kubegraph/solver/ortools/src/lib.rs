@@ -1,6 +1,7 @@
 #[cfg(feature = "polars")]
 extern crate polars as pl;
 
+#[cfg(feature = "polars")]
 mod polars;
 
 use anyhow::Result;

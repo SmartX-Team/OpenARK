@@ -2,9 +2,7 @@ use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::vm::Number;
-
-pub trait LocalSolver<G, P = Number> {
+pub trait LocalSolver<G, P> {
     type Output;
 
     fn step(&self, graph: G, problem: Problem<P>) -> Result<Self::Output> {
@@ -103,6 +101,8 @@ pub struct ProblemConstrait<T> {
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 pub struct ProblemMetadata {
+    #[serde(default = "ProblemMetadata::default_flow")]
+    pub flow: String,
     #[serde(default = "ProblemMetadata::default_name")]
     pub name: String,
     #[serde(default = "ProblemMetadata::default_sink")]
@@ -117,6 +117,7 @@ pub struct ProblemMetadata {
 impl Default for ProblemMetadata {
     fn default() -> Self {
         Self {
+            flow: Self::default_flow(),
             name: Self::default_name(),
             sink: Self::default_sink(),
             src: Self::default_src(),
@@ -126,6 +127,10 @@ impl Default for ProblemMetadata {
 }
 
 impl ProblemMetadata {
+    pub fn default_flow() -> String {
+        "flow".into()
+    }
+
     pub fn default_name() -> String {
         "name".into()
     }

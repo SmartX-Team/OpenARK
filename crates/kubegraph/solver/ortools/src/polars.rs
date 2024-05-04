@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use kubegraph_api::{
+    frame::polars::{find_indices, get_column},
     graph::Graph,
     solver::{MaxFlowProblem, MinCostProblem, ProblemConstrait, ProblemMetadata},
 };
@@ -8,13 +9,10 @@ use or_tools::graph::{
     max_flow::{MaxFlow, MaxFlowOutput, MaxFlowStatus},
     min_cost_flow::{MinCostFlow, MinCostFlowOutput, MinCostFlowStatus},
 };
-use polars::{
+use pl::{
     datatypes::DataType,
     frame::DataFrame,
-    lazy::{
-        dsl,
-        frame::{IntoLazy, LazyFrame},
-    },
+    lazy::{dsl, frame::LazyFrame},
     series::Series,
 };
 
@@ -57,6 +55,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
         let MaxFlowProblem {
             metadata:
                 ProblemMetadata {
+                    flow: key_flow,
                     name: key_name,
                     sink: key_sink,
                     src: key_src,
@@ -138,7 +137,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
         }
 
         // Step 8. Collect outputs
-        let flow = output.collect_flow(num_edges);
+        let flow = output.collect_flow(&key_flow, num_edges);
 
         // Step 9. Assemble an optimized graph
         let optimized_edges = src_edges;
@@ -167,6 +166,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
         let MinCostProblem {
             metadata:
                 ProblemMetadata {
+                    flow: key_flow,
                     name: key_name,
                     sink: key_sink,
                     src: key_src,
@@ -271,7 +271,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
         }
 
         // Step 8. Collect outputs
-        let flow = output.collect_flow(num_edges);
+        let flow = output.collect_flow(&key_flow, num_edges);
 
         // Step 9. Assemble an optimized graph
         let optimized_edges = src_edges;
@@ -296,57 +296,9 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
     }
 }
 
-fn get_column(
-    df: &DataFrame,
-    kind: &str,
-    key: &str,
-    name: &str,
-    dtype: Option<&DataType>,
-) -> Result<Series> {
-    let column = df
-        .column(name)
-        .map_err(|error| anyhow!("failed to get {kind} {key} column: {error}"))?;
-
-    match dtype {
-        Some(dtype) => column
-            .cast(dtype)
-            .map_err(|error| anyhow!("failed to sort {kind} {key} column: {error}")),
-        None => Ok(column.clone()),
-    }
-}
-
-fn find_indices(names: &Series, keys: &Series) -> Result<Option<Series>> {
-    match names.dtype() {
-        DataType::String => {
-            let len_names = names
-                .len()
-                .try_into()
-                .map_err(|error| anyhow!("failed to get node name length: {error}"))?;
-
-            names
-                .clone()
-                .into_frame()
-                .lazy()
-                .with_column(dsl::lit(Series::from_iter(0..len_names).with_name("id")))
-                .filter(dsl::col("name").eq(dsl::lit(keys.clone())))
-                .select([dsl::col("name")])
-                .collect()
-                .map_err(|error| anyhow!("failed to find node name indices: {error}"))?
-                .column("id")
-                .map_err(|error| {
-                    anyhow!("failed to get node id column; it should be a BUG: {error}")
-                })
-                .map(Clone::clone)
-                .map(Some)
-        }
-        dtype if dtype.is_integer() => Ok(None),
-        dtype => bail!("failed to use unknown type as node name: {dtype}"),
-    }
-}
-
 trait CollectFlow {
-    fn collect_flow(&self, num_edges: ArcIndex) -> Series {
-        Series::from_iter((0..num_edges).map(|index| self.get_flow(index))).with_name("flow")
+    fn collect_flow(&self, name: &str, num_edges: ArcIndex) -> Series {
+        Series::from_iter((0..num_edges).map(|index| self.get_flow(index))).with_name(name)
     }
 
     fn get_flow(&self, index: ArcIndex) -> FlowQuantity;

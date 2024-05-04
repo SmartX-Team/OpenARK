@@ -1,0 +1,55 @@
+[package]
+name = "kubegraph-gateway"
+
+authors = { workspace = true }
+description = { workspace = true }
+documentation = { workspace = true }
+edition = { workspace = true }
+include = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+rust-version = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lints]
+workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["full"]
+full = ["df-full", "solver-full", "twin-full", "vm-full"]
+
+# Configure DataFrame
+df-full = ["df-polars"]
+df-polars = [
+    "kubegraph-api/polars",
+    "kubegraph-solver-ortools?/polars",
+    "kubegraph-twin-simulator?/polars",
+    "kubegraph-vm-local?/polars",
+]
+
+# Configure Solvers
+solver-full = [
+    "solver-ortools", # exclude(alpine)
+]
+solver-ortools = [
+    "kubegraph-solver-ortools", # exclude(alpine)
+]
+
+# Configure Twins
+twin-full = ["twin-simulator"]
+twin-simulator = ["kubegraph-twin-simulator"]
+
+# Configure Virtual Machines
+vm-full = ["vm-local"]
+vm-local = ["kubegraph-vm-local"]
+
+[dependencies]
+kubegraph-api = { path = "../api", default-features = false }
+kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false } # exclude(alpine)
+kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }
+kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }

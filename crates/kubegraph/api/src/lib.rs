@@ -8,6 +8,7 @@ pub mod graph;
 pub mod ops;
 pub mod query;
 pub mod solver;
+pub mod twin;
 pub mod vm;
 
 pub mod consts {

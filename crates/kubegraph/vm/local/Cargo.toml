@@ -24,7 +24,12 @@ default = ["full"]
 
 # DataFrame
 full = ["polars"]
-polars = ["dep:polars", "kubegraph-api/polars"]
+polars = [
+    "dep:polars",
+    "kubegraph-api/polars",
+    "kubegraph-solver-ortools/polars",
+    "kubegraph-twin-simulator/polars",
+]
 
 [dependencies]
 kubegraph-api = { path = "../../api" }
@@ -32,3 +37,7 @@ kubegraph-parser = { path = "../../parser" }
 
 anyhow = { workspace = true }
 polars = { workspace = true, optional = true }
+
+[dev-dependencies]
+kubegraph-solver-ortools = { path = "../../solver/ortools" }
+kubegraph-twin-simulator = { path = "../../twin/simulator" }

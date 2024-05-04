@@ -1,8 +1,11 @@
+#[cfg(feature = "polars")]
+pub mod polars;
+
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 #[cfg(feature = "polars")]
-use pl::lazy::frame::IntoLazy;
+use pl::lazy::dsl;
 
 use crate::{
     graph::{Graph, IntoGraph},
@@ -24,32 +27,18 @@ pub enum LazyFrame {
     Polars(::pl::lazy::frame::LazyFrame),
 }
 
-#[cfg(feature = "polars")]
-impl From<::pl::frame::DataFrame> for LazyFrame {
-    fn from(df: ::pl::frame::DataFrame) -> Self {
-        Self::Polars(df.lazy())
-    }
-}
-
-#[cfg(feature = "polars")]
-impl From<::pl::lazy::frame::LazyFrame> for LazyFrame {
-    fn from(df: ::pl::lazy::frame::LazyFrame) -> Self {
-        Self::Polars(df)
-    }
-}
-
 impl LazyFrame {
     pub fn all(&self) -> LazySlice {
         match self {
             #[cfg(feature = "polars")]
-            Self::Polars(_) => LazySlice::Polars(::pl::lazy::dsl::all()),
+            Self::Polars(_) => LazySlice::Polars(dsl::all()),
         }
     }
 
     pub fn get_column(&self, name: &str) -> LazySlice {
         match self {
             #[cfg(feature = "polars")]
-            Self::Polars(_) => LazySlice::Polars(::pl::lazy::dsl::col(name)),
+            Self::Polars(_) => LazySlice::Polars(dsl::col(name)),
         }
     }
 
@@ -86,6 +75,14 @@ impl LazyFrame {
             }
         }
     }
+
+    #[cfg(feature = "polars")]
+    pub fn try_into_polars(self) -> Result<::pl::lazy::frame::LazyFrame> {
+        match self {
+            Self::Polars(df) => Ok(df),
+            _ => ::anyhow::bail!("failed to unwrap lazyframe as polars"),
+        }
+    }
 }
 
 impl IntoGraph<Self> for LazyFrame {
@@ -97,47 +94,10 @@ impl IntoGraph<Self> for LazyFrame {
     }
 }
 
-#[cfg(feature = "polars")]
-impl IntoGraph<LazyFrame> for ::pl::lazy::frame::LazyFrame {
-    fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
-        let nodes_src = self.clone().select([
-            ::pl::lazy::dsl::col("src").alias("name"),
-            ::pl::lazy::dsl::col(r"^src\..*$")
-                .name()
-                .map(|name| Ok(name["src.".len()..].into())),
-        ]);
-        let nodes_sink = self.clone().select([
-            ::pl::lazy::dsl::col("sink").alias("name"),
-            ::pl::lazy::dsl::col(r"^sink\..*$")
-                .name()
-                .map(|name| Ok(name["sink.".len()..].into())),
-        ]);
-
-        let args = ::pl::lazy::prelude::UnionArgs::default();
-        let nodes = ::pl::lazy::prelude::concat_lf_diagonal([nodes_src, nodes_sink], args)
-            .map_err(|error| anyhow!("failed to stack sink over src: {error}"))?
-            .group_by([::pl::lazy::dsl::col("name")])
-            .agg([::pl::lazy::dsl::all().sum()]);
-
-        let edges = self.clone().select([
-            ::pl::lazy::dsl::col("src"),
-            ::pl::lazy::dsl::col("sink"),
-            ::pl::lazy::dsl::col(r"^link\..*$")
-                .name()
-                .map(|name| Ok(name["link.".len()..].into())),
-        ]);
-
-        Ok(Graph {
-            edges: LazyFrame::Polars(edges),
-            nodes: LazyFrame::Polars(nodes),
-        })
-    }
-}
-
 #[derive(Clone)]
 pub enum LazySlice {
     #[cfg(feature = "polars")]
-    Polars(::pl::lazy::dsl::Expr),
+    Polars(dsl::Expr),
 }
 
 macro_rules! impl_expr_unary {
@@ -258,21 +218,21 @@ pub trait IntoLazySlice {
     }
 
     #[cfg(feature = "polars")]
-    fn into_polars(self) -> ::pl::lazy::dsl::Expr
+    fn into_polars(self) -> dsl::Expr
     where
         Self: Sized;
 }
 
 impl IntoLazySlice for Feature {
     #[cfg(feature = "polars")]
-    fn into_polars(self) -> ::pl::lazy::dsl::Expr {
-        ::pl::lazy::dsl::Expr::Literal(::pl::prelude::LiteralValue::Boolean(self.into_inner()))
+    fn into_polars(self) -> dsl::Expr {
+        dsl::Expr::Literal(::pl::prelude::LiteralValue::Boolean(self.into_inner()))
     }
 }
 
 impl IntoLazySlice for Number {
     #[cfg(feature = "polars")]
-    fn into_polars(self) -> ::pl::lazy::dsl::Expr {
-        ::pl::lazy::dsl::Expr::Literal(::pl::prelude::LiteralValue::Float64(self.into_inner()))
+    fn into_polars(self) -> dsl::Expr {
+        dsl::Expr::Literal(::pl::prelude::LiteralValue::Float64(self.into_inner()))
     }
 }
