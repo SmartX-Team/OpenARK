@@ -31,7 +31,7 @@ full = ["df-full", "solver-full", "twin-full", "vm-full"]
 df-full = ["df-polars"]
 df-polars = [
     "kubegraph-api/polars",
-    "kubegraph-solver-ortools?/polars",
+    "kubegraph-solver-ortools?/polars", # exclude(alpine)
     "kubegraph-twin-simulator?/polars",
     "kubegraph-vm-local?/polars",
 ]
