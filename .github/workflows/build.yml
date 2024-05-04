@@ -25,7 +25,6 @@ env:
   DEX_VERSION: "latest"
   K8S_VERSION: "1.27.4"
   ROCKYLINUX_VERSION: "8"
-  UBUNTU_VERSION: "22.04"
 
 jobs:
   lint-yaml:
@@ -254,7 +253,7 @@ jobs:
             ./templates/ipxe/Dockerfile
           build-args: |
             ALPINE_VERSION=${{ env.ALPINE_VERSION }}
-            UBUNTU_VERSION=${{ env.UBUNTU_VERSION }}
+            DEBIAN_VERSION=${{ env.DEBIAN_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay
