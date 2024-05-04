@@ -4,8 +4,8 @@
 
 # Configure environment variables
 ARG ALPINE_VERSION="latest"
+ARG DEBIAN_VERSION="bookworm"
 ARG IPXE_VERSION="9f17d1116d27696ec76c48c5c77df34cba521380"
-ARG UBUNTU_VERSION="rolling"
 
 # Be ready for serving
 FROM docker.io/alpine:${ALPINE_VERSION} as server
@@ -16,7 +16,7 @@ ENTRYPOINT [ "/bin/sh" ]
 CMD [ "-c", "cp /ipxe/* /var/lib/tftpboot/" ]
 
 # Be ready for building
-FROM docker.io/ubuntu:${UBUNTU_VERSION} as builder
+FROM docker.io/debian:${DEBIAN_VERSION} as builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
