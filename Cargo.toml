@@ -40,7 +40,7 @@ members = [
     "crates/kubegraph/gateway",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
-    "crates/kubegraph/solver/ortools",         # exclude(alpine)
+    "crates/kubegraph/solver/ortools",
     "crates/kubegraph/twin/simulator",
     "crates/kubegraph/vm/http",
     "crates/kubegraph/vm/local",

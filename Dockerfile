@@ -3,11 +3,11 @@
 # found in the LICENSE file.
 
 # Configure environment variables
-ARG ALPINE_VERSION="latest"
+ARG DEBIAN_VERSION="bookworm"
 ARG PACKAGE="openark"
 
 # Be ready for serving
-FROM docker.io/alpine:${ALPINE_VERSION} as server
+FROM docker.io/library/debian:${DEBIAN_VERSION} as server
 
 # Server Configuration
 EXPOSE 80/tcp
@@ -15,17 +15,37 @@ WORKDIR /usr/local/bin
 CMD [ "/bin/sh" ]
 
 # Install dependencies
-RUN apk add --no-cache hwloc libgcc libusb s3fs-fuse
+RUN apt-get update && apt-get install -y \
+    curl \
+    hwloc \
+    s3fs \
+    udev \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
 
 # Be ready for building
-FROM docker.io/rust:1-alpine${ALPINE_VERSION} as builder
+FROM docker.io/library/rust:1-${DEBIAN_VERSION} as builder
 
 # Install dependencies
-RUN apk add --no-cache bzip2-static clang-dev cmake git g++ \
-    hwloc-dev \
-    libcrypto3 libprotobuf libprotoc libressl-dev libusb-dev \
-    make mold musl-dev nasm protobuf-dev protoc \
-    xz-static zlib-static
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    cmake \
+    libclang-dev \
+    libhwloc-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
+    libssl-dev \
+    libudev-dev \
+    llvm-dev \
+    molds \
+    nasm \
+    protobuf-compiler \
+    s3fs \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
 
 # Load source files
 ADD . /src
@@ -46,7 +66,7 @@ RUN \
     && find ./ -type f -name Cargo.toml -exec sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" {} + \
     # Build
     && cargo build --all --workspace --release \
-    && find ./target/release/ -maxdepth 1 -type f -perm +a=x -print0 | xargs -0 -I {} mv {} /out \
+    && find ./target/release/ -maxdepth 1 -type f -perm -a=x -print0 | xargs -0 -I {} mv {} /out \
     && mv ./LICENSE /LICENSE
 
 # Copy executable files

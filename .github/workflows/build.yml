@@ -21,6 +21,7 @@ env:
   IMAGE_NAME: openark
 
   ALPINE_VERSION: "3.18"
+  DEBIAN_VERSION: "bookworm"
   DEX_VERSION: "latest"
   K8S_VERSION: "1.27.4"
   ROCKYLINUX_VERSION: "8"
@@ -85,7 +86,7 @@ jobs:
           containerfiles: |
             ./Dockerfile
           build-args: |
-            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            DEBIAN_VERSION=${{ env.DEBIAN_VERSION }}
 
       - name: Push To ${{ env.REGISTRY }}
         id: push-to-quay

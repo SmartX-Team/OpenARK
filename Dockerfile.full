@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     s3fs \
     udev \
     # Cleanup
+    && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2 dependencies
@@ -39,6 +40,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get update && apt-get install -y \
     "ros-${ROS_DISTRO}-ros-base" \
     # Cleanup
+    && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
@@ -52,6 +54,7 @@ RUN true \
     # Cleanup
     && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
     && rm /requirements.txt \
+    && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Be ready for building
@@ -79,6 +82,7 @@ RUN apt-get update && apt-get install -y \
     # Install rustup
     && curl 'https://sh.rustup.rs' -sSf | sh -s -- -y \
     # Cleanup
+    && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Load source files

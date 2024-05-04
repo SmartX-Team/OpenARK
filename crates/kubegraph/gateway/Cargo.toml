@@ -31,18 +31,14 @@ full = ["df-full", "solver-full", "twin-full", "vm-full"]
 df-full = ["df-polars"]
 df-polars = [
     "kubegraph-api/polars",
-    "kubegraph-solver-ortools?/polars", # exclude(alpine)
+    "kubegraph-solver-ortools?/polars",
     "kubegraph-twin-simulator?/polars",
     "kubegraph-vm-local?/polars",
 ]
 
 # Configure Solvers
-solver-full = [
-    "solver-ortools", # exclude(alpine)
-]
-solver-ortools = [
-    "kubegraph-solver-ortools", # exclude(alpine)
-]
+solver-full = ["solver-ortools"]
+solver-ortools = ["kubegraph-solver-ortools"]
 
 # Configure Twins
 twin-full = ["twin-simulator"]
@@ -54,6 +50,6 @@ vm-local = ["kubegraph-vm-local"]
 
 [dependencies]
 kubegraph-api = { path = "../api", default-features = false }
-kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false } # exclude(alpine)
+kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false }
 kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }

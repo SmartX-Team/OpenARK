@@ -80,6 +80,7 @@ RUN apt-get update && apt-get install -y \
     # Cleanup
     && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
     && rm /requirements.txt \
+    && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
 # Load scripts
