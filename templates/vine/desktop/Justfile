@@ -2,7 +2,6 @@
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.19')
 export DEBIAN_IMAGE := env_var_or_default('DEBIAN_IMAGE', 'docker.io/library/ubuntu')
 export DEBIAN_IMAGE_VERSION := env_var_or_default('DEBIAN_IMAGE_VERSION', '24.04')
-export K8S_VERSION := env_var_or_default('K8S_VERSION', '1.27.4')
 export OCI_BUILD_LOG_DIR := env_var_or_default('OCI_BUILD_LOG_DIR', './logs/')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
@@ -17,7 +16,6 @@ build DIST *ARGS:
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --build-arg "DEBIAN_IMAGE=${DEBIAN_IMAGE}" \
     --build-arg "DEBIAN_IMAGE_VERSION=${DEBIAN_IMAGE_VERSION}" \
-    --build-arg "K8S_VERSION=${K8S_VERSION}" \
     --file "./Dockerfile.{{ DIST }}" \
     --platform "${OCI_PLATFORMS}" \
     --progress 'plain' \

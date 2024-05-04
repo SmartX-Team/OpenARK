@@ -4,7 +4,7 @@
 
 # Configure environment variables
 ARG ALPINE_VERSION="latest"
-ARG DEBIAN_VERSION="bookworm"
+ARG DEBIAN_VERSION="latest"
 ARG IPXE_VERSION="9f17d1116d27696ec76c48c5c77df34cba521380"
 
 # Be ready for serving
