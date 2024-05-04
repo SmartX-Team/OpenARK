@@ -118,6 +118,7 @@ RUN \
 # Copy executable files
 FROM server
 ARG FUNCTION_HOME
+ARG PACKAGE
 COPY --from=builder "${FUNCTION_HOME}" "${FUNCTION_HOME}"
 COPY --from=builder /out/bin/* /usr/local/bin/
 COPY --from=builder /out/lib/* /usr/local/lib/

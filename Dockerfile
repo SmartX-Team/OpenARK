@@ -71,5 +71,6 @@ RUN \
 
 # Copy executable files
 FROM server
+ARG PACKAGE
 COPY --from=builder /out/* /usr/local/bin/
 COPY --from=builder /LICENSE /usr/share/licenses/${PACKAGE}/LICENSE
