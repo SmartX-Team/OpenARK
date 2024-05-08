@@ -5,32 +5,7 @@ use serde::{Deserialize, Serialize};
 pub trait LocalSolver<G, P> {
     type Output;
 
-    fn step(&self, graph: G, problem: Problem<P>) -> Result<Self::Output> {
-        let Problem {
-            metadata,
-            capacity,
-            constraint,
-        } = problem;
-
-        match constraint {
-            Some(constraint) => {
-                let problem = MinCostProblem {
-                    metadata,
-                    capacity,
-                    constraint,
-                };
-                self.step_min_cost(graph, problem)
-            }
-            None => {
-                let problem = MaxFlowProblem { metadata, capacity };
-                self.step_max_flow(graph, problem)
-            }
-        }
-    }
-
-    fn step_max_flow(&self, graph: G, problem: MaxFlowProblem<P>) -> Result<Self::Output>;
-
-    fn step_min_cost(&self, graph: G, problem: MinCostProblem<P>) -> Result<Self::Output>;
+    fn step(&self, graph: G, problem: Problem<P>) -> Result<Self::Output>;
 }
 
 #[derive(
@@ -40,59 +15,6 @@ pub struct Problem<T> {
     #[serde(default, flatten)]
     pub metadata: ProblemMetadata,
     pub capacity: T,
-    #[serde(default)]
-    pub constraint: Option<ProblemConstrait<T>>,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-pub struct MaxFlowProblem<T> {
-    #[serde(default, flatten)]
-    pub metadata: ProblemMetadata,
-    pub capacity: T,
-}
-
-impl<T> From<MaxFlowProblem<T>> for Problem<T> {
-    fn from(value: MaxFlowProblem<T>) -> Self {
-        let MaxFlowProblem { metadata, capacity } = value;
-        Self {
-            metadata,
-            capacity,
-            constraint: None,
-        }
-    }
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-pub struct MinCostProblem<T> {
-    #[serde(default, flatten)]
-    pub metadata: ProblemMetadata,
-    pub capacity: T,
-    pub constraint: ProblemConstrait<T>,
-}
-
-impl<T> From<MinCostProblem<T>> for Problem<T> {
-    fn from(value: MinCostProblem<T>) -> Self {
-        let MinCostProblem {
-            metadata,
-            capacity,
-            constraint,
-        } = value;
-        Self {
-            metadata,
-            capacity,
-            constraint: Some(constraint),
-        }
-    }
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-pub struct ProblemConstrait<T> {
     pub cost: T,
     pub supply: T,
 }
@@ -103,6 +25,8 @@ pub struct ProblemConstrait<T> {
 pub struct ProblemMetadata {
     #[serde(default = "ProblemMetadata::default_flow")]
     pub flow: String,
+    #[serde(default = "ProblemMetadata::default_function")]
+    pub function: String,
     #[serde(default = "ProblemMetadata::default_name")]
     pub name: String,
     #[serde(default = "ProblemMetadata::default_sink")]
@@ -118,6 +42,7 @@ impl Default for ProblemMetadata {
     fn default() -> Self {
         Self {
             flow: Self::default_flow(),
+            function: Self::default_function(),
             name: Self::default_name(),
             sink: Self::default_sink(),
             src: Self::default_src(),
@@ -127,8 +52,14 @@ impl Default for ProblemMetadata {
 }
 
 impl ProblemMetadata {
+    pub const MAX_CAPACITY: u64 = u64::MAX >> 32;
+
     pub fn default_flow() -> String {
         "flow".into()
+    }
+
+    pub fn default_function() -> String {
+        "function".into()
     }
 
     pub fn default_name() -> String {

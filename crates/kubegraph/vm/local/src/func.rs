@@ -1,7 +1,19 @@
 use anyhow::{Error, Result};
-use kubegraph_api::{frame::LazyFrame, graph::Graph};
+use kubegraph_api::{
+    frame::LazyFrame, func::FunctionMetadata, graph::GraphEdges, solver::Problem, vm::Script,
+};
 
 use crate::lazy::LazyVirtualMachine;
+
+pub struct FunctionContext {
+    pub(crate) func: Function,
+}
+
+impl FunctionContext {
+    pub fn new(func: Function) -> Self {
+        Self { func }
+    }
+}
 
 pub trait IntoFunction
 where
@@ -16,9 +28,23 @@ pub enum Function {
 }
 
 impl Function {
-    pub(crate) fn call(&self, graph: &Graph<LazyFrame>) -> Result<Graph<LazyFrame>> {
+    pub(crate) fn infer_edges<T>(
+        &self,
+        problem: &Problem<T>,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>>
+    where
+        T: AsRef<str>,
+    {
         match self {
-            Function::Script(inner) => inner.call(graph),
+            Function::Script(inner) => inner.infer_edges(problem, function, nodes),
+        }
+    }
+
+    pub(crate) fn dump_script(&self) -> Script {
+        match self {
+            Function::Script(inner) => inner.dump_script(),
         }
     }
 }
@@ -50,14 +76,26 @@ where
 }
 
 impl FunctionTemplate<LazyVirtualMachine> {
-    fn call(&self, graph: &Graph<LazyFrame>) -> Result<Graph<LazyFrame>> {
+    fn infer_edges<T>(
+        &self,
+        problem: &Problem<T>,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>>
+    where
+        T: AsRef<str>,
+    {
         let filter = self
             .filter
             .as_ref()
-            .map(|filter| filter.call_filter(graph))
+            .map(|filter| filter.call_filter(problem, nodes.clone()))
             .transpose()?;
 
-        self.action.call(graph, filter)
+        self.action.call(problem, function, nodes, filter)
+    }
+
+    fn dump_script(&self) -> Script {
+        self.action.dump_script()
     }
 }
 
@@ -68,161 +106,127 @@ mod tests {
     #[cfg(feature = "polars")]
     #[test]
     fn expand_polars_dataframe_simple() {
-        use pl::prelude::NamedFrom;
-
-        // Step 1. Add nodes & edges
+        // Step 1. Add nodes
         let nodes: LazyFrame = ::pl::df!(
-            "name" => &["a", "b"],
-            "payload" => &[300.0, 0.0],
+            "name"      => [  "a",   "b"],
+            "capacity"  => [300.0,   0.0],
+            "supply"    => [300.0, 300.0],
+            "unit_cost" => [    5,     1],
         )
         .expect("failed to create nodes dataframe")
         .into();
 
-        let edges: LazyFrame = ::pl::df!(
-            "src" => &["a"],
-            "sink" => &["b"],
-        )
-        .expect("failed to create edges dataframe")
-        .into();
-
-        let graph = Graph { edges, nodes };
-
-        // Step 2. Add functions
+        // Step 2. Add a function
         let function_template = FunctionTemplate {
             action: r"
-                src.payload = -3;
-                sink.payload = +3;
+                capacity = 50;
+                unit_cost = 1;
             ",
             filter: None,
         };
 
         // Step 3. Call a function
-        let next_nodes = expand_polars_dataframe(graph, function_template);
+        let edges = expand_polars_dataframe(nodes, "move", function_template);
 
         // Step 4. Test outputs
         assert_eq!(
-            next_nodes.column("name").unwrap(),
-            &::pl::series::Series::new("name", vec!["a".to_string(), "b".to_string()]),
-        );
-        assert_eq!(
-            next_nodes.column("payload").unwrap(),
-            &::pl::series::Series::new("payload", vec![-3.0, 3.0]),
+            edges,
+            ::pl::df!(
+                "src"            => [   "a",    "a",    "b",    "b"],
+                "src.capacity"   => [ 300.0,  300.0,    0.0,    0.0],
+                "src.supply"     => [ 300.0,  300.0,  300.0,  300.0],
+                "src.unit_cost"  => [     5,      5,      1,      1],
+                "sink"           => [   "a",    "b",    "a",    "b"],
+                "sink.capacity"  => [ 300.0,    0.0,  300.0,    0.0],
+                "sink.supply"    => [ 300.0,  300.0,  300.0,  300.0],
+                "sink.unit_cost" => [     5,      1,      5,      1],
+                "capacity"       => [  50.0,   50.0,   50.0,   50.0],
+                "unit_cost"      => [   1.0,    1.0,    1.0,    1.0],
+                "function"       => ["move", "move", "move", "move"],
+            )
+            .expect("failed to create ground-truth edges dataframe")
+            .into(),
         );
     }
 
     #[cfg(feature = "polars")]
     #[test]
     fn expand_polars_dataframe_simple_with_filter() {
-        use pl::prelude::NamedFrom;
-
-        // Step 1. Add nodes & edges
+        // Step 1. Add nodes
         let nodes: LazyFrame = ::pl::df!(
-            "name" => &["a", "b"],
-            "payload" => &[300.0, 0.0],
+            "name"      => [  "a",   "b"],
+            "capacity"  => [300.0, 300.0],
+            "supply"    => [300.0,   0.0],
+            "unit_cost" => [    5,     1],
         )
         .expect("failed to create nodes dataframe")
         .into();
 
-        let edges: LazyFrame = ::pl::df!(
-            "src" => &["a", "b"],
-            "sink" => &["b", "a"],
-        )
-        .expect("failed to create edges dataframe")
-        .into();
-
-        let graph = Graph { edges, nodes };
-
-        // Step 2. Add functions
+        // Step 2. Add a function
         let function_template = FunctionTemplate {
             action: r"
-                src.payload = -3;
-                sink.payload = +3;
+                capacity = 50;
+                unit_cost = 1;
             ",
-            filter: Some("src.payload >= 3"),
+            filter: Some("src != sink and src.supply >= 50 and sink.capacity >= 50"),
         };
 
         // Step 3. Call a function
-        let next_nodes = expand_polars_dataframe(graph, function_template);
+        let edges = expand_polars_dataframe(nodes, "move", function_template);
 
         // Step 4. Test outputs
         assert_eq!(
-            next_nodes.column("name").unwrap(),
-            &::pl::series::Series::new("name", vec!["a".to_string(), "b".to_string()]),
-        );
-        assert_eq!(
-            next_nodes.column("payload").unwrap(),
-            &::pl::series::Series::new("payload", vec![-3.0, 3.0]),
-        );
-    }
-
-    #[cfg(feature = "polars")]
-    #[test]
-    fn expand_polars_dataframe_aggregated() {
-        use pl::prelude::NamedFrom;
-
-        // Step 1. Add nodes & edges
-        let nodes: LazyFrame = ::pl::df!(
-            "name" => &["a", "b"],
-            "payload" => &[300.0, 0.0],
-        )
-        .expect("failed to create nodes dataframe")
-        .into();
-
-        let edges: LazyFrame = ::pl::df!(
-            "src" => &["a", "b"],
-            "sink" => &["b", "a"],
-        )
-        .expect("failed to create edges dataframe")
-        .into();
-
-        let graph = Graph { edges, nodes };
-
-        // Step 2. Add functions
-        let function_template = FunctionTemplate {
-            action: r"
-                src.payload = -3;
-                sink.payload = +3;
-            ",
-            filter: None,
-        };
-
-        // Step 3. Call a function
-        let next_nodes = expand_polars_dataframe(graph, function_template);
-
-        // Step 4. Test outputs
-        assert_eq!(
-            next_nodes.column("name").unwrap(),
-            &::pl::series::Series::new("name", vec!["a".to_string(), "b".to_string()]),
-        );
-        assert_eq!(
-            next_nodes.column("payload").unwrap(),
-            &::pl::series::Series::new("payload", vec![0.0, 0.0]),
+            edges,
+            ::pl::df!(
+                "src"            => [   "a"],
+                "src.capacity"   => [ 300.0],
+                "src.supply"     => [ 300.0],
+                "src.unit_cost"  => [     5],
+                "sink"           => [   "b"],
+                "sink.capacity"  => [ 300.0],
+                "sink.supply"    => [   0.0],
+                "sink.unit_cost" => [     1],
+                "capacity"       => [    50],
+                "unit_cost"      => [     1],
+                "function"       => ["move"],
+            )
+            .expect("failed to create ground-truth edges dataframe")
+            .into(),
         );
     }
 
     #[cfg(feature = "polars")]
     fn expand_polars_dataframe(
-        graph: Graph<LazyFrame>,
+        nodes: LazyFrame,
+        function_name: &str,
         function_template: FunctionTemplate<&'static str>,
     ) -> ::pl::frame::DataFrame {
-        // Step 2. Add functions
+        use kubegraph_api::solver::ProblemMetadata;
+
+        // Step 1. Add a function
         let function: Function = function_template
             .try_into()
             .expect("failed to build a function");
+        let function_metadata = FunctionMetadata {
+            name: function_name.into(),
+        };
+
+        // Step 2. Define a problem
+        let problem = Problem {
+            metadata: ProblemMetadata::default(),
+            capacity: "capacity",
+            cost: "unit_cost",
+            supply: "supply",
+        };
 
         // Step 3. Call a function
-        let next_graph = function.call(&graph).expect("failed to call a function");
-
-        match next_graph.nodes {
-            LazyFrame::Polars(df) => df
-                .sort(
-                    ["name"],
-                    ::pl::chunked_array::ops::SortMultipleOptions::default(),
-                )
-                .collect()
-                .expect("failed to collect polars edges LazyFrame"),
-            #[allow(unreachable_patterns)]
-            _ => panic!("failed to unwrap polars edges LazyFrame"),
-        }
+        function
+            .infer_edges(&problem, &function_metadata, nodes)
+            .expect("failed to call a function")
+            .into_inner()
+            .try_into_polars()
+            .unwrap()
+            .collect()
+            .expect("failed to collect output graph edges")
     }
 }

@@ -4,6 +4,7 @@ extern crate polars as pl;
 pub mod connector;
 pub mod db;
 pub mod frame;
+pub mod func;
 pub mod graph;
 pub mod ops;
 pub mod query;

@@ -1,8 +1,8 @@
 #[cfg(feature = "polars")]
 extern crate polars as pl;
 
-mod ctx;
 mod func;
+mod graph;
 mod lazy;
 
 use std::{
@@ -14,18 +14,23 @@ use std::{
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
     frame::{IntoLazyFrame, LazyFrame},
-    graph::Graph,
-    solver::{LocalSolver, Problem, ProblemConstrait},
+    func::FunctionMetadata,
+    graph::{Graph, GraphEdges, IntoGraph},
+    solver::{LocalSolver, Problem},
     twin::LocalTwin,
+    vm::Script,
 };
 
 pub use self::func::IntoFunction;
-use self::{ctx::Context, func::Function};
+use self::{
+    func::{Function, FunctionContext},
+    graph::GraphContext,
+};
 
 #[derive(Default)]
 pub struct VirtualMachine<K, S, T> {
-    contexts: BTreeMap<K, Context>,
-    functions: BTreeMap<K, Function>,
+    functions: BTreeMap<K, FunctionContext>,
+    graphs: BTreeMap<K, GraphContext>,
     solver: S,
     twin: T,
 }
@@ -34,15 +39,35 @@ impl<K, S, T> VirtualMachine<K, S, T>
 where
     K: Ord,
 {
+    pub fn dump_function<Q>(&self, key: &Q) -> Result<Script>
+    where
+        K: Borrow<Q> + Ord,
+        Q: ?Sized + fmt::Debug + Ord,
+    {
+        self.get_function(key).map(|func| func.dump_script())
+    }
+
     pub fn get_graph<Q>(&self, key: &Q) -> Result<Graph<LazyFrame>>
     where
         K: Borrow<Q> + Ord,
         Q: ?Sized + fmt::Debug + Ord,
     {
-        self.contexts
+        self.graphs
             .get(key)
             .ok_or_else(|| anyhow!("undefined graph: {key:?}"))
-            .and_then(|context| context.to_graph())
+            .cloned()
+            .and_then(IntoGraph::try_into_graph)
+    }
+
+    pub fn get_function<Q>(&self, key: &Q) -> Result<&Function>
+    where
+        K: Borrow<Q> + Ord,
+        Q: ?Sized + fmt::Debug + Ord,
+    {
+        self.functions
+            .get(key)
+            .ok_or_else(|| anyhow!("undefined function: {key:?}"))
+            .map(|ctx| &ctx.func)
     }
 
     pub fn insert_graph(&mut self, key: K, graph: Graph<LazyFrame>) {
@@ -52,10 +77,10 @@ where
             nodes: Some(nodes),
         };
 
-        match self.contexts.entry(key) {
+        match self.graphs.entry(key) {
             Entry::Occupied(ctx) => ctx.into_mut().graph = graph,
             Entry::Vacant(ctx) => {
-                ctx.insert(Context {
+                ctx.insert(GraphContext {
                     graph,
                     ..Default::default()
                 });
@@ -65,10 +90,10 @@ where
 
     pub fn insert_edges(&mut self, key: K, edges: impl IntoLazyFrame) {
         let edges = Some(edges.into());
-        match self.contexts.entry(key) {
+        match self.graphs.entry(key) {
             Entry::Occupied(ctx) => ctx.into_mut().graph.edges = edges,
             Entry::Vacant(ctx) => {
-                ctx.insert(Context {
+                ctx.insert(GraphContext {
                     graph: Graph { edges, nodes: None },
                     ..Default::default()
                 });
@@ -78,10 +103,10 @@ where
 
     pub fn insert_nodes(&mut self, key: K, nodes: impl IntoLazyFrame) {
         let nodes = Some(nodes.into());
-        match self.contexts.entry(key) {
+        match self.graphs.entry(key) {
             Entry::Occupied(ctx) => ctx.into_mut().graph.nodes = nodes,
             Entry::Vacant(ctx) => {
-                ctx.insert(Context {
+                ctx.insert(GraphContext {
                     graph: Graph { edges: None, nodes },
                     ..Default::default()
                 });
@@ -91,16 +116,8 @@ where
 
     pub fn insert_function(&mut self, key: K, function: impl IntoFunction) -> Result<()> {
         let function = function.try_into()?;
-        self.functions.insert(key, function);
+        self.functions.insert(key, FunctionContext::new(function));
         Ok(())
-    }
-
-    pub fn insert_script(&mut self, key: K, script: &str) -> Result<()> {
-        self.contexts
-            .entry(key)
-            .or_insert_with(Default::default)
-            .vm
-            .execute_script(script)
     }
 }
 
@@ -108,48 +125,91 @@ impl<K, S, T> VirtualMachine<K, S, T>
 where
     K: Ord,
     S: LocalSolver<Graph<LazyFrame>, String, Output = Graph<LazyFrame>>,
-    T: LocalTwin<Graph<LazyFrame>, String, Output = Graph<LazyFrame>>,
+    T: LocalTwin<Graph<LazyFrame>, String, Output = LazyFrame>,
 {
     pub fn step<P>(&mut self, key: K, problem: &Problem<P>) -> Result<()>
     where
-        K: fmt::Debug,
+        K: fmt::Debug + ToString,
         P: ToString,
     {
         let Problem {
             metadata,
             capacity,
-            constraint,
+            cost,
+            supply,
         } = problem;
         let problem = Problem {
             metadata: metadata.clone(),
             capacity: capacity.to_string(),
-            constraint: constraint
-                .as_ref()
-                .map(|ProblemConstrait { cost, supply }| ProblemConstrait {
-                    cost: cost.to_string(),
-                    supply: supply.to_string(),
-                }),
+            cost: cost.to_string(),
+            supply: supply.to_string(),
         };
 
         self.step_with_solver(&key, &problem)
             .and_then(|graph| self.twin.execute(graph, &problem))
-            .map(|graph| self.insert_graph(key, graph))
+            .map(|nodes| self.insert_nodes(key, nodes))
     }
 
     fn step_with_solver(&self, key: &K, problem: &Problem<String>) -> Result<Graph<LazyFrame>>
     where
-        K: fmt::Debug,
+        K: fmt::Debug + ToString,
     {
-        let context = self
-            .contexts
+        // Step 1. Retrieve a proper graph
+        let Graph { edges, nodes } = self
+            .graphs
             .get(key)
-            .ok_or_else(|| anyhow!("failed to get context: {key:?}"))?;
+            .ok_or_else(|| anyhow!("failed to get graph: {key:?}"))
+            .cloned()
+            .and_then(IntoGraph::try_into_graph)?;
 
-        // TODO: use functions as markov blankets
+        // Step 2. Predict all functions' outputs
+        let edges = self
+            .functions
+            .iter()
+            .map(|(name, ctx)| {
+                let function = FunctionMetadata {
+                    name: name.to_string(),
+                };
 
-        let graph = context.to_graph()?;
-        let optimized_graph = self.solver.step(graph, problem.clone())?;
-        Ok(optimized_graph)
+                ctx.func.infer_edges(problem, &function, nodes.clone())
+            })
+            .chain({
+                let function = FunctionMetadata {
+                    name: FunctionMetadata::NAME_STATIC.into(),
+                };
+
+                match edges {
+                    LazyFrame::Empty => None,
+                    mut edges => Some(
+                        edges
+                            .alias(&problem.metadata.function, &function)
+                            .map(|()| GraphEdges::new(edges)),
+                    ),
+                }
+            })
+            .collect::<Result<GraphEdges<LazyFrame>>>()?
+            .into_inner();
+
+        use pl::lazy::dsl;
+        println!("{}", nodes.clone().try_into_polars()?.collect()?);
+        println!(
+            "{}",
+            edges
+                .clone()
+                .try_into_polars()?
+                .select([
+                    dsl::col("src"),
+                    dsl::col("sink"),
+                    dsl::col("capacity"),
+                    dsl::col("unit_cost"),
+                    dsl::col("function"),
+                ])
+                .collect()?
+        );
+
+        // Step 3. Call a solver
+        let graph = Graph { edges, nodes };
+        self.solver.step(graph, problem.clone())
     }
 }
 
@@ -165,64 +225,50 @@ mod tests {
 
     #[cfg(feature = "polars")]
     #[test]
-    fn simulate_simple() {
-        use pl::{prelude::NamedFromOwned, series::Series};
-
+    fn simulate_simple_with_edges() {
         // Step 1. Define problems
         let mut vm = VirtualMachine::<_, Solver, Twin>::default();
 
         // Step 2. Add nodes
         let nodes = ::pl::df!(
-            "name" => &["a", "b"],
-            "payload" => &[300, 0],
-            "warehouse" => &[true, true],
+            "name"      => [ "a",  "b"],
+            "capacity"  => [ 300,  300],
+            "supply"    => [ 300,    0],
+            "unit_cost" => [   5,    1],
+            "warehouse" => [true, true],
         )
         .expect("failed to create nodes dataframe");
         vm.insert_nodes("warehouse", nodes);
 
-        // Step 3. Add nodes
+        // Step 3. Add edges
         let edges = ::pl::df!(
-            "src" => &["a"],
-            "sink" => &["b"],
-            "payload" => &[100],
+            "src"       => [ "a"],
+            "sink"      => [ "b"],
+            "capacity"  => [  50],
+            "unit_cost" => [   1],
         )
         .expect("failed to create edges dataframe");
         vm.insert_edges("warehouse", edges.clone());
 
-        // Step 4. Add functions
-        let function = FunctionTemplate {
-            action: r"
-                src.payload = -3;
-                sink.payload = +3;
-
-                src.traffic = 3;
-                src.traffic_out = 3;
-                sink.traffic = 3;
-                sink.traffic_in = 3;
-            ",
-            filter: Some("src.payload >= 3"),
-        };
-        vm.insert_function("move", function)
-            .expect("failed to insert function");
-
-        // Step 5. Add cost & value function (heuristic)
+        // Step 4. Add cost & value function (heuristic)
         let problem = Problem {
             metadata: ProblemMetadata {
                 verbose: true,
                 ..Default::default()
             },
-            capacity: "payload".to_string(),
-            constraint: None,
+            capacity: "capacity".to_string(),
+            cost: "unit_cost".into(),
+            supply: "supply".into(),
         };
 
-        // Step 6. Do optimize
-        let n_step = 3;
+        // Step 5. Do optimize
+        let n_step = 10;
         for _ in 0..n_step {
             vm.step("warehouse".into(), &problem)
                 .expect("failed to optimize")
         }
 
-        // Step 7. Collect the output graph
+        // Step 6. Collect the output graph
         let Graph {
             edges: output_edges,
             nodes: output_nodes,
@@ -241,16 +287,100 @@ mod tests {
         println!("{output_nodes}");
         println!("{output_edges}");
 
-        // Step 8. Verify the output nodes
+        // Step 7. Verify the output nodes
         assert_eq!(
             output_nodes,
             ::pl::df!(
-                "name" => &["a", "b"],
-                "payload" => &[0, 300],
-                "warehouse" => &[true, true],
+                "name"      => [ "a",  "b"],
+                "capacity"  => [ 300,  300],
+                "supply"    => [   0,  300],
+                "unit_cost" => [   5,    1],
+                "warehouse" => [true, true],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
-        assert_eq!(output_edges, edges);
+        assert_eq!(
+            output_edges,
+            ::pl::df!(
+                "src"       => ["a"],
+                "sink"      => ["b"],
+                "capacity"  => [ 50],
+                "unit_cost" => [  1],
+            )
+            .expect("failed to create ground-truth nodes dataframe"),
+        );
+    }
+
+    #[cfg(feature = "polars")]
+    #[test]
+    fn simulate_simple_with_function() {
+        // Step 1. Define problems
+        let mut vm = VirtualMachine::<_, Solver, Twin>::default();
+
+        // Step 2. Add nodes
+        let nodes = ::pl::df!(
+            "name"      => [ "a",  "b"],
+            "capacity"  => [ 300,  300],
+            "supply"    => [ 300,    0],
+            "unit_cost" => [   5,    1],
+            "warehouse" => [true, true],
+        )
+        .expect("failed to create nodes dataframe");
+        vm.insert_nodes("warehouse", nodes);
+
+        // Step 3. Add functions
+        let function = FunctionTemplate {
+            action: r"
+                capacity = 50;
+                unit_cost = 1;
+            ",
+            filter: Some("src != sink and src.supply > 0 and src.supply > sink.supply"),
+        };
+        vm.insert_function("move", function)
+            .expect("failed to insert function");
+
+        // Step 4. Add cost & value function (heuristic)
+        let problem = Problem {
+            metadata: ProblemMetadata {
+                verbose: true,
+                ..Default::default()
+            },
+            capacity: "capacity".to_string(),
+            cost: "unit_cost".into(),
+            supply: "supply".into(),
+        };
+
+        // Step 5. Do optimize
+        let n_step = 10;
+        for _ in 0..n_step {
+            vm.step("warehouse".into(), &problem)
+                .expect("failed to optimize")
+        }
+
+        // Step 6. Collect the output graph
+        let Graph {
+            edges: _,
+            nodes: output_nodes,
+        } = vm.get_graph("warehouse").unwrap();
+        let output_nodes = output_nodes
+            .try_into_polars()
+            .unwrap()
+            .collect()
+            .expect("failed to collect output nodes dataframe");
+
+        println!("{output_nodes}");
+
+        // Step 7. Verify the output nodes
+        assert_eq!(
+            output_nodes,
+            ::pl::df!(
+                "name"      => [ "a",  "b"],
+                "capacity"  => [ 300,  300],
+                "supply"    => [ 150,  150],
+                "unit_cost" => [   5,    1],
+                "warehouse" => [true, true],
+            )
+            .expect("failed to create ground-truth nodes dataframe"),
+        );
     }
 }

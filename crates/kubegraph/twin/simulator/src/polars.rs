@@ -1,66 +1,72 @@
 use std::ops::{Add, Sub};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use kubegraph_api::{
     graph::Graph,
     solver::{Problem, ProblemMetadata},
 };
-use pl::lazy::{dsl, frame::LazyFrame};
+use pl::lazy::{
+    dsl,
+    frame::{IntoLazy, LazyFrame},
+};
 
 impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>, String> for super::Twin {
-    type Output = Graph<LazyFrame>;
+    type Output = LazyFrame;
 
     fn execute(&self, graph: Graph<LazyFrame>, problem: &Problem<String>) -> Result<Self::Output> {
         let Problem {
             metadata:
                 ProblemMetadata {
                     flow: key_flow,
+                    function: _,
                     src: key_src,
                     sink: key_sink,
                     name: key_name,
                     verbose: _,
                 },
-            capacity: key_capacity,
-            constraint: _,
+            capacity: _,
+            cost: _,
+            supply: key_supply,
         } = problem;
 
         // Step 1. Collect graph data
         let Graph { edges, nodes } = graph;
 
         // Step 2. Define a problem
-        let key_flow_in = "__flow_out";
-        let key_flow_out = "__flow_in";
+        let key_flow_in = format!("{key_sink}.{key_flow}");
+        let key_flow_out = format!("{key_src}.{key_flow}");
 
-        // Step 3. Apply edge flows to node capacity
+        // Step 3. Apply edge flows to node supply
         let updated_nodes = nodes
             .left_join(
                 edges
                     .clone()
-                    .select([dsl::col(&key_src), dsl::col(&key_flow).alias(key_flow_out)]),
+                    .filter(dsl::col(&key_flow).gt(0i64))
+                    .select([dsl::col(&key_src), dsl::col(&key_flow).alias(&key_flow_out)]),
                 dsl::col(&key_name),
                 dsl::col(&key_src),
             )
             .left_join(
                 edges
                     .clone()
-                    .select([dsl::col(&key_sink), dsl::col(&key_flow).alias(key_flow_in)]),
+                    .filter(dsl::col(&key_flow).gt(0i64))
+                    .select([dsl::col(&key_sink), dsl::col(&key_flow).alias(&key_flow_in)]),
                 dsl::col(&key_name),
                 dsl::col(&key_sink),
             )
             .with_column(
-                dsl::col(&key_capacity)
-                    .sub(dsl::col(key_flow_out).fill_null(0i64))
-                    .add(dsl::col(key_flow_in).fill_null(0i64)),
+                dsl::col(&key_supply)
+                    .sub(dsl::col(&key_flow_out).fill_null(0i64))
+                    .add(dsl::col(&key_flow_in).fill_null(0i64)),
             )
             .drop([key_flow_in, key_flow_out]);
 
-        // Step 4. Assemble an optimized graph
-        let updated_edges = edges.drop([&key_flow]);
-        let updated_nodes = updated_nodes;
+        // Step 4. Collect once
+        let updated_nodes = updated_nodes
+            .collect()
+            .map_err(|error| anyhow!("failed to collect nodes: {error}"))?
+            .lazy();
 
-        Ok(Graph {
-            edges: updated_edges,
-            nodes: updated_nodes,
-        })
+        Ok(updated_nodes)
     }
 }

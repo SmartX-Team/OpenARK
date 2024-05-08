@@ -41,24 +41,38 @@ mod impl_call {
     use anyhow::{bail, Error, Result};
     use kubegraph_api::{
         frame::{IntoLazySlice, LazyFrame, LazySlice},
-        graph::{Graph, IntoGraph},
+        func::FunctionMetadata,
+        graph::GraphEdges,
         ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+        solver::Problem,
         vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
     };
 
     impl super::LazyVirtualMachine {
-        pub(crate) fn call(
+        pub(crate) fn call<T>(
             &self,
-            graph: &Graph<LazyFrame>,
+            problem: &Problem<T>,
+            function: &FunctionMetadata,
+            nodes: LazyFrame,
             filter: Option<LazySlice>,
-        ) -> Result<Graph<LazyFrame>> {
-            Context::new(graph)
+        ) -> Result<GraphEdges<LazyFrame>>
+        where
+            T: AsRef<str>,
+        {
+            Context::try_new(problem, nodes)?
                 .call(&self.local_variables, filter)
-                .and_then(|ctx| ctx.try_into_graph())
+                .and_then(|ctx| ctx.try_into_edges(&problem.metadata.function, function))
         }
 
-        pub(crate) fn call_filter(&self, graph: &Graph<LazyFrame>) -> Result<LazySlice> {
-            Context::new(graph)
+        pub(crate) fn call_filter<T>(
+            &self,
+            problem: &Problem<T>,
+            nodes: LazyFrame,
+        ) -> Result<LazySlice>
+        where
+            T: AsRef<str>,
+        {
+            Context::try_new(problem, nodes)?
                 .call(&self.local_variables, None)
                 .and_then(|ctx| ctx.try_into_filter())
         }
@@ -70,45 +84,17 @@ mod impl_call {
     }
 
     impl Context {
-        fn new(graph: &Graph<LazyFrame>) -> Self {
-            let Graph { edges, nodes } = graph;
+        fn try_new<T>(problem: &Problem<T>, nodes: LazyFrame) -> Result<Self>
+        where
+            T: AsRef<str>,
+        {
+            // Create a fully-connected edges
+            let edges = nodes.fabric(problem)?;
 
-            // unify two dataframes
-            let graph = {
-                let edges = match edges {
-                    LazyFrame::Polars(ldf) => ldf,
-                };
-                let nodes = match nodes {
-                    LazyFrame::Polars(ldf) => ldf,
-                };
-
-                let edges_src = nodes
-                    .clone()
-                    .select([::pl::lazy::dsl::all().name().prefix("src.")]);
-                let edges_sink = nodes
-                    .clone()
-                    .select([::pl::lazy::dsl::all().name().prefix("sink.")]);
-
-                let graph = edges
-                    .clone()
-                    .inner_join(
-                        edges_src,
-                        ::pl::lazy::dsl::col("src"),
-                        ::pl::lazy::dsl::col("src.name"),
-                    )
-                    .inner_join(
-                        edges_sink,
-                        ::pl::lazy::dsl::col("sink"),
-                        ::pl::lazy::dsl::col("sink.name"),
-                    );
-
-                LazyFrame::Polars(graph)
-            };
-
-            Self {
-                heap: Heap::new(graph),
+            Ok(Self {
+                heap: Heap::new(edges),
                 stack: Stack::default(),
-            }
+            })
         }
 
         fn call<'a, Code>(mut self, code: Code, filter: Option<LazySlice>) -> Result<Self>
@@ -118,7 +104,7 @@ mod impl_call {
             let Self { heap, stack } = &mut self;
 
             if let Some(filter) = filter {
-                heap.graph.apply_filter(filter);
+                heap.edges.apply_filter(filter)?;
             }
 
             for (pc, ins) in code.into_iter().enumerate() {
@@ -162,74 +148,81 @@ mod impl_call {
             Ok(self)
         }
 
+        fn try_into_edges(
+            self,
+            key: &str,
+            metadata: &FunctionMetadata,
+        ) -> Result<GraphEdges<LazyFrame>> {
+            self.heap.try_into_edges(key, metadata)
+        }
+
         /// Pop the last instruction result.
         fn try_into_filter(mut self) -> Result<LazySlice> {
-            self.stack.pop_slice(&self.heap.graph)
-        }
-    }
-
-    impl IntoGraph<LazyFrame> for Context {
-        fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
-            self.heap.try_into_graph()
+            self.stack.pop_slice(&self.heap.edges)
         }
     }
 
     struct Heap {
-        graph: LazyFrame,
+        edges: LazyFrame,
         variables: BTreeMap<String, Variable>,
     }
 
     impl Heap {
-        fn new(graph: LazyFrame) -> Self {
+        fn new(edges: LazyFrame) -> Self {
             Self {
-                graph,
+                edges,
                 variables: BTreeMap::default(),
             }
         }
 
         fn get_feature(&self, key: &str) -> Result<Variable> {
-            match self.get_unchecked(key) {
+            match self.get_unchecked(key)? {
                 Variable::Number(_) => bail!("unexpected value: {key:?}"),
                 value => Ok(value),
             }
         }
 
         fn get_number(&self, key: &str) -> Result<Variable> {
-            match self.get_unchecked(key) {
+            match self.get_unchecked(key)? {
                 Variable::Feature(_) => bail!("unexpected feature: {key:?}"),
                 value => Ok(value),
             }
         }
 
-        fn get_unchecked(&self, key: &str) -> Variable {
+        fn get_unchecked(&self, key: &str) -> Result<Variable> {
             self.variables
                 .get(key)
                 .cloned()
-                .unwrap_or_else(|| Variable::LazySlice(self.graph.get_column(key)))
+                .map(Ok)
+                .unwrap_or_else(|| self.edges.get_column(key).map(Variable::LazySlice))
         }
 
         fn insert(&mut self, key: String, value: Variable) -> Result<()> {
             match &value {
                 Variable::LazySlice(column) => {
-                    self.graph.insert_column(&key, column.clone());
+                    self.edges.insert_column(&key, column.clone())?;
                 }
                 Variable::Feature(Some(value)) => {
-                    self.graph.fill_column_with_feature(&key, *value);
+                    self.edges.fill_column_with_feature(&key, *value)?;
                 }
                 Variable::Feature(None) => error_undefined_feature()?,
                 Variable::Number(Some(value)) => {
-                    self.graph.fill_column_with_value(&key, *value);
+                    self.edges.fill_column_with_value(&key, *value)?;
                 }
                 Variable::Number(None) => error_undefined_number()?,
             }
             self.variables.insert(key, value);
             Ok(())
         }
-    }
 
-    impl IntoGraph<LazyFrame> for Heap {
-        fn try_into_graph(self) -> Result<Graph<LazyFrame>> {
-            self.graph.try_into_graph()
+        fn try_into_edges(
+            self,
+            key: &str,
+            metadata: &FunctionMetadata,
+        ) -> Result<GraphEdges<LazyFrame>> {
+            let mut edges = self.edges;
+            edges.alias(key, metadata)?;
+            Ok(GraphEdges::new(edges))
         }
     }
 
@@ -253,17 +246,17 @@ mod impl_call {
             self.0.push(value)
         }
 
-        fn pop_slice(&mut self, graph: &LazyFrame) -> Result<LazySlice> {
+        fn pop_slice(&mut self, edges: &LazyFrame) -> Result<LazySlice> {
             self.0
                 .pop()
                 .map(|value| match value {
                     Variable::LazySlice(value) => Ok(value),
-                    Variable::Feature(Some(value)) => Ok(value.into_lazy_slice(graph)),
+                    Variable::Feature(Some(value)) => value.try_into_lazy_slice(edges),
                     Variable::Feature(None) => error_undefined_feature(),
-                    Variable::Number(Some(value)) => Ok(value.into_lazy_slice(graph)),
+                    Variable::Number(Some(value)) => value.try_into_lazy_slice(edges),
                     Variable::Number(None) => error_undefined_number(),
                 })
-                .unwrap_or_else(|| Ok(graph.all()))
+                .unwrap_or_else(|| edges.all())
         }
     }
 
@@ -498,7 +491,7 @@ mod impl_call {
 mod impl_execute {
     use anyhow::{anyhow, Result};
     use kubegraph_api::vm::{
-        BinaryExpr, Feature, Instruction, Number, Stmt as LazyStmt, UnaryExpr, Value as RefValue,
+        BinaryExpr, Instruction, Number, Stmt as LazyStmt, UnaryExpr, Value as RefValue,
     };
     use kubegraph_parser::{Expr, Filter, Literal, Script, Stmt, Value};
 
@@ -546,18 +539,6 @@ mod impl_execute {
             }
         }
 
-        pub(crate) fn execute_register_feature(
-            &mut self,
-            name: String,
-            value: Option<Feature>,
-        ) -> RefValue {
-            let ins = Instruction {
-                name: Some(name),
-                stmt: value.into(),
-            };
-            self.execute_register_instruction(ins)
-        }
-
         pub(crate) fn execute_register_value(
             &mut self,
             name: String,
@@ -581,14 +562,6 @@ mod impl_execute {
                 Value::Number(data) => Ok(RefValue::Number(data)),
                 Value::Variable(name) => self.execute_get_local_value_by_name(&name.0),
             }
-        }
-
-        fn execute_get_local_value_by_index(&mut self, index: usize) -> Result<RefValue> {
-            self.local_variables
-                .get(index)
-                .map(|ins| ins.stmt.to_value().unwrap_or(RefValue::Variable(index)))
-                .or_else(|| self.try_register_value(format!("%{index}")))
-                .ok_or_else(|| anyhow!("undefined local value {index:?}"))
         }
 
         fn execute_get_local_value_by_name(&mut self, name: &str) -> Result<RefValue> {

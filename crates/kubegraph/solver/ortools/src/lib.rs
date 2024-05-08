@@ -4,12 +4,8 @@ extern crate polars as pl;
 #[cfg(feature = "polars")]
 mod polars;
 
-use anyhow::Result;
-use kubegraph_api::{
-    frame::LazyFrame,
-    graph::Graph,
-    solver::{MaxFlowProblem, MinCostProblem},
-};
+use anyhow::{bail, Result};
+use kubegraph_api::{frame::LazyFrame, graph::Graph, solver::Problem};
 
 #[derive(Default)]
 pub struct Solver {}
@@ -17,35 +13,22 @@ pub struct Solver {}
 impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for Solver {
     type Output = Graph<LazyFrame>;
 
-    fn step_max_flow(
-        &self,
-        graph: Graph<LazyFrame>,
-        problem: MaxFlowProblem<String>,
-    ) -> Result<Self::Output> {
+    fn step(&self, graph: Graph<LazyFrame>, problem: Problem<String>) -> Result<Self::Output> {
         match graph {
-            #[cfg(feature = "polars")]
             Graph {
-                edges: LazyFrame::Polars(edges),
-                nodes: LazyFrame::Polars(nodes),
-            } => self
-                .step_max_flow(Graph { edges, nodes }, problem)
-                .map(Into::into),
-        }
-    }
+                edges: LazyFrame::Empty,
+                nodes: _,
+            }
+            | Graph {
+                edges: _,
+                nodes: LazyFrame::Empty,
+            } => bail!("cannot execute local solver with empty graph"),
 
-    fn step_min_cost(
-        &self,
-        graph: Graph<LazyFrame>,
-        problem: MinCostProblem<String>,
-    ) -> Result<Self::Output> {
-        match graph {
             #[cfg(feature = "polars")]
             Graph {
                 edges: LazyFrame::Polars(edges),
                 nodes: LazyFrame::Polars(nodes),
-            } => self
-                .step_min_cost(Graph { edges, nodes }, problem)
-                .map(Into::into),
+            } => self.step(Graph { edges, nodes }, problem).map(Into::into),
         }
     }
 }

@@ -9,7 +9,7 @@ use pl::{
     series::Series,
 };
 
-use crate::graph::{Graph, IntoGraph};
+use crate::graph::GraphEdges;
 
 impl From<DataFrame> for super::LazyFrame {
     fn from(df: DataFrame) -> Self {
@@ -23,39 +23,20 @@ impl From<LazyFrame> for super::LazyFrame {
     }
 }
 
-impl IntoGraph<super::LazyFrame> for LazyFrame {
-    fn try_into_graph(self) -> Result<Graph<super::LazyFrame>> {
-        let nodes_src = self.clone().select([
-            dsl::col("src").alias("name"),
-            dsl::col(r"^src\..*$")
-                .name()
-                .map(|name| Ok(name["src.".len()..].into())),
-        ]);
-        let nodes_sink = self.clone().select([
-            dsl::col("sink").alias("name"),
-            dsl::col(r"^sink\..*$")
-                .name()
-                .map(|name| Ok(name["sink.".len()..].into())),
-        ]);
-
-        let args = dsl::UnionArgs::default();
-        let nodes = dsl::concat_lf_diagonal([nodes_src, nodes_sink], args)
-            .map_err(|error| anyhow!("failed to stack sink over src: {error}"))?
-            .group_by([dsl::col("name")])
-            .agg([dsl::all().sum()]);
-
-        let edges = self.clone().select([
-            dsl::col("src"),
-            dsl::col("sink"),
-            dsl::col(r"^link\..*$")
-                .name()
-                .map(|name| Ok(name["link.".len()..].into())),
-        ]);
-
-        Ok(Graph {
-            edges: super::LazyFrame::Polars(edges),
-            nodes: super::LazyFrame::Polars(nodes),
-        })
+impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = GraphEdges<LazyFrame>>,
+    {
+        let args = dsl::UnionArgs {
+            to_supertypes: true,
+            ..Default::default()
+        };
+        let inputs: Vec<_> = iter.into_iter().map(|GraphEdges(edges)| edges).collect();
+        dsl::concat_lf_diagonal(inputs, args)
+            .map(super::LazyFrame::Polars)
+            .map(Self)
+            .unwrap_or(GraphEdges(super::LazyFrame::Empty))
     }
 }
 
@@ -78,7 +59,34 @@ pub fn get_column(
     }
 }
 
-pub fn find_indices(names: &Series, keys: &Series) -> Result<Option<Series>> {
+pub fn find_index(key_name: &str, names: &Series, query: &str) -> Result<i32> {
+    let len_names = names
+        .len()
+        .try_into()
+        .map_err(|error| anyhow!("failed to get node name length: {error}"))?;
+
+    let key_id = format!("{key_name}.id");
+    names
+        .clone()
+        .into_frame()
+        .lazy()
+        .with_column(dsl::lit(Series::from_iter(0..len_names).with_name(&key_id)))
+        .filter(dsl::col(key_name).eq(dsl::lit(query).cast(names.dtype().clone())))
+        .select([dsl::col(&key_id)])
+        .first()
+        .collect()
+        .map_err(|error| anyhow!("failed to find node name index: {error}"))?
+        .column(&key_id)
+        .map_err(|error| anyhow!("failed to get node id column; it should be a BUG: {error}"))
+        .and_then(|column| column.get(0).map_err(|_| anyhow!("no such name: {query}")))
+        .and_then(|value| {
+            value.try_extract().map_err(|error| {
+                anyhow!("failed to convert id column to usize; it should be a BUG: {error}")
+            })
+        })
+}
+
+pub fn find_indices(key_name: &str, names: &Series, keys: &Series) -> Result<Option<Series>> {
     match names.dtype() {
         DataType::String => {
             let len_names = names
@@ -86,16 +94,17 @@ pub fn find_indices(names: &Series, keys: &Series) -> Result<Option<Series>> {
                 .try_into()
                 .map_err(|error| anyhow!("failed to get node name length: {error}"))?;
 
+            let key_id = format!("{key_name}.id");
             names
                 .clone()
                 .into_frame()
                 .lazy()
-                .with_column(dsl::lit(Series::from_iter(0..len_names).with_name("id")))
-                .filter(dsl::col("name").eq(dsl::lit(keys.clone())))
-                .select([dsl::col("id")])
+                .with_column(dsl::lit(Series::from_iter(0..len_names).with_name(&key_id)))
+                .filter(dsl::col(key_name).is_in(dsl::lit(keys.clone())))
+                .select([dsl::col(&key_id)])
                 .collect()
                 .map_err(|error| anyhow!("failed to find node name indices: {error}"))?
-                .column("id")
+                .column(&key_id)
                 .map_err(|error| {
                     anyhow!("failed to get node id column; it should be a BUG: {error}")
                 })

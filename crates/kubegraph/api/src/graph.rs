@@ -6,6 +6,36 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::frame::LazyFrame;
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEdges<T>(pub(crate) T);
+
+impl<T> GraphEdges<T> {
+    pub const fn new(edges: T) -> Self {
+        Self(edges)
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl FromIterator<Self> for GraphEdges<LazyFrame> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        let mut iter = iter.into_iter().peekable();
+        match iter.peek() {
+            Some(GraphEdges(LazyFrame::Empty)) | None => Self(LazyFrame::Empty),
+            #[cfg(feature = "polars")]
+            Some(GraphEdges(LazyFrame::Polars(_))) => iter
+                .filter_map(|GraphEdges(edges)| edges.try_into_polars().ok().map(GraphEdges))
+                .collect::<GraphEdges<_>>(),
+        }
+    }
+}
+
 pub trait IntoGraph<T> {
     /// Disaggregate two dataframes.
     fn try_into_graph(self) -> Result<Graph<T>>

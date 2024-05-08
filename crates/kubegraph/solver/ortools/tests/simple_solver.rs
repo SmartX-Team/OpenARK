@@ -2,7 +2,7 @@ extern crate polars as pl;
 
 use kubegraph_api::{
     graph::Graph,
-    solver::{LocalSolver, MaxFlowProblem, MinCostProblem, ProblemConstrait, ProblemMetadata},
+    solver::{LocalSolver, MaxFlowProblem, MinCostProblem, ProblemMetadata},
 };
 use kubegraph_solver_ortools::Solver;
 use pl::{
@@ -12,85 +12,22 @@ use pl::{
 };
 
 #[test]
-fn max_flow() {
+fn solver_simple() {
     // Step 1. Define edges
     let edges = df!(
-        "src"      => [ 0,  0,  0,  1,  1,  2,  2,  3,  3],
-        "sink"     => [ 1,  2,  3,  2,  4,  3,  4,  2,  4],
-        "capacity" => [20, 30, 10, 40, 30, 10, 20,  5, 20],
-    )
-    .expect("failed to create edges dataframe");
-
-    // Step 2. Define nodes
-    let nodes = df!(
-        "name"     => [  0,   1,   2,   3,   4],
-    )
-    .expect("failed to create nodes dataframe");
-
-    // Step 3. Define a graph
-    let graph = Graph { edges, nodes };
-
-    // Step 4. Define a problem
-    let problem = MaxFlowProblem {
-        metadata: ProblemMetadata {
-            verbose: true,
-            ..Default::default()
-        },
-        capacity: "capacity".into(),
-    };
-
-    // Step 5. Define a solver
-    let solver = Solver::default();
-
-    // Step 6. Optimize the graph
-    let optimized_graph: Graph<DataFrame> = solver
-        .step_max_flow(graph, problem)
-        .expect("failed to optimize the graph")
-        .try_into()
-        .expect("failed to collect graph");
-    let Graph {
-        edges: optimized_edges,
-        nodes: optimized_nodes,
-    } = optimized_graph;
-
-    let total_flow: i64 = optimized_edges
-        .clone()
-        .lazy()
-        .filter(dsl::col("src").eq(0))
-        .select([dsl::col("flow").sum().alias("total_flow")])
-        .first()
-        .collect()
-        .expect("failed to calculate total flow")
-        .column("total_flow")
-        .expect("failed to retrieve total flow column")
-        .get(0)
-        .expect("failed to get total flow row")
-        .try_extract()
-        .expect("failed to extract total flow value");
-
-    println!("Total flow: {total_flow}");
-    assert_eq!(total_flow, 60);
-
-    println!();
-    println!("{}", &optimized_nodes);
-    println!("{}", &optimized_edges);
-}
-
-#[test]
-fn min_cost_flow_simple() {
-    // Step 1. Define edges
-    let edges = df!(
-        "src"       => [ 0,  0,  1,  1,  1,  2,  2,  3,  4],
-        "sink"      => [ 1,  2,  2,  3,  4,  3,  4,  4,  2],
-        "capacity"  => [15,  8, 20,  4, 10, 15,  4, 20,  5],
-        "unit_cost" => [ 4,  4,  2,  2,  6,  1,  3,  2,  3],
+        "src"       => [  0],
+        "sink"      => [  1],
+        "capacity"  => [ 20],
+        "unit_cost" => [  1],
     )
     .expect("failed to create edges dataframe");
 
     // Step 2. Define edges
     let nodes = df!(
-        "name"      => [  0,   1,   2,   3,   4],
-        "supply"    => [ 20,   0,   0,  -5, -15],
+        "name"      => [  0,   1],
+        "capacity"  => [ 20,  10],
+        "supply"    => [ 20,   0],
+        "unit_cost" => [  5,   0],
     )
     .expect("failed to create nodes dataframe");
 
@@ -103,11 +40,9 @@ fn min_cost_flow_simple() {
             verbose: true,
             ..Default::default()
         },
-        capacity: "capacity".into(),
-        constraint: ProblemConstrait {
-            cost: "unit_cost".into(),
-            supply: "supply".into(),
-        },
+        capacity: "capacity".to_string(),
+        cost: "unit_cost".to_string(),
+        supply: "supply".to_string(),
     };
 
     // Step 5. Define a solver
@@ -115,7 +50,7 @@ fn min_cost_flow_simple() {
 
     // Step 6. Optimize the graph
     let optimized_graph: Graph<DataFrame> = solver
-        .step_min_cost(graph, problem)
+        .step(graph, problem)
         .expect("failed to optimize the graph")
         .try_into()
         .expect("failed to collect graph");
@@ -136,9 +71,9 @@ fn min_cost_flow_simple() {
     println!("{}", &optimized_nodes);
     println!("{}", &optimized_edges);
 
+    let optimized_edges = optimized_edges.clone();
     let get_arc_cost = |src, sink| -> u64 {
         optimized_edges
-            .clone()
             .lazy()
             .filter(dsl::col("src").eq(src).and(dsl::col("sink").eq(sink)))
             .collect()
@@ -151,8 +86,5 @@ fn min_cost_flow_simple() {
             .expect("failed to extract edge cost value")
     };
 
-    assert_eq!(get_arc_cost(1, 4), 0);
-    assert_eq!(get_arc_cost(2, 3), 15);
-    assert_eq!(get_arc_cost(3, 4), 28);
-    assert_eq!(get_arc_cost(4, 2), 0);
+    assert_eq!(get_arc_cost(0, 1), 10);
 }
