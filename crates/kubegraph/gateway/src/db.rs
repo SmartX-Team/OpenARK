@@ -16,6 +16,8 @@ pub struct NetworkGraphDB {
     connectors: Arc<Mutex<NetworkConnectors>>,
     #[cfg(feature = "db-local")]
     db_local: ::kubegraph_db_local::NetworkGraphDB,
+    #[cfg(feature = "db-memory")]
+    db_memory: ::kubegraph_db_memory::NetworkGraphDB,
 }
 
 impl NetworkGraphDB {
@@ -24,6 +26,8 @@ impl NetworkGraphDB {
             connectors: Arc::default(),
             #[cfg(feature = "db-local")]
             db_local: ::kubegraph_db_local::NetworkGraphDB::try_default().await?,
+            #[cfg(feature = "db-memory")]
+            db_memory: ::kubegraph_db_memory::NetworkGraphDB::default(),
         })
     }
 
@@ -31,6 +35,10 @@ impl NetworkGraphDB {
         #[cfg(feature = "db-local")]
         {
             &self.db_local
+        }
+        #[cfg(feature = "db-memory")]
+        {
+            &self.db_memory
         }
     }
 }
@@ -69,8 +77,11 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
     async fn close(self) -> Result<()> {
         info!("Closing network graph...");
 
-        #[cfg(feature = "local-db")]
+        #[cfg(feature = "db-local")]
         self.db_local.close().await?;
+
+        #[cfg(feature = "db-memory")]
+        self.db_memory.close().await?;
 
         Ok(())
     }

@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-db-local"
+name = "kubegraph-db-memory"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -25,8 +25,5 @@ kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-clap = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-sled = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

@@ -155,7 +155,9 @@ impl NetworkEntryKeyFilter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum NetworkEntryKey {
     Edge(NetworkEdgeKey),

@@ -27,7 +27,7 @@ path = "./src/main.rs"
 default = ["full"]
 full = [
     "connector-full",
-    "db-full",
+    "db-auto",
     "df-full",
     "solver-full",
     "twin-full",
@@ -39,8 +39,9 @@ connector-full = ["connector-prometheus"]
 connector-prometheus = ["kubegraph-connector-prometheus"]
 
 # Configure Databases
-db-full = ["db-local"]
+db-auto = ["db-memory"]
 db-local = ["kubegraph-db-local"]
+db-memory = ["kubegraph-db-memory"]
 
 # Configure DataFrame
 df-full = ["df-polars"]
@@ -67,6 +68,7 @@ vm-local = ["kubegraph-vm-local"]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
 kubegraph-api = { path = "../api", default-features = false }
 kubegraph-db-local = { path = "../db/local", optional = true, default-features = false }
+kubegraph-db-memory = { path = "../db/memory", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../connector/prometheus", optional = true, default-features = false }
 kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false }
 kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }

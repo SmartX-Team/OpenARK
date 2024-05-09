@@ -46,7 +46,7 @@ impl NetworkGraphDB {
             db: Config::default()
                 .path(db_path)
                 .open()
-                .map_err(|error| anyhow!("failed to open db: {error}"))?,
+                .map_err(|error| anyhow!("failed to open local db: {error}"))?,
         })
     }
 }
@@ -73,7 +73,7 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
 
         self.db
             .apply_batch(batch)
-            .map_err(|error| anyhow!("failed to write edges: {error}"))
+            .map_err(|error| anyhow!("failed to write edges into local db: {error}"))
     }
 
     #[instrument(level = Level::INFO, skip_all)]
