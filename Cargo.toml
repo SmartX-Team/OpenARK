@@ -36,6 +36,7 @@ members = [
     "crates/kiss/monitor",
     "crates/kiss/operator",
     "crates/kubegraph/api",
+    "crates/kubegraph/connector/prometheus",
     "crates/kubegraph/db/local",
     "crates/kubegraph/gateway",
     "crates/kubegraph/operator",

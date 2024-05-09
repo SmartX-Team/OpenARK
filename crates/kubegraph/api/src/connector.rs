@@ -12,6 +12,18 @@ use tracing::error;
 use crate::{db::NetworkGraphDB, query::NetworkQuery};
 
 #[async_trait]
+pub trait NetworkConnectors {
+    async fn add_connector(&self, namespace: String, name: String, spec: NetworkConnectorSpec);
+
+    async fn delete_connector(&self, namespace: String, name: String);
+
+    async fn get_connectors(
+        &self,
+        r#type: NetworkConnectorSourceRef,
+    ) -> Option<Vec<NetworkConnectorSpec>>;
+}
+
+#[async_trait]
 pub trait NetworkConnector {
     fn name(&self) -> &str;
 
@@ -19,7 +31,7 @@ pub trait NetworkConnector {
         Duration::from_secs(15)
     }
 
-    async fn loop_forever(mut self, graph: impl NetworkGraphDB)
+    async fn loop_forever(mut self, graph: impl NetworkConnectors + NetworkGraphDB)
     where
         Self: Sized,
     {
@@ -39,7 +51,7 @@ pub trait NetworkConnector {
         }
     }
 
-    async fn pull(&mut self, graph: &impl NetworkGraphDB) -> Result<()>;
+    async fn pull(&mut self, graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]

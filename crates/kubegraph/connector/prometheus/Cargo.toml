@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-twin-api"
+name = "kubegraph-connector-prometheus"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,3 +20,10 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+kubegraph-api = { path = "../../api" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+prometheus-http-query = { workspace = true }
+tracing = { workspace = true }

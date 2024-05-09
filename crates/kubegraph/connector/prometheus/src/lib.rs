@@ -10,7 +10,7 @@ use futures::StreamExt;
 use kubegraph_api::{
     connector::{
         NetworkConnectorPrometheusSpec, NetworkConnectorSource, NetworkConnectorSourceRef,
-        NetworkConnectorSpec,
+        NetworkConnectorSpec, NetworkConnectors,
     },
     db::NetworkGraphDB,
     graph::{NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkNodeKey, NetworkValue},
@@ -20,13 +20,13 @@ use prometheus_http_query::{response::InstantVector, Client};
 use tracing::{info, instrument, warn, Level};
 
 #[derive(Default)]
-pub struct Connector {
+pub struct NetworkConnector {
     clients: BTreeMap<NetworkConnectorPrometheusSpec, Option<Client>>,
     db: Vec<NetworkConnectorSpec<NetworkConnectorPrometheusSpec>>,
 }
 
 #[async_trait]
-impl ::kubegraph_api::connector::NetworkConnector for Connector {
+impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     #[inline]
     fn name(&self) -> &str {
         "prometheus"
@@ -38,7 +38,7 @@ impl ::kubegraph_api::connector::NetworkConnector for Connector {
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn pull(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
+    async fn pull(&mut self, graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()> {
         // update db
         if let Some(db) = graph
             .get_connectors(NetworkConnectorSourceRef::Prometheus)

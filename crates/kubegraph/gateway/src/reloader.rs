@@ -6,11 +6,14 @@ use kube::{
     runtime::watcher::{watcher, Config, Error, Event},
     Api, Client, ResourceExt,
 };
-use kubegraph_api::{connector::NetworkConnectorCrd, db::NetworkGraphDB};
+use kubegraph_api::{
+    connector::{NetworkConnectorCrd, NetworkConnectors},
+    db::NetworkGraphDB,
+};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
-pub async fn loop_forever(graph: impl NetworkGraphDB) {
+pub async fn loop_forever(graph: impl NetworkConnectors + NetworkGraphDB) {
     loop {
         if let Err(error) = try_loop_forever(&graph).await {
             error!("failed to run http server: {error}");
@@ -22,7 +25,7 @@ pub async fn loop_forever(graph: impl NetworkGraphDB) {
     }
 }
 
-async fn try_loop_forever(graph: &impl NetworkGraphDB) -> Result<()> {
+async fn try_loop_forever(graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()> {
     let client = Client::try_default()
         .await
         .map_err(|error| anyhow!("failed to load kubernetes account: {error}"))?;
@@ -39,7 +42,7 @@ async fn try_loop_forever(graph: &impl NetworkGraphDB) -> Result<()> {
 }
 
 async fn handle_event(
-    graph: &impl NetworkGraphDB,
+    graph: &(impl NetworkConnectors + NetworkGraphDB),
     default_namespace: impl Copy + Fn() -> String,
     event: Event<NetworkConnectorCrd>,
 ) -> Result<(), Error> {
@@ -58,7 +61,7 @@ async fn handle_event(
 }
 
 async fn handle_apply(
-    graph: &impl NetworkGraphDB,
+    graph: &(impl NetworkConnectors + NetworkGraphDB),
     default_namespace: impl Fn() -> String,
     object: NetworkConnectorCrd,
 ) -> Result<(), Error> {
@@ -72,7 +75,7 @@ async fn handle_apply(
 }
 
 async fn handle_delete(
-    graph: &impl NetworkGraphDB,
+    graph: &(impl NetworkConnectors + NetworkGraphDB),
     default_namespace: impl Fn() -> String,
     object: NetworkConnectorCrd,
 ) -> Result<(), Error> {
