@@ -587,7 +587,6 @@ mod impl_execute {
                 Expr::Identity { value } => return self.execute_get_local_value(value),
                 Expr::Unary { value, op } => self.execute_expr_unary(op, *value)?,
                 Expr::Binary { lhs, rhs, op } => self.execute_expr_binary(op, *lhs, *rhs)?,
-                Expr::Feature { lhs, rhs } => self.execute_expr_feature(lhs.0, rhs.0)?,
             };
 
             match stmt.to_value() {
@@ -734,11 +733,6 @@ mod impl_execute {
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
             lhs.or(rhs)
-        }
-
-        fn execute_expr_feature(&mut self, lhs: String, rhs: String) -> Result<LazyStmt> {
-            // TODO: to be implemented
-            todo!()
         }
     }
 }

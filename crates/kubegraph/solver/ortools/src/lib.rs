@@ -1,7 +1,7 @@
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 mod polars;
 
 use anyhow::{bail, Result};
@@ -24,7 +24,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for Solver {
                 nodes: LazyFrame::Empty,
             } => bail!("cannot execute local solver with empty graph"),
 
-            #[cfg(feature = "polars")]
+            #[cfg(feature = "df-polars")]
             Graph {
                 edges: LazyFrame::Polars(edges),
                 nodes: LazyFrame::Polars(nodes),

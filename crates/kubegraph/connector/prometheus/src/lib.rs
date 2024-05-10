@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use kubegraph_api::{
     connector::{
-        NetworkConnectorPrometheusSpec, NetworkConnectorSource, NetworkConnectorSourceRef,
-        NetworkConnectorSpec, NetworkConnectors,
+        NetworkConnectorPrometheusSpec, NetworkConnectorSourceRef, NetworkConnectorSpec,
+        NetworkConnectors,
     },
     db::NetworkGraphDB,
     graph::{NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkNodeKey, NetworkValue},
@@ -22,7 +22,7 @@ use tracing::{info, instrument, warn, Level};
 #[derive(Default)]
 pub struct NetworkConnector {
     clients: BTreeMap<NetworkConnectorPrometheusSpec, Option<Client>>,
-    db: Vec<NetworkConnectorSpec<NetworkConnectorPrometheusSpec>>,
+    db: Vec<NetworkConnectorPrometheusSpec>,
 }
 
 #[async_trait]
@@ -47,13 +47,10 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             info!("Reloading prometheus connector...");
             self.db = db
                 .into_iter()
-                .map(|spec| {
-                    let NetworkConnectorSpec { src, template } = spec;
-                    match src {
-                        NetworkConnectorSource::Prometheus(src) => {
-                            NetworkConnectorSpec { src, template }
-                        }
-                    }
+                .filter_map(|spec| match spec {
+                    NetworkConnectorSpec::Prometheus(spec) => Some(spec),
+                    #[allow(unused_variables)]
+                    _ => None,
                 })
                 .collect();
         }
@@ -62,12 +59,10 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         }
 
         let dataset = self.db.iter().filter_map(|spec| {
-            let NetworkConnectorSpec { src, template } = spec;
-
             let client = self
                 .clients
-                .entry(src.clone())
-                .or_insert_with(|| match load_client(src) {
+                .entry(spec.clone())
+                .or_insert_with(|| match load_client(spec) {
                     Ok(client) => Some(client),
                     Err(error) => {
                         warn!("{error}");
@@ -76,6 +71,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
                 })
                 .clone()?;
 
+            let NetworkConnectorPrometheusSpec { template, url: _ } = spec;
             Some((client, template))
         });
 
@@ -91,8 +87,8 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 }
 
 #[instrument(level = Level::INFO, skip_all)]
-fn load_client(src: &NetworkConnectorPrometheusSpec) -> Result<Client> {
-    let NetworkConnectorPrometheusSpec { url } = src;
+fn load_client(spec: &NetworkConnectorPrometheusSpec) -> Result<Client> {
+    let NetworkConnectorPrometheusSpec { template: _, url } = spec;
 
     Client::from_str(url.as_str())
         .map_err(|error| anyhow!("failed to init prometheus client {url:?}: {error}"))

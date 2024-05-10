@@ -46,10 +46,6 @@ pub enum Expr {
         rhs: Box<Expr>,
         op: BinaryExpr,
     },
-    Feature {
-        lhs: Literal,
-        rhs: Literal,
-    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

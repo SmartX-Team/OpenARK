@@ -19,8 +19,16 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["full"]
+full = ["connector-full"]
+
+# Connectors
+connector-full = ["connector-simulation"]
+connector-simulation = []
+
 [dependencies]
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", features = ["connector-prometheus"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

@@ -1,0 +1,9 @@
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: warehouse
+  namespace: kubegraph
+spec:
+  simulation:
+    path: ./problems/warehouse

@@ -21,14 +21,15 @@ workspace = true
 
 [features]
 default = ["full"]
+full = ["df-full"]
 
 # DataFrame
-full = ["polars"]
-polars = [
+df-full = ["df-polars"]
+df-polars = [
     "dep:polars",
-    "kubegraph-api/polars",
-    "kubegraph-solver-ortools/polars",
-    "kubegraph-twin-simulator/polars",
+    "kubegraph-api/df-polars",
+    "kubegraph-solver-ortools/df-polars",
+    "kubegraph-twin-simulator/df-polars",
 ]
 
 [dependencies]

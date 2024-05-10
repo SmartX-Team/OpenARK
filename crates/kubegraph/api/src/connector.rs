@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use ark_core_k8s::data::Url;
@@ -9,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use tracing::error;
 
-use crate::{db::NetworkGraphDB, query::NetworkQuery};
+use crate::db::NetworkGraphDB;
 
 #[async_trait]
 pub trait NetworkConnectors {
@@ -74,26 +77,39 @@ pub trait NetworkConnector {
         "jsonPath": ".metadata.generation"
     }"#
 )]
-pub struct NetworkConnectorSpec<T = NetworkConnectorSource> {
-    pub src: T,
-    pub template: NetworkQuery,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum NetworkConnectorSource {
+pub enum NetworkConnectorSpec {
+    #[cfg(feature = "connector-prometheus")]
     Prometheus(NetworkConnectorPrometheusSpec),
+    #[cfg(feature = "connector-simulation")]
+    Simulation(NetworkConnectorSimulationSpec),
 }
 
-impl NetworkConnectorSource {
+impl NetworkConnectorSpec {
+    pub fn name(&self) -> String {
+        match self {
+            #[cfg(feature = "connector-prometheus")]
+            Self::Prometheus(spec) => format!(
+                "{type}/{spec}",
+                type = NetworkConnectorSourceRef::Prometheus.name(),
+                spec = spec.name(),
+            ),
+            #[cfg(feature = "connector-simulation")]
+            Self::Simulation(_) => NetworkConnectorSourceRef::Simulation.name().into(),
+        }
+    }
+
     pub const fn to_ref(&self) -> NetworkConnectorSourceRef {
         match self {
+            #[cfg(feature = "connector-prometheus")]
             Self::Prometheus(_) => NetworkConnectorSourceRef::Prometheus,
+            #[cfg(feature = "connector-simulation")]
+            Self::Simulation(_) => NetworkConnectorSourceRef::Simulation,
         }
     }
 }
 
-impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSource {
+impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSpec {
     fn eq(&self, other: &NetworkConnectorSourceRef) -> bool {
         self.to_ref() == *other
     }
@@ -104,13 +120,44 @@ impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSource {
 )]
 #[serde(rename_all = "camelCase")]
 pub enum NetworkConnectorSourceRef {
+    #[cfg(feature = "connector-prometheus")]
     Prometheus,
+    #[cfg(feature = "connector-simulation")]
+    Simulation,
 }
 
+impl NetworkConnectorSourceRef {
+    pub const fn name(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "connector-prometheus")]
+            Self::Prometheus => "prometheus",
+            #[cfg(feature = "connector-simulation")]
+            Self::Simulation => "simulation",
+        }
+    }
+}
+
+#[cfg(feature = "connector-prometheus")]
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkConnectorPrometheusSpec {
+    pub template: crate::query::NetworkQuery,
     pub url: Url,
+}
+
+impl NetworkConnectorPrometheusSpec {
+    pub const fn name(&self) -> &'static str {
+        self.template.name()
+    }
+}
+
+#[cfg(feature = "connector-simulation")]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkConnectorSimulationSpec {
+    pub path: PathBuf,
 }

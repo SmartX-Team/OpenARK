@@ -1,4 +1,4 @@
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
 mod func;
@@ -223,7 +223,7 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "polars")]
+    #[cfg(feature = "df-polars")]
     #[test]
     fn simulate_simple_with_edges() {
         // Step 1. Define problems
@@ -311,7 +311,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "polars")]
+    #[cfg(feature = "df-polars")]
     #[test]
     fn simulate_simple_with_function() {
         // Step 1. Define problems

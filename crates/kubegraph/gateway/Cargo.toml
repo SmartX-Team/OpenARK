@@ -35,8 +35,17 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = ["connector-prometheus"]
-connector-prometheus = ["kubegraph-connector-prometheus"]
+connector-full = ["connector-prometheus", "connector-simulation"]
+connector-prometheus = [
+    "kubegraph-api/connector-prometheus",
+    "kubegraph-connector-prometheus",
+    "kubegraph-connector-simulation/connector-prometheus",
+]
+connector-simulation = [
+    "kubegraph-api/connector-simulation",
+    "kubegraph-connector-prometheus/connector-simulation",
+    "kubegraph-connector-simulation",
+]
 
 # Configure Databases
 db-auto = ["db-memory"]
@@ -46,10 +55,10 @@ db-memory = ["kubegraph-db-memory"]
 # Configure DataFrame
 df-full = ["df-polars"]
 df-polars = [
-    "kubegraph-api/polars",
-    "kubegraph-solver-ortools?/polars",
-    "kubegraph-twin-simulator?/polars",
-    "kubegraph-vm-local?/polars",
+    "kubegraph-api/df-polars",
+    "kubegraph-solver-ortools?/df-polars",
+    "kubegraph-twin-simulator?/df-polars",
+    "kubegraph-vm-local?/df-polars",
 ]
 
 # Configure Solvers
@@ -70,6 +79,7 @@ kubegraph-api = { path = "../api", default-features = false }
 kubegraph-db-local = { path = "../db/local", optional = true, default-features = false }
 kubegraph-db-memory = { path = "../db/memory", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../connector/prometheus", optional = true, default-features = false }
+kubegraph-connector-simulation = { path = "../connector/simulation", optional = true, default-features = false }
 kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false }
 kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }

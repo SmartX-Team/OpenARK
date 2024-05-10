@@ -5,44 +5,43 @@ metadata:
   name: dash-function
   namespace: kubegraph
 spec:
-  src:
-    prometheus:
-      url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
-  template:
-    type: Edge
-    query: >
-      sum by (data_model, data_model_from, job, k8s_namespace_name, le)
-      (dash_metrics_duration_milliseconds_bucket{span_name="call_function"})
-    le:
-      type: Key
-      value: le
-    link:
-      kind:
-        type: Static
-        value: function
-      name:
+  prometheus:
+    url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+    template:
+      type: Edge
+      query: >
+        sum by (data_model, data_model_from, job, k8s_namespace_name, le)
+        (dash_metrics_duration_milliseconds_bucket{span_name="call_function"})
+      le:
         type: Key
-        value: job
-      namespace:
-        type: Key
-        value: k8s_namespace_name
-    src:
-      kind:
-        type: Static
-        value: model
-      name:
-        type: Key
-        value: data_model_from
-      namespace:
-        type: Key
-        value: k8s_namespace_name
-    sink:
-      kind:
-        type: Static
-        value: model
-      name:
-        type: Key
-        value: data_model
-      namespace:
-        type: Key
-        value: k8s_namespace_name
+        value: le
+      link:
+        kind:
+          type: Static
+          value: function
+        name:
+          type: Key
+          value: job
+        namespace:
+          type: Key
+          value: k8s_namespace_name
+      src:
+        kind:
+          type: Static
+          value: model
+        name:
+          type: Key
+          value: data_model_from
+        namespace:
+          type: Key
+          value: k8s_namespace_name
+      sink:
+        kind:
+          type: Static
+          value: model
+        name:
+          type: Key
+          value: data_model
+        namespace:
+          type: Key
+          value: k8s_namespace_name

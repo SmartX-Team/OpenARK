@@ -5,21 +5,20 @@ metadata:
   name: minio
   namespace: kubegraph
 spec:
-  src:
-    prometheus:
-      url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
-  template:
-    type: Node
-    query: >
-      sum by (namespace, bucket)
-      (bucket_usage_size{service="minio"})
-    node:
-      kind:
-        type: Static
-        value: object-storage
-      name:
-        type: Key
-        value: bucket
-      namespace:
-        type: Key
-        value: namespace
+  prometheus:
+    url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+    template:
+      type: Node
+      query: >
+        sum by (namespace, bucket)
+        (bucket_usage_size{service="minio"})
+      node:
+        kind:
+          type: Static
+          value: object-storage
+        name:
+          type: Key
+          value: bucket
+        namespace:
+          type: Key
+          value: namespace

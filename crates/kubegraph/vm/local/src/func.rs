@@ -103,7 +103,7 @@ impl FunctionTemplate<LazyVirtualMachine> {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "polars")]
+    #[cfg(feature = "df-polars")]
     #[test]
     fn expand_polars_dataframe_simple() {
         // Step 1. Add nodes
@@ -149,7 +149,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "polars")]
+    #[cfg(feature = "df-polars")]
     #[test]
     fn expand_polars_dataframe_simple_with_filter() {
         // Step 1. Add nodes
@@ -195,7 +195,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "polars")]
+    #[cfg(feature = "df-polars")]
     fn expand_polars_dataframe(
         nodes: LazyFrame,
         function_name: &str,

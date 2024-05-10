@@ -86,10 +86,6 @@ CmpExpr: Expr = {
         rhs: Box::new(rhs),
         op: BinaryExpr::Lt,
     },
-    <lhs: Literal> "->" <rhs: Literal> => Expr::Feature {
-        lhs,
-        rhs,
-    },
 };
 
 CmpExprBase: Expr = {
@@ -153,10 +149,6 @@ Value: Value = {
 pub Provide: Provide = {
     <value: Literal> => Provide::Ensure {
         value,
-    },
-    <lhs: Literal> "->" <rhs: Literal> => Provide::Feature {
-        lhs,
-        rhs,
     },
 };
 

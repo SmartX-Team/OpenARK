@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-simulator-schema"
+name = "kubegraph-connector-simulation"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -19,9 +19,22 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-kubegraph-api = { path = "../../../api" }
+[features]
+default = ["full"]
+full = ["connector-full"]
 
+# Connectors
+connector-full = ["connector-prometheus"]
+connector-prometheus = []
+
+[dependencies]
+kubegraph-api = { path = "../../api", features = ["connector-simulation"] }
+kubegraph-parser = { path = "../../parser" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
-strum = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tracing = { workspace = true }

@@ -28,7 +28,7 @@ impl FromIterator<Self> for GraphEdges<LazyFrame> {
         let mut iter = iter.into_iter().peekable();
         match iter.peek() {
             Some(GraphEdges(LazyFrame::Empty)) | None => Self(LazyFrame::Empty),
-            #[cfg(feature = "polars")]
+            #[cfg(feature = "df-polars")]
             Some(GraphEdges(LazyFrame::Polars(_))) => iter
                 .filter_map(|GraphEdges(edges)| edges.try_into_polars().ok().map(GraphEdges))
                 .collect::<GraphEdges<_>>(),
@@ -50,7 +50,7 @@ pub struct Graph<T> {
     pub nodes: T,
 }
 
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 impl From<Graph<::pl::lazy::frame::LazyFrame>> for Graph<LazyFrame> {
     fn from(graph: Graph<::pl::lazy::frame::LazyFrame>) -> Self {
         let Graph { edges, nodes } = graph;
@@ -61,7 +61,7 @@ impl From<Graph<::pl::lazy::frame::LazyFrame>> for Graph<LazyFrame> {
     }
 }
 
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 impl From<Graph<::pl::frame::DataFrame>> for Graph<::pl::lazy::frame::LazyFrame> {
     fn from(graph: Graph<::pl::frame::DataFrame>) -> Self {
         use pl::lazy::frame::IntoLazy;
@@ -74,7 +74,7 @@ impl From<Graph<::pl::frame::DataFrame>> for Graph<::pl::lazy::frame::LazyFrame>
     }
 }
 
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 impl TryFrom<Graph<::pl::lazy::frame::LazyFrame>> for Graph<::pl::frame::DataFrame> {
     type Error = ::pl::error::PolarsError;
 

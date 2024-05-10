@@ -19,6 +19,8 @@ async fn try_loop_forever(graph: &NetworkGraphDB) -> Result<()> {
     join!(
         #[cfg(feature = "connector-prometheus")]
         ::kubegraph_connector_prometheus::NetworkConnector::default().loop_forever(graph.clone()),
+        #[cfg(feature = "connector-simulation")]
+        ::kubegraph_connector_simulation::NetworkConnector::default().loop_forever(graph.clone()),
     );
     Ok(())
 }
@@ -32,7 +34,7 @@ pub(crate) struct NetworkConnectors {
 impl NetworkConnectors {
     pub(crate) fn insert(&mut self, namespace: String, name: String, value: NetworkConnectorSpec) {
         let key = connector_key(namespace, name);
-        let src = value.src.to_ref();
+        let src = value.to_ref();
 
         self.db.insert(key, value);
         self.has_updated
@@ -50,7 +52,7 @@ impl NetworkConnectors {
             Some(
                 self.db
                     .values()
-                    .filter(|&spec| spec.src == src)
+                    .filter(|&spec| *spec == src)
                     .cloned()
                     .collect(),
             )
@@ -65,7 +67,7 @@ impl NetworkConnectors {
 
         if let Some(object) = removed_object {
             self.has_updated
-                .entry(object.src.to_ref())
+                .entry(object.to_ref())
                 .and_modify(|updated| *updated = true);
         }
     }

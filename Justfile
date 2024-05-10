@@ -89,6 +89,11 @@ oci-push-and-update-kiss: oci-push
   kubectl -n kiss delete pods --selector name=monitor
   kubectl -n kiss delete pods --selector name=operator
 
+oci-push-and-update-kubegraph: oci-push
+  kubectl -n kubegraph delete pods --selector name=gateway
+  kubectl -n kubegraph delete pods --selector name=kubegraph
+  kubectl -n kubegraph delete pods --selector name=operator
+
 oci-push-and-update-vine: oci-push
   kubectl -n dash delete pods --selector name=gateway
   kubectl -n vine delete pods --selector name=bastion

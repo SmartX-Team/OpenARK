@@ -1,4 +1,4 @@
-#[cfg(feature = "polars")]
+#[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
 pub mod connector;
