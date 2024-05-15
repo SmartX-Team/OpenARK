@@ -5,15 +5,15 @@ extern crate polars as pl;
 mod polars;
 
 use anyhow::{bail, Result};
-use kubegraph_api::{frame::LazyFrame, graph::Graph, solver::Problem};
+use kubegraph_api::{frame::LazyFrame, graph::Graph, problem::ProblemSpec};
 
 #[derive(Default)]
 pub struct Solver {}
 
-impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for Solver {
+impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for Solver {
     type Output = Graph<LazyFrame>;
 
-    fn step(&self, graph: Graph<LazyFrame>, problem: Problem<String>) -> Result<Self::Output> {
+    fn step(&self, graph: Graph<LazyFrame>, problem: ProblemSpec) -> Result<Self::Output> {
         match graph {
             Graph {
                 edges: LazyFrame::Empty,

@@ -5,15 +5,15 @@ extern crate polars as pl;
 mod polars;
 
 use anyhow::{bail, Result};
-use kubegraph_api::{frame::LazyFrame, graph::Graph, solver::Problem};
+use kubegraph_api::{frame::LazyFrame, graph::Graph, problem::ProblemSpec};
 
 #[derive(Default)]
 pub struct Twin {}
 
-impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>, String> for Twin {
+impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>> for Twin {
     type Output = LazyFrame;
 
-    fn execute(&self, graph: Graph<LazyFrame>, problem: &Problem<String>) -> Result<Self::Output> {
+    fn execute(&self, graph: Graph<LazyFrame>, problem: &ProblemSpec) -> Result<Self::Output> {
         match graph {
             Graph {
                 edges: LazyFrame::Empty,

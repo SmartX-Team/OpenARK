@@ -3,18 +3,18 @@ use std::ops::{Add, Sub};
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
     graph::Graph,
-    solver::{Problem, ProblemMetadata},
+    problem::{ProblemMetadata, ProblemSpec},
 };
 use pl::lazy::{
     dsl,
     frame::{IntoLazy, LazyFrame},
 };
 
-impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>, String> for super::Twin {
+impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>> for super::Twin {
     type Output = LazyFrame;
 
-    fn execute(&self, graph: Graph<LazyFrame>, problem: &Problem<String>) -> Result<Self::Output> {
-        let Problem {
+    fn execute(&self, graph: Graph<LazyFrame>, problem: &ProblemSpec) -> Result<Self::Output> {
+        let ProblemSpec {
             metadata:
                 ProblemMetadata {
                     flow: key_flow,
@@ -25,8 +25,8 @@ impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>, String> for super::Twin 
                     verbose: _,
                 },
             capacity: _,
-            cost: _,
             supply: key_supply,
+            unit_cost: _,
         } = problem;
 
         // Step 1. Collect graph data

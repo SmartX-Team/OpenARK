@@ -1,9 +1,9 @@
 use anyhow::Result;
 
-use crate::solver::Problem;
+use crate::problem::ProblemSpec;
 
-pub trait LocalTwin<G, P> {
+pub trait LocalTwin<G> {
     type Output;
 
-    fn execute(&self, graph: G, problem: &Problem<P>) -> Result<Self::Output>;
+    fn execute(&self, graph: G, problem: &ProblemSpec) -> Result<Self::Output>;
 }

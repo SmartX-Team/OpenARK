@@ -2,7 +2,8 @@ extern crate polars as pl;
 
 use kubegraph_api::{
     graph::Graph,
-    solver::{LocalSolver, MaxFlowProblem, MinCostProblem, ProblemMetadata},
+    problem::{ProblemMetadata, ProblemSpec},
+    solver::LocalSolver,
 };
 use kubegraph_solver_ortools::Solver;
 use pl::{
@@ -35,14 +36,14 @@ fn solver_simple() {
     let graph = Graph { edges, nodes };
 
     // Step 4. Define a problem
-    let problem = MinCostProblem {
+    let problem = ProblemSpec {
         metadata: ProblemMetadata {
             verbose: true,
             ..Default::default()
         },
-        capacity: "capacity".to_string(),
-        cost: "unit_cost".to_string(),
-        supply: "supply".to_string(),
+        capacity: "capacity".into(),
+        supply: "supply".into(),
+        unit_cost: "unit_cost".into(),
     };
 
     // Step 5. Define a solver

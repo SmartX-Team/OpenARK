@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use kubegraph_api::{
     frame::polars::{find_indices, get_column},
     graph::Graph,
-    solver::{Problem, ProblemMetadata},
+    problem::{ProblemMetadata, ProblemSpec},
 };
 use or_tools::graph::{
     ebert_graph::{ArcIndex, FlowQuantity, NodeIndex, StarGraph},
@@ -15,23 +15,19 @@ use pl::{
     series::Series,
 };
 
-impl ::kubegraph_api::solver::LocalSolver<Graph<DataFrame>, String> for super::Solver {
+impl ::kubegraph_api::solver::LocalSolver<Graph<DataFrame>> for super::Solver {
     type Output = Graph<LazyFrame>;
 
-    fn step(&self, graph: Graph<DataFrame>, problem: Problem<String>) -> Result<Self::Output> {
-        ::kubegraph_api::solver::LocalSolver::<Graph<LazyFrame>, String>::step(
-            self,
-            graph.into(),
-            problem,
-        )
+    fn step(&self, graph: Graph<DataFrame>, problem: ProblemSpec) -> Result<Self::Output> {
+        ::kubegraph_api::solver::LocalSolver::<Graph<LazyFrame>>::step(self, graph.into(), problem)
     }
 }
 
-impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::Solver {
+impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
     type Output = Graph<LazyFrame>;
 
-    fn step(&self, graph: Graph<LazyFrame>, problem: Problem<String>) -> Result<Self::Output> {
-        let Problem {
+    fn step(&self, graph: Graph<LazyFrame>, problem: ProblemSpec) -> Result<Self::Output> {
+        let ProblemSpec {
             metadata:
                 ProblemMetadata {
                     flow: key_flow,
@@ -42,8 +38,8 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
                     verbose,
                 },
             capacity: key_capacity,
-            cost: key_cost,
             supply: key_supply,
+            unit_cost: key_unit_cost,
         } = problem;
 
         // Step 1. Collect graph data
@@ -57,7 +53,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
                 dsl::col(&key_src),
                 dsl::col(&key_sink),
                 dsl::col(&key_capacity),
-                dsl::col(&key_cost),
+                dsl::col(&key_unit_cost),
             ])
             .collect()
             .map_err(|error| anyhow!("failed to collect edges input: {error}"))?;
@@ -66,7 +62,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
             .select([
                 dsl::col(&key_name),
                 dsl::col(&key_capacity),
-                dsl::col(&key_cost),
+                dsl::col(&key_unit_cost),
                 dsl::col(&key_supply),
             ])
             .collect()
@@ -82,7 +78,13 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
             &key_capacity,
             Some(&DataType::Int64),
         )?;
-        let edge_cost = get_column(&edges, "edge", "cost", &key_cost, Some(&DataType::Int64))?;
+        let edge_cost = get_column(
+            &edges,
+            "edge",
+            "cost",
+            &key_unit_cost,
+            Some(&DataType::Int64),
+        )?;
 
         // Step 3. Collect nodes
         let name = get_column(&nodes, "node", "name", &key_name, None)?;
@@ -93,7 +95,13 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>, String> for super::S
             &key_capacity,
             Some(&DataType::Int64),
         )?;
-        let node_cost = get_column(&nodes, "node", "cost", &key_cost, Some(&DataType::Int64))?;
+        let node_cost = get_column(
+            &nodes,
+            "node",
+            "cost",
+            &key_unit_cost,
+            Some(&DataType::Int64),
+        )?;
         let node_supply = get_column(
             &nodes,
             "node",

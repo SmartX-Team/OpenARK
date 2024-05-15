@@ -14,9 +14,10 @@ use std::{
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
     frame::{IntoLazyFrame, LazyFrame},
-    func::FunctionMetadata,
+    function::FunctionMetadata,
     graph::{Graph, GraphEdges, IntoGraph},
-    solver::{LocalSolver, Problem},
+    problem::ProblemSpec,
+    solver::LocalSolver,
     twin::LocalTwin,
     vm::Script,
 };
@@ -124,33 +125,19 @@ where
 impl<K, S, T> VirtualMachine<K, S, T>
 where
     K: Ord,
-    S: LocalSolver<Graph<LazyFrame>, String, Output = Graph<LazyFrame>>,
-    T: LocalTwin<Graph<LazyFrame>, String, Output = LazyFrame>,
+    S: LocalSolver<Graph<LazyFrame>, Output = Graph<LazyFrame>>,
+    T: LocalTwin<Graph<LazyFrame>, Output = LazyFrame>,
 {
-    pub fn step<P>(&mut self, key: K, problem: &Problem<P>) -> Result<()>
+    pub fn step(&mut self, key: K, problem: &ProblemSpec) -> Result<()>
     where
         K: fmt::Debug + ToString,
-        P: ToString,
     {
-        let Problem {
-            metadata,
-            capacity,
-            cost,
-            supply,
-        } = problem;
-        let problem = Problem {
-            metadata: metadata.clone(),
-            capacity: capacity.to_string(),
-            cost: cost.to_string(),
-            supply: supply.to_string(),
-        };
-
-        self.step_with_solver(&key, &problem)
-            .and_then(|graph| self.twin.execute(graph, &problem))
+        self.step_with_solver(&key, problem)
+            .and_then(|graph| self.twin.execute(graph, problem))
             .map(|nodes| self.insert_nodes(key, nodes))
     }
 
-    fn step_with_solver(&self, key: &K, problem: &Problem<String>) -> Result<Graph<LazyFrame>>
+    fn step_with_solver(&self, key: &K, problem: &ProblemSpec) -> Result<Graph<LazyFrame>>
     where
         K: fmt::Debug + ToString,
     {
@@ -215,7 +202,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use kubegraph_api::solver::ProblemMetadata;
+    use kubegraph_api::problem::ProblemMetadata;
     use kubegraph_solver_ortools::Solver;
     use kubegraph_twin_simulator::Twin;
 
@@ -251,14 +238,14 @@ mod tests {
         vm.insert_edges("warehouse", edges.clone());
 
         // Step 4. Add cost & value function (heuristic)
-        let problem = Problem {
+        let problem = ProblemSpec {
             metadata: ProblemMetadata {
                 verbose: true,
                 ..Default::default()
             },
-            capacity: "capacity".to_string(),
-            cost: "unit_cost".into(),
+            capacity: "capacity".into(),
             supply: "supply".into(),
+            unit_cost: "unit_cost".into(),
         };
 
         // Step 5. Do optimize
@@ -340,14 +327,14 @@ mod tests {
             .expect("failed to insert function");
 
         // Step 4. Add cost & value function (heuristic)
-        let problem = Problem {
+        let problem = ProblemSpec {
             metadata: ProblemMetadata {
                 verbose: true,
                 ..Default::default()
             },
-            capacity: "capacity".to_string(),
-            cost: "unit_cost".into(),
+            capacity: "capacity".into(),
             supply: "supply".into(),
+            unit_cost: "unit_cost".into(),
         };
 
         // Step 5. Do optimize

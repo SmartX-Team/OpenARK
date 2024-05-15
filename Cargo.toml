@@ -40,6 +40,7 @@ members = [
     "crates/kubegraph/connector/simulation",
     "crates/kubegraph/db/local",
     "crates/kubegraph/db/memory",
+    "crates/kubegraph/function/dummy",
     "crates/kubegraph/gateway",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",

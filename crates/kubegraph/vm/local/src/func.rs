@@ -1,6 +1,7 @@
 use anyhow::{Error, Result};
 use kubegraph_api::{
-    frame::LazyFrame, func::FunctionMetadata, graph::GraphEdges, solver::Problem, vm::Script,
+    frame::LazyFrame, function::FunctionMetadata, graph::GraphEdges, problem::ProblemSpec,
+    vm::Script,
 };
 
 use crate::lazy::LazyVirtualMachine;
@@ -28,15 +29,12 @@ pub enum Function {
 }
 
 impl Function {
-    pub(crate) fn infer_edges<T>(
+    pub(crate) fn infer_edges(
         &self,
-        problem: &Problem<T>,
+        problem: &ProblemSpec,
         function: &FunctionMetadata,
         nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>>
-    where
-        T: AsRef<str>,
-    {
+    ) -> Result<GraphEdges<LazyFrame>> {
         match self {
             Function::Script(inner) => inner.infer_edges(problem, function, nodes),
         }
@@ -76,15 +74,12 @@ where
 }
 
 impl FunctionTemplate<LazyVirtualMachine> {
-    fn infer_edges<T>(
+    fn infer_edges(
         &self,
-        problem: &Problem<T>,
+        problem: &ProblemSpec,
         function: &FunctionMetadata,
         nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>>
-    where
-        T: AsRef<str>,
-    {
+    ) -> Result<GraphEdges<LazyFrame>> {
         let filter = self
             .filter
             .as_ref()
@@ -201,7 +196,7 @@ mod tests {
         function_name: &str,
         function_template: FunctionTemplate<&'static str>,
     ) -> ::pl::frame::DataFrame {
-        use kubegraph_api::solver::ProblemMetadata;
+        use kubegraph_api::problem::ProblemMetadata;
 
         // Step 1. Add a function
         let function: Function = function_template
@@ -212,11 +207,11 @@ mod tests {
         };
 
         // Step 2. Define a problem
-        let problem = Problem {
+        let problem = ProblemSpec {
             metadata: ProblemMetadata::default(),
-            capacity: "capacity",
-            cost: "unit_cost",
-            supply: "supply",
+            capacity: "capacity".into(),
+            supply: "supply".into(),
+            unit_cost: "unit_cost".into(),
         };
 
         // Step 3. Call a function

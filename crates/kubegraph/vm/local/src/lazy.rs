@@ -41,37 +41,31 @@ mod impl_call {
     use anyhow::{bail, Error, Result};
     use kubegraph_api::{
         frame::{IntoLazySlice, LazyFrame, LazySlice},
-        func::FunctionMetadata,
+        function::FunctionMetadata,
         graph::GraphEdges,
         ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-        solver::Problem,
+        problem::ProblemSpec,
         vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
     };
 
     impl super::LazyVirtualMachine {
-        pub(crate) fn call<T>(
+        pub(crate) fn call(
             &self,
-            problem: &Problem<T>,
+            problem: &ProblemSpec,
             function: &FunctionMetadata,
             nodes: LazyFrame,
             filter: Option<LazySlice>,
-        ) -> Result<GraphEdges<LazyFrame>>
-        where
-            T: AsRef<str>,
-        {
+        ) -> Result<GraphEdges<LazyFrame>> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, filter)
                 .and_then(|ctx| ctx.try_into_edges(&problem.metadata.function, function))
         }
 
-        pub(crate) fn call_filter<T>(
+        pub(crate) fn call_filter(
             &self,
-            problem: &Problem<T>,
+            problem: &ProblemSpec,
             nodes: LazyFrame,
-        ) -> Result<LazySlice>
-        where
-            T: AsRef<str>,
-        {
+        ) -> Result<LazySlice> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, None)
                 .and_then(|ctx| ctx.try_into_filter())
@@ -84,10 +78,7 @@ mod impl_call {
     }
 
     impl Context {
-        fn try_new<T>(problem: &Problem<T>, nodes: LazyFrame) -> Result<Self>
-        where
-            T: AsRef<str>,
-        {
+        fn try_new(problem: &ProblemSpec, nodes: LazyFrame) -> Result<Self> {
             // Create a fully-connected edges
             let edges = nodes.fabric(problem)?;
 

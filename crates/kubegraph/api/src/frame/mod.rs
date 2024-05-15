@@ -8,9 +8,9 @@ use anyhow::{bail, Result};
 use pl::lazy::dsl;
 
 use crate::{
-    func::FunctionMetadata,
+    function::FunctionMetadata,
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    solver::{Problem, ProblemMetadata},
+    problem::{ProblemMetadata, ProblemSpec},
     vm::{Feature, Number},
 };
 
@@ -38,7 +38,7 @@ impl LazyFrame {
         }
     }
 
-    pub fn get_column(&self, name: &str) -> Result<LazySlice> {
+    pub fn get_column(&self, #[allow(unused_variables)] name: &str) -> Result<LazySlice> {
         match self {
             Self::Empty => bail!("cannot get column from empty lazyframe"),
             #[cfg(feature = "df-polars")]
@@ -47,11 +47,9 @@ impl LazyFrame {
     }
 
     /// Create a fully-connected edges
-    pub fn fabric<T>(&self, problem: &Problem<T>) -> Result<Self>
-    where
-        T: AsRef<str>,
-    {
-        let Problem {
+    pub fn fabric(&self, problem: &ProblemSpec) -> Result<Self> {
+        #[allow(unused_variables)]
+        let ProblemSpec {
             metadata:
                 ProblemMetadata {
                     flow: _,
@@ -62,8 +60,8 @@ impl LazyFrame {
                     verbose: _,
                 },
             capacity,
-            cost: _,
             supply: _,
+            unit_cost: _,
         } = problem;
 
         #[cfg(feature = "df-polars")]
@@ -93,10 +91,11 @@ impl LazyFrame {
     }
 
     pub fn alias(&mut self, key: &str, metadata: &FunctionMetadata) -> Result<()> {
+        #[allow(unused_variables)]
         let FunctionMetadata { name } = metadata;
 
         match self {
-            Self::Empty => bail!("cannot make an alias to empty lazyframe"),
+            Self::Empty => bail!("cannot make an alias to empty lazyframe: {key:?}"),
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
                 *df = df.clone().with_column(dsl::lit(name.as_str()).alias(key));
@@ -105,9 +104,14 @@ impl LazyFrame {
         }
     }
 
-    pub fn insert_column(&mut self, name: &str, column: LazySlice) -> Result<()> {
+    pub fn insert_column(
+        &mut self,
+        name: &str,
+
+        #[allow(unused_variables)] column: LazySlice,
+    ) -> Result<()> {
         match (self, column) {
-            (Self::Empty, _) => bail!("cannot fill column into empty lazyframe"),
+            (Self::Empty, _) => bail!("cannot fill column into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
             (Self::Polars(df), LazySlice::Polars(column)) => {
                 *df = df.clone().with_column(column.alias(name));
@@ -127,9 +131,14 @@ impl LazyFrame {
         }
     }
 
-    pub fn fill_column_with_feature(&mut self, name: &str, value: Feature) -> Result<()> {
+    pub fn fill_column_with_feature(
+        &mut self,
+        name: &str,
+
+        #[allow(unused_variables)] value: Feature,
+    ) -> Result<()> {
         match self {
-            Self::Empty => bail!("cannot fill column with feature into empty lazyframe"),
+            Self::Empty => bail!("cannot fill column with feature into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
                 *df = df.clone().with_column(value.into_polars().alias(name));
@@ -138,9 +147,13 @@ impl LazyFrame {
         }
     }
 
-    pub fn fill_column_with_value(&mut self, name: &str, value: Number) -> Result<()> {
+    pub fn fill_column_with_value(
+        &mut self,
+        name: &str,
+        #[allow(unused_variables)] value: Number,
+    ) -> Result<()> {
         match self {
-            Self::Empty => bail!("cannot fill column with name into empty lazyframe"),
+            Self::Empty => bail!("cannot fill column with name into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
                 *df = df.clone().with_column(value.into_polars().alias(name));

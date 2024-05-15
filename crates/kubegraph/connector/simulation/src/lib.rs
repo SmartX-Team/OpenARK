@@ -60,15 +60,15 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
                     _ => None,
                 })
                 .collect();
+
+            for spec in self.db.clone() {
+                if let Err(error) = self.load_templates(&spec).await {
+                    warn!("failed to load simulation templates {spec:?}: {error}");
+                }
+            }
         }
         if self.db.is_empty() {
             return Ok(());
-        }
-
-        for spec in self.db.clone() {
-            if let Err(error) = self.load_templates(&spec).await {
-                warn!("failed to load simulation templates {spec:?}: {error}");
-            }
         }
 
         // NOTE: ordered
