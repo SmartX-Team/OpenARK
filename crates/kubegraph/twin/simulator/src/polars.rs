@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
-    graph::Graph,
-    problem::{ProblemMetadata, ProblemSpec},
+    graph::{Graph, NetworkGraphMetadata},
+    problem::ProblemSpec,
 };
 use pl::lazy::{
     dsl,
@@ -16,17 +16,17 @@ impl ::kubegraph_api::twin::LocalTwin<Graph<LazyFrame>> for super::Twin {
     fn execute(&self, graph: Graph<LazyFrame>, problem: &ProblemSpec) -> Result<Self::Output> {
         let ProblemSpec {
             metadata:
-                ProblemMetadata {
+                NetworkGraphMetadata {
+                    capacity: _,
                     flow: key_flow,
                     function: _,
                     src: key_src,
                     sink: key_sink,
                     name: key_name,
-                    verbose: _,
+                    supply: key_supply,
+                    unit_cost: _,
                 },
-            capacity: _,
-            supply: key_supply,
-            unit_cost: _,
+            verbose: _,
         } = problem;
 
         // Step 1. Collect graph data

@@ -20,8 +20,9 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["full"]
-full = ["connector-full", "df-full"]
+default = ["minimal"]
+minimal = ["connector-simulation", "df-polars", "function-dummy"]
+full = ["connector-full", "df-full", "function-full"]
 
 # Connectors
 connector-full = ["connector-prometheus", "connector-simulation"]

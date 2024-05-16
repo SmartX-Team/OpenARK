@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use kubegraph_api::{
     connector::{
-        NetworkConnectorPrometheusSpec, NetworkConnectorSourceRef, NetworkConnectorSpec,
-        NetworkConnectors,
+        prometheus::NetworkConnectorPrometheusSpec, NetworkConnectorSourceRef,
+        NetworkConnectorSpec, NetworkConnectors,
     },
     db::NetworkGraphDB,
     graph::{NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkNodeKey, NetworkValue},
@@ -47,9 +47,8 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             info!("Reloading prometheus connector...");
             self.db = db
                 .into_iter()
-                .filter_map(|spec| match spec {
+                .filter_map(|crd| match crd.spec {
                     NetworkConnectorSpec::Prometheus(spec) => Some(spec),
-                    #[allow(unused_variables)]
                     _ => None,
                 })
                 .collect();
@@ -128,7 +127,10 @@ async fn pull_with(
                 }
                 NetworkQueryType::Node { node } => NetworkEntryKey::Node(node.search(&metric)?),
             },
-            value: NetworkValue::Number(sample.value()),
+            value: NetworkValue {
+                supply: Some(sample.value().round() as i64),
+                ..Default::default()
+            },
         })
     });
 
@@ -147,7 +149,6 @@ impl Search for NetworkQueryNodeType {
     #[inline]
     fn search(&self, metric: &Metric) -> Option<<Self as Search>::Output> {
         Some(NetworkNodeKey {
-            kind: self.kind.search(metric)?,
             name: self.name.search(metric)?,
             namespace: self.namespace.search(metric)?,
         })

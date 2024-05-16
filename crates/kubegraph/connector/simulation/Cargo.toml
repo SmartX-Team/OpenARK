@@ -29,12 +29,10 @@ connector-prometheus = []
 
 [dependencies]
 kubegraph-api = { path = "../../api", features = ["connector-simulation"] }
-kubegraph-parser = { path = "../../parser" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }
-serde_yaml = { workspace = true }
+kube = { workspace = true }
+polars = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }

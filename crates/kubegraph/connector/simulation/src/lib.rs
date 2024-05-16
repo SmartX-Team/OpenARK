@@ -1,35 +1,33 @@
-mod schema;
+use std::{collections::BTreeMap, mem::swap, path::Path, time::Duration};
 
-use std::{collections::BTreeMap, mem::swap, time::Duration};
-
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use kube::ResourceExt;
 use kubegraph_api::{
     connector::{
-        NetworkConnectorSimulationSpec, NetworkConnectorSourceRef, NetworkConnectorSpec,
-        NetworkConnectors,
+        simulation::NetworkConnectorSimulationSpec, NetworkConnectorSourceRef,
+        NetworkConnectorSpec, NetworkConnectors,
     },
     db::NetworkGraphDB,
-    graph::{NetworkEntry, NetworkEntryKey, NetworkNodeKey},
+    graph::{
+        NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkGraphMetadata, NetworkNodeKey,
+        NetworkValue,
+    },
 };
-use kubegraph_parser::{Filter, FilterParser};
-use serde::Deserialize;
+use polars::{
+    frame::DataFrame,
+    io::{csv::CsvReader, SerReader},
+    series::Series,
+};
 use tokio::fs;
 use tracing::{info, instrument, warn, Level};
 
-use crate::schema::{
-    constraint::NetworkConstraint, function::NetworkFunction, node::NetworkNode, NetworkObjectCrd,
-    NetworkObjectMetadata, NetworkObjectTemplate,
-};
-
 #[derive(Default)]
 pub struct NetworkConnector {
-    db: Vec<NetworkConnectorSimulationSpec>,
+    db: Vec<NetworkConnectorItem>,
 
-    constraints: BTreeMap<NetworkObjectMetadata, NetworkConstraint<Filter>>,
-    functions: BTreeMap<NetworkObjectMetadata, NetworkFunction>,
-    nodes: BTreeMap<NetworkObjectMetadata, NetworkNode>,
-    nodes_new: Vec<(NetworkObjectMetadata, NetworkNode)>,
+    values: BTreeMap<NetworkEntryKey, NetworkValue>,
+    values_new: Vec<NetworkEntry>,
 }
 
 #[async_trait]
@@ -54,15 +52,20 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             info!("Reloading simulation connector...");
             self.db = db
                 .into_iter()
-                .filter_map(|spec| match spec {
-                    NetworkConnectorSpec::Simulation(spec) => Some(spec),
-                    #[allow(unused_variables)]
-                    _ => None,
+                .filter_map(|crd| {
+                    let namespace = crd.namespace()?;
+                    match crd.spec {
+                        NetworkConnectorSpec::Simulation(spec) => {
+                            Some(NetworkConnectorItem { namespace, spec })
+                        }
+                        _ => None,
+                    }
                 })
                 .collect();
 
-            for spec in self.db.clone() {
-                if let Err(error) = self.load_templates(&spec).await {
+            for item in self.db.clone() {
+                if let Err(error) = self.load_templates(&item).await {
+                    let spec = &item.spec;
                     warn!("failed to load simulation templates {spec:?}: {error}");
                 }
             }
@@ -71,170 +74,191 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             return Ok(());
         }
 
-        // NOTE: ordered
-        self.pull_nodes(graph).await?;
-        // self.pull_edges(graph).await?;
-        self.pull_constraints(graph).await?;
-        self.pull_functions(graph).await?;
-        Ok(())
+        self.pull_values(graph).await
     }
 }
 
 impl NetworkConnector {
-    async fn pull_nodes(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
-        if self.nodes_new.is_empty() {
+    async fn pull_values(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
+        if self.values_new.is_empty() {
             return Ok(());
         }
 
-        // unregister new nodes, taking the values to a local variable `nodes`
-        let mut nodes = vec![];
-        swap(&mut self.nodes_new, &mut nodes);
+        // unregister new values, taking to a local variable `values`
+        let mut values = vec![];
+        swap(&mut self.values_new, &mut values);
 
-        let entries = nodes.into_iter().flat_map(|(key, value)| {
-            let NetworkObjectMetadata { name, namespace } = key;
-            let NetworkNode { values } = value;
-
-            let entry_key = move |kind| NetworkNodeKey {
-                kind,
-                name: name.clone(),
-                namespace: namespace.clone(),
-            };
-
-            values.into_iter().map(move |(kind, value)| NetworkEntry {
-                key: NetworkEntryKey::Node(entry_key(kind)),
-                value,
-            })
-        });
-
-        graph.add_entries(entries).await
+        graph.add_entries(values).await
     }
 
-    async fn pull_constraints(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
-        // TODO: to be implemented
-        Ok(())
-    }
-
-    async fn pull_functions(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
-        // TODO: to be implemented
-        Ok(())
-    }
-
-    fn apply(&mut self, crd: NetworkObjectCrd) {
-        let NetworkObjectCrd {
-            api_version,
-            metadata: NetworkObjectMetadata { name, namespace },
-            template: _,
-        } = &crd;
-
-        match api_version.as_str() {
-            "kubegraph.ulagbulag.io/v1alpha1" => self.apply_unchecked(crd),
-            api_version => warn!("Unsupported API version {api_version:?}: {namespace}/{name}"),
-        }
-    }
-
-    fn apply_unchecked(&mut self, crd: NetworkObjectCrd) {
-        let NetworkObjectCrd {
-            api_version: _,
-            metadata,
-            template,
-        } = crd;
-
-        let NetworkObjectMetadata { name, namespace } = &metadata;
-        let r#type = template.name();
-        info!("Applying {type} connector: {namespace}/{name}");
-
-        match template {
-            NetworkObjectTemplate::Constraint(spec) => match spec.parse() {
-                Ok(spec) => {
-                    self.constraints.insert(metadata, spec);
-                }
-                Err(error) => {
-                    warn!("Failed to parse constraint ({namespace}/{name}): {error}");
-                }
-            },
-            NetworkObjectTemplate::Function(spec) => {
-                self.functions.insert(metadata, spec);
-            }
-            NetworkObjectTemplate::Node(spec) => {
-                self.nodes.insert(metadata.clone(), spec.clone());
-                self.nodes_new.push((metadata, spec));
-            }
-        }
+    fn apply(&mut self, entry: NetworkEntry) {
+        self.values.insert(entry.key.clone(), entry.value.clone());
+        self.values_new.push(entry);
     }
 
     #[instrument(level = Level::INFO, skip_all)]
-    async fn load_templates(&mut self, spec: &NetworkConnectorSimulationSpec) -> Result<()> {
-        let NetworkConnectorSimulationSpec { path } = spec;
+    async fn load_templates(&mut self, item: &NetworkConnectorItem) -> Result<()> {
+        let NetworkConnectorItem {
+            namespace,
+            spec:
+                NetworkConnectorSimulationSpec {
+                    metadata,
+                    path: base_dir,
+                    key_edges,
+                    key_nodes,
+                },
+        } = item;
 
-        let mut file_entries = fs::read_dir(path).await.map_err(|error| {
-            anyhow!(
-                "failed to read directory {path}: {error}",
-                path = path.display(),
-            )
-        })?;
-
-        while let Some(entry) = file_entries.next_entry().await.map_err(|error| {
-            anyhow!(
-                "failed to read directory entry {path}: {error}",
-                path = path.display(),
-            )
-        })? {
-            let path = entry.path();
-            match fs::read_to_string(&path).await {
-                Ok(raw) => {
-                    info!("Loading template file: {path:?}");
-                    ::serde_yaml::Deserializer::from_str(&raw)
-                        .filter_map(
-                            move |document| match NetworkObjectCrd::deserialize(document) {
-                                Ok(item) => Some(item),
-                                Err(error) => {
-                                    warn!("Skipping parsing YAML template ({path:?}): {error}");
-                                    None
-                                }
-                            },
-                        )
-                        .for_each(|crd| self.apply(crd))
-                }
-                Err(error) => {
-                    warn!("Skipping erroneous template file ({path:?}): {error}");
-                }
-            }
+        if let Some(df) = load_csv(base_dir, key_edges).await? {
+            collect_edges(namespace, metadata, &df)?
+                .into_iter()
+                .for_each(|entry| self.apply(entry))
+        }
+        if let Some(df) = load_csv(base_dir, key_nodes).await? {
+            collect_nodes(namespace, metadata, &df)?
+                .into_iter()
+                .for_each(|entry| self.apply(entry))
         }
         Ok(())
     }
 }
 
-trait NetworkParser {
-    type Output;
-
-    fn parse(&self) -> Result<<Self as NetworkParser>::Output>;
+#[derive(Clone, Debug)]
+struct NetworkConnectorItem {
+    namespace: String,
+    spec: NetworkConnectorSimulationSpec,
 }
 
-impl NetworkParser for NetworkConstraint {
-    type Output = NetworkConstraint<Filter>;
+async fn load_csv(base_dir: &Path, filename: &str) -> Result<Option<DataFrame>> {
+    let mut path = base_dir.to_path_buf();
+    path.push(filename);
 
-    fn parse(&self) -> Result<<Self as NetworkParser>::Output> {
-        let Self { filters, r#where } = self;
-
-        let filter_parser = FilterParser::default();
-
-        Ok(NetworkConstraint {
-            filters: filters
-                .iter()
-                .map(|input| {
-                    filter_parser
-                        .parse(input)
-                        .map_err(|error| anyhow!("{error}"))
-                })
-                .collect::<Result<_, _>>()?,
-            r#where: r#where
-                .iter()
-                .map(|input| {
-                    filter_parser
-                        .parse(input)
-                        .map_err(|error| anyhow!("{error}"))
-                })
-                .collect::<Result<_>>()?,
-        })
+    if fs::try_exists(&path).await? {
+        CsvReader::from_path(&path)
+            .map_err(
+                |error| anyhow!("failed to load file {path}: {error}", path = path.display(),),
+            )?
+            .has_header(true)
+            .finish()
+            .map(Some)
+            .map_err(|error| {
+                anyhow!(
+                    "failed to parse file {path}: {error}",
+                    path = path.display(),
+                )
+            })
+    } else {
+        Ok(None)
     }
+}
+
+fn collect_edges<'a>(
+    namespace: &'a str,
+    metadata: &NetworkGraphMetadata,
+    df: &'a DataFrame,
+) -> Result<impl 'a + IntoIterator<Item = NetworkEntry>> {
+    let NetworkGraphMetadata {
+        capacity: key_capacity,
+        flow: _,
+        function: _,
+        name: key_name,
+        sink: key_sink,
+        src: key_src,
+        supply: _,
+        unit_cost: key_unit_cost,
+    } = metadata;
+
+    // Get columns
+    let name = validate_column(df, key_name)?;
+    let capacity = validate_column(df, key_capacity)?;
+    let sink = validate_column(df, key_sink)?;
+    let src = validate_column(df, key_src)?;
+    let unit_cost = validate_column(df, key_unit_cost)?;
+
+    // Collect entries
+    Ok(name
+        .iter()
+        .zip(capacity.iter())
+        .zip(sink.iter())
+        .zip(src.iter())
+        .zip(unit_cost.iter())
+        .filter_map(|((((name, capacity), sink), src), unit_cost)| {
+            Some(NetworkEntry {
+                key: NetworkEntryKey::Edge(NetworkEdgeKey {
+                    interval_ms: None,
+                    link: NetworkNodeKey {
+                        name: name.to_string(),
+                        namespace: namespace.into(),
+                    },
+                    sink: NetworkNodeKey {
+                        name: sink.to_string(),
+                        namespace: namespace.into(),
+                    },
+                    src: NetworkNodeKey {
+                        name: src.to_string(),
+                        namespace: namespace.into(),
+                    },
+                }),
+                value: NetworkValue {
+                    capacity: capacity.try_extract().ok(),
+                    function: None,
+                    flow: None,
+                    supply: None,
+                    unit_cost: unit_cost.try_extract().ok(),
+                },
+            })
+        }))
+}
+
+fn collect_nodes<'a>(
+    namespace: &'a str,
+    metadata: &NetworkGraphMetadata,
+    df: &'a DataFrame,
+) -> Result<impl 'a + IntoIterator<Item = NetworkEntry>> {
+    let NetworkGraphMetadata {
+        capacity: key_capacity,
+        flow: _,
+        function: _,
+        name: key_name,
+        sink: _,
+        src: _,
+        supply: key_supply,
+        unit_cost: key_unit_cost,
+    } = metadata;
+
+    // Get columns
+    let name = validate_column(df, key_name)?;
+    let capacity = validate_column(df, key_capacity)?;
+    let supply = validate_column(df, key_supply)?;
+    let unit_cost = validate_column(df, key_unit_cost)?;
+
+    // Collect entries
+    Ok(name
+        .iter()
+        .zip(capacity.iter())
+        .zip(supply.iter())
+        .zip(unit_cost.iter())
+        .filter_map(|(((name, capacity), supply), unit_cost)| {
+            Some(NetworkEntry {
+                key: NetworkEntryKey::Node(NetworkNodeKey {
+                    name: name.to_string(),
+                    namespace: namespace.into(),
+                }),
+                value: NetworkValue {
+                    capacity: capacity.try_extract().ok(),
+                    function: None,
+                    flow: None,
+                    supply: supply.try_extract().ok(),
+                    unit_cost: unit_cost.try_extract().ok(),
+                },
+            })
+        }))
+}
+
+fn validate_column<'a>(df: &'a DataFrame, name: &str) -> Result<&'a Series> {
+    let column = df.column(name)?;
+    if column.is_empty() {
+        bail!("empty column: {name}")
+    }
+    Ok(column)
 }

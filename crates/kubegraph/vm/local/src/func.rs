@@ -196,8 +196,6 @@ mod tests {
         function_name: &str,
         function_template: FunctionTemplate<&'static str>,
     ) -> ::pl::frame::DataFrame {
-        use kubegraph_api::problem::ProblemMetadata;
-
         // Step 1. Add a function
         let function: Function = function_template
             .try_into()
@@ -207,12 +205,7 @@ mod tests {
         };
 
         // Step 2. Define a problem
-        let problem = ProblemSpec {
-            metadata: ProblemMetadata::default(),
-            capacity: "capacity".into(),
-            supply: "supply".into(),
-            unit_cost: "unit_cost".into(),
-        };
+        let problem = ProblemSpec::default();
 
         // Step 3. Call a function
         function

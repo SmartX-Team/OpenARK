@@ -1,0 +1,3 @@
+name,warehouse,unit_cost,capacity,payload
+warehouse-a,true,3,300,300
+warehouse-b,true,1,300,0

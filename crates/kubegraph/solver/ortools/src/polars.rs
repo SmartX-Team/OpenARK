@@ -1,8 +1,8 @@
 use anyhow::{anyhow, bail, Result};
 use kubegraph_api::{
     frame::polars::{find_indices, get_column},
-    graph::Graph,
-    problem::{ProblemMetadata, ProblemSpec},
+    graph::{Graph, NetworkGraphMetadata},
+    problem::ProblemSpec,
 };
 use or_tools::graph::{
     ebert_graph::{ArcIndex, FlowQuantity, NodeIndex, StarGraph},
@@ -29,17 +29,17 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
     fn step(&self, graph: Graph<LazyFrame>, problem: ProblemSpec) -> Result<Self::Output> {
         let ProblemSpec {
             metadata:
-                ProblemMetadata {
+                NetworkGraphMetadata {
+                    capacity: key_capacity,
                     flow: key_flow,
                     function: _,
                     name: key_name,
                     sink: key_sink,
                     src: key_src,
-                    verbose,
+                    supply: key_supply,
+                    unit_cost: key_unit_cost,
                 },
-            capacity: key_capacity,
-            supply: key_supply,
-            unit_cost: key_unit_cost,
+            verbose,
         } = problem;
 
         // Step 1. Collect graph data

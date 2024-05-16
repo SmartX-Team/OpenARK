@@ -1,3 +1,6 @@
+#[cfg(feature = "df-polars")]
+pub mod polars;
+
 use std::fmt;
 
 use anyhow::Result;
@@ -50,40 +53,79 @@ pub struct Graph<T> {
     pub nodes: T,
 }
 
-#[cfg(feature = "df-polars")]
-impl From<Graph<::pl::lazy::frame::LazyFrame>> for Graph<LazyFrame> {
-    fn from(graph: Graph<::pl::lazy::frame::LazyFrame>) -> Self {
-        let Graph { edges, nodes } = graph;
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkGraphMetadata {
+    #[serde(default = "NetworkGraphMetadata::default_capacity")]
+    pub capacity: String,
+    #[serde(default = "NetworkGraphMetadata::default_flow")]
+    pub flow: String,
+    #[serde(default = "NetworkGraphMetadata::default_function")]
+    pub function: String,
+    #[serde(default = "NetworkGraphMetadata::default_name")]
+    pub name: String,
+    #[serde(default = "NetworkGraphMetadata::default_sink")]
+    pub sink: String,
+    #[serde(default = "NetworkGraphMetadata::default_src")]
+    pub src: String,
+    #[serde(default = "NetworkGraphMetadata::default_supply")]
+    pub supply: String,
+    #[serde(default = "NetworkGraphMetadata::default_unit_cost")]
+    pub unit_cost: String,
+}
+
+impl Default for NetworkGraphMetadata {
+    fn default() -> Self {
         Self {
-            edges: LazyFrame::Polars(edges),
-            nodes: LazyFrame::Polars(nodes),
+            capacity: Self::default_capacity(),
+            flow: Self::default_flow(),
+            function: Self::default_function(),
+            name: Self::default_name(),
+            sink: Self::default_sink(),
+            src: Self::default_src(),
+            supply: Self::default_supply(),
+            unit_cost: Self::default_unit_cost(),
         }
     }
 }
 
-#[cfg(feature = "df-polars")]
-impl From<Graph<::pl::frame::DataFrame>> for Graph<::pl::lazy::frame::LazyFrame> {
-    fn from(graph: Graph<::pl::frame::DataFrame>) -> Self {
-        use pl::lazy::frame::IntoLazy;
-
-        let Graph { edges, nodes } = graph;
-        Self {
-            edges: edges.lazy(),
-            nodes: nodes.lazy(),
-        }
+impl NetworkGraphMetadata {
+    pub fn default_capacity() -> String {
+        "capacity".into()
     }
-}
 
-#[cfg(feature = "df-polars")]
-impl TryFrom<Graph<::pl::lazy::frame::LazyFrame>> for Graph<::pl::frame::DataFrame> {
-    type Error = ::pl::error::PolarsError;
+    pub fn default_flow() -> String {
+        "flow".into()
+    }
 
-    fn try_from(graph: Graph<::pl::lazy::frame::LazyFrame>) -> Result<Self, Self::Error> {
-        let Graph { edges, nodes } = graph;
-        Ok(Self {
-            edges: edges.collect()?,
-            nodes: nodes.collect()?,
-        })
+    pub fn default_function() -> String {
+        "function".into()
+    }
+
+    pub fn default_name() -> String {
+        "name".into()
+    }
+
+    pub fn default_link() -> String {
+        "link".into()
+    }
+
+    pub fn default_sink() -> String {
+        "sink".into()
+    }
+
+    pub fn default_src() -> String {
+        "src".into()
+    }
+
+    pub fn default_supply() -> String {
+        "supply".into()
+    }
+
+    pub fn default_unit_cost() -> String {
+        "unit_cost".into()
     }
 }
 
@@ -124,8 +166,6 @@ pub struct NetworkEntry {
 #[serde(rename_all = "camelCase")]
 pub struct NetworkEntryKeyFilter {
     #[serde(default)]
-    pub kind: Option<String>,
-    #[serde(default)]
     pub namespace: Option<String>,
 }
 
@@ -142,8 +182,9 @@ impl NetworkEntryKeyFilter {
     }
 
     fn contains_node_key(&self, key: &NetworkNodeKey) -> bool {
-        let Self { kind, namespace } = self;
+        let Self { namespace } = self;
 
+        #[inline]
         fn test(a: &Option<String>, b: &String) -> bool {
             match a.as_ref() {
                 Some(a) => a == b,
@@ -151,7 +192,7 @@ impl NetworkEntryKeyFilter {
             }
         }
 
-        test(kind, &key.kind) && test(namespace, &key.namespace)
+        test(namespace, &key.namespace)
     }
 }
 
@@ -220,29 +261,31 @@ pub struct NetworkNode {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkNodeKey {
-    pub kind: String,
     pub name: String,
     pub namespace: String,
 }
 
 impl fmt::Display for NetworkNodeKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self {
-            kind,
-            name,
-            namespace,
-        } = self;
+        let Self { name, namespace } = self;
 
-        write!(f, "{kind}/{namespace}/{name}")
+        write!(f, "{namespace}/{name}")
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged)]
-pub enum NetworkValue {
-    Boolean(bool),
-    Number(f64),
-    String(String),
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkValue {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supply: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_cost: Option<i64>,
 }
 
 mod prefix {

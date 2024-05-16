@@ -95,8 +95,6 @@ mod impl_json_schema_for_network_query_type {
 #[serde(rename_all = "camelCase")]
 pub struct NetworkQueryNodeType {
     #[serde(default)]
-    pub kind: NetworkQueryNodeValue,
-    #[serde(default)]
     pub name: NetworkQueryNodeValue,
     #[serde(default)]
     pub namespace: NetworkQueryNodeValue,

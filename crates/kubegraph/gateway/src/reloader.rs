@@ -70,7 +70,7 @@ async fn handle_apply(
     let r#type = object.spec.name();
 
     info!("Applying {type} connector: {namespace}/{name}");
-    graph.add_connector(namespace, name, object.spec).await;
+    graph.add_connector(object).await;
     Ok(())
 }
 

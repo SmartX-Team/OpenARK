@@ -1,42 +1,36 @@
 use std::collections::BTreeMap;
 
-use anyhow::Result;
-use kubegraph_api::connector::{NetworkConnectorSourceRef, NetworkConnectorSpec};
-use tokio::join;
-use tracing::error;
+use futures::{stream::FuturesUnordered, StreamExt};
+use kube::ResourceExt;
+use kubegraph_api::connector::{NetworkConnector, NetworkConnectorCrd, NetworkConnectorSourceRef};
 
 use crate::db::NetworkGraphDB;
 
 pub async fn loop_forever(graph: NetworkGraphDB) {
-    if let Err(error) = try_loop_forever(&graph).await {
-        error!("failed to run connect job: {error}")
-    }
-}
-
-async fn try_loop_forever(graph: &NetworkGraphDB) -> Result<()> {
-    use kubegraph_api::connector::NetworkConnector;
-
-    join!(
+    FuturesUnordered::from_iter(vec![
         #[cfg(feature = "connector-prometheus")]
         ::kubegraph_connector_prometheus::NetworkConnector::default().loop_forever(graph.clone()),
         #[cfg(feature = "connector-simulation")]
         ::kubegraph_connector_simulation::NetworkConnector::default().loop_forever(graph.clone()),
-    );
-    Ok(())
+    ])
+    .collect()
+    .await
 }
 
 #[derive(Default)]
 pub(crate) struct NetworkConnectors {
-    db: BTreeMap<(String, String), NetworkConnectorSpec>,
+    db: BTreeMap<(String, String), NetworkConnectorCrd>,
     has_updated: BTreeMap<NetworkConnectorSourceRef, bool>,
 }
 
 impl NetworkConnectors {
-    pub(crate) fn insert(&mut self, namespace: String, name: String, value: NetworkConnectorSpec) {
+    pub(crate) fn insert(&mut self, object: NetworkConnectorCrd) {
+        let namespace = object.namespace().unwrap_or_else(|| "default".into());
+        let name = object.name_any();
         let key = connector_key(namespace, name);
-        let src = value.to_ref();
+        let src = object.spec.to_ref();
 
-        self.db.insert(key, value);
+        self.db.insert(key, object);
         self.has_updated
             .entry(src)
             .and_modify(|updated| *updated = true);
@@ -45,14 +39,14 @@ impl NetworkConnectors {
     pub(crate) fn list(
         &mut self,
         src: NetworkConnectorSourceRef,
-    ) -> Option<Vec<NetworkConnectorSpec>> {
+    ) -> Option<Vec<NetworkConnectorCrd>> {
         let updated = self.has_updated.entry(src).or_insert(true);
         if *updated {
             *updated = false;
             Some(
                 self.db
                     .values()
-                    .filter(|&spec| *spec == src)
+                    .filter(|&cr| cr.spec == src)
                     .cloned()
                     .collect(),
             )
@@ -67,7 +61,7 @@ impl NetworkConnectors {
 
         if let Some(object) = removed_object {
             self.has_updated
-                .entry(object.to_ref())
+                .entry(object.spec.to_ref())
                 .and_modify(|updated| *updated = true);
         }
     }

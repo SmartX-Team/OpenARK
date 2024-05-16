@@ -1,10 +1,11 @@
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+#[cfg(feature = "connector-prometheus")]
+pub mod prometheus;
+#[cfg(feature = "connector-simulation")]
+pub mod simulation;
+
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use ark_core_k8s::data::Url;
 use async_trait::async_trait;
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -16,14 +17,14 @@ use crate::db::NetworkGraphDB;
 
 #[async_trait]
 pub trait NetworkConnectors {
-    async fn add_connector(&self, namespace: String, name: String, spec: NetworkConnectorSpec);
+    async fn add_connector(&self, object: NetworkConnectorCrd);
 
     async fn delete_connector(&self, namespace: String, name: String);
 
     async fn get_connectors(
         &self,
         r#type: NetworkConnectorSourceRef,
-    ) -> Option<Vec<NetworkConnectorSpec>>;
+    ) -> Option<Vec<NetworkConnectorCrd>>;
 }
 
 #[async_trait]
@@ -64,6 +65,7 @@ pub trait NetworkConnector {
     kind = "NetworkConnector",
     root = "NetworkConnectorCrd",
     shortname = "nc",
+    namespaced,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
@@ -78,11 +80,12 @@ pub trait NetworkConnector {
     }"#
 )]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum NetworkConnectorSpec {
     #[cfg(feature = "connector-prometheus")]
-    Prometheus(NetworkConnectorPrometheusSpec),
+    Prometheus(self::prometheus::NetworkConnectorPrometheusSpec),
     #[cfg(feature = "connector-simulation")]
-    Simulation(NetworkConnectorSimulationSpec),
+    Simulation(self::simulation::NetworkConnectorSimulationSpec),
 }
 
 impl NetworkConnectorSpec {
@@ -119,6 +122,7 @@ impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSpec {
     Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum NetworkConnectorSourceRef {
     #[cfg(feature = "connector-prometheus")]
     Prometheus,
@@ -135,29 +139,4 @@ impl NetworkConnectorSourceRef {
             Self::Simulation => "simulation",
         }
     }
-}
-
-#[cfg(feature = "connector-prometheus")]
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkConnectorPrometheusSpec {
-    pub template: crate::query::NetworkQuery,
-    pub url: Url,
-}
-
-impl NetworkConnectorPrometheusSpec {
-    pub const fn name(&self) -> &'static str {
-        self.template.name()
-    }
-}
-
-#[cfg(feature = "connector-simulation")]
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkConnectorSimulationSpec {
-    pub path: PathBuf,
 }

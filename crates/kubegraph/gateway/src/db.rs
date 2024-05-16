@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use kubegraph_api::{
-    connector::{NetworkConnectorSourceRef, NetworkConnectorSpec},
+    connector::{NetworkConnectorCrd, NetworkConnectorSourceRef},
     graph::{NetworkEntry, NetworkEntryKeyFilter, NetworkEntryMap},
 };
 use tokio::sync::Mutex;
@@ -45,8 +45,8 @@ impl NetworkGraphDB {
 
 #[async_trait]
 impl ::kubegraph_api::connector::NetworkConnectors for NetworkGraphDB {
-    async fn add_connector(&self, namespace: String, name: String, spec: NetworkConnectorSpec) {
-        self.connectors.lock().await.insert(namespace, name, spec)
+    async fn add_connector(&self, object: NetworkConnectorCrd) {
+        self.connectors.lock().await.insert(object)
     }
 
     async fn delete_connector(&self, namespace: String, name: String) {
@@ -56,7 +56,7 @@ impl ::kubegraph_api::connector::NetworkConnectors for NetworkGraphDB {
     async fn get_connectors(
         &self,
         r#type: NetworkConnectorSourceRef,
-    ) -> Option<Vec<NetworkConnectorSpec>> {
+    ) -> Option<Vec<NetworkConnectorCrd>> {
         self.connectors.lock().await.list(r#type)
     }
 }

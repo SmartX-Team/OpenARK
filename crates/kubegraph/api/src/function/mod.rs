@@ -1,3 +1,6 @@
+#[cfg(feature = "function-dummy")]
+pub mod dummy;
+
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -9,6 +12,7 @@ use serde::{Deserialize, Serialize};
     kind = "NetworkFunction",
     root = "NetworkFunctionCrd",
     shortname = "nf",
+    namespaced,
     printcolumn = r#"{
         "name": "created-at",
         "type": "date",
@@ -23,16 +27,11 @@ use serde::{Deserialize, Serialize};
     }"#
 )]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum NetworkFunctionSpec {
     #[cfg(feature = "function-dummy")]
-    Dummy(NetworkFunctionDummySpec),
+    Dummy(self::dummy::NetworkFunctionDummySpec),
 }
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkFunctionDummySpec {}
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,

@@ -9,8 +9,9 @@ use pl::lazy::dsl;
 
 use crate::{
     function::FunctionMetadata,
+    graph::NetworkGraphMetadata,
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    problem::{ProblemMetadata, ProblemSpec},
+    problem::ProblemSpec,
     vm::{Feature, Number},
 };
 
@@ -51,17 +52,17 @@ impl LazyFrame {
         #[allow(unused_variables)]
         let ProblemSpec {
             metadata:
-                ProblemMetadata {
+                NetworkGraphMetadata {
+                    capacity,
                     flow: _,
                     function: _,
                     name,
                     sink,
                     src,
-                    verbose: _,
+                    supply: _,
+                    unit_cost: _,
                 },
-            capacity,
-            supply: _,
-            unit_cost: _,
+            verbose: _,
         } = problem;
 
         #[cfg(feature = "df-polars")]
@@ -85,7 +86,7 @@ impl LazyFrame {
             Self::Polars(nodes) => Ok(Self::Polars(
                 select_polars_edge_side(&nodes, name, src)
                     .cross_join(select_polars_edge_side(&nodes, name, sink))
-                    .with_column(dsl::lit(ProblemMetadata::MAX_CAPACITY).alias(capacity.as_ref())),
+                    .with_column(dsl::lit(ProblemSpec::MAX_CAPACITY).alias(capacity.as_ref())),
             )),
         }
     }

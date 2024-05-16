@@ -202,7 +202,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use kubegraph_api::problem::ProblemMetadata;
     use kubegraph_solver_ortools::Solver;
     use kubegraph_twin_simulator::Twin;
 
@@ -239,13 +238,8 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = ProblemSpec {
-            metadata: ProblemMetadata {
-                verbose: true,
-                ..Default::default()
-            },
-            capacity: "capacity".into(),
-            supply: "supply".into(),
-            unit_cost: "unit_cost".into(),
+            verbose: true,
+            ..Default::default()
         };
 
         // Step 5. Do optimize
@@ -328,13 +322,8 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = ProblemSpec {
-            metadata: ProblemMetadata {
-                verbose: true,
-                ..Default::default()
-            },
-            capacity: "capacity".into(),
-            supply: "supply".into(),
-            unit_cost: "unit_cost".into(),
+            verbose: true,
+            ..Default::default()
         };
 
         // Step 5. Do optimize

@@ -35,15 +35,18 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = ["connector-prometheus", "connector-simulation"]
+connector-full = [
+    # "connector-prometheus",  # FIXME: use this if simulation is built
+    "connector-simulation",
+]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
     "kubegraph-connector-prometheus",
-    "kubegraph-connector-simulation/connector-prometheus",
+    "kubegraph-connector-simulation?/connector-prometheus",
 ]
 connector-simulation = [
     "kubegraph-api/connector-simulation",
-    "kubegraph-connector-prometheus/connector-simulation",
+    "kubegraph-connector-prometheus?/connector-simulation",
     "kubegraph-connector-simulation",
 ]
 
@@ -61,6 +64,10 @@ df-polars = [
     "kubegraph-vm-local?/df-polars",
 ]
 
+# Configure Functions
+function-all = ["function-dummy"]
+function-dummy = ["kubegraph-api/function-dummy", "kubegraph-function-dummy"]
+
 # Configure Solvers
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-solver-ortools"]
@@ -75,11 +82,12 @@ vm-local = ["kubegraph-vm-local"]
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
-kubegraph-api = { path = "../api", default-features = false }
+kubegraph-api = { path = "../api" }
 kubegraph-db-local = { path = "../db/local", optional = true, default-features = false }
 kubegraph-db-memory = { path = "../db/memory", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../connector/prometheus", optional = true, default-features = false }
 kubegraph-connector-simulation = { path = "../connector/simulation", optional = true, default-features = false }
+kubegraph-function-dummy = { path = "../function/dummy", optional = true, default-features = false }
 kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false }
 kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
