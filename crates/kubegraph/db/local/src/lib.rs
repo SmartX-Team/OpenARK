@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use kubegraph_api::graph::{NetworkEntry, NetworkEntryKeyFilter, NetworkEntryMap};
+use itertools::Itertools;
+use kubegraph_api::graph::{NetworkEntry, NetworkEntryKey, NetworkEntryKeyFilter, NetworkEntryMap};
 use serde::{Deserialize, Serialize};
 use sled::{Batch, Config, Db};
 use tracing::{info, instrument, Level};
@@ -53,7 +54,7 @@ impl NetworkGraphDB {
 
 #[async_trait]
 impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
-    #[instrument(level = Level::INFO, skip_all)]
+    #[instrument(level = Level::INFO, skip(self, entries))]
     async fn add_entries(
         &self,
         entries: impl Send + IntoIterator<Item = NetworkEntry>,
@@ -76,7 +77,7 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
             .map_err(|error| anyhow!("failed to write edges into local db: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip_all)]
+    #[instrument(level = Level::INFO, skip(self))]
     async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap {
         self.db
             .iter()
@@ -94,6 +95,18 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
             })
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn get_namespaces(&self) -> Vec<String> {
+        self.db
+            .iter()
+            .filter_map(|result| result.ok())
+            .filter_map(|(key, _)| ::serde_json::from_slice::<NetworkEntryKey>(&key).ok())
+            .map(|key| key.namespace().into())
+            .unique()
+            .collect()
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(self) -> Result<()> {
         info!("Closing local db...");
 

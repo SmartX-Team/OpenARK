@@ -3,25 +3,52 @@ pub mod polars;
 
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 #[cfg(feature = "df-polars")]
 use pl::lazy::dsl;
 
 use crate::{
     function::FunctionMetadata,
-    graph::NetworkGraphMetadata,
+    graph::{NetworkEdge, NetworkGraphMetadata, NetworkNode},
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
     problem::ProblemSpec,
     vm::{Feature, Number},
 };
 
-pub trait IntoLazyFrame
-where
-    Self: Into<LazyFrame>,
-{
+pub trait IntoLazyFrame<Output = LazyFrame> {
+    fn try_into_lazy_frame(self) -> Result<Output>;
 }
 
-impl<T> IntoLazyFrame for T where T: Into<LazyFrame> {}
+impl<T> IntoLazyFrame for T
+where
+    T: Into<LazyFrame>,
+{
+    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
+        Ok(self.into())
+    }
+}
+
+#[cfg(feature = "df-polars")]
+impl IntoLazyFrame for Vec<NetworkEdge> {
+    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
+        self.try_into_lazy_frame()
+            .map(LazyFrame::Polars)
+            .map_err(|error| {
+                anyhow!("failed to collect network edges into polars dataframe: {error}")
+            })
+    }
+}
+
+#[cfg(feature = "df-polars")]
+impl IntoLazyFrame for Vec<NetworkNode> {
+    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
+        self.try_into_lazy_frame()
+            .map(LazyFrame::Polars)
+            .map_err(|error| {
+                anyhow!("failed to collect network nodes into polars dataframe: {error}")
+            })
+    }
+}
 
 #[derive(Clone)]
 pub enum LazyFrame {

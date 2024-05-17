@@ -205,6 +205,15 @@ pub enum NetworkEntryKey {
     Node(NetworkNodeKey),
 }
 
+impl NetworkEntryKey {
+    pub fn namespace(&self) -> &str {
+        match self {
+            Self::Edge(key) => key.namespace(),
+            Self::Node(key) => &key.namespace,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkEdge {
@@ -246,6 +255,12 @@ where
         serialize_with = "self::prefix::src::serialize"
     )]
     pub src: NodeKey,
+}
+
+impl NetworkEdgeKey {
+    pub fn namespace(&self) -> &str {
+        &self.link.namespace
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

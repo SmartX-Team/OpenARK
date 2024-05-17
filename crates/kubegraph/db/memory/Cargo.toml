@@ -25,5 +25,6 @@ kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+itertools = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

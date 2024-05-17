@@ -89,28 +89,36 @@ where
         }
     }
 
-    pub fn insert_edges(&mut self, key: K, edges: impl IntoLazyFrame) {
-        let edges = Some(edges.into());
+    pub fn insert_edges(&mut self, key: K, edges: impl IntoLazyFrame) -> Result<()> {
+        let edges = Some(edges.try_into_lazy_frame()?);
         match self.graphs.entry(key) {
-            Entry::Occupied(ctx) => ctx.into_mut().graph.edges = edges,
+            Entry::Occupied(ctx) => {
+                ctx.into_mut().graph.edges = edges;
+                Ok(())
+            }
             Entry::Vacant(ctx) => {
                 ctx.insert(GraphContext {
                     graph: Graph { edges, nodes: None },
                     ..Default::default()
                 });
+                Ok(())
             }
         }
     }
 
-    pub fn insert_nodes(&mut self, key: K, nodes: impl IntoLazyFrame) {
-        let nodes = Some(nodes.into());
+    pub fn insert_nodes(&mut self, key: K, nodes: impl IntoLazyFrame) -> Result<()> {
+        let nodes = Some(nodes.try_into_lazy_frame()?);
         match self.graphs.entry(key) {
-            Entry::Occupied(ctx) => ctx.into_mut().graph.nodes = nodes,
+            Entry::Occupied(ctx) => {
+                ctx.into_mut().graph.nodes = nodes;
+                Ok(())
+            }
             Entry::Vacant(ctx) => {
                 ctx.insert(GraphContext {
                     graph: Graph { edges: None, nodes },
                     ..Default::default()
                 });
+                Ok(())
             }
         }
     }
@@ -134,7 +142,7 @@ where
     {
         self.step_with_solver(&key, problem)
             .and_then(|graph| self.twin.execute(graph, problem))
-            .map(|nodes| self.insert_nodes(key, nodes))
+            .and_then(|nodes| self.insert_nodes(key, nodes))
     }
 
     fn step_with_solver(&self, key: &K, problem: &ProblemSpec) -> Result<Graph<LazyFrame>>
@@ -224,7 +232,7 @@ mod tests {
             "warehouse" => [true, true],
         )
         .expect("failed to create nodes dataframe");
-        vm.insert_nodes("warehouse", nodes);
+        vm.insert_nodes("warehouse", nodes).unwrap();
 
         // Step 3. Add edges
         let edges = ::pl::df!(
@@ -234,7 +242,7 @@ mod tests {
             "unit_cost" => [   1],
         )
         .expect("failed to create edges dataframe");
-        vm.insert_edges("warehouse", edges.clone());
+        vm.insert_edges("warehouse", edges.clone()).unwrap();
 
         // Step 4. Add cost & value function (heuristic)
         let problem = ProblemSpec {

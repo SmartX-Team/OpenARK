@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use itertools::Itertools;
 use kubegraph_api::graph::{
     NetworkEntry, NetworkEntryKey, NetworkEntryKeyFilter, NetworkEntryMap, NetworkValue,
 };
@@ -15,7 +16,7 @@ pub struct NetworkGraphDB {
 
 #[async_trait]
 impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
-    #[instrument(level = Level::INFO, skip_all)]
+    #[instrument(level = Level::INFO, skip(self, entries))]
     async fn add_entries(
         &self,
         entries: impl Send + IntoIterator<Item = NetworkEntry>,
@@ -27,7 +28,7 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
         Ok(())
     }
 
-    #[instrument(level = Level::INFO, skip_all)]
+    #[instrument(level = Level::INFO, skip(self))]
     async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap {
         self.map
             .read()
@@ -44,6 +45,18 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
             })
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn get_namespaces(&self) -> Vec<String> {
+        self.map
+            .read()
+            .await
+            .keys()
+            .map(|key| key.namespace().into())
+            .unique()
+            .collect()
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(self) -> Result<()> {
         info!("Closing in-memory db...");
         Ok(())

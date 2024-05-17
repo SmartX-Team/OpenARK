@@ -3,6 +3,7 @@ mod connector;
 mod db;
 mod reloader;
 mod routes;
+mod vm;
 
 use std::process::exit;
 
@@ -33,6 +34,7 @@ async fn main() {
         spawn(crate::actix::loop_forever(graph.clone())),
         spawn(crate::connector::loop_forever(graph.clone())),
         spawn(crate::reloader::loop_forever(graph.clone())),
+        spawn(crate::vm::loop_forever(graph.clone())),
     ];
 
     info!("Ready");

@@ -7,7 +7,7 @@ use kubegraph_api::{
     graph::{NetworkEntry, NetworkEntryKeyFilter, NetworkEntryMap},
 };
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{info, instrument, Level};
 
 use crate::connector::NetworkConnectors;
 
@@ -63,6 +63,7 @@ impl ::kubegraph_api::connector::NetworkConnectors for NetworkGraphDB {
 
 #[async_trait]
 impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
+    #[instrument(level = Level::INFO, skip(self, entries))]
     async fn add_entries(
         &self,
         entries: impl Send + IntoIterator<Item = NetworkEntry>,
@@ -70,10 +71,17 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
         self.get_default_db().add_entries(entries).await
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn get_namespaces(&self) -> Vec<String> {
+        self.get_default_db().get_namespaces().await
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap {
         self.get_default_db().get_entries(filter).await
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(self) -> Result<()> {
         info!("Closing network graph...");
 
