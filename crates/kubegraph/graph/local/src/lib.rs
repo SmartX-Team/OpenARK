@@ -11,7 +11,7 @@ use tracing::{info, instrument, Level};
 pub struct NetworkGraphDBArgs {
     #[arg(
         long,
-        env = "KUBEGRAPH_DB_PATH",
+        env = "KUBEGRAPH_GRAPH_DB_PATH",
         value_name = "PATH",
         default_value_t = NetworkGraphDBArgs::default_db_path(),
     )]
@@ -107,7 +107,7 @@ impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn close(self) -> Result<()> {
+    async fn close(&self) -> Result<()> {
         info!("Closing local db...");
 
         self.db

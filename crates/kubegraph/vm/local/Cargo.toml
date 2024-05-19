@@ -21,24 +21,81 @@ workspace = true
 
 [features]
 default = ["full"]
-full = ["df-full"]
+full = [
+    "connector-full",
+    "function-full",
+    "graph-auto",
+    "df-full",
+    "runner-full",
+    "solver-full",
+    "vp-full",
+]
 
-# DataFrame
+# Configure Connectors
+connector-full = [
+    # "connector-prometheus",  # FIXME: use this if simulation is built
+    "connector-simulation",
+]
+connector-prometheus = [
+    "kubegraph-api/connector-prometheus",
+    "kubegraph-connector-prometheus",
+    "kubegraph-connector-simulation?/connector-prometheus",
+]
+connector-simulation = [
+    "kubegraph-api/connector-simulation",
+    "kubegraph-connector-prometheus?/connector-simulation",
+    "kubegraph-connector-simulation",
+]
+
+# Configure DataFrame
 df-full = ["df-polars"]
 df-polars = [
-    "dep:polars",
     "kubegraph-api/df-polars",
-    "kubegraph-solver-ortools/df-polars",
-    "kubegraph-twin-simulator/df-polars",
+    "kubegraph-runner-simulator?/df-polars",
+    "kubegraph-solver-ortools?/df-polars",
+    "polars",
 ]
+
+# Configure Functions
+function-full = ["function-dummy"]
+function-dummy = ["kubegraph-api/function-dummy", "kubegraph-function-dummy"]
+
+# Configure Graph Databases
+graph-auto = ["graph-memory"]
+graph-local = ["kubegraph-graph-local"]
+graph-memory = ["kubegraph-graph-memory"]
+
+# Configure Runners
+runner-full = ["runner-simulator"]
+runner-simulator = ["kubegraph-runner-simulator"]
+
+# Configure Solvers
+solver-full = ["solver-ortools"]
+solver-ortools = ["kubegraph-solver-ortools"]
+
+# Configure Virtual Problems
+vp-full = ["vp-identity"]
+vp-identity = []
 
 [dependencies]
 kubegraph-api = { path = "../../api" }
+kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
+kubegraph-connector-simulation = { path = "../../connector/simulation", optional = true, default-features = false }
+kubegraph-function-dummy = { path = "../../function/dummy", optional = true, default-features = false }
+kubegraph-graph-local = { path = "../../graph/local", optional = true, default-features = false }
+kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }
 kubegraph-parser = { path = "../../parser" }
+kubegraph-runner-simulator = { path = "../../runner/simulator", optional = true, default-features = false }
+kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+kube = { workspace = true }
 polars = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
 
 [dev-dependencies]
+kubegraph-runner-simulator = { path = "../../runner/simulator" }
 kubegraph-solver-ortools = { path = "../../solver/ortools" }
-kubegraph-twin-simulator = { path = "../../twin/simulator" }

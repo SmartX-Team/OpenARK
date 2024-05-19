@@ -27,11 +27,13 @@ path = "./src/main.rs"
 default = ["full"]
 full = [
     "connector-full",
-    "db-auto",
     "df-full",
+    "function-full",
+    "graph-auto",
+    "runner-full",
     "solver-full",
-    "twin-full",
     "vm-full",
+    "vp-full",
 ]
 
 # Configure Connectors
@@ -41,55 +43,48 @@ connector-full = [
 ]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
-    "kubegraph-connector-prometheus",
-    "kubegraph-connector-simulation?/connector-prometheus",
+    "kubegraph-vm-local?/connector-prometheus",
 ]
 connector-simulation = [
     "kubegraph-api/connector-simulation",
-    "kubegraph-connector-prometheus?/connector-simulation",
-    "kubegraph-connector-simulation",
+    "kubegraph-vm-local?/connector-simulation",
 ]
-
-# Configure Databases
-db-auto = ["db-memory"]
-db-local = ["kubegraph-db-local"]
-db-memory = ["kubegraph-db-memory"]
 
 # Configure DataFrame
 df-full = ["df-polars"]
-df-polars = [
-    "kubegraph-api/df-polars",
-    "kubegraph-solver-ortools?/df-polars",
-    "kubegraph-twin-simulator?/df-polars",
-    "kubegraph-vm-local?/df-polars",
-]
+df-polars = ["kubegraph-api/df-polars", "kubegraph-vm-local?/df-polars"]
 
 # Configure Functions
-function-all = ["function-dummy"]
-function-dummy = ["kubegraph-api/function-dummy", "kubegraph-function-dummy"]
+function-full = ["function-dummy"]
+function-dummy = [
+    "kubegraph-api/function-dummy",
+    "kubegraph-vm-local?/function-dummy",
+]
+
+# Configure Graph Databases
+graph-auto = ["graph-memory"]
+graph-local = ["kubegraph-vm-local?/graph-local"]
+graph-memory = ["kubegraph-vm-local?/graph-memory"]
+
+# Configure Runners
+runner-full = ["runner-simulator"]
+runner-simulator = ["kubegraph-vm-local?/runner-simulator"]
 
 # Configure Solvers
 solver-full = ["solver-ortools"]
-solver-ortools = ["kubegraph-solver-ortools"]
-
-# Configure Twins
-twin-full = ["twin-simulator"]
-twin-simulator = ["kubegraph-twin-simulator"]
+solver-ortools = ["kubegraph-vm-local?/solver-ortools"]
 
 # Configure Virtual Machines
 vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
 
+# Configure Virtual Problems
+vp-full = ["vp-identity"]
+vp-identity = ["kubegraph-vm-local?/vp-identity"]
+
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
 kubegraph-api = { path = "../api" }
-kubegraph-db-local = { path = "../db/local", optional = true, default-features = false }
-kubegraph-db-memory = { path = "../db/memory", optional = true, default-features = false }
-kubegraph-connector-prometheus = { path = "../connector/prometheus", optional = true, default-features = false }
-kubegraph-connector-simulation = { path = "../connector/simulation", optional = true, default-features = false }
-kubegraph-function-dummy = { path = "../function/dummy", optional = true, default-features = false }
-kubegraph-solver-ortools = { path = "../solver/ortools", optional = true, default-features = false }
-kubegraph-twin-simulator = { path = "../twin/simulator", optional = true, default-features = false }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
 actix-web = { workspace = true }

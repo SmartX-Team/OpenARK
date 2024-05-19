@@ -1,9 +1,11 @@
 use anyhow::Result;
+use async_trait::async_trait;
 
 use crate::problem::ProblemSpec;
 
-pub trait LocalSolver<G> {
+#[async_trait]
+pub trait NetworkSolver<G> {
     type Output;
 
-    fn step(&self, graph: G, problem: ProblemSpec) -> Result<Self::Output>;
+    async fn solve(&self, graph: G, problem: &ProblemSpec) -> Result<Self::Output>;
 }

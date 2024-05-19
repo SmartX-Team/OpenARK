@@ -1,97 +1,101 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use kubegraph_api::{
-    frame::LazyFrame, function::FunctionMetadata, graph::GraphEdges, problem::ProblemSpec,
-    vm::Script,
+    frame::LazyFrame,
+    function::{
+        FunctionMetadata, NetworkFunctionCrd, NetworkFunctionMetadata, NetworkFunctionSpec,
+    },
+    graph::GraphEdges,
+    problem::r#virtual::VirtualProblem,
 };
 
 use crate::lazy::LazyVirtualMachine;
 
-pub struct FunctionContext {
-    pub(crate) func: Function,
-}
-
-impl FunctionContext {
-    pub fn new(func: Function) -> Self {
-        Self { func }
-    }
-}
-
-pub trait IntoFunction
-where
-    Self: TryInto<Function, Error = Error>,
-{
-}
-
-impl<T> IntoFunction for T where T: TryInto<Function, Error = Error> {}
-
-pub enum Function {
-    Script(FunctionTemplate<LazyVirtualMachine>),
-}
-
-impl Function {
-    pub(crate) fn infer_edges(
-        &self,
-        problem: &ProblemSpec,
-        function: &FunctionMetadata,
-        nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>> {
-        match self {
-            Function::Script(inner) => inner.infer_edges(problem, function, nodes),
-        }
-    }
-
-    pub(crate) fn dump_script(&self) -> Script {
-        match self {
-            Function::Script(inner) => inner.dump_script(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct FunctionTemplate<T> {
-    pub action: T,
-    pub filter: Option<T>,
-}
-
-impl<T> TryFrom<FunctionTemplate<T>> for Function
-where
-    T: AsRef<str>,
-{
-    type Error = Error;
-
-    fn try_from(
-        value: FunctionTemplate<T>,
-    ) -> Result<Self, <Self as TryFrom<FunctionTemplate<T>>>::Error> {
-        let FunctionTemplate { action, filter } = value;
-
-        Ok(Self::Script(FunctionTemplate {
-            action: LazyVirtualMachine::with_lazy_script(action.as_ref())?,
-            filter: filter
-                .map(|input| LazyVirtualMachine::with_lazy_filter(input.as_ref()))
-                .transpose()?,
-        }))
-    }
-}
-
-impl FunctionTemplate<LazyVirtualMachine> {
+pub trait NetworkFunctionExt {
     fn infer_edges(
         &self,
-        problem: &ProblemSpec,
+        problem: &VirtualProblem,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>>;
+}
+
+impl NetworkFunctionExt for NetworkFunctionCrd {
+    fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
         function: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        let filter = self
-            .filter
+        self.spec.infer_edges(problem, function, nodes)
+    }
+}
+
+impl NetworkFunctionExt for NetworkFunctionSpec {
+    fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        self.metadata.infer_edges(problem, function, nodes)
+    }
+}
+
+impl NetworkFunctionExt for NetworkFunctionMetadata {
+    fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        parse_metadata(self)?.infer_edges(problem, function, nodes)
+    }
+}
+
+impl<'a> NetworkFunctionExt for NetworkFunctionMetadata<&'a str> {
+    fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        parse_metadata(self)?.infer_edges(problem, function, nodes)
+    }
+}
+
+impl NetworkFunctionExt for NetworkFunctionMetadata<LazyVirtualMachine> {
+    fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        function: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        let Self { filter, script } = self;
+
+        let filter = filter
             .as_ref()
             .map(|filter| filter.call_filter(problem, nodes.clone()))
             .transpose()?;
 
-        self.action.call(problem, function, nodes, filter)
+        script.call(problem, function, nodes, filter)
     }
+}
 
-    fn dump_script(&self) -> Script {
-        self.action.dump_script()
-    }
+fn parse_metadata<T>(
+    metadata: &NetworkFunctionMetadata<T>,
+) -> Result<NetworkFunctionMetadata<LazyVirtualMachine>>
+where
+    T: AsRef<str>,
+{
+    let NetworkFunctionMetadata { filter, script } = metadata;
+
+    Ok(NetworkFunctionMetadata {
+        filter: filter
+            .as_ref()
+            .map(|input| LazyVirtualMachine::with_lazy_filter(input.as_ref()))
+            .transpose()?,
+        script: LazyVirtualMachine::with_lazy_script(script.as_ref())?,
+    })
 }
 
 #[cfg(test)]
@@ -112,12 +116,12 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = FunctionTemplate {
-            action: r"
+        let function_template = NetworkFunctionMetadata {
+            filter: None,
+            script: r"
                 capacity = 50;
                 unit_cost = 1;
             ",
-            filter: None,
         };
 
         // Step 3. Call a function
@@ -158,12 +162,12 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = FunctionTemplate {
-            action: r"
+        let function_template = NetworkFunctionMetadata {
+            filter: Some("src != sink and src.supply >= 50 and sink.capacity >= 50"),
+            script: r"
                 capacity = 50;
                 unit_cost = 1;
             ",
-            filter: Some("src != sink and src.supply >= 50 and sink.capacity >= 50"),
         };
 
         // Step 3. Call a function
@@ -194,18 +198,23 @@ mod tests {
     fn expand_polars_dataframe(
         nodes: LazyFrame,
         function_name: &str,
-        function_template: FunctionTemplate<&'static str>,
+        function: NetworkFunctionMetadata<&'static str>,
     ) -> ::pl::frame::DataFrame {
-        // Step 1. Add a function
-        let function: Function = function_template
-            .try_into()
-            .expect("failed to build a function");
+        use kubegraph_api::{graph::GraphScope, problem::ProblemSpec};
+
+        // Step 1. Define a function metadata
         let function_metadata = FunctionMetadata {
             name: function_name.into(),
         };
 
         // Step 2. Define a problem
-        let problem = ProblemSpec::default();
+        let problem = VirtualProblem {
+            scope: GraphScope {
+                namespace: "default".into(),
+                name: "optimize-warehouses".into(),
+            },
+            spec: ProblemSpec::default(),
+        };
 
         // Step 3. Call a function
         function

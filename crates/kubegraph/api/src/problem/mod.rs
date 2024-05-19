@@ -1,8 +1,10 @@
+pub mod r#virtual;
+
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::graph::NetworkGraphMetadata;
+use crate::graph::GraphMetadata;
 
 #[derive(
     Clone,
@@ -40,7 +42,7 @@ use crate::graph::NetworkGraphMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct ProblemSpec {
     #[serde(default, flatten)]
-    pub metadata: NetworkGraphMetadata,
+    pub metadata: GraphMetadata,
 
     #[serde(default = "ProblemSpec::default_verbose")]
     pub verbose: bool,
@@ -49,7 +51,7 @@ pub struct ProblemSpec {
 impl Default for ProblemSpec {
     fn default() -> Self {
         Self {
-            metadata: NetworkGraphMetadata::default(),
+            metadata: GraphMetadata::default(),
             verbose: Self::default_verbose(),
         }
     }

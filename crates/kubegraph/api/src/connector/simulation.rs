@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::graph::NetworkGraphMetadata;
+use crate::graph::GraphMetadata;
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
@@ -11,7 +11,7 @@ use crate::graph::NetworkGraphMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct NetworkConnectorSimulationSpec {
     #[serde(default)]
-    pub metadata: NetworkGraphMetadata,
+    pub metadata: GraphMetadata,
     pub path: PathBuf,
 
     #[serde(default = "NetworkConnectorSimulationSpec::default_key_edges")]

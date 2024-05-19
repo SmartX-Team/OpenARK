@@ -1,7 +1,8 @@
 use anyhow::{anyhow, bail, Result};
+use async_trait::async_trait;
 use kubegraph_api::{
     frame::polars::{find_indices, get_column},
-    graph::{Graph, NetworkGraphMetadata},
+    graph::{GraphData, GraphMetadata},
     problem::ProblemSpec,
 };
 use or_tools::graph::{
@@ -15,21 +16,36 @@ use pl::{
     series::Series,
 };
 
-impl ::kubegraph_api::solver::LocalSolver<Graph<DataFrame>> for super::Solver {
-    type Output = Graph<LazyFrame>;
+#[async_trait]
+impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::NetworkSolver {
+    type Output = GraphData<LazyFrame>;
 
-    fn step(&self, graph: Graph<DataFrame>, problem: ProblemSpec) -> Result<Self::Output> {
-        ::kubegraph_api::solver::LocalSolver::<Graph<LazyFrame>>::step(self, graph.into(), problem)
+    async fn solve(
+        &self,
+        graph: GraphData<DataFrame>,
+        problem: &ProblemSpec,
+    ) -> Result<Self::Output> {
+        ::kubegraph_api::solver::NetworkSolver::<GraphData<LazyFrame>>::solve(
+            self,
+            graph.into(),
+            problem,
+        )
+        .await
     }
 }
 
-impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
-    type Output = Graph<LazyFrame>;
+#[async_trait]
+impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::NetworkSolver {
+    type Output = GraphData<LazyFrame>;
 
-    fn step(&self, graph: Graph<LazyFrame>, problem: ProblemSpec) -> Result<Self::Output> {
+    async fn solve(
+        &self,
+        graph: GraphData<LazyFrame>,
+        problem: &ProblemSpec,
+    ) -> Result<Self::Output> {
         let ProblemSpec {
             metadata:
-                NetworkGraphMetadata {
+                GraphMetadata {
                     capacity: key_capacity,
                     flow: key_flow,
                     function: _,
@@ -43,79 +59,73 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
         } = problem;
 
         // Step 1. Collect graph data
-        let Graph {
+        let GraphData {
             edges: src_edges,
             nodes: src_nodes,
         } = graph;
         let edges = src_edges
             .clone()
             .select([
-                dsl::col(&key_src),
-                dsl::col(&key_sink),
-                dsl::col(&key_capacity),
-                dsl::col(&key_unit_cost),
+                dsl::col(key_src),
+                dsl::col(key_sink),
+                dsl::col(key_capacity),
+                dsl::col(key_unit_cost),
             ])
             .collect()
             .map_err(|error| anyhow!("failed to collect edges input: {error}"))?;
         let nodes = src_nodes
             .clone()
             .select([
-                dsl::col(&key_name),
-                dsl::col(&key_capacity),
-                dsl::col(&key_unit_cost),
-                dsl::col(&key_supply),
+                dsl::col(key_name),
+                dsl::col(key_capacity),
+                dsl::col(key_unit_cost),
+                dsl::col(key_supply),
             ])
             .collect()
             .map_err(|error| anyhow!("failed to collect nodes input: {error}"))?;
 
         // Step 2. Collect edges
-        let src = get_column(&edges, "edge", "src", &key_src, None)?;
-        let sink = get_column(&edges, "edge", "sink", &key_sink, None)?;
+        let src = get_column(&edges, "edge", "src", key_src, None)?;
+        let sink = get_column(&edges, "edge", "sink", key_sink, None)?;
         let edge_capacity = get_column(
             &edges,
             "edge",
             "capacity",
-            &key_capacity,
+            key_capacity,
             Some(&DataType::Int64),
         )?;
         let edge_cost = get_column(
             &edges,
             "edge",
             "cost",
-            &key_unit_cost,
+            key_unit_cost,
             Some(&DataType::Int64),
         )?;
 
         // Step 3. Collect nodes
-        let name = get_column(&nodes, "node", "name", &key_name, None)?;
+        let name = get_column(&nodes, "node", "name", key_name, None)?;
         let node_capacity = get_column(
             &nodes,
             "node",
             "capacity",
-            &key_capacity,
+            key_capacity,
             Some(&DataType::Int64),
         )?;
         let node_cost = get_column(
             &nodes,
             "node",
             "cost",
-            &key_unit_cost,
+            key_unit_cost,
             Some(&DataType::Int64),
         )?;
-        let node_supply = get_column(
-            &nodes,
-            "node",
-            "supply",
-            &key_supply,
-            Some(&DataType::Int64),
-        )?;
+        let node_supply = get_column(&nodes, "node", "supply", key_supply, Some(&DataType::Int64))?;
         let node_supply_sum = node_supply
             .sum()
             .map_err(|error| anyhow!("failed to collect node supplies: {error}"))?;
 
         // Step 4. Map name indices: src, sink
-        let src_map = find_indices(&key_name, &name, &src)?;
-        let sink_map = find_indices(&key_name, &name, &sink)?;
+        let src_map = find_indices(key_name, &name, &src)?;
+        let sink_map = find_indices(key_name, &name, &sink)?;
 
         let src_map_fallback = src_map.clone().unwrap_or_else(|| src.clone());
         let sink_map_fallback = sink_map.clone().unwrap_or_else(|| sink.clone());
@@ -137,7 +147,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
             let optimized_edges = unoptimized_edges.with_columns([
                 dsl::lit(edge_capacity),
                 dsl::lit(edge_cost),
-                dsl::lit(0i64).alias(&key_flow),
+                dsl::lit(0i64).alias(key_flow),
             ]);
             let optimized_nodes = src_nodes.with_columns([
                 dsl::lit(name),
@@ -146,7 +156,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
                 dsl::lit(node_supply),
             ]);
 
-            return Ok(Graph {
+            return Ok(GraphData {
                 edges: optimized_edges,
                 nodes: optimized_nodes,
             });
@@ -177,7 +187,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
             solver.set_arc_unit_cost(index, cost.try_extract()?);
         }
 
-        if verbose {
+        if *verbose {
             println!("Solving min cost flow with: {num_nodes} nodes, and {num_edges} edges.");
         }
 
@@ -209,7 +219,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
         }
 
         // Step 8. Collect outputs
-        let flow = output.collect_flow(&key_flow, num_edges);
+        let flow = output.collect_flow(key_flow, num_edges);
 
         // Step 9. Assemble an optimized graph
         let optimized_edges = src_edges;
@@ -231,7 +241,7 @@ impl ::kubegraph_api::solver::LocalSolver<Graph<LazyFrame>> for super::Solver {
             dsl::lit(node_supply),
         ]);
 
-        Ok(Graph {
+        Ok(GraphData {
             edges: optimized_edges,
             nodes: optimized_nodes,
         })

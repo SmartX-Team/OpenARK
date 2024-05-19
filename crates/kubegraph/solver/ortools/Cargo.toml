@@ -31,6 +31,7 @@ df-polars = ["dep:polars", "kubegraph-api/df-polars"]
 kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 or-tools = { workspace = true }
 polars = { workspace = true, optional = true }
 

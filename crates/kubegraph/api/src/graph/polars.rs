@@ -4,9 +4,9 @@ use pl::{
     lazy::frame::{IntoLazy, LazyFrame},
 };
 
-impl From<super::Graph<LazyFrame>> for super::Graph<super::LazyFrame> {
-    fn from(graph: super::Graph<LazyFrame>) -> Self {
-        let super::Graph { edges, nodes } = graph;
+impl From<super::GraphData<LazyFrame>> for super::GraphData<super::LazyFrame> {
+    fn from(graph: super::GraphData<LazyFrame>) -> Self {
+        let super::GraphData { edges, nodes } = graph;
         Self {
             edges: super::LazyFrame::Polars(edges),
             nodes: super::LazyFrame::Polars(nodes),
@@ -14,9 +14,9 @@ impl From<super::Graph<LazyFrame>> for super::Graph<super::LazyFrame> {
     }
 }
 
-impl From<super::Graph<DataFrame>> for super::Graph<LazyFrame> {
-    fn from(graph: super::Graph<DataFrame>) -> Self {
-        let super::Graph { edges, nodes } = graph;
+impl From<super::GraphData<DataFrame>> for super::GraphData<LazyFrame> {
+    fn from(graph: super::GraphData<DataFrame>) -> Self {
+        let super::GraphData { edges, nodes } = graph;
         Self {
             edges: edges.lazy(),
             nodes: nodes.lazy(),
@@ -24,11 +24,11 @@ impl From<super::Graph<DataFrame>> for super::Graph<LazyFrame> {
     }
 }
 
-impl TryFrom<super::Graph<LazyFrame>> for super::Graph<DataFrame> {
+impl TryFrom<super::GraphData<LazyFrame>> for super::GraphData<DataFrame> {
     type Error = PolarsError;
 
-    fn try_from(graph: super::Graph<LazyFrame>) -> Result<Self, Self::Error> {
-        let super::Graph { edges, nodes } = graph;
+    fn try_from(graph: super::GraphData<LazyFrame>) -> Result<Self, Self::Error> {
+        let super::GraphData { edges, nodes } = graph;
         Ok(Self {
             edges: edges.collect()?,
             nodes: nodes.collect()?,

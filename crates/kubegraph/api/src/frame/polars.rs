@@ -9,48 +9,10 @@ use pl::{
     series::Series,
 };
 
-use crate::graph::{GraphEdges, NetworkEdge, NetworkNode};
-
-macro_rules! create_df_from_array {
-    ( $( impl IntoLazyFrame for $ty:ty {
-        $(
-            $col_name:literal => $col_cast:expr ,
-        )*
-    } )* ) => { $(
-        impl super::IntoLazyFrame<LazyFrame> for $ty {
-            fn try_into_lazy_frame(self) -> Result<LazyFrame> {
-                DataFrame::new(vec![ $(
-                    Series::from_iter(self.iter().map($col_cast))
-                        .with_name($col_name),
-                )* ])
-                .map(IntoLazy::lazy)
-                .map_err(Into::into)
-            }
-        }
-    )* };
-}
-
-create_df_from_array! {
-    impl IntoLazyFrame for Vec<NetworkEdge> {
-        "namespace" => |item| item.key.link.namespace.as_str(),
-        "name" => |item| item.key.link.name.as_str(),
-        "src.namespace" => |item| item.key.src.namespace.as_str(),
-        "src" => |item| item.key.src.name.as_str(),
-        "sink.namespace" => |item| item.key.sink.namespace.as_str(),
-        "sink" => |item| item.key.sink.name.as_str(),
-        "interval_ms" => |item| item.key.interval_ms,
-        "capacity" => |item| item.value.capacity,
-        "unit_cost" => |item| item.value.unit_cost,
-    }
-
-    impl IntoLazyFrame for Vec<NetworkNode> {
-        "namespace" => |item| item.key.namespace.as_str(),
-        "name" => |item| item.key.name.as_str(),
-        "capacity" => |item| item.value.capacity,
-        "supply" => |item| item.value.supply,
-        "unit_cost" => |item| item.value.unit_cost,
-    }
-}
+use crate::{
+    graph::{GraphDataType, GraphEdges, GraphMetadata},
+    problem::r#virtual::VirtualProblem,
+};
 
 impl From<DataFrame> for super::LazyFrame {
     fn from(df: DataFrame) -> Self {
@@ -79,6 +41,39 @@ impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
             .map(Self)
             .unwrap_or(GraphEdges(super::LazyFrame::Empty))
     }
+}
+
+pub(super) fn cast(
+    df: LazyFrame,
+    ty: GraphDataType,
+    origin: &GraphMetadata,
+    problem: &VirtualProblem,
+) -> LazyFrame {
+    // TODO: implement advanced converter
+    let from = origin;
+    let to = &problem.spec.metadata;
+
+    let exprs: &[dsl::Expr] = match ty {
+        GraphDataType::Edge => &[
+            dsl::col(&from.src).alias(&to.src),
+            dsl::col(&from.sink).alias(&to.sink),
+            dsl::col(&from.capacity).alias(&to.capacity),
+            dsl::col(&from.unit_cost).alias(&to.unit_cost),
+        ],
+        GraphDataType::Node => &[
+            dsl::col(&from.name).alias(&to.name),
+            dsl::col(&from.capacity).alias(&to.capacity),
+            dsl::col(&from.supply).alias(&to.supply),
+            dsl::col(&from.unit_cost).alias(&to.unit_cost),
+        ],
+    };
+
+    df.select(exprs)
+}
+
+pub(super) fn concat(a: LazyFrame, b: LazyFrame) -> Result<LazyFrame> {
+    let args = ::pl::lazy::dsl::UnionArgs::default();
+    ::pl::lazy::dsl::concat([a, b], args).map_err(Into::into)
 }
 
 pub fn get_column(

@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-db-memory"
+name = "kubegraph-runner-simulator"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -19,12 +19,17 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["full"]
+full = ["df-full"]
+
+# DataFrame
+df-full = ["df-polars"]
+df-polars = ["dep:polars", "kubegraph-api/df-polars"]
+
 [dependencies]
-dash-query-provider = { path = "../../../dash/query/provider" }
 kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-itertools = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
-tracing = { workspace = true }
+polars = { workspace = true, optional = true }

@@ -1,21 +1,22 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use futures::{stream::FuturesUnordered, StreamExt, TryStreamExt};
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::{
     runtime::watcher::{watcher, Config, Error, Event},
     Api, Client, ResourceExt,
 };
 use kubegraph_api::{
-    connector::{NetworkConnectorCrd, NetworkConnectors},
-    db::NetworkGraphDB,
+    connector::{NetworkConnectorCrd, NetworkConnectorDB},
+    graph::GraphScope,
+    vm::NetworkVirtualMachine,
 };
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
-pub async fn loop_forever(db: impl NetworkConnectors + NetworkGraphDB) {
+pub async fn loop_forever(vm: impl NetworkVirtualMachine) {
     loop {
-        if let Err(error) = try_loop_forever(&db).await {
+        if let Err(error) = try_loop_forever(&vm).await {
             error!("failed to run http server: {error}");
 
             let duration = Duration::from_secs(5);
@@ -25,14 +26,14 @@ pub async fn loop_forever(db: impl NetworkConnectors + NetworkGraphDB) {
     }
 }
 
-async fn try_loop_forever(db: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()> {
+async fn try_loop_forever(vm: &impl NetworkVirtualMachine) -> Result<()> {
     let client = Client::try_default()
         .await
         .map_err(|error| anyhow!("failed to load kubernetes account: {error}"))?;
 
     let default_namespace = client.default_namespace().to_string();
     let default_namespace = || default_namespace.clone();
-    let handle_event = |e| handle_event(db, default_namespace, e);
+    let handle_event = |e| handle_event(vm, default_namespace, e);
 
     let api = Api::<NetworkConnectorCrd>::all(client);
     watcher(api, Config::default())
@@ -42,18 +43,18 @@ async fn try_loop_forever(db: &(impl NetworkConnectors + NetworkGraphDB)) -> Res
 }
 
 async fn handle_event(
-    db: &(impl NetworkConnectors + NetworkGraphDB),
+    vm: &impl NetworkVirtualMachine,
     default_namespace: impl Copy + Fn() -> String,
     event: Event<NetworkConnectorCrd>,
 ) -> Result<(), Error> {
     match event {
-        Event::Applied(object) => handle_apply(db, default_namespace, object).await,
-        Event::Deleted(object) => handle_delete(db, default_namespace, object).await,
+        Event::Applied(object) => handle_apply(vm, default_namespace, object).await,
+        Event::Deleted(object) => handle_delete(vm, default_namespace, object).await,
         Event::Restarted(objects) => {
-            ::futures::stream::iter(objects)
-                .map(|object| handle_apply(db, default_namespace, object))
+            objects
+                .into_iter()
+                .map(|object| handle_apply(vm, default_namespace, object))
                 .collect::<FuturesUnordered<_>>()
-                .await
                 .try_collect()
                 .await
         }
@@ -61,7 +62,7 @@ async fn handle_event(
 }
 
 async fn handle_apply(
-    db: &(impl NetworkConnectors + NetworkGraphDB),
+    vm: &impl NetworkVirtualMachine,
     default_namespace: impl Fn() -> String,
     object: NetworkConnectorCrd,
 ) -> Result<(), Error> {
@@ -70,12 +71,12 @@ async fn handle_apply(
     let r#type = object.spec.name();
 
     info!("Applying {type} connector: {namespace}/{name}");
-    db.add_connector(object).await;
+    vm.connector_db().insert_connector(object).await;
     Ok(())
 }
 
 async fn handle_delete(
-    db: &(impl NetworkConnectors + NetworkGraphDB),
+    vm: &impl NetworkVirtualMachine,
     default_namespace: impl Fn() -> String,
     object: NetworkConnectorCrd,
 ) -> Result<(), Error> {
@@ -84,6 +85,7 @@ async fn handle_delete(
     let r#type = object.spec.name();
 
     info!("Deleting {type} connector: {namespace}/{name}");
-    db.delete_connector(namespace, name).await;
+    let scope = GraphScope { namespace, name };
+    vm.connector_db().delete_connector(&scope).await;
     Ok(())
 }

@@ -1,13 +1,11 @@
 mod actix;
-mod connector;
-mod db;
 mod reloader;
-mod routes;
+// mod routes;
 mod vm;
 
 use std::process::exit;
 
-use kubegraph_api::db::NetworkGraphDB;
+use kubegraph_api::vm::NetworkVirtualMachine;
 use opentelemetry::global;
 use tokio::spawn;
 use tracing::{error, info};
@@ -22,19 +20,21 @@ async fn main() {
         return;
     }
 
-    let graph = match self::db::NetworkGraphDB::try_default().await {
-        Ok(graph) => graph,
+    let vm = match self::vm::try_init().await {
+        Ok(vm) => vm,
         Err(error) => {
-            error!("failed to init network graph DB: {error}");
+            error!("failed to init network virtual machine: {error}");
             exit(1);
         }
     };
 
     let handlers = vec![
-        spawn(crate::actix::loop_forever(graph.clone())),
-        spawn(crate::connector::loop_forever(graph.clone())),
-        spawn(crate::reloader::loop_forever(graph.clone())),
-        spawn(crate::vm::loop_forever(graph.clone())),
+        spawn(crate::actix::loop_forever(vm.clone())),
+        spawn(crate::reloader::loop_forever(vm.clone())),
+        spawn({
+            let vm = vm.clone();
+            async move { vm.loop_forever().await }
+        }),
     ];
 
     info!("Ready");
@@ -45,7 +45,7 @@ async fn main() {
         handler.abort();
     }
 
-    if let Err(error) = graph.close().await {
+    if let Err(error) = vm.close().await {
         error!("{error}");
     };
 

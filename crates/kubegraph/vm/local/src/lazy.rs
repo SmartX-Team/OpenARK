@@ -1,5 +1,5 @@
 use anyhow::Result;
-use kubegraph_api::vm::{Instruction, Script};
+use kubegraph_api::vm::Instruction;
 
 #[derive(Clone, Default)]
 pub struct LazyVirtualMachine {
@@ -25,8 +25,9 @@ impl LazyVirtualMachine {
         this.execute_script(input).map(|()| this)
     }
 
-    pub(crate) fn dump_script(&self) -> Script {
-        Script {
+    #[cfg(test)]
+    fn dump_script(&self) -> ::kubegraph_api::vm::Script {
+        ::kubegraph_api::vm::Script {
             code: self.local_variables.clone(),
         }
     }
@@ -44,26 +45,26 @@ mod impl_call {
         function::FunctionMetadata,
         graph::GraphEdges,
         ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-        problem::ProblemSpec,
+        problem::r#virtual::VirtualProblem,
         vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
     };
 
     impl super::LazyVirtualMachine {
         pub(crate) fn call(
             &self,
-            problem: &ProblemSpec,
+            problem: &VirtualProblem,
             function: &FunctionMetadata,
             nodes: LazyFrame,
             filter: Option<LazySlice>,
         ) -> Result<GraphEdges<LazyFrame>> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, filter)
-                .and_then(|ctx| ctx.try_into_edges(&problem.metadata.function, function))
+                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function, function))
         }
 
         pub(crate) fn call_filter(
             &self,
-            problem: &ProblemSpec,
+            problem: &VirtualProblem,
             nodes: LazyFrame,
         ) -> Result<LazySlice> {
             Context::try_new(problem, nodes)?
@@ -78,9 +79,9 @@ mod impl_call {
     }
 
     impl Context {
-        fn try_new(problem: &ProblemSpec, nodes: LazyFrame) -> Result<Self> {
+        fn try_new(problem: &VirtualProblem, nodes: LazyFrame) -> Result<Self> {
             // Create a fully-connected edges
-            let edges = nodes.fabric(problem)?;
+            let edges = nodes.fabric(&problem.spec)?;
 
             Ok(Self {
                 heap: Heap::new(edges),

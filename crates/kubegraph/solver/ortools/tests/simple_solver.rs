@@ -1,7 +1,7 @@
 extern crate polars as pl;
 
-use kubegraph_api::{graph::Graph, problem::ProblemSpec, solver::LocalSolver};
-use kubegraph_solver_ortools::Solver;
+use kubegraph_api::{graph::GraphData, problem::ProblemSpec, solver::LocalSolver};
+use kubegraph_solver_ortools::NetworkSolver;
 use pl::{
     df,
     frame::DataFrame,
@@ -29,7 +29,7 @@ fn solver_simple() {
     .expect("failed to create nodes dataframe");
 
     // Step 3. Define a graph
-    let graph = Graph { edges, nodes };
+    let graph = GraphData { edges, nodes };
 
     // Step 4. Define a problem
     let problem = ProblemSpec {
@@ -38,15 +38,15 @@ fn solver_simple() {
     };
 
     // Step 5. Define a solver
-    let solver = Solver::default();
+    let solver = NetworkSolver::default();
 
     // Step 6. Optimize the graph
-    let optimized_graph: Graph<DataFrame> = solver
+    let optimized_graph: GraphData<DataFrame> = solver
         .step(graph, problem)
         .expect("failed to optimize the graph")
         .try_into()
         .expect("failed to collect graph");
-    let Graph {
+    let GraphData {
         edges: mut optimized_edges,
         nodes: optimized_nodes,
     } = optimized_graph;

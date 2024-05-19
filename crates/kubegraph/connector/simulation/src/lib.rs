@@ -1,105 +1,83 @@
-use std::{collections::BTreeMap, mem::swap, path::Path, time::Duration};
+use std::path::Path;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use futures::{stream::iter, StreamExt};
 use kube::ResourceExt;
 use kubegraph_api::{
     connector::{
-        simulation::NetworkConnectorSimulationSpec, NetworkConnectorSourceRef,
-        NetworkConnectorSpec, NetworkConnectors,
+        simulation::NetworkConnectorSimulationSpec, NetworkConnectorCrd,
+        NetworkConnectorSourceType, NetworkConnectorSpec,
     },
-    db::NetworkGraphDB,
-    graph::{
-        NetworkEdgeKey, NetworkEntry, NetworkEntryKey, NetworkGraphMetadata, NetworkNodeKey,
-        NetworkValue,
-    },
+    frame::LazyFrame,
+    graph::{Graph, GraphData, GraphScope},
 };
 use polars::{
-    frame::DataFrame,
     io::{csv::CsvReader, SerReader},
-    series::Series,
+    lazy::frame::IntoLazy,
 };
 use tokio::fs;
-use tracing::{info, instrument, warn, Level};
+use tracing::{instrument, warn, Level};
 
 #[derive(Default)]
-pub struct NetworkConnector {
-    db: Vec<NetworkConnectorItem>,
-
-    values: BTreeMap<NetworkEntryKey, NetworkValue>,
-    values_new: Vec<NetworkEntry>,
-}
+pub struct NetworkConnector {}
 
 #[async_trait]
 impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
+    #[inline]
+    fn connection_type(&self) -> NetworkConnectorSourceType {
+        NetworkConnectorSourceType::Simulation
+    }
+
     #[inline]
     fn name(&self) -> &str {
         "simulation"
     }
 
-    #[inline]
-    fn interval(&self) -> Duration {
-        Duration::from_secs(5)
-    }
+    #[instrument(level = Level::INFO, skip(self, connectors))]
+    async fn pull(
+        &mut self,
+        connectors: Vec<NetworkConnectorCrd>,
+    ) -> Result<Vec<Graph<LazyFrame>>> {
+        let items = connectors.into_iter().filter_map(|crd| {
+            let scope = GraphScope {
+                namespace: crd.namespace()?,
+                name: crd.name_any(),
+            };
+            match crd.spec {
+                NetworkConnectorSpec::Simulation(spec) => {
+                    Some(NetworkConnectorItem { scope, spec })
+                }
+                _ => None,
+            }
+        });
 
-    #[instrument(level = Level::INFO, skip_all)]
-    async fn pull(&mut self, graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()> {
-        // update db
-        if let Some(db) = graph
-            .get_connectors(NetworkConnectorSourceRef::Simulation)
-            .await
-        {
-            info!("Reloading simulation connector...");
-            self.db = db
-                .into_iter()
-                .filter_map(|crd| {
-                    let namespace = crd.namespace()?;
-                    match crd.spec {
-                        NetworkConnectorSpec::Simulation(spec) => {
-                            Some(NetworkConnectorItem { namespace, spec })
-                        }
-                        _ => None,
-                    }
-                })
-                .collect();
-
-            for item in self.db.clone() {
-                if let Err(error) = self.load_templates(&item).await {
-                    let spec = &item.spec;
-                    warn!("failed to load simulation templates {spec:?}: {error}");
+        let data = iter(items).filter_map(|item| async move {
+            let GraphScope { namespace, name } = item.scope.clone();
+            match item.load_graph_data().await {
+                Ok(data) => Some(data),
+                Err(error) => {
+                    warn!("failed to load simulation templates ({namespace}/{name}): {error}");
+                    None
                 }
             }
-        }
-        if self.db.is_empty() {
-            return Ok(());
-        }
+        });
 
-        self.pull_values(graph).await
+        Ok(data.collect().await)
     }
 }
 
-impl NetworkConnector {
-    async fn pull_values(&mut self, graph: &impl NetworkGraphDB) -> Result<()> {
-        if self.values_new.is_empty() {
-            return Ok(());
-        }
+#[derive(Clone, Debug)]
+struct NetworkConnectorItem {
+    scope: GraphScope,
+    spec: NetworkConnectorSimulationSpec,
+}
 
-        // unregister new values, taking to a local variable `values`
-        let mut values = vec![];
-        swap(&mut self.values_new, &mut values);
-
-        graph.add_entries(values).await
-    }
-
-    fn apply(&mut self, entry: NetworkEntry) {
-        self.values.insert(entry.key.clone(), entry.value.clone());
-        self.values_new.push(entry);
-    }
-
-    #[instrument(level = Level::INFO, skip_all)]
-    async fn load_templates(&mut self, item: &NetworkConnectorItem) -> Result<()> {
-        let NetworkConnectorItem {
-            namespace,
+impl NetworkConnectorItem {
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn load_graph_data(self) -> Result<Graph<LazyFrame>> {
+        let Self {
+            scope,
             spec:
                 NetworkConnectorSimulationSpec {
                     metadata,
@@ -107,29 +85,21 @@ impl NetworkConnector {
                     key_edges,
                     key_nodes,
                 },
-        } = item;
+        } = self;
 
-        if let Some(df) = load_csv(base_dir, key_edges).await? {
-            collect_edges(namespace, metadata, &df)?
-                .into_iter()
-                .for_each(|entry| self.apply(entry))
-        }
-        if let Some(df) = load_csv(base_dir, key_nodes).await? {
-            collect_nodes(namespace, metadata, &df)?
-                .into_iter()
-                .for_each(|entry| self.apply(entry))
-        }
-        Ok(())
+        Ok(Graph {
+            data: GraphData {
+                edges: load_csv(&base_dir, &key_edges).await?,
+                nodes: load_csv(&base_dir, &key_nodes).await?,
+            },
+            metadata,
+            scope,
+        })
     }
 }
 
-#[derive(Clone, Debug)]
-struct NetworkConnectorItem {
-    namespace: String,
-    spec: NetworkConnectorSimulationSpec,
-}
-
-async fn load_csv(base_dir: &Path, filename: &str) -> Result<Option<DataFrame>> {
+#[instrument(level = Level::INFO)]
+async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
     let mut path = base_dir.to_path_buf();
     path.push(filename);
 
@@ -140,7 +110,7 @@ async fn load_csv(base_dir: &Path, filename: &str) -> Result<Option<DataFrame>> 
             )?
             .has_header(true)
             .finish()
-            .map(Some)
+            .map(|df| LazyFrame::Polars(df.lazy()))
             .map_err(|error| {
                 anyhow!(
                     "failed to parse file {path}: {error}",
@@ -148,117 +118,6 @@ async fn load_csv(base_dir: &Path, filename: &str) -> Result<Option<DataFrame>> 
                 )
             })
     } else {
-        Ok(None)
+        Ok(LazyFrame::Empty)
     }
-}
-
-fn collect_edges<'a>(
-    namespace: &'a str,
-    metadata: &NetworkGraphMetadata,
-    df: &'a DataFrame,
-) -> Result<impl 'a + IntoIterator<Item = NetworkEntry>> {
-    let NetworkGraphMetadata {
-        capacity: key_capacity,
-        flow: _,
-        function: _,
-        name: key_name,
-        sink: key_sink,
-        src: key_src,
-        supply: _,
-        unit_cost: key_unit_cost,
-    } = metadata;
-
-    // Get columns
-    let name = validate_column(df, key_name)?;
-    let capacity = validate_column(df, key_capacity)?;
-    let sink = validate_column(df, key_sink)?;
-    let src = validate_column(df, key_src)?;
-    let unit_cost = validate_column(df, key_unit_cost)?;
-
-    // Collect entries
-    Ok(name
-        .iter()
-        .zip(capacity.iter())
-        .zip(sink.iter())
-        .zip(src.iter())
-        .zip(unit_cost.iter())
-        .filter_map(|((((name, capacity), sink), src), unit_cost)| {
-            Some(NetworkEntry {
-                key: NetworkEntryKey::Edge(NetworkEdgeKey {
-                    interval_ms: None,
-                    link: NetworkNodeKey {
-                        name: name.to_string(),
-                        namespace: namespace.into(),
-                    },
-                    sink: NetworkNodeKey {
-                        name: sink.to_string(),
-                        namespace: namespace.into(),
-                    },
-                    src: NetworkNodeKey {
-                        name: src.to_string(),
-                        namespace: namespace.into(),
-                    },
-                }),
-                value: NetworkValue {
-                    capacity: capacity.try_extract().ok(),
-                    function: None,
-                    flow: None,
-                    supply: None,
-                    unit_cost: unit_cost.try_extract().ok(),
-                },
-            })
-        }))
-}
-
-fn collect_nodes<'a>(
-    namespace: &'a str,
-    metadata: &NetworkGraphMetadata,
-    df: &'a DataFrame,
-) -> Result<impl 'a + IntoIterator<Item = NetworkEntry>> {
-    let NetworkGraphMetadata {
-        capacity: key_capacity,
-        flow: _,
-        function: _,
-        name: key_name,
-        sink: _,
-        src: _,
-        supply: key_supply,
-        unit_cost: key_unit_cost,
-    } = metadata;
-
-    // Get columns
-    let name = validate_column(df, key_name)?;
-    let capacity = validate_column(df, key_capacity)?;
-    let supply = validate_column(df, key_supply)?;
-    let unit_cost = validate_column(df, key_unit_cost)?;
-
-    // Collect entries
-    Ok(name
-        .iter()
-        .zip(capacity.iter())
-        .zip(supply.iter())
-        .zip(unit_cost.iter())
-        .filter_map(|(((name, capacity), supply), unit_cost)| {
-            Some(NetworkEntry {
-                key: NetworkEntryKey::Node(NetworkNodeKey {
-                    name: name.to_string(),
-                    namespace: namespace.into(),
-                }),
-                value: NetworkValue {
-                    capacity: capacity.try_extract().ok(),
-                    function: None,
-                    flow: None,
-                    supply: supply.try_extract().ok(),
-                    unit_cost: unit_cost.try_extract().ok(),
-                },
-            })
-        }))
-}
-
-fn validate_column<'a>(df: &'a DataFrame, name: &str) -> Result<&'a Series> {
-    let column = df.column(name)?;
-    if column.is_empty() {
-        bail!("empty column: {name}")
-    }
-    Ok(column)
 }

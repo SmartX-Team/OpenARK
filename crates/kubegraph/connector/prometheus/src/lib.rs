@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use kubegraph_api::{
     connector::{
-        prometheus::NetworkConnectorPrometheusSpec, NetworkConnectorSourceRef,
+        prometheus::NetworkConnectorPrometheusSpec, NetworkConnectorSourceType,
         NetworkConnectorSpec, NetworkConnectors,
     },
     db::NetworkGraphDB,
@@ -37,11 +37,11 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         Duration::from_secs(5)
     }
 
-    #[instrument(level = Level::INFO, skip_all)]
+    #[instrument(level = Level::INFO, skip(self, graph))]
     async fn pull(&mut self, graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()> {
-        // update db
+        // update connectors
         if let Some(db) = graph
-            .get_connectors(NetworkConnectorSourceRef::Prometheus)
+            .get_connectors(NetworkConnectorSourceType::Prometheus)
             .await
         {
             info!("Reloading prometheus connector...");
@@ -85,7 +85,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     }
 }
 
-#[instrument(level = Level::INFO, skip_all)]
+#[instrument(level = Level::INFO, skip(spec))]
 fn load_client(spec: &NetworkConnectorPrometheusSpec) -> Result<Client> {
     let NetworkConnectorPrometheusSpec { template: _, url } = spec;
 
@@ -93,7 +93,7 @@ fn load_client(spec: &NetworkConnectorPrometheusSpec) -> Result<Client> {
         .map_err(|error| anyhow!("failed to init prometheus client {url:?}: {error}"))
 }
 
-#[instrument(level = Level::INFO, skip_all)]
+#[instrument(level = Level::INFO, skip(graph, client, template))]
 async fn pull_with(
     graph: &impl NetworkGraphDB,
     client: Client,

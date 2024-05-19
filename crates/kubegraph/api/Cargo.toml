@@ -42,12 +42,12 @@ ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+futures = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["derive"] }
 polars = { workspace = true, optional = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }

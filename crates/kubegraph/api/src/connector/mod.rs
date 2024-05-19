@@ -3,59 +3,95 @@ pub mod prometheus;
 #[cfg(feature = "connector-simulation")]
 pub mod simulation;
 
-use std::time::{Duration, Instant};
-
 use anyhow::Result;
 use async_trait::async_trait;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
-use tracing::error;
+use tokio::time::{sleep, Instant};
+use tracing::{error, info, instrument, Level};
 
-use crate::db::NetworkGraphDB;
+use crate::{
+    frame::LazyFrame,
+    function::NetworkFunctionCrd,
+    graph::{Graph, GraphScope, NetworkGraphDB},
+    vm::NetworkVirtualMachine,
+};
 
 #[async_trait]
-pub trait NetworkConnectors {
-    async fn add_connector(&self, object: NetworkConnectorCrd);
+pub trait NetworkConnectorDB {
+    async fn delete_connector(&self, key: &GraphScope);
 
-    async fn delete_connector(&self, namespace: String, name: String);
+    async fn delete_function(&self, key: &GraphScope);
 
-    async fn get_connectors(
+    async fn insert_connector(&self, object: NetworkConnectorCrd);
+
+    async fn insert_function(&self, object: NetworkFunctionCrd);
+
+    async fn list_connectors(
         &self,
-        r#type: NetworkConnectorSourceRef,
+        r#type: NetworkConnectorSourceType,
     ) -> Option<Vec<NetworkConnectorCrd>>;
+
+    async fn list_functions(&self) -> Vec<NetworkFunctionCrd>;
 }
 
 #[async_trait]
 pub trait NetworkConnector {
+    fn connection_type(&self) -> NetworkConnectorSourceType;
+
     fn name(&self) -> &str;
 
-    fn interval(&self) -> Duration {
-        Duration::from_secs(15)
-    }
-
-    async fn loop_forever(mut self, graph: impl NetworkConnectors + NetworkGraphDB)
+    #[instrument(level = Level::INFO, skip(self, vm))]
+    async fn loop_forever(mut self, vm: impl NetworkVirtualMachine)
     where
         Self: Sized,
     {
-        let interval = <Self as NetworkConnector>::interval(&self);
+        let interval = vm.interval();
 
         loop {
             let instant = Instant::now();
-            if let Err(error) = self.pull(&graph).await {
-                let name = <Self as NetworkConnector>::name(&self);
-                error!("failed to connect to dataset from {name:?}: {error}");
+
+            if let Some(connectors) = vm
+                .connector_db()
+                .list_connectors(self.connection_type())
+                .await
+            {
+                let name = self.name();
+                info!("Reloading {name} connector...");
+
+                match self.pull(connectors).await {
+                    Ok(data) => {
+                        if let Err(error) = data
+                            .into_iter()
+                            .map(|data| vm.graph_db().insert(data))
+                            .collect::<FuturesUnordered<_>>()
+                            .try_collect::<()>()
+                            .await
+                        {
+                            let name = self.name();
+                            error!("failed to store graphs from {name:?}: {error}");
+                        }
+                    }
+                    Err(error) => {
+                        let name = self.name();
+                        error!("failed to pull graphs from {name:?}: {error}");
+                    }
+                }
             }
 
             let elapsed = instant.elapsed();
-            if elapsed < interval {
-                sleep(interval - elapsed).await;
+            if let Some(interval) = interval {
+                if elapsed < interval {
+                    sleep(interval - elapsed).await;
+                }
             }
         }
     }
 
-    async fn pull(&mut self, graph: &(impl NetworkConnectors + NetworkGraphDB)) -> Result<()>;
+    async fn pull(&mut self, connectors: Vec<NetworkConnectorCrd>)
+        -> Result<Vec<Graph<LazyFrame>>>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
@@ -94,26 +130,26 @@ impl NetworkConnectorSpec {
             #[cfg(feature = "connector-prometheus")]
             Self::Prometheus(spec) => format!(
                 "{type}/{spec}",
-                type = NetworkConnectorSourceRef::Prometheus.name(),
+                type = NetworkConnectorSourceType::Prometheus.name(),
                 spec = spec.name(),
             ),
             #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorSourceRef::Simulation.name().into(),
+            Self::Simulation(_) => NetworkConnectorSourceType::Simulation.name().into(),
         }
     }
 
-    pub const fn to_ref(&self) -> NetworkConnectorSourceRef {
+    pub const fn to_ref(&self) -> NetworkConnectorSourceType {
         match self {
             #[cfg(feature = "connector-prometheus")]
-            Self::Prometheus(_) => NetworkConnectorSourceRef::Prometheus,
+            Self::Prometheus(_) => NetworkConnectorSourceType::Prometheus,
             #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorSourceRef::Simulation,
+            Self::Simulation(_) => NetworkConnectorSourceType::Simulation,
         }
     }
 }
 
-impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSpec {
-    fn eq(&self, other: &NetworkConnectorSourceRef) -> bool {
+impl PartialEq<NetworkConnectorSourceType> for NetworkConnectorSpec {
+    fn eq(&self, other: &NetworkConnectorSourceType) -> bool {
         self.to_ref() == *other
     }
 }
@@ -123,14 +159,14 @@ impl PartialEq<NetworkConnectorSourceRef> for NetworkConnectorSpec {
 )]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub enum NetworkConnectorSourceRef {
+pub enum NetworkConnectorSourceType {
     #[cfg(feature = "connector-prometheus")]
     Prometheus,
     #[cfg(feature = "connector-simulation")]
     Simulation,
 }
 
-impl NetworkConnectorSourceRef {
+impl NetworkConnectorSourceType {
     pub const fn name(&self) -> &'static str {
         match self {
             #[cfg(feature = "connector-prometheus")]

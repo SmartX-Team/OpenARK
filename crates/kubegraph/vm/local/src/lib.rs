@@ -1,267 +1,237 @@
 #[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
-mod func;
+mod connector;
+mod function;
 mod graph;
 mod lazy;
+mod runner;
+mod solver;
+mod virtual_problem;
 
-use std::{
-    borrow::Borrow,
-    collections::{btree_map::Entry, BTreeMap},
-    fmt,
-};
+use std::{sync::Arc, time::Duration};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use async_trait::async_trait;
+use kube::ResourceExt;
 use kubegraph_api::{
-    frame::{IntoLazyFrame, LazyFrame},
-    function::FunctionMetadata,
-    graph::{Graph, GraphEdges, IntoGraph},
-    problem::ProblemSpec,
-    solver::LocalSolver,
-    twin::LocalTwin,
-    vm::Script,
+    connector::NetworkConnectorDB, frame::LazyFrame, function::FunctionMetadata, graph::GraphEdges,
+    problem::r#virtual::VirtualProblem,
 };
+use tokio::sync::Mutex;
+use tracing::{instrument, Level};
 
-pub use self::func::IntoFunction;
-use self::{
-    func::{Function, FunctionContext},
-    graph::GraphContext,
-};
+use crate::function::NetworkFunctionExt;
 
-#[derive(Default)]
-pub struct VirtualMachine<K, S, T> {
-    functions: BTreeMap<K, FunctionContext>,
-    graphs: BTreeMap<K, GraphContext>,
-    solver: S,
-    twin: T,
+#[derive(Clone)]
+pub struct NetworkVirtualMachine {
+    connector_db: self::connector::NetworkConnectorDB,
+    connector_worker: Arc<Mutex<Option<self::connector::NetworkConnectorWorker>>>,
+    graph_db: self::graph::NetworkGraphDB,
+    runner: self::runner::NetworkRunner,
+    solver: self::solver::NetworkSolver,
+    virtual_problem: self::virtual_problem::NetworkVirtualProblem,
 }
 
-impl<K, S, T> VirtualMachine<K, S, T>
-where
-    K: Ord,
-{
-    pub fn dump_function<Q>(&self, key: &Q) -> Result<Script>
-    where
-        K: Borrow<Q> + Ord,
-        Q: ?Sized + fmt::Debug + Ord,
-    {
-        self.get_function(key).map(|func| func.dump_script())
-    }
-
-    pub fn get_graph<Q>(&self, key: &Q) -> Result<Graph<LazyFrame>>
-    where
-        K: Borrow<Q> + Ord,
-        Q: ?Sized + fmt::Debug + Ord,
-    {
-        self.graphs
-            .get(key)
-            .ok_or_else(|| anyhow!("undefined graph: {key:?}"))
-            .cloned()
-            .and_then(IntoGraph::try_into_graph)
-    }
-
-    pub fn get_function<Q>(&self, key: &Q) -> Result<&Function>
-    where
-        K: Borrow<Q> + Ord,
-        Q: ?Sized + fmt::Debug + Ord,
-    {
-        self.functions
-            .get(key)
-            .ok_or_else(|| anyhow!("undefined function: {key:?}"))
-            .map(|ctx| &ctx.func)
-    }
-
-    pub fn insert_graph(&mut self, key: K, graph: Graph<LazyFrame>) {
-        let Graph { edges, nodes } = graph;
-        let graph = Graph {
-            edges: Some(edges),
-            nodes: Some(nodes),
+impl NetworkVirtualMachine {
+    pub async fn try_default() -> Result<Self> {
+        // Step 1. Initialize components
+        let vm = Self {
+            connector_db: self::connector::NetworkConnectorDB::default(),
+            connector_worker: Arc::new(Mutex::new(None)),
+            graph_db: self::graph::NetworkGraphDB::try_default().await?,
+            runner: self::runner::NetworkRunner::try_default().await?,
+            solver: self::solver::NetworkSolver::try_default().await?,
+            virtual_problem: self::virtual_problem::NetworkVirtualProblem::try_default().await?,
         };
 
-        match self.graphs.entry(key) {
-            Entry::Occupied(ctx) => ctx.into_mut().graph = graph,
-            Entry::Vacant(ctx) => {
-                ctx.insert(GraphContext {
-                    graph,
-                    ..Default::default()
-                });
-            }
-        }
-    }
-
-    pub fn insert_edges(&mut self, key: K, edges: impl IntoLazyFrame) -> Result<()> {
-        let edges = Some(edges.try_into_lazy_frame()?);
-        match self.graphs.entry(key) {
-            Entry::Occupied(ctx) => {
-                ctx.into_mut().graph.edges = edges;
-                Ok(())
-            }
-            Entry::Vacant(ctx) => {
-                ctx.insert(GraphContext {
-                    graph: Graph { edges, nodes: None },
-                    ..Default::default()
-                });
-                Ok(())
-            }
-        }
-    }
-
-    pub fn insert_nodes(&mut self, key: K, nodes: impl IntoLazyFrame) -> Result<()> {
-        let nodes = Some(nodes.try_into_lazy_frame()?);
-        match self.graphs.entry(key) {
-            Entry::Occupied(ctx) => {
-                ctx.into_mut().graph.nodes = nodes;
-                Ok(())
-            }
-            Entry::Vacant(ctx) => {
-                ctx.insert(GraphContext {
-                    graph: Graph { edges: None, nodes },
-                    ..Default::default()
-                });
-                Ok(())
-            }
-        }
-    }
-
-    pub fn insert_function(&mut self, key: K, function: impl IntoFunction) -> Result<()> {
-        let function = function.try_into()?;
-        self.functions.insert(key, FunctionContext::new(function));
-        Ok(())
+        // Step 2. Spawn workers
+        vm.connector_worker
+            .lock()
+            .await
+            .replace(self::connector::NetworkConnectorWorker::spawn(&vm));
+        Ok(vm)
     }
 }
 
-impl<K, S, T> VirtualMachine<K, S, T>
-where
-    K: Ord,
-    S: LocalSolver<Graph<LazyFrame>, Output = Graph<LazyFrame>>,
-    T: LocalTwin<Graph<LazyFrame>, Output = LazyFrame>,
-{
-    pub fn step(&mut self, key: K, problem: &ProblemSpec) -> Result<()>
-    where
-        K: fmt::Debug + ToString,
-    {
-        self.step_with_solver(&key, problem)
-            .and_then(|graph| self.twin.execute(graph, problem))
-            .and_then(|nodes| self.insert_nodes(key, nodes))
+#[async_trait]
+impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
+    type ConnectorDB = self::connector::NetworkConnectorDB;
+    type GraphDB = self::graph::NetworkGraphDB;
+    type Runner = self::runner::NetworkRunner;
+    type Solver = self::solver::NetworkSolver;
+    type VirtualProblem = self::virtual_problem::NetworkVirtualProblem;
+
+    fn connector_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::ConnectorDB {
+        &self.connector_db
     }
 
-    fn step_with_solver(&self, key: &K, problem: &ProblemSpec) -> Result<Graph<LazyFrame>>
-    where
-        K: fmt::Debug + ToString,
-    {
-        // Step 1. Retrieve a proper graph
-        let Graph { edges, nodes } = self
-            .graphs
-            .get(key)
-            .ok_or_else(|| anyhow!("failed to get graph: {key:?}"))
-            .cloned()
-            .and_then(IntoGraph::try_into_graph)?;
+    fn graph_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::GraphDB {
+        &self.graph_db
+    }
+
+    fn runner(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Runner {
+        &self.runner
+    }
+
+    fn solver(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Solver {
+        &self.solver
+    }
+
+    fn virtual_problem(
+        &self,
+    ) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::VirtualProblem {
+        &self.virtual_problem
+    }
+
+    fn interval(&self) -> Option<Duration> {
+        // TODO: use args instead
+        Some(Duration::from_secs(5))
+    }
+
+    #[instrument(level = Level::INFO, skip(self, problem, nodes))]
+    async fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        nodes: LazyFrame,
+    ) -> Result<Option<GraphEdges<LazyFrame>>> {
+        // Step 1. Collect all functions
+        let functions = self.connector_db.list_functions().await;
+        if functions.is_empty() {
+            dbg!("123123");
+            return Ok(None);
+        }
 
         // Step 2. Predict all functions' outputs
-        let edges = self
-            .functions
-            .iter()
-            .map(|(name, ctx)| {
+        let edges = functions
+            .into_iter()
+            .map(|object| {
                 let function = FunctionMetadata {
-                    name: name.to_string(),
+                    name: object.name_any(),
                 };
 
-                ctx.func.infer_edges(problem, &function, nodes.clone())
+                object.infer_edges(problem, &function, nodes.clone())
             })
-            .chain({
-                let function = FunctionMetadata {
-                    name: FunctionMetadata::NAME_STATIC.into(),
-                };
+            .collect::<Result<GraphEdges<LazyFrame>>>()?;
 
-                match edges {
-                    LazyFrame::Empty => None,
-                    mut edges => Some(
-                        edges
-                            .alias(&problem.metadata.function, &function)
-                            .map(|()| GraphEdges::new(edges)),
-                    ),
-                }
-            })
-            .collect::<Result<GraphEdges<LazyFrame>>>()?
-            .into_inner();
+        // TODO: remove when test is ended
+        #[cfg(feature = "df-polars")]
+        {
+            use pl::lazy::dsl;
+            println!("{}", nodes.clone().try_into_polars()?.collect()?);
+            println!(
+                "{}",
+                edges
+                    .clone()
+                    .into_inner()
+                    .try_into_polars()?
+                    .select([
+                        dsl::col("src"),
+                        dsl::col("sink"),
+                        dsl::col("capacity"),
+                        dsl::col("unit_cost"),
+                        dsl::col("function"),
+                    ])
+                    .collect()?
+            );
+        }
+        Ok(Some(edges))
+    }
 
-        use pl::lazy::dsl;
-        println!("{}", nodes.clone().try_into_polars()?.collect()?);
-        println!(
-            "{}",
-            edges
-                .clone()
-                .try_into_polars()?
-                .select([
-                    dsl::col("src"),
-                    dsl::col("sink"),
-                    dsl::col("capacity"),
-                    dsl::col("unit_cost"),
-                    dsl::col("function"),
-                ])
-                .collect()?
-        );
-
-        // Step 3. Call a solver
-        let graph = Graph { edges, nodes };
-        self.solver.step(graph, problem.clone())
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn close_workers(&self) -> Result<()> {
+        if let Some(worker) = self.connector_worker.lock().await.as_ref() {
+            worker.abort();
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use kubegraph_solver_ortools::Solver;
-    use kubegraph_twin_simulator::Twin;
-
-    use crate::func::FunctionTemplate;
-
     use super::*;
 
     #[cfg(feature = "df-polars")]
-    #[test]
-    fn simulate_simple_with_edges() {
-        // Step 1. Define problems
-        let mut vm = VirtualMachine::<_, Solver, Twin>::default();
+    #[::tokio::test]
+    async fn simulate_simple_with_edges() {
+        use kubegraph_api::{
+            graph::{Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB},
+            problem::ProblemSpec,
+            vm::NetworkVirtualMachine as _,
+        };
 
-        // Step 2. Add nodes
+        // Step 1. Define problems
+        let vm = NetworkVirtualMachine::try_default()
+            .await
+            .expect("failed to init vm");
+
+        // Step 2. Define nodes
         let nodes = ::pl::df!(
-            "name"      => [ "a",  "b"],
-            "capacity"  => [ 300,  300],
-            "supply"    => [ 300,    0],
-            "unit_cost" => [   5,    1],
-            "warehouse" => [true, true],
+            "name"      => [    "a",     "b"],
+            "capacity"  => [ 300i64,  300i64],
+            "supply"    => [ 300i64,    0i64],
+            "unit_cost" => [   5i64,    1i64],
+            "warehouse" => [   true,    true],
         )
         .expect("failed to create nodes dataframe");
-        vm.insert_nodes("warehouse", nodes).unwrap();
 
-        // Step 3. Add edges
+        // Step 3. Define edges
         let edges = ::pl::df!(
-            "src"       => [ "a"],
-            "sink"      => [ "b"],
-            "capacity"  => [  50],
-            "unit_cost" => [   1],
+            "src"       => [    "a"],
+            "sink"      => [    "b"],
+            "capacity"  => [  50i64],
+            "unit_cost" => [   1i64],
         )
         .expect("failed to create edges dataframe");
-        vm.insert_edges("warehouse", edges.clone()).unwrap();
+
+        // Step 4. Register the initial graph
+        let scope = GraphScope {
+            namespace: "default".into(),
+            name: "warehouse".into(),
+        };
+        let graph = Graph {
+            data: GraphData {
+                edges: edges.into(),
+                nodes: nodes.into(),
+            },
+            metadata: GraphMetadata::default(),
+            scope: scope.clone(),
+        };
+        vm.graph_db.insert(graph).await.unwrap();
 
         // Step 4. Add cost & value function (heuristic)
-        let problem = ProblemSpec {
-            verbose: true,
-            ..Default::default()
+        let problem = VirtualProblem {
+            scope: GraphScope {
+                namespace: "default".into(),
+                name: "optimize-warehouses".into(),
+            },
+            spec: ProblemSpec {
+                verbose: true,
+                ..Default::default()
+            },
         };
 
         // Step 5. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step("warehouse".into(), &problem)
+            vm.step_with_custom_problem(&problem)
+                .await
                 .expect("failed to optimize")
         }
 
         // Step 6. Collect the output graph
+        let output_graph_scope = GraphScope {
+            namespace: "default".into(),
+            name: GraphScope::NAME_GLOBAL.into(),
+        };
         let Graph {
-            edges: output_edges,
-            nodes: output_nodes,
-        } = vm.get_graph("warehouse").unwrap();
+            data:
+                GraphData {
+                    edges: output_edges,
+                    nodes: output_nodes,
+                },
+            ..
+        } = vm.graph_db.get(&output_graph_scope).await.unwrap().unwrap();
         let output_edges = output_edges
             .try_into_polars()
             .unwrap()
@@ -276,76 +246,131 @@ mod tests {
         println!("{output_nodes}");
         println!("{output_edges}");
 
-        // Step 7. Verify the output nodes
+        // Step 7. Verify the output graph
         assert_eq!(
             output_nodes,
             ::pl::df!(
-                "name"      => [ "a",  "b"],
-                "capacity"  => [ 300,  300],
-                "supply"    => [   0,  300],
-                "unit_cost" => [   5,    1],
-                "warehouse" => [true, true],
+                "name"      => [    "a",     "b"],
+                "capacity"  => [ 300i64,  300i64],
+                "supply"    => [   0i64,  300i64],
+                "unit_cost" => [   5i64,    1i64],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
         assert_eq!(
             output_edges,
             ::pl::df!(
-                "src"       => ["a"],
-                "sink"      => ["b"],
-                "capacity"  => [ 50],
-                "unit_cost" => [  1],
+                "src"       => [     "a"],
+                "sink"      => [     "b"],
+                "capacity"  => [   50i64],
+                "unit_cost" => [    1i64],
+                "function"  => ["static"],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
     }
 
-    #[cfg(feature = "df-polars")]
-    #[test]
-    fn simulate_simple_with_function() {
-        // Step 1. Define problems
-        let mut vm = VirtualMachine::<_, Solver, Twin>::default();
+    #[cfg(all(feature = "df-polars", feature = "function-dummy"))]
+    #[::tokio::test]
+    async fn simulate_simple_with_function() {
+        use kube::api::ObjectMeta;
+        use kubegraph_api::{
+            frame::DataFrame,
+            function::{
+                dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
+                NetworkFunctionMetadata, NetworkFunctionSpec,
+            },
+            graph::{Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB},
+            problem::ProblemSpec,
+            vm::NetworkVirtualMachine as _,
+        };
 
-        // Step 2. Add nodes
+        // Step 1. Define problems
+        let vm = NetworkVirtualMachine::try_default()
+            .await
+            .expect("failed to init vm");
+
+        // Step 2. Define nodes
         let nodes = ::pl::df!(
-            "name"      => [ "a",  "b"],
-            "capacity"  => [ 300,  300],
-            "supply"    => [ 300,    0],
-            "unit_cost" => [   5,    1],
-            "warehouse" => [true, true],
+            "name"      => [    "a",     "b"],
+            "capacity"  => [ 300i64,  300i64],
+            "supply"    => [ 300i64,    0i64],
+            "unit_cost" => [   5i64,    1i64],
+            "warehouse" => [   true,    true],
         )
         .expect("failed to create nodes dataframe");
-        vm.insert_nodes("warehouse", nodes);
 
-        // Step 3. Add functions
-        let function = FunctionTemplate {
-            action: r"
-                capacity = 50;
-                unit_cost = 1;
-            ",
-            filter: Some("src != sink and src.supply > 0 and src.supply > sink.supply"),
+        // Step 3. Register the initial graph
+        let scope = GraphScope {
+            namespace: "default".into(),
+            name: "warehouse".into(),
         };
-        vm.insert_function("move", function)
-            .expect("failed to insert function");
+        let graph = Graph {
+            data: GraphData {
+                edges: LazyFrame::default(),
+                nodes: nodes.into(),
+            },
+            metadata: GraphMetadata::default(),
+            scope: scope.clone(),
+        };
+        vm.graph_db.insert(graph).await.unwrap();
 
-        // Step 4. Add cost & value function (heuristic)
-        let problem = ProblemSpec {
-            verbose: true,
-            ..Default::default()
+        // Step 4. Define functions
+        let function = NetworkFunctionCrd {
+            metadata: ObjectMeta {
+                namespace: Some("default".into()),
+                name: Some("move".into()),
+                ..Default::default()
+            },
+            spec: NetworkFunctionSpec {
+                kind: NetworkFunctionKind::Dummy(NetworkFunctionDummySpec {}),
+                metadata: NetworkFunctionMetadata {
+                    filter: Some(
+                        "src != sink and src.supply > 0 and src.supply > sink.supply".into(),
+                    ),
+                    script: r"
+                    capacity = 50;
+                    unit_cost = 1;
+                "
+                    .into(),
+                },
+            },
+        };
+        vm.connector_db.insert_function(function).await;
+
+        // Step 5. Add cost & value function (heuristic)
+        let problem = VirtualProblem {
+            scope: GraphScope {
+                namespace: "default".into(),
+                name: "optimize-warehouses".into(),
+            },
+            spec: ProblemSpec {
+                verbose: true,
+                ..Default::default()
+            },
         };
 
-        // Step 5. Do optimize
+        // Step 6. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step("warehouse".into(), &problem)
+            vm.step_with_custom_problem(&problem)
+                .await
                 .expect("failed to optimize")
         }
 
-        // Step 6. Collect the output graph
+        // Step 7. Collect the output graph
+        let output_graph_scope = GraphScope {
+            namespace: "default".into(),
+            name: GraphScope::NAME_GLOBAL.into(),
+        };
         let Graph {
-            edges: _,
-            nodes: output_nodes,
-        } = vm.get_graph("warehouse").unwrap();
+            data:
+                GraphData {
+                    edges: output_edges,
+                    nodes: output_nodes,
+                },
+            ..
+        } = vm.graph_db.get(&output_graph_scope).await.unwrap().unwrap();
         let output_nodes = output_nodes
             .try_into_polars()
             .unwrap()
@@ -354,17 +379,17 @@ mod tests {
 
         println!("{output_nodes}");
 
-        // Step 7. Verify the output nodes
+        // Step 7. Verify the output graph
         assert_eq!(
             output_nodes,
             ::pl::df!(
-                "name"      => [ "a",  "b"],
-                "capacity"  => [ 300,  300],
-                "supply"    => [ 150,  150],
-                "unit_cost" => [   5,    1],
-                "warehouse" => [true, true],
+                "name"      => [    "a",     "b"],
+                "capacity"  => [ 300i64,  300i64],
+                "supply"    => [ 150i64,  150i64],
+                "unit_cost" => [   5i64,    1i64],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
+        assert_eq!(output_edges.collect().await.unwrap(), DataFrame::Empty);
     }
 }

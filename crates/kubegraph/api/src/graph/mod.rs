@@ -1,13 +1,93 @@
 #[cfg(feature = "df-polars")]
 pub mod polars;
 
-use std::fmt;
-
 use anyhow::Result;
+use async_trait::async_trait;
+use futures::try_join;
 use schemars::JsonSchema;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
-use crate::frame::LazyFrame;
+use crate::{
+    frame::{DataFrame, LazyFrame},
+    function::FunctionMetadata,
+    problem::r#virtual::VirtualProblem,
+};
+
+pub(crate) struct ScopedNetworkGraphDBContainer<'a, T>
+where
+    T: NetworkGraphDB,
+{
+    pub(crate) inner: &'a T,
+    pub(crate) metadata: &'a GraphMetadata,
+    pub(crate) scope: &'a GraphScope,
+    pub(crate) static_edges: Option<GraphEdges<LazyFrame>>,
+}
+
+#[async_trait]
+impl<'a, T> ScopedNetworkGraphDB for ScopedNetworkGraphDBContainer<'a, T>
+where
+    T: NetworkGraphDB,
+{
+    async fn insert(&self, nodes: LazyFrame) -> Result<()> {
+        let Self {
+            inner,
+            metadata,
+            scope,
+            static_edges,
+        } = self;
+
+        let graph = Graph {
+            data: GraphData {
+                nodes,
+                edges: static_edges.clone().unwrap_or_default().into_inner(),
+            },
+            metadata: (*metadata).clone(),
+            scope: (*scope).clone(),
+        };
+        inner.insert(graph).await
+    }
+}
+
+#[async_trait]
+pub trait ScopedNetworkGraphDB
+where
+    Self: Sync,
+{
+    async fn insert(&self, nodes: LazyFrame) -> Result<()>;
+}
+
+#[async_trait]
+pub trait NetworkGraphDBExt {
+    async fn get_global_namespaced(&self, namespace: &str) -> Result<Option<Graph<LazyFrame>>>;
+}
+
+#[async_trait]
+impl<T> NetworkGraphDBExt for T
+where
+    T: NetworkGraphDB,
+{
+    async fn get_global_namespaced(&self, namespace: &str) -> Result<Option<Graph<LazyFrame>>> {
+        let scope = GraphScope {
+            namespace: namespace.into(),
+            name: GraphScope::NAME_GLOBAL.into(),
+        };
+        self.get(&scope).await
+    }
+}
+
+#[async_trait]
+pub trait NetworkGraphDB
+where
+    Self: Sync,
+{
+    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>>;
+
+    async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()>;
+
+    async fn list(&self, filter: Option<&GraphFilter>) -> Result<Vec<Graph<LazyFrame>>>;
+
+    async fn close(&self) -> Result<()>;
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -23,12 +103,36 @@ impl<T> GraphEdges<T> {
     }
 }
 
+impl GraphEdges<LazyFrame> {
+    pub fn from_static(key: &str, edges: LazyFrame) -> Result<Option<Self>> {
+        let function = FunctionMetadata {
+            name: FunctionMetadata::NAME_STATIC.into(),
+        };
+
+        match edges {
+            LazyFrame::Empty => Ok(None),
+            mut edges => edges
+                .alias(key, &function)
+                .map(|()| Self::new(edges))
+                .map(Some),
+        }
+    }
+
+    pub fn concat(self, other: Self) -> Result<Self> {
+        self.0.concat(other.0).map(Self)
+    }
+}
+
 impl FromIterator<Self> for GraphEdges<LazyFrame> {
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = Self>,
     {
-        let mut iter = iter.into_iter().peekable();
+        let mut iter = iter
+            .into_iter()
+            .filter(|GraphEdges(edges)| !matches!(edges, LazyFrame::Empty))
+            .peekable();
+
         match iter.peek() {
             Some(GraphEdges(LazyFrame::Empty)) | None => Self(LazyFrame::Empty),
             #[cfg(feature = "df-polars")]
@@ -41,42 +145,119 @@ impl FromIterator<Self> for GraphEdges<LazyFrame> {
 
 pub trait IntoGraph<T> {
     /// Disaggregate two dataframes.
-    fn try_into_graph(self) -> Result<Graph<T>>
+    fn try_into_graph(self) -> Result<GraphData<T>>
     where
         Self: Sized;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Graph<T> {
+    pub data: GraphData<T>,
+    pub metadata: GraphMetadata,
+    pub scope: GraphScope,
+}
+
+impl Graph<LazyFrame> {
+    pub fn cast(self, problem: &VirtualProblem) -> Self {
+        let Self {
+            data,
+            metadata,
+            scope,
+        } = self;
+        Self {
+            data: data.cast(&metadata, problem),
+            metadata,
+            scope,
+        }
+    }
+
+    pub async fn collect(self) -> Result<Graph<DataFrame>> {
+        let Self {
+            data,
+            metadata,
+            scope,
+        } = self;
+        Ok(Graph {
+            data: data.collect().await?,
+            metadata,
+            scope,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphData<T> {
     pub edges: T,
     pub nodes: T,
+}
+
+impl GraphData<LazyFrame> {
+    pub fn cast(self, origin: &GraphMetadata, problem: &VirtualProblem) -> Self {
+        let Self { edges, nodes } = self;
+        Self {
+            edges: edges.cast(GraphDataType::Edge, origin, problem),
+            nodes: nodes.cast(GraphDataType::Node, origin, problem),
+        }
+    }
+
+    pub async fn collect(self) -> Result<GraphData<DataFrame>> {
+        let Self { edges, nodes } = self;
+        let (edges, nodes) = try_join!(edges.collect(), nodes.collect(),)?;
+        Ok(GraphData { edges, nodes })
+    }
+}
+
+impl FromIterator<Graph<LazyFrame>> for Result<GraphData<LazyFrame>> {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Graph<LazyFrame>>,
+    {
+        iter.into_iter().map(|item| item.data).collect()
+    }
+}
+
+impl FromIterator<GraphData<LazyFrame>> for Result<GraphData<LazyFrame>> {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = GraphData<LazyFrame>>,
+    {
+        let mut edges = LazyFrame::Empty;
+        let mut nodes = LazyFrame::Empty;
+
+        for GraphData { edges: e, nodes: n } in iter {
+            edges = edges.concat(e)?;
+            nodes = nodes.concat(n)?;
+        }
+        Ok(GraphData { edges, nodes })
+    }
 }
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkGraphMetadata {
-    #[serde(default = "NetworkGraphMetadata::default_capacity")]
+pub struct GraphMetadata {
+    #[serde(default = "GraphMetadata::default_capacity")]
     pub capacity: String,
-    #[serde(default = "NetworkGraphMetadata::default_flow")]
+    #[serde(default = "GraphMetadata::default_flow")]
     pub flow: String,
-    #[serde(default = "NetworkGraphMetadata::default_function")]
+    #[serde(default = "GraphMetadata::default_function")]
     pub function: String,
-    #[serde(default = "NetworkGraphMetadata::default_name")]
+    #[serde(default = "GraphMetadata::default_name")]
     pub name: String,
-    #[serde(default = "NetworkGraphMetadata::default_sink")]
+    #[serde(default = "GraphMetadata::default_sink")]
     pub sink: String,
-    #[serde(default = "NetworkGraphMetadata::default_src")]
+    #[serde(default = "GraphMetadata::default_src")]
     pub src: String,
-    #[serde(default = "NetworkGraphMetadata::default_supply")]
+    #[serde(default = "GraphMetadata::default_supply")]
     pub supply: String,
-    #[serde(default = "NetworkGraphMetadata::default_unit_cost")]
+    #[serde(default = "GraphMetadata::default_unit_cost")]
     pub unit_cost: String,
 }
 
-impl Default for NetworkGraphMetadata {
+impl Default for GraphMetadata {
     fn default() -> Self {
         Self {
             capacity: Self::default_capacity(),
@@ -91,98 +272,52 @@ impl Default for NetworkGraphMetadata {
     }
 }
 
-impl NetworkGraphMetadata {
-    pub fn default_capacity() -> String {
+impl GraphMetadata {
+    fn default_capacity() -> String {
         "capacity".into()
     }
 
-    pub fn default_flow() -> String {
+    fn default_flow() -> String {
         "flow".into()
     }
 
-    pub fn default_function() -> String {
+    fn default_function() -> String {
         "function".into()
     }
 
-    pub fn default_name() -> String {
+    fn default_name() -> String {
         "name".into()
     }
 
-    pub fn default_link() -> String {
-        "link".into()
-    }
-
-    pub fn default_sink() -> String {
+    fn default_sink() -> String {
         "sink".into()
     }
 
-    pub fn default_src() -> String {
+    fn default_src() -> String {
         "src".into()
     }
 
-    pub fn default_supply() -> String {
+    fn default_supply() -> String {
         "supply".into()
     }
 
-    pub fn default_unit_cost() -> String {
+    fn default_unit_cost() -> String {
         "unit_cost".into()
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkEntryMap {
-    #[serde(default)]
-    pub edges: Vec<NetworkEdge>,
-    #[serde(default)]
-    pub nodes: Vec<NetworkNode>,
-}
-
-impl NetworkEntryMap {
-    pub fn push(&mut self, entry: NetworkEntry) {
-        let NetworkEntry { key, value } = entry;
-        match key {
-            NetworkEntryKey::Edge(key) => {
-                self.edges.push(NetworkEdge { key, value });
-            }
-            NetworkEntryKey::Node(key) => {
-                self.nodes.push(NetworkNode { key, value });
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkEntry {
-    #[serde(flatten)]
-    pub key: NetworkEntryKey,
-    pub value: NetworkValue,
 }
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkEntryKeyFilter {
-    #[serde(default)]
+pub struct GraphFilter {
+    pub name: Option<String>,
     pub namespace: Option<String>,
 }
 
-impl NetworkEntryKeyFilter {
-    pub fn contains(&self, key: &NetworkEntryKey) -> bool {
-        match key {
-            NetworkEntryKey::Edge(key) => {
-                self.contains_node_key(&key.link)
-                    && self.contains_node_key(&key.sink)
-                    && self.contains_node_key(&key.src)
-            }
-            NetworkEntryKey::Node(key) => self.contains_node_key(key),
-        }
-    }
-
-    fn contains_node_key(&self, key: &NetworkNodeKey) -> bool {
-        let Self { namespace } = self;
+impl GraphFilter {
+    pub fn contains(&self, key: &GraphScope) -> bool {
+        let Self { name, namespace } = self;
 
         #[inline]
         fn test(a: &Option<String>, b: &String) -> bool {
@@ -192,119 +327,32 @@ impl NetworkEntryKeyFilter {
             }
         }
 
-        test(namespace, &key.namespace)
+        test(namespace, &key.namespace) && test(name, &key.name)
     }
 }
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
-#[serde(rename_all = "camelCase", tag = "type")]
-pub enum NetworkEntryKey {
-    Edge(NetworkEdgeKey),
-    Node(NetworkNodeKey),
-}
-
-impl NetworkEntryKey {
-    pub fn namespace(&self) -> &str {
-        match self {
-            Self::Edge(key) => key.namespace(),
-            Self::Node(key) => &key.namespace,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkEdge {
-    #[serde(flatten)]
-    pub key: NetworkEdgeKey,
-    pub value: NetworkValue,
-}
-
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(
-    rename_all = "camelCase",
-    bound = "
-    NodeKey: Ord + Serialize + DeserializeOwned,
-"
-)]
-pub struct NetworkEdgeKey<NodeKey = NetworkNodeKey>
-where
-    NodeKey: Ord,
-{
-    #[serde(default, rename = "le", skip_serializing_if = "Option::is_none")]
-    pub interval_ms: Option<u64>,
-    #[serde(
-        flatten,
-        deserialize_with = "self::prefix::link::deserialize",
-        serialize_with = "self::prefix::link::serialize"
-    )]
-    pub link: NodeKey,
-    #[serde(
-        flatten,
-        deserialize_with = "self::prefix::sink::deserialize",
-        serialize_with = "self::prefix::sink::serialize"
-    )]
-    pub sink: NodeKey,
-    #[serde(
-        flatten,
-        deserialize_with = "self::prefix::src::deserialize",
-        serialize_with = "self::prefix::src::serialize"
-    )]
-    pub src: NodeKey,
-}
-
-impl NetworkEdgeKey {
-    pub fn namespace(&self) -> &str {
-        &self.link.namespace
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkNode {
-    #[serde(flatten)]
-    pub key: NetworkNodeKey,
-    pub value: NetworkValue,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkNodeKey {
-    pub name: String,
+pub struct GraphScope {
     pub namespace: String,
+    pub name: String,
 }
 
-impl fmt::Display for NetworkNodeKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { name, namespace } = self;
-
-        write!(f, "{namespace}/{name}")
-    }
+impl GraphScope {
+    pub const NAME_GLOBAL: &'static str = "__global__";
 }
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkValue {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capacity: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub function: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supply: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unit_cost: Option<i64>,
+pub struct GraphNamespacedScope {
+    pub name: String,
 }
 
-mod prefix {
-    ::serde_with::with_prefix!(pub(super) link "link_");
-    ::serde_with::with_prefix!(pub(super) sink "sink_");
-    ::serde_with::with_prefix!(pub(super) src "src_");
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum GraphDataType {
+    Edge,
+    Node,
 }

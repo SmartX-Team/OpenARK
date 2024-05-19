@@ -3,58 +3,51 @@ pub mod polars;
 
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 #[cfg(feature = "df-polars")]
 use pl::lazy::dsl;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     function::FunctionMetadata,
-    graph::{NetworkEdge, NetworkGraphMetadata, NetworkNode},
+    graph::{GraphDataType, GraphMetadata},
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    problem::ProblemSpec,
+    problem::{r#virtual::VirtualProblem, ProblemSpec},
     vm::{Feature, Number},
 };
 
-pub trait IntoLazyFrame<Output = LazyFrame> {
-    fn try_into_lazy_frame(self) -> Result<Output>;
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DataFrame {
+    Empty,
+    #[cfg(feature = "df-polars")]
+    Polars(::pl::frame::DataFrame),
 }
 
-impl<T> IntoLazyFrame for T
+pub trait IntoLazyFrame
 where
-    T: Into<LazyFrame>,
+    Self: Into<LazyFrame>,
 {
-    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
-        Ok(self.into())
-    }
 }
 
-#[cfg(feature = "df-polars")]
-impl IntoLazyFrame for Vec<NetworkEdge> {
-    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
-        self.try_into_lazy_frame()
-            .map(LazyFrame::Polars)
-            .map_err(|error| {
-                anyhow!("failed to collect network edges into polars dataframe: {error}")
-            })
-    }
-}
+impl<T> IntoLazyFrame for T where T: Into<LazyFrame> {}
 
-#[cfg(feature = "df-polars")]
-impl IntoLazyFrame for Vec<NetworkNode> {
-    fn try_into_lazy_frame(self) -> Result<LazyFrame> {
-        self.try_into_lazy_frame()
-            .map(LazyFrame::Polars)
-            .map_err(|error| {
-                anyhow!("failed to collect network nodes into polars dataframe: {error}")
-            })
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum LazyFrame {
+    #[default]
     Empty,
     #[cfg(feature = "df-polars")]
     Polars(::pl::lazy::frame::LazyFrame),
+}
+
+impl From<DataFrame> for LazyFrame {
+    fn from(value: DataFrame) -> Self {
+        match value {
+            DataFrame::Empty => Self::Empty,
+            #[cfg(feature = "df-polars")]
+            DataFrame::Polars(df) => LazyFrame::Polars(::pl::lazy::frame::IntoLazy::lazy(df)),
+        }
+    }
 }
 
 impl LazyFrame {
@@ -66,7 +59,35 @@ impl LazyFrame {
         }
     }
 
-    pub fn get_column(&self, #[allow(unused_variables)] name: &str) -> Result<LazySlice> {
+    pub fn cast(self, ty: GraphDataType, origin: &GraphMetadata, problem: &VirtualProblem) -> Self {
+        match self {
+            Self::Empty => Self::Empty,
+            #[cfg(feature = "df-polars")]
+            Self::Polars(df) => Self::Polars(self::polars::cast(df, ty, origin, problem)),
+        }
+    }
+
+    pub async fn collect(self) -> Result<DataFrame> {
+        match self {
+            Self::Empty => Ok(DataFrame::Empty),
+            #[cfg(feature = "df-polars")]
+            Self::Polars(df) => df
+                .collect()
+                .map(DataFrame::Polars)
+                .map_err(|error| ::anyhow::anyhow!("failed to collect polars dataframe: {error}")),
+        }
+    }
+
+    pub fn concat(self, other: Self) -> Result<Self> {
+        match (self, other) {
+            (Self::Empty, Self::Empty) => Ok(Self::Empty),
+            (Self::Empty, value) | (value, Self::Empty) => Ok(value),
+            #[cfg(feature = "df-polars")]
+            (Self::Polars(a), Self::Polars(b)) => self::polars::concat(a, b).map(Self::Polars),
+        }
+    }
+
+    pub fn get_column(&self, name: &str) -> Result<LazySlice> {
         match self {
             Self::Empty => bail!("cannot get column from empty lazyframe"),
             #[cfg(feature = "df-polars")]
@@ -76,10 +97,9 @@ impl LazyFrame {
 
     /// Create a fully-connected edges
     pub fn fabric(&self, problem: &ProblemSpec) -> Result<Self> {
-        #[allow(unused_variables)]
         let ProblemSpec {
             metadata:
-                NetworkGraphMetadata {
+                GraphMetadata {
                     capacity,
                     flow: _,
                     function: _,
@@ -119,7 +139,6 @@ impl LazyFrame {
     }
 
     pub fn alias(&mut self, key: &str, metadata: &FunctionMetadata) -> Result<()> {
-        #[allow(unused_variables)]
         let FunctionMetadata { name } = metadata;
 
         match self {
@@ -132,12 +151,7 @@ impl LazyFrame {
         }
     }
 
-    pub fn insert_column(
-        &mut self,
-        name: &str,
-
-        #[allow(unused_variables)] column: LazySlice,
-    ) -> Result<()> {
+    pub fn insert_column(&mut self, name: &str, column: LazySlice) -> Result<()> {
         match (self, column) {
             (Self::Empty, _) => bail!("cannot fill column into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
@@ -159,12 +173,7 @@ impl LazyFrame {
         }
     }
 
-    pub fn fill_column_with_feature(
-        &mut self,
-        name: &str,
-
-        #[allow(unused_variables)] value: Feature,
-    ) -> Result<()> {
+    pub fn fill_column_with_feature(&mut self, name: &str, value: Feature) -> Result<()> {
         match self {
             Self::Empty => bail!("cannot fill column with feature into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
@@ -175,11 +184,7 @@ impl LazyFrame {
         }
     }
 
-    pub fn fill_column_with_value(
-        &mut self,
-        name: &str,
-        #[allow(unused_variables)] value: Number,
-    ) -> Result<()> {
+    pub fn fill_column_with_value(&mut self, name: &str, value: Number) -> Result<()> {
         match self {
             Self::Empty => bail!("cannot fill column with name into empty lazyframe: {name:?}"),
             #[cfg(feature = "df-polars")]
@@ -193,8 +198,8 @@ impl LazyFrame {
     #[cfg(feature = "df-polars")]
     pub fn try_into_polars(self) -> Result<::pl::lazy::frame::LazyFrame> {
         match self {
+            Self::Empty => Ok(::pl::lazy::frame::LazyFrame::default()),
             Self::Polars(df) => Ok(df),
-            _ => ::anyhow::bail!("failed to unwrap lazyframe as polars"),
         }
     }
 }
@@ -339,6 +344,8 @@ impl IntoLazySlice for Feature {
 impl IntoLazySlice for Number {
     #[cfg(feature = "df-polars")]
     fn into_polars(self) -> dsl::Expr {
-        dsl::Expr::Literal(::pl::prelude::LiteralValue::Float64(self.into_inner()))
+        dsl::Expr::Literal(::pl::prelude::LiteralValue::Int64(
+            self.into_inner().round() as i64,
+        ))
     }
 }
