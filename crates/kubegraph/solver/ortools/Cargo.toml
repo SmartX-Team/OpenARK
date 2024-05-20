@@ -37,3 +37,4 @@ polars = { workspace = true, optional = true }
 
 [dev-dependencies]
 polars = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

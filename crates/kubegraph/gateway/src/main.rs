@@ -1,6 +1,6 @@
 mod actix;
 mod reloader;
-// mod routes;
+mod routes;
 mod vm;
 
 use std::process::exit;

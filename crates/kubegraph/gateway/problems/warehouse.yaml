@@ -5,10 +5,10 @@ metadata:
   name: warehouse
   namespace: kubegraph
 spec:
+  metadata:
+    supply: payload
   simulation:
     path: ./problems/warehouse
-    metadata:
-      supply: payload
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkProblem
@@ -16,7 +16,8 @@ metadata:
   name: warehouse
   namespace: kubegraph
 spec:
-  supply: payload
+  metadata:
+    supply: payload
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkFunction
@@ -24,8 +25,8 @@ metadata:
   name: warehouse
   namespace: kubegraph
 spec:
-  dummy:
-    filter: src.payload >= 3 && sink.payload >= 0
-    script: |
-      src.payload -= 3
-      sink.payload += 3
+  dummy: {}
+  filter: src.payload >= 3 && sink.payload >= 0
+  script: |
+    src.payload -= 3
+    sink.payload += 3

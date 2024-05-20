@@ -2,7 +2,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use kubegraph_api::{
     connector::NetworkConnectorDB,
-    graph::GraphScope,
+    frame::LazyFrame,
+    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard, GraphScope},
     problem::{r#virtual::VirtualProblem, ProblemSpec},
 };
 
@@ -29,6 +30,17 @@ impl ::kubegraph_api::problem::r#virtual::NetworkVirtualProblem for NetworkVirtu
                 scope,
                 spec: ProblemSpec::default(),
             })
+        }
+    }
+
+    async fn pin_graph_raw(
+        &self,
+        graph: Graph<LazyFrame, GraphMetadataRaw>,
+    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
+        // TODO: to be implemented
+        #[cfg(feature = "vp-identity")]
+        {
+            todo!()
         }
     }
 }

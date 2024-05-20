@@ -12,13 +12,9 @@ spec:
       query: >
         sum by (namespace, bucket)
         (bucket_usage_size{service="minio"})
-      node:
-        kind:
-          type: Static
-          value: object-storage
-        name:
-          type: Key
-          value: bucket
-        namespace:
-          type: Key
-          value: namespace
+      name:
+        type: Key
+        value: bucket
+      supply:
+        type: Key
+        value: value

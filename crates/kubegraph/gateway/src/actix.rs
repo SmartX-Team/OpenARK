@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::env::infer;
-use kubegraph_api::vm::NetworkVirtualMachine;
+use kubegraph_api::{graph::NetworkGraphDB, vm::NetworkVirtualMachine};
 use tracing::{error, instrument, Level};
 
 #[instrument(level = Level::INFO)]
@@ -23,15 +23,14 @@ async fn try_loop_forever(vm: impl NetworkVirtualMachine) -> Result<()> {
     // Initialize pipe
     let addr =
         infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
-    // let graph_db: Data<Arc<dyn NetworkGraphDB>> = Data::new(Arc::new(vm.graph_db().clone()));
+
+    let graph_db: Box<dyn Send + NetworkGraphDB> = Box::new(vm.graph_db().clone());
+    let graph_db = Data::new(graph_db);
 
     // Start web server
     HttpServer::new(move || {
-        let app = App::new();
-        // let app = app.app_data(Data::clone(&graph_db));
-        let app = app.service(health)
-        // .service(crate::routes::network::get)
-        ;
+        let app = App::new().app_data(Data::clone(&graph_db));
+        let app = app.service(health).service(crate::routes::network::get);
         app.wrap(RequestTracing::default())
             .wrap(RequestMetrics::default())
     })

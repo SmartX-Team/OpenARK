@@ -2,14 +2,14 @@ use ark_core_k8s::data::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::query::NetworkQuery;
+use crate::query::{NetworkQuery, NetworkQueryMetadata};
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkConnectorPrometheusSpec {
-    pub template: NetworkQuery,
+pub struct NetworkConnectorPrometheusSpec<M = NetworkQueryMetadata> {
+    pub template: NetworkQuery<M>,
     pub url: Url,
 }
 

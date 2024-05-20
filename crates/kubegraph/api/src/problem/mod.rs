@@ -2,9 +2,9 @@ pub mod r#virtual;
 
 use kube::CustomResource;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::graph::GraphMetadata;
+use crate::graph::GraphMetadataRaw;
 
 #[derive(
     Clone,
@@ -39,25 +39,32 @@ use crate::graph::GraphMetadata;
         "jsonPath": ".metadata.generation"
     }"#
 )]
-#[serde(rename_all = "camelCase")]
-pub struct ProblemSpec {
-    #[serde(default, flatten)]
-    pub metadata: GraphMetadata,
+#[schemars(bound = "M: Default + JsonSchema")]
+#[serde(
+    rename_all = "camelCase",
+    bound = "M: Default + Serialize + DeserializeOwned"
+)]
+pub struct ProblemSpec<M = GraphMetadataRaw> {
+    #[serde(default)]
+    pub metadata: M,
 
-    #[serde(default = "ProblemSpec::default_verbose")]
+    #[serde(default = "ProblemSpec::<M>::default_verbose")]
     pub verbose: bool,
 }
 
-impl Default for ProblemSpec {
+impl<M> Default for ProblemSpec<M>
+where
+    M: Default,
+{
     fn default() -> Self {
         Self {
-            metadata: GraphMetadata::default(),
+            metadata: M::default(),
             verbose: Self::default_verbose(),
         }
     }
 }
 
-impl ProblemSpec {
+impl<M> ProblemSpec<M> {
     pub const MAX_CAPACITY: u64 = u64::MAX >> 32;
 
     const fn default_verbose() -> bool {

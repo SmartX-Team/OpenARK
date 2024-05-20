@@ -9,10 +9,7 @@ use pl::{
     series::Series,
 };
 
-use crate::{
-    graph::{GraphDataType, GraphEdges, GraphMetadata},
-    problem::r#virtual::VirtualProblem,
-};
+use crate::graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt};
 
 impl From<DataFrame> for super::LazyFrame {
     fn from(df: DataFrame) -> Self {
@@ -43,28 +40,23 @@ impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
     }
 }
 
-pub(super) fn cast(
-    df: LazyFrame,
-    ty: GraphDataType,
-    origin: &GraphMetadata,
-    problem: &VirtualProblem,
-) -> LazyFrame {
-    // TODO: implement advanced converter
-    let from = origin;
-    let to = &problem.spec.metadata;
-
+pub(super) fn cast<MF, MT>(df: LazyFrame, ty: GraphDataType, from: &MF, to: &MT) -> LazyFrame
+where
+    MF: GraphMetadataPinnedExt,
+    MT: GraphMetadataPinnedExt,
+{
     let exprs: &[dsl::Expr] = match ty {
         GraphDataType::Edge => &[
-            dsl::col(&from.src).alias(&to.src),
-            dsl::col(&from.sink).alias(&to.sink),
-            dsl::col(&from.capacity).alias(&to.capacity),
-            dsl::col(&from.unit_cost).alias(&to.unit_cost),
+            dsl::col(&from.src()).alias(&to.src()),
+            dsl::col(&from.sink()).alias(&to.sink()),
+            dsl::col(&from.capacity()).alias(&to.capacity()),
+            dsl::col(&from.unit_cost()).alias(&to.unit_cost()),
         ],
         GraphDataType::Node => &[
-            dsl::col(&from.name).alias(&to.name),
-            dsl::col(&from.capacity).alias(&to.capacity),
-            dsl::col(&from.supply).alias(&to.supply),
-            dsl::col(&from.unit_cost).alias(&to.unit_cost),
+            dsl::col(&from.name()).alias(&to.name()),
+            dsl::col(&from.capacity()).alias(&to.capacity()),
+            dsl::col(&from.supply()).alias(&to.supply()),
+            dsl::col(&from.unit_cost()).alias(&to.unit_cost()),
         ],
     };
 

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -5,38 +7,32 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkQuery {
-    #[serde(default, rename = "le")]
-    pub interval_ms: NetworkQueryNodeValue,
-    pub query: String,
+pub struct NetworkQuery<M = NetworkQueryMetadata> {
     #[serde(flatten)]
-    pub r#type: NetworkQueryType,
+    pub metadata: M,
+    pub query: String,
 }
 
 impl NetworkQuery {
     pub const fn name(&self) -> &'static str {
-        match &self.r#type {
-            NetworkQueryType::Edge { .. } => "edge",
-            NetworkQueryType::Node { .. } => "node",
-        }
+        self.metadata.name()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum NetworkQueryType {
-    Edge {
-        #[serde(default)]
-        link: NetworkQueryNodeType,
-        #[serde(default)]
-        sink: NetworkQueryNodeType,
-        #[serde(default)]
-        src: NetworkQueryNodeType,
-    },
-    Node {
-        #[serde(default)]
-        node: NetworkQueryNodeType,
-    },
+pub enum NetworkQueryMetadata {
+    Edge(#[serde(default)] NetworkQueryEdgeMetadata),
+    Node(#[serde(default)] NetworkQueryNodeMetadata),
+}
+
+impl NetworkQueryMetadata {
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Self::Edge(_) => "edge",
+            Self::Node(_) => "node",
+        }
+    }
 }
 
 mod impl_json_schema_for_network_query_type {
@@ -46,7 +42,7 @@ mod impl_json_schema_for_network_query_type {
 
     #[allow(dead_code)]
     #[derive(JsonSchema)]
-    enum NetworkQueryTypeRef {
+    enum NetworkQueryMetadataRef {
         Edge,
         Node,
     }
@@ -54,37 +50,43 @@ mod impl_json_schema_for_network_query_type {
     #[allow(dead_code)]
     #[derive(JsonSchema)]
     #[serde(rename_all = "camelCase")]
-    struct NetworkQueryType {
+    struct NetworkQueryMetadata {
         #[serde(default)]
-        link: super::NetworkQueryNodeType,
+        capacity: super::NetworkQueryValue,
+        #[serde(default, rename = "le")]
+        interval_ms: super::NetworkQueryValue,
         #[serde(default)]
-        node: super::NetworkQueryNodeType,
+        name: super::NetworkQueryValue,
         #[serde(default)]
-        sink: super::NetworkQueryNodeType,
+        sink: super::NetworkQueryValue,
         #[serde(default)]
-        src: super::NetworkQueryNodeType,
-        r#type: NetworkQueryTypeRef,
+        src: super::NetworkQueryValue,
+        #[serde(default)]
+        supply: super::NetworkQueryValue,
+        r#type: NetworkQueryMetadataRef,
+        #[serde(default)]
+        unit_cost: super::NetworkQueryValue,
     }
 
-    impl JsonSchema for super::NetworkQueryType {
+    impl JsonSchema for super::NetworkQueryMetadata {
         #[inline]
         fn is_referenceable() -> bool {
-            <NetworkQueryType as JsonSchema>::is_referenceable()
+            <NetworkQueryMetadata as JsonSchema>::is_referenceable()
         }
 
         #[inline]
         fn schema_name() -> String {
-            <NetworkQueryType as JsonSchema>::schema_name()
+            <NetworkQueryMetadata as JsonSchema>::schema_name()
         }
 
         #[inline]
         fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-            <NetworkQueryType as JsonSchema>::json_schema(gen)
+            <NetworkQueryMetadata as JsonSchema>::json_schema(gen)
         }
 
         #[inline]
         fn schema_id() -> Cow<'static, str> {
-            <NetworkQueryType as JsonSchema>::schema_id()
+            <NetworkQueryMetadata as JsonSchema>::schema_id()
         }
     }
 }
@@ -93,35 +95,52 @@ mod impl_json_schema_for_network_query_type {
     Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkQueryNodeType {
+pub struct NetworkQueryEdgeMetadata {
+    #[serde(default, flatten)]
+    pub extras: BTreeMap<String, NetworkQueryValue>,
+    #[serde(default, rename = "le")]
+    pub interval_ms: NetworkQueryValue,
     #[serde(default)]
-    pub name: NetworkQueryNodeValue,
+    pub sink: NetworkQueryValue,
     #[serde(default)]
-    pub namespace: NetworkQueryNodeValue,
+    pub src: NetworkQueryValue,
+}
+
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkQueryNodeMetadata {
+    #[serde(default, flatten)]
+    pub extras: BTreeMap<String, NetworkQueryValue>,
+    #[serde(default, rename = "le")]
+    pub interval_ms: NetworkQueryValue,
+    #[serde(default)]
+    pub name: NetworkQueryValue,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
-pub enum NetworkQueryNodeValue {
+pub enum NetworkQueryValue {
     Key(String),
     Static(#[serde(default, skip_serializing_if = "Option::is_none")] Option<String>),
 }
 
-impl Default for NetworkQueryNodeValue {
+impl Default for NetworkQueryValue {
     #[inline]
     fn default() -> Self {
         Self::Static(None)
     }
 }
 
-mod impl_json_schema_for_network_query_node_value {
+mod impl_json_schema_for_network_query_value {
     use std::borrow::Cow;
 
     use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 
     #[allow(dead_code)]
     #[derive(Default, JsonSchema)]
-    enum NetworkQueryNodeValueRef {
+    enum NetworkQueryValueRef {
         Key,
         #[default]
         Static,
@@ -130,32 +149,32 @@ mod impl_json_schema_for_network_query_node_value {
     #[allow(dead_code)]
     #[derive(JsonSchema)]
     #[serde(rename_all = "camelCase")]
-    struct NetworkQueryNodeValue {
+    struct NetworkQueryValue {
         #[serde(default)]
-        r#type: NetworkQueryNodeValueRef,
+        r#type: NetworkQueryValueRef,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         value: Option<String>,
     }
 
-    impl JsonSchema for super::NetworkQueryNodeValue {
+    impl JsonSchema for super::NetworkQueryValue {
         #[inline]
         fn is_referenceable() -> bool {
-            <NetworkQueryNodeValue as JsonSchema>::is_referenceable()
+            <NetworkQueryValue as JsonSchema>::is_referenceable()
         }
 
         #[inline]
         fn schema_name() -> String {
-            <NetworkQueryNodeValue as JsonSchema>::schema_name()
+            <NetworkQueryValue as JsonSchema>::schema_name()
         }
 
         #[inline]
         fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-            <NetworkQueryNodeValue as JsonSchema>::json_schema(gen)
+            <NetworkQueryValue as JsonSchema>::json_schema(gen)
         }
 
         #[inline]
         fn schema_id() -> Cow<'static, str> {
-            <NetworkQueryNodeValue as JsonSchema>::schema_id()
+            <NetworkQueryValue as JsonSchema>::schema_id()
         }
     }
 }

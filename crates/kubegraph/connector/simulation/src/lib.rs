@@ -6,18 +6,18 @@ use futures::{stream::iter, StreamExt};
 use kube::ResourceExt;
 use kubegraph_api::{
     connector::{
-        simulation::NetworkConnectorSimulationSpec, NetworkConnectorCrd,
-        NetworkConnectorSourceType, NetworkConnectorSpec,
+        simulation::NetworkConnectorSimulationSpec, NetworkConnectorCrd, NetworkConnectorKind,
+        NetworkConnectorSpec, NetworkConnectorType,
     },
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphScope},
+    graph::{Graph, GraphData, GraphMetadata, GraphScope},
 };
 use polars::{
     io::{csv::CsvReader, SerReader},
     lazy::frame::IntoLazy,
 };
 use tokio::fs;
-use tracing::{instrument, warn, Level};
+use tracing::{info, instrument, warn, Level};
 
 #[derive(Default)]
 pub struct NetworkConnector {}
@@ -25,8 +25,8 @@ pub struct NetworkConnector {}
 #[async_trait]
 impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     #[inline]
-    fn connection_type(&self) -> NetworkConnectorSourceType {
-        NetworkConnectorSourceType::Simulation
+    fn connector_type(&self) -> NetworkConnectorType {
+        NetworkConnectorType::Simulation
     }
 
     #[inline]
@@ -44,10 +44,15 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
                 namespace: crd.namespace()?,
                 name: crd.name_any(),
             };
-            match crd.spec {
-                NetworkConnectorSpec::Simulation(spec) => {
-                    Some(NetworkConnectorItem { scope, spec })
-                }
+            let NetworkConnectorSpec { metadata, kind } = crd.spec;
+            let metadata = GraphMetadata::Raw(metadata);
+
+            match kind {
+                NetworkConnectorKind::Simulation(spec) => Some(NetworkConnectorItem {
+                    metadata,
+                    scope,
+                    spec,
+                }),
                 _ => None,
             }
         });
@@ -57,7 +62,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             match item.load_graph_data().await {
                 Ok(data) => Some(data),
                 Err(error) => {
-                    warn!("failed to load simulation templates ({namespace}/{name}): {error}");
+                    warn!("failed to load simulation connector ({namespace}/{name}): {error}");
                     None
                 }
             }
@@ -69,6 +74,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 
 #[derive(Clone, Debug)]
 struct NetworkConnectorItem {
+    metadata: GraphMetadata,
     scope: GraphScope,
     spec: NetworkConnectorSimulationSpec,
 }
@@ -77,15 +83,18 @@ impl NetworkConnectorItem {
     #[instrument(level = Level::INFO, skip(self))]
     async fn load_graph_data(self) -> Result<Graph<LazyFrame>> {
         let Self {
+            metadata,
             scope,
             spec:
                 NetworkConnectorSimulationSpec {
-                    metadata,
                     path: base_dir,
                     key_edges,
                     key_nodes,
                 },
         } = self;
+
+        let GraphScope { namespace, name } = &scope;
+        info!("Loading simulation connector: {namespace}/{name}");
 
         Ok(Graph {
             data: GraphData {

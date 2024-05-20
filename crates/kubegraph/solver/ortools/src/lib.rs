@@ -6,7 +6,11 @@ mod polars;
 
 use anyhow::{bail, Result};
 use async_trait::async_trait;
-use kubegraph_api::{frame::LazyFrame, graph::GraphData, problem::ProblemSpec};
+use kubegraph_api::{
+    frame::LazyFrame,
+    graph::{GraphData, GraphMetadataStandard},
+    problem::ProblemSpec,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct NetworkSolver {}
@@ -18,7 +22,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for NetworkSol
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec,
+        problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<Self::Output> {
         match graph {
             GraphData {

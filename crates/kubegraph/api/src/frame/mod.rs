@@ -3,6 +3,7 @@ pub mod polars;
 
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
+use ::polars::datatypes::DataType;
 use anyhow::{bail, Result};
 #[cfg(feature = "df-polars")]
 use pl::lazy::dsl;
@@ -10,9 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     function::FunctionMetadata,
-    graph::{GraphDataType, GraphMetadata},
+    graph::{GraphDataType, GraphMetadataPinnedExt},
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    problem::{r#virtual::VirtualProblem, ProblemSpec},
+    problem::ProblemSpec,
     vm::{Feature, Number},
 };
 
@@ -22,6 +23,38 @@ pub enum DataFrame {
     Empty,
     #[cfg(feature = "df-polars")]
     Polars(::pl::frame::DataFrame),
+}
+
+impl DataFrame {
+    pub fn drop_null_columns(self) -> Self {
+        match self {
+            Self::Empty => Self::Empty,
+            #[cfg(feature = "df-polars")]
+            Self::Polars(df) => {
+                let null_columns: Vec<_> = df
+                    .get_columns()
+                    .iter()
+                    .filter(|column| column.dtype() == &DataType::Null)
+                    .map(|column| column.name().to_string())
+                    .collect();
+
+                let df_filtered = if !null_columns.is_empty() {
+                    df.drop_many(&null_columns)
+                } else {
+                    df
+                };
+                Self::Polars(df_filtered)
+            }
+        }
+    }
+
+    pub fn lazy(self) -> LazyFrame {
+        match self {
+            Self::Empty => LazyFrame::Empty,
+            #[cfg(feature = "df-polars")]
+            Self::Polars(df) => LazyFrame::Polars(::pl::lazy::frame::IntoLazy::lazy(df)),
+        }
+    }
 }
 
 pub trait IntoLazyFrame
@@ -59,11 +92,15 @@ impl LazyFrame {
         }
     }
 
-    pub fn cast(self, ty: GraphDataType, origin: &GraphMetadata, problem: &VirtualProblem) -> Self {
+    pub fn cast<MF, MT>(self, ty: GraphDataType, from: &MF, to: &MT) -> Self
+    where
+        MF: GraphMetadataPinnedExt,
+        MT: GraphMetadataPinnedExt,
+    {
         match self {
             Self::Empty => Self::Empty,
             #[cfg(feature = "df-polars")]
-            Self::Polars(df) => Self::Polars(self::polars::cast(df, ty, origin, problem)),
+            Self::Polars(df) => Self::Polars(self::polars::cast(df, ty, from, to)),
         }
     }
 
@@ -87,28 +124,13 @@ impl LazyFrame {
         }
     }
 
-    pub fn get_column(&self, name: &str) -> Result<LazySlice> {
-        match self {
-            Self::Empty => bail!("cannot get column from empty lazyframe"),
-            #[cfg(feature = "df-polars")]
-            Self::Polars(_) => Ok(LazySlice::Polars(dsl::col(name))),
-        }
-    }
-
     /// Create a fully-connected edges
-    pub fn fabric(&self, problem: &ProblemSpec) -> Result<Self> {
+    pub fn fabric<M>(&self, problem: &ProblemSpec<M>) -> Result<Self>
+    where
+        M: GraphMetadataPinnedExt,
+    {
         let ProblemSpec {
-            metadata:
-                GraphMetadata {
-                    capacity,
-                    flow: _,
-                    function: _,
-                    name,
-                    sink,
-                    src,
-                    supply: _,
-                    unit_cost: _,
-                },
+            metadata,
             verbose: _,
         } = problem;
 
@@ -131,10 +153,24 @@ impl LazyFrame {
             Self::Empty => bail!("cannot get fabric from empty lazyframe"),
             #[cfg(feature = "df-polars")]
             Self::Polars(nodes) => Ok(Self::Polars(
-                select_polars_edge_side(&nodes, name, src)
-                    .cross_join(select_polars_edge_side(&nodes, name, sink))
-                    .with_column(dsl::lit(ProblemSpec::MAX_CAPACITY).alias(capacity.as_ref())),
+                select_polars_edge_side(&nodes, metadata.name(), metadata.src())
+                    .cross_join(select_polars_edge_side(
+                        &nodes,
+                        metadata.name(),
+                        metadata.sink(),
+                    ))
+                    .with_column(
+                        dsl::lit(ProblemSpec::<M>::MAX_CAPACITY).alias(metadata.capacity()),
+                    ),
             )),
+        }
+    }
+
+    pub fn get_column(&self, name: &str) -> Result<LazySlice> {
+        match self {
+            Self::Empty => bail!("cannot get column from empty lazyframe"),
+            #[cfg(feature = "df-polars")]
+            Self::Polars(_) => Ok(LazySlice::Polars(dsl::col(name))),
         }
     }
 
@@ -146,17 +182,6 @@ impl LazyFrame {
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
                 *df = df.clone().with_column(dsl::lit(name.as_str()).alias(key));
-                Ok(())
-            }
-        }
-    }
-
-    pub fn insert_column(&mut self, name: &str, column: LazySlice) -> Result<()> {
-        match (self, column) {
-            (Self::Empty, _) => bail!("cannot fill column into empty lazyframe: {name:?}"),
-            #[cfg(feature = "df-polars")]
-            (Self::Polars(df), LazySlice::Polars(column)) => {
-                *df = df.clone().with_column(column.alias(name));
                 Ok(())
             }
         }
@@ -190,6 +215,17 @@ impl LazyFrame {
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
                 *df = df.clone().with_column(value.into_polars().alias(name));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn insert_column(&mut self, name: &str, column: LazySlice) -> Result<()> {
+        match (self, column) {
+            (Self::Empty, _) => bail!("cannot fill column into empty lazyframe: {name:?}"),
+            #[cfg(feature = "df-polars")]
+            (Self::Polars(df), LazySlice::Polars(column)) => {
+                *df = df.clone().with_column(column.alias(name));
                 Ok(())
             }
         }

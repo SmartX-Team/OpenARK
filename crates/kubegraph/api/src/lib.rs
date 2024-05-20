@@ -8,6 +8,7 @@ pub mod graph;
 pub mod ops;
 pub mod problem;
 pub mod query;
+pub mod resource;
 pub mod runner;
 pub mod solver;
 pub mod vm;

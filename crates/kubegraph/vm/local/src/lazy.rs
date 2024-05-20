@@ -43,7 +43,7 @@ mod impl_call {
     use kubegraph_api::{
         frame::{IntoLazySlice, LazyFrame, LazySlice},
         function::FunctionMetadata,
-        graph::GraphEdges,
+        graph::{GraphEdges, GraphMetadataPinnedExt},
         ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
         problem::r#virtual::VirtualProblem,
         vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
@@ -59,7 +59,7 @@ mod impl_call {
         ) -> Result<GraphEdges<LazyFrame>> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, filter)
-                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function, function))
+                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), function))
         }
 
         pub(crate) fn call_filter(

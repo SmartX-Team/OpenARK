@@ -1,6 +1,6 @@
 extern crate polars as pl;
 
-use kubegraph_api::{graph::GraphData, problem::ProblemSpec, solver::LocalSolver};
+use kubegraph_api::{graph::GraphData, problem::ProblemSpec, solver::NetworkSolver as _};
 use kubegraph_solver_ortools::NetworkSolver;
 use pl::{
     df,
@@ -8,8 +8,8 @@ use pl::{
     lazy::{dsl, frame::IntoLazy},
 };
 
-#[test]
-fn solver_simple() {
+#[::tokio::test]
+async fn solver_simple() {
     // Step 1. Define edges
     let edges = df!(
         "src"       => [  0],
@@ -42,7 +42,8 @@ fn solver_simple() {
 
     // Step 6. Optimize the graph
     let optimized_graph: GraphData<DataFrame> = solver
-        .step(graph, problem)
+        .solve(graph, &problem)
+        .await
         .expect("failed to optimize the graph")
         .try_into()
         .expect("failed to collect graph");

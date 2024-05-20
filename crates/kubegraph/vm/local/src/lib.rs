@@ -1,10 +1,10 @@
 #[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
-mod connector;
 mod function;
 mod graph;
 mod lazy;
+mod resource;
 mod runner;
 mod solver;
 mod virtual_problem;
@@ -15,7 +15,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use kube::ResourceExt;
 use kubegraph_api::{
-    connector::NetworkConnectorDB, frame::LazyFrame, function::FunctionMetadata, graph::GraphEdges,
+    frame::LazyFrame,
+    function::{FunctionMetadata, NetworkFunctionDB},
+    graph::GraphEdges,
     problem::r#virtual::VirtualProblem,
 };
 use tokio::sync::Mutex;
@@ -25,9 +27,9 @@ use crate::function::NetworkFunctionExt;
 
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
-    connector_db: self::connector::NetworkConnectorDB,
-    connector_worker: Arc<Mutex<Option<self::connector::NetworkConnectorWorker>>>,
     graph_db: self::graph::NetworkGraphDB,
+    resource_db: self::resource::NetworkResourceDB,
+    resource_worker: Arc<Mutex<Option<self::resource::NetworkResourceWorker>>>,
     runner: self::runner::NetworkRunner,
     solver: self::solver::NetworkSolver,
     virtual_problem: self::virtual_problem::NetworkVirtualProblem,
@@ -37,33 +39,33 @@ impl NetworkVirtualMachine {
     pub async fn try_default() -> Result<Self> {
         // Step 1. Initialize components
         let vm = Self {
-            connector_db: self::connector::NetworkConnectorDB::default(),
-            connector_worker: Arc::new(Mutex::new(None)),
             graph_db: self::graph::NetworkGraphDB::try_default().await?,
+            resource_db: self::resource::NetworkResourceDB::default(),
+            resource_worker: Arc::new(Mutex::new(None)),
             runner: self::runner::NetworkRunner::try_default().await?,
             solver: self::solver::NetworkSolver::try_default().await?,
             virtual_problem: self::virtual_problem::NetworkVirtualProblem::try_default().await?,
         };
 
         // Step 2. Spawn workers
-        vm.connector_worker
+        vm.resource_worker
             .lock()
             .await
-            .replace(self::connector::NetworkConnectorWorker::spawn(&vm));
+            .replace(self::resource::NetworkResourceWorker::spawn(&vm));
         Ok(vm)
     }
 }
 
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
-    type ConnectorDB = self::connector::NetworkConnectorDB;
+    type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
     type Solver = self::solver::NetworkSolver;
     type VirtualProblem = self::virtual_problem::NetworkVirtualProblem;
 
-    fn connector_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::ConnectorDB {
-        &self.connector_db
+    fn resource_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::ResourceDB {
+        &self.resource_db
     }
 
     fn graph_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::GraphDB {
@@ -96,9 +98,8 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         nodes: LazyFrame,
     ) -> Result<Option<GraphEdges<LazyFrame>>> {
         // Step 1. Collect all functions
-        let functions = self.connector_db.list_functions().await;
+        let functions = self.resource_db.list_functions().await;
         if functions.is_empty() {
-            dbg!("123123");
             return Ok(None);
         }
 
@@ -140,7 +141,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn close_workers(&self) -> Result<()> {
-        if let Some(worker) = self.connector_worker.lock().await.as_ref() {
+        if let Some(worker) = self.resource_worker.lock().await.as_ref() {
             worker.abort();
         }
         Ok(())
@@ -254,6 +255,7 @@ mod tests {
                 "capacity"  => [ 300i64,  300i64],
                 "supply"    => [   0i64,  300i64],
                 "unit_cost" => [   5i64,    1i64],
+                "warehouse" => [   true,    true],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
@@ -336,7 +338,7 @@ mod tests {
                 },
             },
         };
-        vm.connector_db.insert_function(function).await;
+        vm.resource_db.insert_function(function).await;
 
         // Step 5. Add cost & value function (heuristic)
         let problem = VirtualProblem {
@@ -387,6 +389,7 @@ mod tests {
                 "capacity"  => [ 300i64,  300i64],
                 "supply"    => [ 150i64,  150i64],
                 "unit_cost" => [   5i64,    1i64],
+                "warehouse" => [   true,    true],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );

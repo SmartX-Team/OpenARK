@@ -1,9 +1,21 @@
 #[cfg(feature = "function-dummy")]
 pub mod dummy;
 
+use async_trait::async_trait;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::graph::GraphScope;
+
+#[async_trait]
+pub trait NetworkFunctionDB {
+    async fn delete_function(&self, key: &GraphScope);
+
+    async fn insert_function(&self, object: NetworkFunctionCrd);
+
+    async fn list_functions(&self) -> Vec<NetworkFunctionCrd>;
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(

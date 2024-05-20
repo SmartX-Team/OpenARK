@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use clap::Parser;
-use itertools::Itertools;
-use kubegraph_api::graph::{NetworkEntry, NetworkEntryKey, NetworkEntryKeyFilter, NetworkEntryMap};
+use kubegraph_api::{
+    frame::{DataFrame, LazyFrame},
+    graph::{Graph, GraphFilter, GraphScope},
+};
 use serde::{Deserialize, Serialize};
-use sled::{Batch, Config, Db};
+use sled::{Config, Db};
 use tracing::{info, instrument, Level};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
@@ -53,57 +55,51 @@ impl NetworkGraphDB {
 }
 
 #[async_trait]
-impl ::kubegraph_api::db::NetworkGraphDB for NetworkGraphDB {
-    #[instrument(level = Level::INFO, skip(self, entries))]
-    async fn add_entries(
-        &self,
-        entries: impl Send + IntoIterator<Item = NetworkEntry>,
-    ) -> Result<()> {
-        let mut batch = Batch::default();
-
-        entries
-            .into_iter()
-            .filter_map(|NetworkEntry { key, value }| {
-                let key = ::serde_json::to_vec(&key).ok()?;
-                let value = ::serde_json::to_vec(&value).ok()?;
-                Some((key, value))
-            })
-            .for_each(|(key, value)| {
-                batch.insert(key, value);
-            });
+impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>> {
+        let key = ::serde_json::to_vec(scope)?;
 
         self.db
-            .apply_batch(batch)
-            .map_err(|error| anyhow!("failed to write edges into local db: {error}"))
+            .get(&key)
+            .map_err(|error| anyhow!("failed to get a graph from local db: {error}"))
+            .and_then(|maybe_graph| {
+                maybe_graph
+                    .map(|graph| {
+                        ::serde_json::from_slice::<Graph<DataFrame>>(&graph)
+                            .map_err(Into::into)
+                            .map(|graph| graph.lazy())
+                    })
+                    .transpose()
+            })
+    }
+
+    #[instrument(level = Level::INFO, skip(self, graph))]
+    async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()> {
+        let graph = graph.collect().await?;
+        let key = ::serde_json::to_vec(&graph.scope)?;
+        let value = ::serde_json::to_vec(&graph)?;
+
+        self.db
+            .insert(key, value)
+            .map(|_| ())
+            .map_err(|error| anyhow!("failed to insert graph into local db: {error}"))
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn get_entries(&self, filter: Option<&NetworkEntryKeyFilter>) -> NetworkEntryMap {
-        self.db
+    async fn list(&self, filter: Option<&GraphFilter>) -> Result<Vec<Graph<LazyFrame>>> {
+        Ok(self
+            .db
             .iter()
             .filter_map(|result| result.ok())
             .filter_map(|(key, value)| {
                 let key = ::serde_json::from_slice(&key).ok()?;
-                let value = ::serde_json::from_slice(&value).ok()?;
+                let value = ::serde_json::from_slice::<Graph<DataFrame>>(&value).ok()?;
                 Some((key, value))
             })
             .filter(|(key, _)| filter.map(|filter| filter.contains(key)).unwrap_or(true))
-            .map(|(key, value)| NetworkEntry { key, value })
-            .fold(NetworkEntryMap::default(), |mut map, entry| {
-                map.push(entry);
-                map
-            })
-    }
-
-    #[instrument(level = Level::INFO, skip(self))]
-    async fn get_namespaces(&self) -> Vec<String> {
-        self.db
-            .iter()
-            .filter_map(|result| result.ok())
-            .filter_map(|(key, _)| ::serde_json::from_slice::<NetworkEntryKey>(&key).ok())
-            .map(|key| key.namespace().into())
-            .unique()
-            .collect()
+            .map(|(_, value)| value.lazy())
+            .collect())
     }
 
     #[instrument(level = Level::INFO, skip(self))]

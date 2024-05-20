@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kubegraph_api::{
     frame::LazyFrame,
-    graph::{GraphData, ScopedNetworkGraphDB},
+    graph::{GraphData, GraphMetadataStandard, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 
@@ -28,7 +28,7 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for NetworkRun
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec,
+        problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<()> {
         let tasks = vec![
             #[cfg(feature = "runner-simulator")]

@@ -32,10 +32,7 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = [
-    # "connector-prometheus",  # FIXME: use this if simulation is built
-    "connector-simulation",
-]
+connector-full = ["connector-prometheus", "connector-simulation"]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
     "kubegraph-connector-prometheus",
@@ -99,3 +96,5 @@ tracing = { workspace = true }
 [dev-dependencies]
 kubegraph-runner-simulator = { path = "../../runner/simulator" }
 kubegraph-solver-ortools = { path = "../../solver/ortools" }
+
+tokio = { workspace = true, features = ["full"] }

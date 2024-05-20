@@ -71,7 +71,7 @@ async fn handle_apply(
     let r#type = object.spec.name();
 
     info!("Applying {type} connector: {namespace}/{name}");
-    vm.connector_db().insert_connector(object).await;
+    vm.resource_db().insert_connector(object).await;
     Ok(())
 }
 
@@ -86,6 +86,6 @@ async fn handle_delete(
 
     info!("Deleting {type} connector: {namespace}/{name}");
     let scope = GraphScope { namespace, name };
-    vm.connector_db().delete_connector(&scope).await;
+    vm.resource_db().delete_connector(&scope).await;
     Ok(())
 }

@@ -14,8 +14,7 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     frame::LazyFrame,
-    function::NetworkFunctionCrd,
-    graph::{Graph, GraphScope, NetworkGraphDB},
+    graph::{Graph, GraphMetadataRaw, GraphScope, NetworkGraphDB},
     vm::NetworkVirtualMachine,
 };
 
@@ -23,23 +22,17 @@ use crate::{
 pub trait NetworkConnectorDB {
     async fn delete_connector(&self, key: &GraphScope);
 
-    async fn delete_function(&self, key: &GraphScope);
-
     async fn insert_connector(&self, object: NetworkConnectorCrd);
-
-    async fn insert_function(&self, object: NetworkFunctionCrd);
 
     async fn list_connectors(
         &self,
-        r#type: NetworkConnectorSourceType,
+        r#type: NetworkConnectorType,
     ) -> Option<Vec<NetworkConnectorCrd>>;
-
-    async fn list_functions(&self) -> Vec<NetworkFunctionCrd>;
 }
 
 #[async_trait]
 pub trait NetworkConnector {
-    fn connection_type(&self) -> NetworkConnectorSourceType;
+    fn connector_type(&self) -> NetworkConnectorType;
 
     fn name(&self) -> &str;
 
@@ -48,14 +41,15 @@ pub trait NetworkConnector {
     where
         Self: Sized,
     {
-        let interval = vm.interval();
+        let name = self.name();
+        info!("Starting {name} connector...");
 
         loop {
             let instant = Instant::now();
 
             if let Some(connectors) = vm
-                .connector_db()
-                .list_connectors(self.connection_type())
+                .resource_db()
+                .list_connectors(self.connector_type())
                 .await
             {
                 let name = self.name();
@@ -81,8 +75,8 @@ pub trait NetworkConnector {
                 }
             }
 
-            let elapsed = instant.elapsed();
-            if let Some(interval) = interval {
+            if let Some(interval) = vm.interval() {
+                let elapsed = instant.elapsed();
                 if elapsed < interval {
                     sleep(interval - elapsed).await;
                 }
@@ -115,41 +109,67 @@ pub trait NetworkConnector {
         "jsonPath": ".metadata.generation"
     }"#
 )]
+#[schemars(bound = "M: Default + JsonSchema")]
 #[serde(rename_all = "camelCase")]
+pub struct NetworkConnectorSpec<M = GraphMetadataRaw> {
+    #[serde(default)]
+    pub metadata: M,
+    #[serde(flatten)]
+    pub kind: NetworkConnectorKind,
+}
+
+impl<M> NetworkConnectorSpec<M> {
+    pub fn name(&self) -> String {
+        self.kind.name()
+    }
+
+    pub const fn to_ref(&self) -> NetworkConnectorType {
+        self.kind.to_ref()
+    }
+}
+
+impl<M> PartialEq<NetworkConnectorType> for NetworkConnectorSpec<M> {
+    fn eq(&self, other: &NetworkConnectorType) -> bool {
+        self.to_ref() == *other
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[non_exhaustive]
-pub enum NetworkConnectorSpec {
+#[serde(rename_all = "camelCase")]
+pub enum NetworkConnectorKind {
     #[cfg(feature = "connector-prometheus")]
     Prometheus(self::prometheus::NetworkConnectorPrometheusSpec),
     #[cfg(feature = "connector-simulation")]
     Simulation(self::simulation::NetworkConnectorSimulationSpec),
 }
 
-impl NetworkConnectorSpec {
-    pub fn name(&self) -> String {
+impl NetworkConnectorKind {
+    fn name(&self) -> String {
         match self {
             #[cfg(feature = "connector-prometheus")]
             Self::Prometheus(spec) => format!(
                 "{type}/{spec}",
-                type = NetworkConnectorSourceType::Prometheus.name(),
+                type = NetworkConnectorType::Prometheus.name(),
                 spec = spec.name(),
             ),
             #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorSourceType::Simulation.name().into(),
+            Self::Simulation(_) => NetworkConnectorType::Simulation.name().into(),
         }
     }
 
-    pub const fn to_ref(&self) -> NetworkConnectorSourceType {
+    const fn to_ref(&self) -> NetworkConnectorType {
         match self {
             #[cfg(feature = "connector-prometheus")]
-            Self::Prometheus(_) => NetworkConnectorSourceType::Prometheus,
+            Self::Prometheus(_) => NetworkConnectorType::Prometheus,
             #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorSourceType::Simulation,
+            Self::Simulation(_) => NetworkConnectorType::Simulation,
         }
     }
 }
 
-impl PartialEq<NetworkConnectorSourceType> for NetworkConnectorSpec {
-    fn eq(&self, other: &NetworkConnectorSourceType) -> bool {
+impl PartialEq<NetworkConnectorType> for NetworkConnectorKind {
+    fn eq(&self, other: &NetworkConnectorType) -> bool {
         self.to_ref() == *other
     }
 }
@@ -159,14 +179,14 @@ impl PartialEq<NetworkConnectorSourceType> for NetworkConnectorSpec {
 )]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub enum NetworkConnectorSourceType {
+pub enum NetworkConnectorType {
     #[cfg(feature = "connector-prometheus")]
     Prometheus,
     #[cfg(feature = "connector-simulation")]
     Simulation,
 }
 
-impl NetworkConnectorSourceType {
+impl NetworkConnectorType {
     pub const fn name(&self) -> &'static str {
         match self {
             #[cfg(feature = "connector-prometheus")]

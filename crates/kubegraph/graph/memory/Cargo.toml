@@ -20,7 +20,6 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dash-query-provider = { path = "../../../dash/query/provider" }
 kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }

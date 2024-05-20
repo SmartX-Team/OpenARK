@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
-    graph::{GraphData, GraphMetadata, ScopedNetworkGraphDB},
+    graph::{GraphData, GraphMetadataPinnedExt, GraphMetadataStandard, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 use pl::lazy::{
@@ -17,22 +17,17 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for super::Net
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec,
+        problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<()> {
         let ProblemSpec {
             metadata,
             verbose: _,
         } = problem;
-        let GraphMetadata {
-            capacity: _,
-            flow: key_flow,
-            function: _,
-            src: key_src,
-            sink: key_sink,
-            name: key_name,
-            supply: key_supply,
-            unit_cost: _,
-        } = &metadata;
+        let key_flow = metadata.flow();
+        let key_name = metadata.name();
+        let key_src = metadata.src();
+        let key_sink = metadata.sink();
+        let key_supply = metadata.supply();
 
         // Step 1. Collect graph data
         let GraphData { edges, nodes } = graph;

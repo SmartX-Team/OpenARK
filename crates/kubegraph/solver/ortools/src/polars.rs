@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::polars::{find_indices, get_column},
-    graph::{GraphData, GraphMetadata},
+    graph::{GraphData, GraphMetadataPinnedExt, GraphMetadataStandard},
     problem::ProblemSpec,
 };
 use or_tools::graph::{
@@ -23,7 +23,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::Net
     async fn solve(
         &self,
         graph: GraphData<DataFrame>,
-        problem: &ProblemSpec,
+        problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<Self::Output> {
         ::kubegraph_api::solver::NetworkSolver::<GraphData<LazyFrame>>::solve(
             self,
@@ -41,22 +41,16 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::Net
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec,
+        problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<Self::Output> {
-        let ProblemSpec {
-            metadata:
-                GraphMetadata {
-                    capacity: key_capacity,
-                    flow: key_flow,
-                    function: _,
-                    name: key_name,
-                    sink: key_sink,
-                    src: key_src,
-                    supply: key_supply,
-                    unit_cost: key_unit_cost,
-                },
-            verbose,
-        } = problem;
+        let ProblemSpec { metadata, verbose } = problem;
+        let key_capacity = metadata.capacity();
+        let key_flow = metadata.flow();
+        let key_name = metadata.name();
+        let key_sink = metadata.sink();
+        let key_src = metadata.src();
+        let key_supply = metadata.supply();
+        let key_unit_cost = metadata.unit_cost();
 
         // Step 1. Collect graph data
         let GraphData {

@@ -6,20 +6,22 @@ use std::{
 
 use anyhow::{bail, Result};
 use async_trait::async_trait;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
 use tracing::{error, instrument, warn, Level};
 
 use crate::{
-    connector::NetworkConnectorDB,
     frame::LazyFrame,
     graph::{
-        GraphData, GraphEdges, GraphFilter, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
+        Graph, GraphData, GraphEdges, GraphFilter, GraphMetadata, GraphMetadataPinnedExt,
+        GraphMetadataStandard, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
         ScopedNetworkGraphDBContainer,
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    problem::r#virtual::{NetworkVirtualProblem, VirtualProblem},
+    problem::r#virtual::{NetworkVirtualProblem, NetworkVirtualProblemExt, VirtualProblem},
+    resource::NetworkResourceDB,
     runner::NetworkRunner,
     solver::NetworkSolver,
 };
@@ -29,15 +31,15 @@ pub trait NetworkVirtualMachine
 where
     Self: Clone + Send + Sync,
 {
-    type ConnectorDB: NetworkConnectorDB;
-    type GraphDB: NetworkGraphDB;
+    type ResourceDB: NetworkResourceDB;
+    type GraphDB: 'static + Send + Clone + NetworkGraphDB;
     type Runner: NetworkRunner<GraphData<LazyFrame>>;
     type Solver: NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
     type VirtualProblem: NetworkVirtualProblem;
 
-    fn connector_db(&self) -> &<Self as NetworkVirtualMachine>::ConnectorDB;
-
     fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB;
+
+    fn resource_db(&self) -> &<Self as NetworkVirtualMachine>::ResourceDB;
 
     fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner;
 
@@ -67,11 +69,10 @@ where
     async fn try_loop_forever(&self) -> Result<()> {
         loop {
             let instant = Instant::now();
-            let interval = self.interval();
 
             self.step().await?;
 
-            if let Some(interval) = interval {
+            if let Some(interval) = self.interval() {
                 let elapsed = instant.elapsed() + Duration::from_micros(500);
                 if elapsed < interval {
                     sleep(interval - elapsed).await;
@@ -92,7 +93,7 @@ where
         // Define-or-Reuse a converged problem
         let problem = self
             .virtual_problem()
-            .inspect(self.connector_db(), scope)
+            .inspect(self.resource_db(), scope)
             .await?;
 
         // Apply it
@@ -109,7 +110,7 @@ where
 
         // Step 2. Infer edges by functions
         let function_edges = self.infer_edges(&problem, nodes.clone()).await?;
-        let static_edges = GraphEdges::from_static(&problem.spec.metadata.function, edges)?;
+        let static_edges = GraphEdges::from_static(&problem.spec.metadata.function(), edges)?;
 
         let edges = match (function_edges, static_edges.clone()) {
             (Some(function_edges), Some(static_edges)) => function_edges.concat(static_edges)?,
@@ -133,7 +134,7 @@ where
         };
         let graph_db_scoped = ScopedNetworkGraphDBContainer {
             inner: self.graph_db(),
-            metadata: &problem.spec.metadata,
+            metadata: &GraphMetadata::Standard(problem.spec.metadata),
             scope: &graph_db_scope,
             static_edges,
         };
@@ -150,7 +151,8 @@ where
             .get_global_namespaced(&problem.scope.namespace)
             .await?
         {
-            return Ok(Some(graph.cast(problem).data));
+            let graph = self.virtual_problem().pin_graph(graph).await?;
+            return Ok(Some(graph.data));
         }
 
         // TODO: filter by virtual problem
@@ -165,8 +167,17 @@ where
 
         graphs
             .into_iter()
-            .map(|graph| graph.cast(problem))
-            .collect::<Result<_>>()
+            .map(|graph| self.virtual_problem().pin_graph(graph))
+            .collect::<FuturesUnordered<_>>()
+            .map_ok(
+                |Graph {
+                     data,
+                     metadata: GraphMetadataStandard {},
+                     scope: _,
+                 }| data,
+            )
+            .try_fold(GraphData::default(), |a, b| async move { a.concat(b) })
+            .await
             .map(Some)
     }
 
@@ -190,18 +201,18 @@ impl<T> NetworkVirtualMachine for Arc<T>
 where
     T: ?Sized + NetworkVirtualMachine,
 {
-    type ConnectorDB = <T as NetworkVirtualMachine>::ConnectorDB;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
+    type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
     type Solver = <T as NetworkVirtualMachine>::Solver;
     type VirtualProblem = <T as NetworkVirtualMachine>::VirtualProblem;
 
-    fn connector_db(&self) -> &<Self as NetworkVirtualMachine>::ConnectorDB {
-        <T as NetworkVirtualMachine>::connector_db(&**self)
-    }
-
     fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB {
         <T as NetworkVirtualMachine>::graph_db(&**self)
+    }
+
+    fn resource_db(&self) -> &<Self as NetworkVirtualMachine>::ResourceDB {
+        <T as NetworkVirtualMachine>::resource_db(&**self)
     }
 
     fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner {

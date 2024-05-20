@@ -28,10 +28,12 @@ connector-full = ["connector-simulation"]
 connector-simulation = []
 
 [dependencies]
-kubegraph-api = { path = "../../api", features = ["connector-prometheus"] }
+kubegraph-api = { path = "../../api", features = ["connector-prometheus", "df-polars"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+kube = { workspace = true }
+polars = { workspace = true }
 prometheus-http-query = { workspace = true }
 tracing = { workspace = true }

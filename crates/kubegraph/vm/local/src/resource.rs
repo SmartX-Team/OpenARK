@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use kube::ResourceExt;
 use kubegraph_api::{
-    connector::{NetworkConnector, NetworkConnectorCrd, NetworkConnectorSourceType},
+    connector::{NetworkConnector, NetworkConnectorCrd, NetworkConnectorType},
     function::NetworkFunctionCrd,
     graph::GraphScope,
     vm::NetworkVirtualMachine,
@@ -13,20 +13,15 @@ use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{instrument, Level};
 
 #[derive(Clone, Default)]
-pub struct NetworkConnectorDB {
+pub struct NetworkResourceDB {
     inner: Arc<Mutex<LocalConnectorDB>>,
 }
 
 #[async_trait]
-impl ::kubegraph_api::connector::NetworkConnectorDB for NetworkConnectorDB {
+impl ::kubegraph_api::connector::NetworkConnectorDB for NetworkResourceDB {
     #[instrument(level = Level::INFO, skip(self))]
     async fn delete_connector(&self, key: &GraphScope) {
         self.inner.lock().await.delete_connector(key)
-    }
-
-    #[instrument(level = Level::INFO, skip(self))]
-    async fn delete_function(&self, key: &GraphScope) {
-        self.inner.lock().await.delete_function(key)
     }
 
     #[instrument(level = Level::INFO, skip(self, object))]
@@ -35,16 +30,24 @@ impl ::kubegraph_api::connector::NetworkConnectorDB for NetworkConnectorDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn insert_function(&self, object: NetworkFunctionCrd) {
-        self.inner.lock().await.insert_function(object)
+    async fn list_connectors(
+        &self,
+        r#type: NetworkConnectorType,
+    ) -> Option<Vec<NetworkConnectorCrd>> {
+        self.inner.lock().await.list_connectors(r#type)
+    }
+}
+
+#[async_trait]
+impl ::kubegraph_api::function::NetworkFunctionDB for NetworkResourceDB {
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn delete_function(&self, key: &GraphScope) {
+        self.inner.lock().await.delete_function(key)
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn list_connectors(
-        &self,
-        r#type: NetworkConnectorSourceType,
-    ) -> Option<Vec<NetworkConnectorCrd>> {
-        self.inner.lock().await.list_connectors(r#type)
+    async fn insert_function(&self, object: NetworkFunctionCrd) {
+        self.inner.lock().await.insert_function(object)
     }
 
     #[instrument(level = Level::INFO, skip(self))]
@@ -57,7 +60,7 @@ impl ::kubegraph_api::connector::NetworkConnectorDB for NetworkConnectorDB {
 struct LocalConnectorDB {
     connectors: BTreeMap<GraphScope, NetworkConnectorCrd>,
     functions: BTreeMap<GraphScope, NetworkFunctionCrd>,
-    has_updated: BTreeMap<NetworkConnectorSourceType, bool>,
+    has_updated: BTreeMap<NetworkConnectorType, bool>,
 }
 
 impl LocalConnectorDB {
@@ -99,18 +102,23 @@ impl LocalConnectorDB {
 
     fn list_connectors(
         &mut self,
-        r#type: NetworkConnectorSourceType,
+        r#type: NetworkConnectorType,
     ) -> Option<Vec<NetworkConnectorCrd>> {
         let updated = self.has_updated.entry(r#type).or_insert(true);
         if *updated {
             *updated = false;
-            Some(
-                self.connectors
-                    .values()
-                    .filter(|&cr| cr.spec == r#type)
-                    .cloned()
-                    .collect(),
-            )
+            let connectors: Vec<_> = self
+                .connectors
+                .values()
+                .filter(|&cr| cr.spec == r#type)
+                .cloned()
+                .collect();
+
+            if connectors.is_empty() {
+                None
+            } else {
+                Some(connectors)
+            }
         } else {
             None
         }
@@ -121,11 +129,11 @@ impl LocalConnectorDB {
     }
 }
 
-pub(crate) struct NetworkConnectorWorker {
+pub(crate) struct NetworkResourceWorker {
     inner: JoinHandle<()>,
 }
 
-impl NetworkConnectorWorker {
+impl NetworkResourceWorker {
     pub(crate) fn spawn(vm: &(impl 'static + NetworkVirtualMachine)) -> Self {
         Self {
             inner: ::tokio::spawn(

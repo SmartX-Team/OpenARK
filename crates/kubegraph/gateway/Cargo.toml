@@ -37,10 +37,7 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = [
-    # "connector-prometheus",  # FIXME: use this if simulation is built
-    "connector-simulation",
-]
+connector-full = ["connector-prometheus", "connector-simulation"]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
     "kubegraph-vm-local?/connector-prometheus",
