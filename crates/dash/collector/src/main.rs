@@ -4,7 +4,6 @@ mod exporter;
 use std::future::Future;
 
 use anyhow::Result;
-use opentelemetry::global;
 use tracing::{error, info};
 
 macro_rules! init_protocols {
@@ -18,7 +17,7 @@ macro_rules! init_protocols {
         async fn main() {
             ::ark_core::tracer::init_once();
 
-            let signal = ::ark_core::signal::FunctionSignal::default();
+            let signal = ::ark_core::signal::FunctionSignal::default().trap_on_panic();
             if let Err(error) = signal.trap_on_sigint() {
                 error!("{error}");
                 return;
@@ -50,8 +49,7 @@ macro_rules! init_protocols {
                 error!("failed to terminate exporters: {error}");
             }
 
-            info!("Terminated.");
-            global::shutdown_tracer_provider();
+            signal.exit().await
         }
     };
 }

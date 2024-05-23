@@ -87,7 +87,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn list(&self, filter: Option<&GraphFilter>) -> Result<Vec<Graph<LazyFrame>>> {
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>> {
         Ok(self
             .db
             .iter()
@@ -97,7 +97,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
                 let value = ::serde_json::from_slice::<Graph<DataFrame>>(&value).ok()?;
                 Some((key, value))
             })
-            .filter(|(key, _)| filter.map(|filter| filter.contains(key)).unwrap_or(true))
+            .filter(|(key, _)| filter.contains(key))
             .map(|(_, value)| value.lazy())
             .collect())
     }

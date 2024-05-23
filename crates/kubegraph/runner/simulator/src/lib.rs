@@ -11,12 +11,14 @@ use kubegraph_api::{
     graph::{GraphData, GraphMetadataStandard, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
+use tracing::{instrument, Level};
 
 #[derive(Clone, Debug, Default)]
 pub struct NetworkRunner {}
 
 #[async_trait]
 impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for NetworkRunner {
+    #[instrument(level = Level::INFO, skip(self, graph_db, graph, problem))]
     async fn execute(
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,

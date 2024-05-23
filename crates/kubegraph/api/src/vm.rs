@@ -10,56 +10,39 @@ use futures::{stream::FuturesUnordered, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
-use tracing::{error, instrument, warn, Level};
+use tracing::{error, info, instrument, warn, Level};
 
 use crate::{
+    analyzer::{NetworkAnalyzer, NetworkAnalyzerExt},
     frame::LazyFrame,
     graph::{
-        Graph, GraphData, GraphEdges, GraphFilter, GraphMetadata, GraphMetadataPinnedExt,
-        GraphMetadataStandard, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
-        ScopedNetworkGraphDBContainer,
+        Graph, GraphData, GraphEdges, GraphMetadata, GraphMetadataPinnedExt, GraphMetadataStandard,
+        GraphScope, NetworkGraphDB, NetworkGraphDBExt, ScopedNetworkGraphDBContainer,
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-    problem::r#virtual::{NetworkVirtualProblem, NetworkVirtualProblemExt, VirtualProblem},
-    resource::NetworkResourceDB,
+    problem::VirtualProblem,
+    resource::NetworkResourceCollectionDB,
     runner::NetworkRunner,
     solver::NetworkSolver,
 };
 
 #[async_trait]
-pub trait NetworkVirtualMachine
+pub trait NetworkVirtualMachineExt
 where
-    Self: Clone + Send + Sync,
+    Self: NetworkVirtualMachine,
 {
-    type ResourceDB: NetworkResourceDB;
-    type GraphDB: 'static + Send + Clone + NetworkGraphDB;
-    type Runner: NetworkRunner<GraphData<LazyFrame>>;
-    type Solver: NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
-    type VirtualProblem: NetworkVirtualProblem;
-
-    fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB;
-
-    fn resource_db(&self) -> &<Self as NetworkVirtualMachine>::ResourceDB;
-
-    fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner;
-
-    fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver;
-
-    fn virtual_problem(&self) -> &<Self as NetworkVirtualMachine>::VirtualProblem;
-
-    fn interval(&self) -> Option<Duration>;
-
     #[instrument(level = Level::INFO, skip(self))]
     async fn loop_forever(&self) {
+        let fallback_interval = self.fallback_interval();
+
         loop {
             match self.try_loop_forever().await {
                 Ok(()) => break,
                 Err(error) => {
-                    error!("failed to run kubegraph vm: {error}");
+                    error!("failed to operate kubegraph VM: {error}");
 
-                    let duration = Duration::from_secs(5);
-                    warn!("restaring vm in {duration:?}...");
-                    sleep(duration).await
+                    warn!("restarting VM in {fallback_interval:?}...");
+                    sleep(fallback_interval).await
                 }
             }
         }
@@ -67,6 +50,8 @@ where
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn try_loop_forever(&self) -> Result<()> {
+        info!("Starting kubegraph VM...");
+
         loop {
             let instant = Instant::now();
 
@@ -83,25 +68,20 @@ where
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn step(&self) -> Result<()> {
-        // Define a problem scope
-        // TODO: to be implemented
-        let scope = GraphScope {
-            namespace: "default".into(),
-            name: "test-problem".into(),
-        };
-
         // Define-or-Reuse a converged problem
-        let problem = self
-            .virtual_problem()
-            .inspect(self.resource_db(), scope)
-            .await?;
+        let problems = self.analyzer().inspect(self.resource_db()).await?;
 
         // Apply it
-        self.step_with_custom_problem(&problem).await
+        problems
+            .into_iter()
+            .map(|problem| self.step_with_custom_problem(problem))
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn step_with_custom_problem(&self, problem: &VirtualProblem) -> Result<()> {
+    async fn step_with_custom_problem(&self, problem: VirtualProblem) -> Result<()> {
         // Step 1. Pull & Convert nodes (and "static" edges)
         let GraphData { edges, nodes } = match self.pull_graph(&problem).await? {
             Some(graph) => graph,
@@ -110,7 +90,11 @@ where
 
         // Step 2. Infer edges by functions
         let function_edges = self.infer_edges(&problem, nodes.clone()).await?;
-        let static_edges = GraphEdges::from_static(&problem.spec.metadata.function(), edges)?;
+        let static_edges = GraphEdges::from_static(
+            &problem.scope.namespace,
+            &problem.spec.metadata.function(),
+            edges,
+        )?;
 
         let edges = match (function_edges, static_edges.clone()) {
             (Some(function_edges), Some(static_edges)) => function_edges.concat(static_edges)?,
@@ -145,29 +129,26 @@ where
 
     #[instrument(level = Level::INFO, skip(self, problem))]
     async fn pull_graph(&self, problem: &VirtualProblem) -> Result<Option<GraphData<LazyFrame>>> {
+        let VirtualProblem { filter, scope, .. } = problem;
+
         // If there is a global graph, use this
         if let Some(graph) = self
             .graph_db()
-            .get_global_namespaced(&problem.scope.namespace)
+            .get_global_namespaced(&scope.namespace)
             .await?
         {
-            let graph = self.virtual_problem().pin_graph(graph).await?;
+            let graph = self.analyzer().pin_graph(problem, graph).await?;
             return Ok(Some(graph.data));
         }
 
-        // TODO: filter by virtual problem
-        let filter = GraphFilter {
-            namespace: Some(problem.scope.namespace.clone()),
-            name: None,
-        };
-        let graphs = self.graph_db().list(Some(&filter)).await?;
+        let graphs = self.graph_db().list(filter).await?;
         if graphs.is_empty() {
             return Ok(None);
         }
 
         graphs
             .into_iter()
-            .map(|graph| self.virtual_problem().pin_graph(graph))
+            .map(|graph| self.analyzer().pin_graph(problem, graph))
             .collect::<FuturesUnordered<_>>()
             .map_ok(
                 |Graph {
@@ -181,17 +162,47 @@ where
             .map(Some)
     }
 
-    async fn infer_edges(
-        &self,
-        problem: &VirtualProblem,
-        nodes: LazyFrame,
-    ) -> Result<Option<GraphEdges<LazyFrame>>>;
-
     #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         self.graph_db().close().await?;
         self.close_workers().await
     }
+}
+
+impl<T> NetworkVirtualMachineExt for T where Self: NetworkVirtualMachine {}
+
+#[async_trait]
+pub trait NetworkVirtualMachine
+where
+    Self: Clone + Send + Sync,
+{
+    type Analyzer: NetworkAnalyzer;
+    type ResourceDB: 'static + Send + Clone + NetworkResourceCollectionDB;
+    type GraphDB: 'static + Send + Clone + NetworkGraphDB;
+    type Runner: NetworkRunner<GraphData<LazyFrame>>;
+    type Solver: NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
+
+    fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer;
+
+    fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB;
+
+    fn resource_db(&self) -> &<Self as NetworkVirtualMachine>::ResourceDB;
+
+    fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner;
+
+    fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver;
+
+    fn fallback_interval(&self) -> Duration {
+        Duration::from_secs(5)
+    }
+
+    fn interval(&self) -> Option<Duration>;
+
+    async fn infer_edges(
+        &self,
+        problem: &VirtualProblem,
+        nodes: LazyFrame,
+    ) -> Result<Option<GraphEdges<LazyFrame>>>;
 
     async fn close_workers(&self) -> Result<()>;
 }
@@ -201,11 +212,15 @@ impl<T> NetworkVirtualMachine for Arc<T>
 where
     T: ?Sized + NetworkVirtualMachine,
 {
+    type Analyzer = <T as NetworkVirtualMachine>::Analyzer;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
     type Solver = <T as NetworkVirtualMachine>::Solver;
-    type VirtualProblem = <T as NetworkVirtualMachine>::VirtualProblem;
+
+    fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer {
+        <T as NetworkVirtualMachine>::analyzer(&**self)
+    }
 
     fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB {
         <T as NetworkVirtualMachine>::graph_db(&**self)
@@ -223,22 +238,8 @@ where
         <T as NetworkVirtualMachine>::solver(&**self)
     }
 
-    fn virtual_problem(&self) -> &<Self as NetworkVirtualMachine>::VirtualProblem {
-        <T as NetworkVirtualMachine>::virtual_problem(&**self)
-    }
-
     fn interval(&self) -> Option<Duration> {
         <T as NetworkVirtualMachine>::interval(&**self)
-    }
-
-    #[instrument(level = Level::INFO, skip(self))]
-    async fn loop_forever(&self) {
-        <T as NetworkVirtualMachine>::loop_forever(&**self).await
-    }
-
-    #[instrument(level = Level::INFO, skip(self))]
-    async fn try_loop_forever(&self) -> Result<()> {
-        <T as NetworkVirtualMachine>::try_loop_forever(&**self).await
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]
@@ -248,11 +249,6 @@ where
         nodes: LazyFrame,
     ) -> Result<Option<GraphEdges<LazyFrame>>> {
         <T as NetworkVirtualMachine>::infer_edges(&**self, problem, nodes).await
-    }
-
-    #[instrument(level = Level::INFO, skip(self))]
-    async fn close(&self) -> Result<()> {
-        <T as NetworkVirtualMachine>::close(&**self).await
     }
 
     #[instrument(level = Level::INFO, skip(self))]

@@ -422,7 +422,7 @@ impl FunctionSignalExt for FunctionSignal {
     }
 
     fn terminate_err<T>(&self, error: impl Into<Error>) -> Result<PipeMessages<T>> {
-        self.terminate();
+        self.terminate_on_panic();
         Err(error.into())
     }
 }

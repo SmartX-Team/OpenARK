@@ -1,11 +1,11 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use kubegraph_api::{
     frame::LazyFrame,
     function::{
         FunctionMetadata, NetworkFunctionCrd, NetworkFunctionMetadata, NetworkFunctionSpec,
     },
-    graph::GraphEdges,
-    problem::r#virtual::VirtualProblem,
+    graph::{GraphEdges, GraphScope},
+    problem::VirtualProblem,
 };
 
 use crate::lazy::LazyVirtualMachine;
@@ -48,7 +48,7 @@ impl NetworkFunctionExt for NetworkFunctionMetadata {
         function: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(self)?.infer_edges(problem, function, nodes)
+        parse_metadata(function, self)?.infer_edges(problem, function, nodes)
     }
 }
 
@@ -59,7 +59,7 @@ impl<'a> NetworkFunctionExt for NetworkFunctionMetadata<&'a str> {
         function: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(self)?.infer_edges(problem, function, nodes)
+        parse_metadata(function, self)?.infer_edges(problem, function, nodes)
     }
 }
 
@@ -82,19 +82,28 @@ impl NetworkFunctionExt for NetworkFunctionMetadata<LazyVirtualMachine> {
 }
 
 fn parse_metadata<T>(
+    function: &FunctionMetadata,
     metadata: &NetworkFunctionMetadata<T>,
 ) -> Result<NetworkFunctionMetadata<LazyVirtualMachine>>
 where
     T: AsRef<str>,
 {
+    let FunctionMetadata {
+        scope: GraphScope { namespace, name },
+    } = function;
     let NetworkFunctionMetadata { filter, script } = metadata;
 
     Ok(NetworkFunctionMetadata {
         filter: filter
             .as_ref()
             .map(|input| LazyVirtualMachine::with_lazy_filter(input.as_ref()))
-            .transpose()?,
-        script: LazyVirtualMachine::with_lazy_script(script.as_ref())?,
+            .transpose()
+            .map_err(|error| {
+                anyhow!("failed to parse function filter ({namespace}/{name}): {error}")
+            })?,
+        script: LazyVirtualMachine::with_lazy_script(script.as_ref()).map_err(|error| {
+            anyhow!("failed to parse function script ({namespace}/{name}): {error}")
+        })?,
     })
 }
 
@@ -200,15 +209,23 @@ mod tests {
         function_name: &str,
         function: NetworkFunctionMetadata<&'static str>,
     ) -> ::pl::frame::DataFrame {
-        use kubegraph_api::{graph::GraphScope, problem::ProblemSpec};
+        use kubegraph_api::{
+            graph::{GraphFilter, GraphScope},
+            problem::{ProblemSpec, VirtualProblemAnalyzer},
+        };
 
         // Step 1. Define a function metadata
         let function_metadata = FunctionMetadata {
-            name: function_name.into(),
+            scope: GraphScope {
+                namespace: "default".into(),
+                name: function_name.into(),
+            },
         };
 
         // Step 2. Define a problem
         let problem = VirtualProblem {
+            analyzer: VirtualProblemAnalyzer::Empty,
+            filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
                 name: "optimize-warehouses".into(),

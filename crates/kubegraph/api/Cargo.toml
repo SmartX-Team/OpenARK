@@ -22,7 +22,11 @@ workspace = true
 [features]
 default = ["minimal"]
 minimal = ["connector-simulation", "df-polars", "function-dummy"]
-full = ["connector-full", "df-full", "function-full"]
+full = ["analyzer-full", "connector-full", "df-full", "function-full"]
+
+# Analyzers
+analyzer-full = ["analyzer-llm"]
+analyzer-llm = []
 
 # Connectors
 connector-full = ["connector-prometheus", "connector-simulation"]

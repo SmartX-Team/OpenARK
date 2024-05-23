@@ -15,11 +15,13 @@ use pl::{
     lazy::{dsl, frame::LazyFrame},
     series::Series,
 };
+use tracing::{instrument, Level};
 
 #[async_trait]
 impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::NetworkSolver {
     type Output = GraphData<LazyFrame>;
 
+    #[instrument(level = Level::INFO, skip(self, graph, problem))]
     async fn solve(
         &self,
         graph: GraphData<DataFrame>,
@@ -38,6 +40,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::Net
 impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::NetworkSolver {
     type Output = GraphData<LazyFrame>;
 
+    #[instrument(level = Level::INFO, skip(self, graph, problem))]
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,

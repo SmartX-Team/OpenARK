@@ -1,31 +1,21 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use schemars::JsonSchema;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    connector::NetworkConnectorDB,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadata, GraphMetadataRaw, GraphMetadataStandard, GraphScope},
+    graph::{Graph, GraphMetadata, GraphMetadataRaw, GraphMetadataStandard},
+    problem::VirtualProblem,
+    resource::NetworkResourceCollectionDB,
 };
 
-use super::ProblemSpec;
-
 #[async_trait]
-pub trait NetworkVirtualProblemExt {
-    async fn pin_graph(
-        &self,
-        graph: Graph<LazyFrame>,
-    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>>;
-}
-
-#[async_trait]
-impl<T> NetworkVirtualProblemExt for T
+pub trait NetworkAnalyzerExt
 where
-    T: NetworkVirtualProblem,
+    Self: NetworkAnalyzer,
 {
     async fn pin_graph(
         &self,
+        problem: &VirtualProblem,
         graph: Graph<LazyFrame>,
     ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
         let Graph {
@@ -35,12 +25,12 @@ where
         } = graph;
         match metadata {
             GraphMetadata::Raw(metadata) => {
-                self.pin_graph_raw(Graph {
+                let graph = Graph {
                     data,
                     metadata,
                     scope,
-                })
-                .await
+                };
+                self.pin_graph_raw(problem, graph).await
             }
             GraphMetadata::Pinned(metadata) => Ok(Graph {
                 data,
@@ -58,31 +48,21 @@ where
 }
 
 #[async_trait]
-pub trait NetworkVirtualProblem
+impl<T> NetworkAnalyzerExt for T where Self: NetworkAnalyzer {}
+
+#[async_trait]
+pub trait NetworkAnalyzer
 where
     Self: Sync,
 {
     async fn inspect(
         &self,
-        connector_db: &dyn NetworkConnectorDB,
-        scope: GraphScope,
-    ) -> Result<VirtualProblem>;
+        resource_db: &dyn NetworkResourceCollectionDB,
+    ) -> Result<Vec<VirtualProblem>>;
 
     async fn pin_graph_raw(
         &self,
+        problem: &VirtualProblem,
         graph: Graph<LazyFrame, GraphMetadataRaw>,
     ) -> Result<Graph<LazyFrame, GraphMetadataStandard>>;
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[schemars(bound = "M: Default + JsonSchema")]
-#[serde(
-    rename_all = "camelCase",
-    bound = "M: Default + Serialize + DeserializeOwned"
-)]
-pub struct VirtualProblem<M = GraphMetadataStandard> {
-    #[serde(flatten)]
-    pub scope: GraphScope,
-    #[serde(default)]
-    pub spec: ProblemSpec<M>,
 }

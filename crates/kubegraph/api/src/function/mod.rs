@@ -1,21 +1,11 @@
 #[cfg(feature = "function-dummy")]
 pub mod dummy;
 
-use async_trait::async_trait;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::graph::GraphScope;
-
-#[async_trait]
-pub trait NetworkFunctionDB {
-    async fn delete_function(&self, key: &GraphScope);
-
-    async fn insert_function(&self, object: NetworkFunctionCrd);
-
-    async fn list_functions(&self) -> Vec<NetworkFunctionCrd>;
-}
+use crate::{graph::GraphScope, resource::NetworkResource};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -46,6 +36,10 @@ pub struct NetworkFunctionSpec {
     pub metadata: NetworkFunctionMetadata,
 }
 
+impl NetworkResource for NetworkFunctionCrd {
+    type Filter = ();
+}
+
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
@@ -69,7 +63,7 @@ pub enum NetworkFunctionKind {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionMetadata {
-    pub name: String,
+    pub scope: GraphScope,
 }
 
 impl FunctionMetadata {

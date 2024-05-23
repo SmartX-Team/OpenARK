@@ -1,6 +1,7 @@
 #[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
+pub mod analyzer;
 pub mod connector;
 pub mod frame;
 pub mod function;

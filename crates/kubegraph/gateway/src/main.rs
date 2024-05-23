@@ -1,41 +1,35 @@
 mod actix;
-mod reloader;
 mod routes;
 mod vm;
 
-use std::process::exit;
-
-use kubegraph_api::vm::NetworkVirtualMachine;
-use opentelemetry::global;
+use anyhow::anyhow;
+use kubegraph_api::vm::NetworkVirtualMachineExt;
 use tokio::spawn;
 use tracing::{error, info};
 
 #[tokio::main]
 async fn main() {
     ::ark_core::tracer::init_once();
+    info!("Welcome to kubegraph!");
 
-    let signal = ::ark_core::signal::FunctionSignal::default();
+    let signal = ::ark_core::signal::FunctionSignal::default().trap_on_panic();
     if let Err(error) = signal.trap_on_sigint() {
         error!("{error}");
         return;
     }
 
+    info!("Booting...");
     let vm = match self::vm::try_init().await {
         Ok(vm) => vm,
         Err(error) => {
-            error!("failed to init network virtual machine: {error}");
-            exit(1);
+            signal
+                .panic(anyhow!("failed to init network virtual machine: {error}"))
+                .await
         }
     };
 
-    let handlers = vec![
-        spawn(crate::actix::loop_forever(vm.clone())),
-        spawn(crate::reloader::loop_forever(vm.clone())),
-        spawn({
-            let vm = vm.clone();
-            async move { vm.loop_forever().await }
-        }),
-    ];
+    info!("Registering side workers...");
+    let handlers = vec![spawn(crate::actix::loop_forever(vm.clone()))];
 
     info!("Ready");
     signal.wait_to_terminate().await;
@@ -49,6 +43,5 @@ async fn main() {
         error!("{error}");
     };
 
-    info!("Terminated.");
-    global::shutdown_tracer_provider();
+    signal.exit().await
 }

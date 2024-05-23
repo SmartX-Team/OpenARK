@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::{stream::iter, StreamExt};
-use kube::ResourceExt;
 use kubegraph_api::{
     connector::{
         simulation::NetworkConnectorSimulationSpec, NetworkConnectorCrd, NetworkConnectorKind,
@@ -39,12 +38,9 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         &mut self,
         connectors: Vec<NetworkConnectorCrd>,
     ) -> Result<Vec<Graph<LazyFrame>>> {
-        let items = connectors.into_iter().filter_map(|crd| {
-            let scope = GraphScope {
-                namespace: crd.namespace()?,
-                name: crd.name_any(),
-            };
-            let NetworkConnectorSpec { metadata, kind } = crd.spec;
+        let items = connectors.into_iter().filter_map(|object| {
+            let scope = GraphScope::from_resource(&object);
+            let NetworkConnectorSpec { metadata, kind } = object.spec;
             let metadata = GraphMetadata::Raw(metadata);
 
             match kind {

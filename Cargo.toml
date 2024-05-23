@@ -35,6 +35,7 @@ members = [
     "crates/kiss/manager",
     "crates/kiss/monitor",
     "crates/kiss/operator",
+    "crates/kubegraph/analyzer/llm",
     "crates/kubegraph/api",
     "crates/kubegraph/connector/prometheus",
     "crates/kubegraph/connector/simulation",
@@ -126,6 +127,7 @@ kube = { version = "0.90", default-features = false }
 lalrpop = { version = "0.20" }
 lalrpop-util = { version = "0.20", features = ["lexer", "unicode"] }
 lancedb = { version = "0.4", default-features = false }
+langchain-rust = { version = "4.1", default-features = false }
 mime = { version = "0.3" }
 # FIXME: push a PR: rustls-tls feature support
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", version = "0.2.0-alpha", default-features = false, features = [

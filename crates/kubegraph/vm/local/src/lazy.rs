@@ -45,7 +45,7 @@ mod impl_call {
         function::FunctionMetadata,
         graph::{GraphEdges, GraphMetadataPinnedExt},
         ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
-        problem::r#virtual::VirtualProblem,
+        problem::VirtualProblem,
         vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
     };
 

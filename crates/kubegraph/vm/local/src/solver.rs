@@ -5,6 +5,7 @@ use kubegraph_api::{
     graph::{GraphData, GraphMetadataStandard},
     problem::ProblemSpec,
 };
+use tracing::{instrument, Level};
 
 #[derive(Clone)]
 pub struct NetworkSolver {
@@ -35,6 +36,7 @@ impl NetworkSolver {
 impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for NetworkSolver {
     type Output = GraphData<LazyFrame>;
 
+    #[instrument(level = Level::INFO, skip(self, graph, problem))]
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,

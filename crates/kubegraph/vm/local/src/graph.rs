@@ -49,7 +49,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn list(&self, filter: Option<&GraphFilter>) -> Result<Vec<Graph<LazyFrame>>> {
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>> {
         self.get_default_db().list(filter).await
     }
 

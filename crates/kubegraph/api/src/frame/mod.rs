@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     function::FunctionMetadata,
-    graph::{GraphDataType, GraphMetadataPinnedExt},
+    graph::{GraphDataType, GraphMetadataPinnedExt, GraphScope},
     ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
     problem::ProblemSpec,
     vm::{Feature, Number},
@@ -56,14 +56,6 @@ impl DataFrame {
         }
     }
 }
-
-pub trait IntoLazyFrame
-where
-    Self: Into<LazyFrame>,
-{
-}
-
-impl<T> IntoLazyFrame for T where T: Into<LazyFrame> {}
 
 #[derive(Clone, Default)]
 pub enum LazyFrame {
@@ -175,7 +167,9 @@ impl LazyFrame {
     }
 
     pub fn alias(&mut self, key: &str, metadata: &FunctionMetadata) -> Result<()> {
-        let FunctionMetadata { name } = metadata;
+        let FunctionMetadata {
+            scope: GraphScope { namespace: _, name },
+        } = metadata;
 
         match self {
             Self::Empty => bail!("cannot make an alias to empty lazyframe: {key:?}"),

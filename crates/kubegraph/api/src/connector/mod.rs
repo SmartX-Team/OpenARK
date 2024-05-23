@@ -14,21 +14,10 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataRaw, GraphScope, NetworkGraphDB},
+    graph::{Graph, GraphMetadataRaw, NetworkGraphDB},
+    resource::{NetworkResource, NetworkResourceDB},
     vm::NetworkVirtualMachine,
 };
-
-#[async_trait]
-pub trait NetworkConnectorDB {
-    async fn delete_connector(&self, key: &GraphScope);
-
-    async fn insert_connector(&self, object: NetworkConnectorCrd);
-
-    async fn list_connectors(
-        &self,
-        r#type: NetworkConnectorType,
-    ) -> Option<Vec<NetworkConnectorCrd>>;
-}
 
 #[async_trait]
 pub trait NetworkConnector {
@@ -47,11 +36,7 @@ pub trait NetworkConnector {
         loop {
             let instant = Instant::now();
 
-            if let Some(connectors) = vm
-                .resource_db()
-                .list_connectors(self.connector_type())
-                .await
-            {
+            if let Some(connectors) = vm.resource_db().list(self.connector_type()).await {
                 let name = self.name();
                 info!("Reloading {name} connector...");
 
@@ -116,6 +101,14 @@ pub struct NetworkConnectorSpec<M = GraphMetadataRaw> {
     pub metadata: M,
     #[serde(flatten)]
     pub kind: NetworkConnectorKind,
+}
+
+impl NetworkResource for NetworkConnectorCrd {
+    type Filter = NetworkConnectorType;
+
+    fn description(&self) -> String {
+        self.spec.name()
+    }
 }
 
 impl<M> NetworkConnectorSpec<M> {

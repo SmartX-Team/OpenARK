@@ -6,8 +6,10 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::try_join;
+use kube::ResourceExt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::{instrument, Level};
 
 use crate::{
     frame::{DataFrame, LazyFrame},
@@ -29,6 +31,7 @@ impl<'a, T> ScopedNetworkGraphDB for ScopedNetworkGraphDBContainer<'a, T>
 where
     T: NetworkGraphDB,
 {
+    #[instrument(level = Level::INFO, skip(self, nodes))]
     async fn insert(&self, nodes: LazyFrame) -> Result<()> {
         let Self {
             inner,
@@ -58,15 +61,11 @@ where
 }
 
 #[async_trait]
-pub trait NetworkGraphDBExt {
-    async fn get_global_namespaced(&self, namespace: &str) -> Result<Option<Graph<LazyFrame>>>;
-}
-
-#[async_trait]
-impl<T> NetworkGraphDBExt for T
+pub trait NetworkGraphDBExt
 where
-    T: NetworkGraphDB,
+    Self: NetworkGraphDB,
 {
+    #[instrument(level = Level::INFO, skip(self))]
     async fn get_global_namespaced(&self, namespace: &str) -> Result<Option<Graph<LazyFrame>>> {
         let scope = GraphScope {
             namespace: namespace.into(),
@@ -77,6 +76,9 @@ where
 }
 
 #[async_trait]
+impl<T> NetworkGraphDBExt for T where Self: NetworkGraphDB {}
+
+#[async_trait]
 pub trait NetworkGraphDB
 where
     Self: Sync,
@@ -85,7 +87,7 @@ where
 
     async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()>;
 
-    async fn list(&self, filter: Option<&GraphFilter>) -> Result<Vec<Graph<LazyFrame>>>;
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>>;
 
     async fn close(&self) -> Result<()>;
 }
@@ -105,9 +107,16 @@ impl<T> GraphEdges<T> {
 }
 
 impl GraphEdges<LazyFrame> {
-    pub fn from_static(key: &str, edges: LazyFrame) -> Result<Option<Self>> {
+    pub fn from_static(
+        namespace: impl Into<String>,
+        key: &str,
+        edges: LazyFrame,
+    ) -> Result<Option<Self>> {
         let function = FunctionMetadata {
-            name: FunctionMetadata::NAME_STATIC.into(),
+            scope: GraphScope {
+                namespace: namespace.into(),
+                name: FunctionMetadata::NAME_STATIC.into(),
+            },
         };
 
         match edges {
@@ -208,8 +217,8 @@ where
     }
 }
 
-impl Graph<LazyFrame> {
-    pub async fn collect(self) -> Result<Graph<DataFrame>> {
+impl<M> Graph<LazyFrame, M> {
+    pub async fn collect(self) -> Result<Graph<DataFrame, M>> {
         let Self {
             data,
             metadata,
@@ -298,8 +307,32 @@ impl Default for GraphMetadata {
     }
 }
 
-pub trait GraphMetadataExt {
+pub trait GraphMetadataExt
+where
+    Self: Into<GraphMetadata>,
+{
     fn extras(&self) -> Option<&BTreeMap<String, String>>;
+
+    fn capacity(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("capacity"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_CAPACITY)
+    }
+
+    fn flow(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("flow"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_FLOW)
+    }
+
+    fn function(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("function"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_FUNCTION)
+    }
 
     fn interval_ms(&self) -> &str;
 
@@ -308,6 +341,34 @@ pub trait GraphMetadataExt {
     fn sink(&self) -> &str;
 
     fn src(&self) -> &str;
+
+    fn supply(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("supply"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_SUPPLY)
+    }
+
+    fn unit_cost(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("unitCost"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_UNIT_COST)
+    }
+
+    fn to_pinned(&self) -> GraphMetadataPinned {
+        GraphMetadataPinned {
+            capacity: self.capacity().into(),
+            flow: self.flow().into(),
+            function: self.function().into(),
+            interval_ms: self.interval_ms().into(),
+            name: self.name().into(),
+            sink: self.sink().into(),
+            src: self.src().into(),
+            supply: self.supply().into(),
+            unit_cost: self.unit_cost().into(),
+        }
+    }
 }
 
 impl GraphMetadataExt for GraphMetadata {
@@ -357,7 +418,7 @@ impl GraphMetadataExt for GraphMetadata {
 pub struct GraphMetadataRaw {
     #[serde(default, flatten)]
     pub extras: BTreeMap<String, String>,
-    #[serde(default = "GraphMetadataPinned::default_interval_ms")]
+    #[serde(default = "GraphMetadataPinned::default_interval_ms", rename = "le")]
     pub interval_ms: String,
     #[serde(default = "GraphMetadataPinned::default_name")]
     pub name: String,
@@ -367,36 +428,9 @@ pub struct GraphMetadataRaw {
     pub src: String,
 }
 
-mod impl_json_schema_for_graph_metadata_raw {
-    use std::{borrow::Cow, collections::BTreeMap};
-
-    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
-
-    #[allow(dead_code)]
-    #[derive(JsonSchema)]
-    #[serde(transparent)]
-    struct GraphMetadataRaw(BTreeMap<String, String>);
-
-    impl JsonSchema for super::GraphMetadataRaw {
-        #[inline]
-        fn is_referenceable() -> bool {
-            <GraphMetadataRaw as JsonSchema>::is_referenceable()
-        }
-
-        #[inline]
-        fn schema_name() -> String {
-            <GraphMetadataRaw as JsonSchema>::schema_name()
-        }
-
-        #[inline]
-        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-            <GraphMetadataRaw as JsonSchema>::json_schema(gen)
-        }
-
-        #[inline]
-        fn schema_id() -> Cow<'static, str> {
-            <GraphMetadataRaw as JsonSchema>::schema_id()
-        }
+impl From<GraphMetadataRaw> for GraphMetadata {
+    fn from(value: GraphMetadataRaw) -> Self {
+        Self::Raw(value)
     }
 }
 
@@ -434,7 +468,43 @@ impl GraphMetadataExt for GraphMetadataRaw {
     }
 }
 
-pub trait GraphMetadataPinnedExt {
+mod impl_json_schema_for_graph_metadata_raw {
+    use std::{borrow::Cow, collections::BTreeMap};
+
+    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
+
+    #[allow(dead_code)]
+    #[derive(JsonSchema)]
+    #[serde(transparent)]
+    struct GraphMetadataRaw(BTreeMap<String, String>);
+
+    impl JsonSchema for super::GraphMetadataRaw {
+        #[inline]
+        fn is_referenceable() -> bool {
+            <GraphMetadataRaw as JsonSchema>::is_referenceable()
+        }
+
+        #[inline]
+        fn schema_name() -> String {
+            <GraphMetadataRaw as JsonSchema>::schema_name()
+        }
+
+        #[inline]
+        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+            <GraphMetadataRaw as JsonSchema>::json_schema(gen)
+        }
+
+        #[inline]
+        fn schema_id() -> Cow<'static, str> {
+            <GraphMetadataRaw as JsonSchema>::schema_id()
+        }
+    }
+}
+
+pub trait GraphMetadataPinnedExt
+where
+    Self: Into<GraphMetadata>,
+{
     fn capacity(&self) -> &str;
 
     fn flow(&self) -> &str;
@@ -456,10 +526,22 @@ pub trait GraphMetadataPinnedExt {
 
 impl<T> GraphMetadataExt for T
 where
-    T: GraphMetadataPinnedExt,
+    Self: GraphMetadataPinnedExt,
 {
     fn extras(&self) -> Option<&BTreeMap<String, String>> {
         None
+    }
+
+    fn capacity(&self) -> &str {
+        GraphMetadataPinnedExt::capacity(self)
+    }
+
+    fn flow(&self) -> &str {
+        GraphMetadataPinnedExt::flow(self)
+    }
+
+    fn function(&self) -> &str {
+        GraphMetadataPinnedExt::function(self)
     }
 
     fn interval_ms(&self) -> &str {
@@ -477,6 +559,14 @@ where
     fn src(&self) -> &str {
         GraphMetadataPinnedExt::src(self)
     }
+
+    fn supply(&self) -> &str {
+        GraphMetadataPinnedExt::supply(self)
+    }
+
+    fn unit_cost(&self) -> &str {
+        GraphMetadataPinnedExt::unit_cost(self)
+    }
 }
 
 #[derive(
@@ -490,7 +580,7 @@ pub struct GraphMetadataPinned {
     pub flow: String,
     #[serde(default = "GraphMetadataPinned::default_function")]
     pub function: String,
-    #[serde(default = "GraphMetadataPinned::default_interval_ms")]
+    #[serde(default = "GraphMetadataPinned::default_interval_ms", rename = "le")]
     pub interval_ms: String,
     #[serde(default = "GraphMetadataPinned::default_name")]
     pub name: String,
@@ -502,6 +592,12 @@ pub struct GraphMetadataPinned {
     pub supply: String,
     #[serde(default = "GraphMetadataPinned::default_unit_cost")]
     pub unit_cost: String,
+}
+
+impl From<GraphMetadataPinned> for GraphMetadata {
+    fn from(value: GraphMetadataPinned) -> Self {
+        Self::Pinned(value)
+    }
 }
 
 impl Default for GraphMetadataPinned {
@@ -521,39 +617,39 @@ impl Default for GraphMetadataPinned {
 }
 
 impl GraphMetadataPinned {
-    fn default_capacity() -> String {
+    pub fn default_capacity() -> String {
         GraphMetadataStandard::DEFAULT_CAPACITY.into()
     }
 
-    fn default_flow() -> String {
+    pub fn default_flow() -> String {
         GraphMetadataStandard::DEFAULT_FLOW.into()
     }
 
-    fn default_function() -> String {
+    pub fn default_function() -> String {
         GraphMetadataStandard::DEFAULT_FUNCTION.into()
     }
 
-    fn default_interval_ms() -> String {
+    pub fn default_interval_ms() -> String {
         GraphMetadataStandard::DEFAULT_INTERVAL_MS.into()
     }
 
-    fn default_name() -> String {
+    pub fn default_name() -> String {
         GraphMetadataStandard::DEFAULT_NAME.into()
     }
 
-    fn default_sink() -> String {
+    pub fn default_sink() -> String {
         GraphMetadataStandard::DEFAULT_SINK.into()
     }
 
-    fn default_src() -> String {
+    pub fn default_src() -> String {
         GraphMetadataStandard::DEFAULT_SRC.into()
     }
 
-    fn default_supply() -> String {
+    pub fn default_supply() -> String {
         GraphMetadataStandard::DEFAULT_SUPPLY.into()
     }
 
-    fn default_unit_cost() -> String {
+    pub fn default_unit_cost() -> String {
         GraphMetadataStandard::DEFAULT_UNIT_COST.into()
     }
 }
@@ -625,6 +721,12 @@ impl GraphMetadataStandard {
     pub const DEFAULT_UNIT_COST: &'static str = "unit_cost";
 }
 
+impl From<GraphMetadataStandard> for GraphMetadata {
+    fn from(value: GraphMetadataStandard) -> Self {
+        Self::Standard(value)
+    }
+}
+
 impl GraphMetadataPinnedExt for GraphMetadataStandard {
     fn capacity(&self) -> &str {
         Self::DEFAULT_CAPACITY
@@ -668,23 +770,31 @@ impl GraphMetadataPinnedExt for GraphMetadataStandard {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct GraphFilter {
+    pub namespace: String,
+    #[serde(default)]
     pub name: Option<String>,
-    pub namespace: Option<String>,
 }
 
 impl GraphFilter {
+    pub const fn all(namespace: String) -> Self {
+        Self {
+            namespace,
+            name: None,
+        }
+    }
+
     pub fn contains(&self, key: &GraphScope) -> bool {
-        let Self { name, namespace } = self;
+        let Self { namespace, name } = self;
 
         #[inline]
-        fn test(a: &Option<String>, b: &String) -> bool {
-            match a.as_ref() {
-                Some(a) => a == b,
+        fn test(a: Option<&String>, b: &String) -> bool {
+            match a {
+                Some(a) => a.is_empty() || a == b,
                 None => true,
             }
         }
 
-        test(namespace, &key.namespace) && test(name, &key.name)
+        test(Some(namespace), &key.namespace) && test(name.as_ref(), &key.name)
     }
 }
 
@@ -699,6 +809,16 @@ pub struct GraphScope {
 
 impl GraphScope {
     pub const NAME_GLOBAL: &'static str = "__global__";
+
+    pub fn from_resource<K>(object: &K) -> Self
+    where
+        K: ResourceExt,
+    {
+        Self {
+            namespace: object.namespace().unwrap_or_else(|| "default".into()),
+            name: object.name_any(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

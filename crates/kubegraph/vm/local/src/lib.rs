@@ -1,68 +1,80 @@
 #[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
+mod analyzer;
 mod function;
 mod graph;
 mod lazy;
+mod reloader;
 mod resource;
 mod runner;
 mod solver;
-mod virtual_problem;
 
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use kube::ResourceExt;
 use kubegraph_api::{
     frame::LazyFrame,
-    function::{FunctionMetadata, NetworkFunctionDB},
-    graph::GraphEdges,
-    problem::r#virtual::VirtualProblem,
+    function::{FunctionMetadata, NetworkFunctionCrd},
+    graph::{GraphEdges, GraphScope},
+    problem::VirtualProblem,
+    resource::NetworkResourceDB,
+    vm::NetworkVirtualMachineExt,
 };
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{instrument, Level};
 
 use crate::function::NetworkFunctionExt;
 
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
+    analyzer: self::analyzer::NetworkAnalyzer,
     graph_db: self::graph::NetworkGraphDB,
     resource_db: self::resource::NetworkResourceDB,
     resource_worker: Arc<Mutex<Option<self::resource::NetworkResourceWorker>>>,
     runner: self::runner::NetworkRunner,
     solver: self::solver::NetworkSolver,
-    virtual_problem: self::virtual_problem::NetworkVirtualProblem,
+    vm_runner: Arc<Mutex<Option<NetworkVirtualMachineRunner>>>,
 }
 
 impl NetworkVirtualMachine {
     pub async fn try_default() -> Result<Self> {
         // Step 1. Initialize components
         let vm = Self {
+            analyzer: self::analyzer::NetworkAnalyzer::try_default().await?,
             graph_db: self::graph::NetworkGraphDB::try_default().await?,
             resource_db: self::resource::NetworkResourceDB::default(),
             resource_worker: Arc::new(Mutex::new(None)),
             runner: self::runner::NetworkRunner::try_default().await?,
             solver: self::solver::NetworkSolver::try_default().await?,
-            virtual_problem: self::virtual_problem::NetworkVirtualProblem::try_default().await?,
+            vm_runner: Arc::new(Mutex::new(None)),
         };
 
         // Step 2. Spawn workers
         vm.resource_worker
             .lock()
             .await
-            .replace(self::resource::NetworkResourceWorker::spawn(&vm));
+            .replace(self::resource::NetworkResourceWorker::try_spawn(&vm).await?);
+        vm.vm_runner
+            .lock()
+            .await
+            .replace(NetworkVirtualMachineRunner::spawn(vm.clone()));
         Ok(vm)
     }
 }
 
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
+    type Analyzer = self::analyzer::NetworkAnalyzer;
     type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
     type Solver = self::solver::NetworkSolver;
-    type VirtualProblem = self::virtual_problem::NetworkVirtualProblem;
+
+    fn analyzer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Analyzer {
+        &self.analyzer
+    }
 
     fn resource_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::ResourceDB {
         &self.resource_db
@@ -80,12 +92,6 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         &self.solver
     }
 
-    fn virtual_problem(
-        &self,
-    ) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::VirtualProblem {
-        &self.virtual_problem
-    }
-
     fn interval(&self) -> Option<Duration> {
         // TODO: use args instead
         Some(Duration::from_secs(5))
@@ -98,7 +104,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         nodes: LazyFrame,
     ) -> Result<Option<GraphEdges<LazyFrame>>> {
         // Step 1. Collect all functions
-        let functions = self.resource_db.list_functions().await;
+        let functions = self.resource_db.list(()).await.unwrap_or_default();
         if functions.is_empty() {
             return Ok(None);
         }
@@ -106,9 +112,9 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         // Step 2. Predict all functions' outputs
         let edges = functions
             .into_iter()
-            .map(|object| {
+            .map(|object: NetworkFunctionCrd| {
                 let function = FunctionMetadata {
-                    name: object.name_any(),
+                    scope: GraphScope::from_resource(&object),
                 };
 
                 object.infer_edges(problem, &function, nodes.clone())
@@ -141,10 +147,29 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn close_workers(&self) -> Result<()> {
-        if let Some(worker) = self.resource_worker.lock().await.as_ref() {
+        if let Some(worker) = self.resource_worker.lock().await.take() {
+            worker.abort();
+        }
+        if let Some(worker) = self.vm_runner.lock().await.take() {
             worker.abort();
         }
         Ok(())
+    }
+}
+
+struct NetworkVirtualMachineRunner {
+    inner: JoinHandle<()>,
+}
+
+impl NetworkVirtualMachineRunner {
+    pub(crate) fn spawn(vm: impl 'static + NetworkVirtualMachineExt) -> Self {
+        Self {
+            inner: ::tokio::spawn(async move { vm.loop_forever().await }),
+        }
+    }
+
+    pub(crate) fn abort(&self) {
+        self.inner.abort()
     }
 }
 
@@ -156,9 +181,8 @@ mod tests {
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
-            graph::{Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB},
-            problem::ProblemSpec,
-            vm::NetworkVirtualMachine as _,
+            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            problem::{ProblemSpec, VirtualProblemAnalyzer},
         };
 
         // Step 1. Define problems
@@ -202,6 +226,8 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = VirtualProblem {
+            analyzer: VirtualProblemAnalyzer::Empty,
+            filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
                 name: "optimize-warehouses".into(),
@@ -215,7 +241,7 @@ mod tests {
         // Step 5. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step_with_custom_problem(&problem)
+            vm.step_with_custom_problem(problem.clone())
                 .await
                 .expect("failed to optimize")
         }
@@ -282,9 +308,8 @@ mod tests {
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
                 NetworkFunctionMetadata, NetworkFunctionSpec,
             },
-            graph::{Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB},
-            problem::ProblemSpec,
-            vm::NetworkVirtualMachine as _,
+            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            problem::{ProblemSpec, VirtualProblemAnalyzer},
         };
 
         // Step 1. Define problems
@@ -338,10 +363,12 @@ mod tests {
                 },
             },
         };
-        vm.resource_db.insert_function(function).await;
+        vm.resource_db.insert(function).await;
 
         // Step 5. Add cost & value function (heuristic)
         let problem = VirtualProblem {
+            analyzer: VirtualProblemAnalyzer::Empty,
+            filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
                 name: "optimize-warehouses".into(),
@@ -355,7 +382,7 @@ mod tests {
         // Step 6. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step_with_custom_problem(&problem)
+            vm.step_with_custom_problem(problem.clone())
                 .await
                 .expect("failed to optimize")
         }

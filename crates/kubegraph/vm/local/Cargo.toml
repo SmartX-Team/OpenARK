@@ -22,14 +22,18 @@ workspace = true
 [features]
 default = ["full"]
 full = [
+    "analyzer-full",
     "connector-full",
     "function-full",
     "graph-auto",
     "df-full",
     "runner-full",
     "solver-full",
-    "vp-full",
 ]
+
+# Configure Analyzers
+analyzer-full = ["analyzer-llm"]
+analyzer-llm = ["kubegraph-analyzer-llm", "kubegraph-api/analyzer-llm"]
 
 # Configure Connectors
 connector-full = ["connector-prometheus", "connector-simulation"]
@@ -47,6 +51,7 @@ connector-simulation = [
 # Configure DataFrame
 df-full = ["df-polars"]
 df-polars = [
+    "kubegraph-analyzer-llm?/df-polars",
     "kubegraph-api/df-polars",
     "kubegraph-runner-simulator?/df-polars",
     "kubegraph-solver-ortools?/df-polars",
@@ -70,11 +75,8 @@ runner-simulator = ["kubegraph-runner-simulator"]
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-solver-ortools"]
 
-# Configure Virtual Problems
-vp-full = ["vp-identity"]
-vp-identity = []
-
 [dependencies]
+kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
 kubegraph-api = { path = "../../api" }
 kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
 kubegraph-connector-simulation = { path = "../../connector/simulation", optional = true, default-features = false }
@@ -88,9 +90,15 @@ kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, def
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-kube = { workspace = true }
+kube = { workspace = true, features = [
+    "client",
+    "runtime",
+    "rustls-tls",
+    "ws",
+] }
 polars = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["sync"] }
+serde = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

@@ -26,6 +26,7 @@ path = "./src/main.rs"
 [features]
 default = ["full"]
 full = [
+    "analyzer-full",
     "connector-full",
     "df-full",
     "function-full",
@@ -33,7 +34,13 @@ full = [
     "runner-full",
     "solver-full",
     "vm-full",
-    "vp-full",
+]
+
+# Configure Analyzers
+analyzer-full = ["analyzer-llm"]
+analyzer-llm = [
+    "kubegraph-vm-local?/analyzer-llm",
+    "kubegraph-api/analyzer-llm",
 ]
 
 # Configure Connectors
@@ -75,10 +82,6 @@ solver-ortools = ["kubegraph-vm-local?/solver-ortools"]
 vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
 
-# Configure Virtual Problems
-vp-full = ["vp-identity"]
-vp-identity = ["kubegraph-vm-local?/vp-identity"]
-
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
 kubegraph-api = { path = "../api" }
@@ -89,14 +92,6 @@ actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
 opentelemetry = { workspace = true }
-prometheus-http-query = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

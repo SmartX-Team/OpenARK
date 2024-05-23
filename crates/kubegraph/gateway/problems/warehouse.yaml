@@ -26,7 +26,7 @@ metadata:
   namespace: kubegraph
 spec:
   dummy: {}
-  filter: src.payload >= 3 && sink.payload >= 0
+  filter: src != sink and src.supply > 0 and src.supply > sink.supply
   script: |
-    src.payload -= 3
-    sink.payload += 3
+    capacity = 50;
+    unit_cost = 1;
