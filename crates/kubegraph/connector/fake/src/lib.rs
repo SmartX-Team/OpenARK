@@ -1,22 +1,19 @@
-use std::path::Path;
+mod model;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::{stream::iter, StreamExt};
 use kubegraph_api::{
     connector::{
-        simulation::NetworkConnectorSimulationSpec, NetworkConnectorCrd, NetworkConnectorKind,
+        fake::NetworkConnectorFakeSpec, NetworkConnectorCrd, NetworkConnectorKind,
         NetworkConnectorSpec, NetworkConnectorType,
     },
     frame::LazyFrame,
     graph::{Graph, GraphData, GraphMetadata, GraphScope},
 };
-use polars::{
-    io::{csv::read::CsvReadOptions, SerReader},
-    lazy::frame::IntoLazy,
-};
-use tokio::fs;
 use tracing::{info, instrument, warn, Level};
+
+use crate::model::DataGenerator;
 
 #[derive(Default)]
 pub struct NetworkConnector {}
@@ -25,12 +22,12 @@ pub struct NetworkConnector {}
 impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     #[inline]
     fn connector_type(&self) -> NetworkConnectorType {
-        NetworkConnectorType::Simulation
+        NetworkConnectorType::Fake
     }
 
     #[inline]
     fn name(&self) -> &str {
-        "simulation"
+        "fake"
     }
 
     #[instrument(level = Level::INFO, skip(self, connectors))]
@@ -44,7 +41,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             let metadata = GraphMetadata::Raw(metadata);
 
             match kind {
-                NetworkConnectorKind::Simulation(spec) => Some(NetworkConnectorItem {
+                NetworkConnectorKind::Fake(spec) => Some(NetworkConnectorItem {
                     metadata,
                     scope,
                     spec,
@@ -58,7 +55,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
             match item.load_graph_data().await {
                 Ok(data) => Some(data),
                 Err(error) => {
-                    warn!("failed to load simulation connector ({namespace}/{name}): {error}");
+                    warn!("failed to load fake connector ({namespace}/{name}): {error}");
                     None
                 }
             }
@@ -72,7 +69,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 struct NetworkConnectorItem {
     metadata: GraphMetadata,
     scope: GraphScope,
-    spec: NetworkConnectorSimulationSpec,
+    spec: NetworkConnectorFakeSpec,
 }
 
 impl NetworkConnectorItem {
@@ -81,49 +78,25 @@ impl NetworkConnectorItem {
         let Self {
             metadata,
             scope,
-            spec:
-                NetworkConnectorSimulationSpec {
-                    path: base_dir,
-                    key_edges,
-                    key_nodes,
-                },
+            spec: NetworkConnectorFakeSpec { edges, nodes },
         } = self;
 
         let GraphScope { namespace, name } = &scope;
-        info!("Loading simulation connector: {namespace}/{name}");
+        info!("Loading fake connector: {namespace}/{name}");
+
+        dbg!(nodes.clone().generate(&scope)?.collect().await?);
 
         Ok(Graph {
             data: GraphData {
-                edges: load_csv(&base_dir, &key_edges).await?,
-                nodes: load_csv(&base_dir, &key_nodes).await?,
+                edges: edges.generate(&scope).map_err(|error| {
+                    anyhow!("failed to generate fake edges ({namespace}/{name}): {error}")
+                })?,
+                nodes: nodes.generate(&scope).map_err(|error| {
+                    anyhow!("failed to generate fake nodes ({namespace}/{name}): {error}")
+                })?,
             },
             metadata,
             scope,
         })
-    }
-}
-
-#[instrument(level = Level::INFO)]
-async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
-    let mut path = base_dir.to_path_buf();
-    path.push(filename);
-
-    if fs::try_exists(&path).await? {
-        CsvReadOptions::default()
-            .with_has_header(true)
-            .try_into_reader_with_file_path(Some(path.to_path_buf()))
-            .map_err(
-                |error| anyhow!("failed to load file {path}: {error}", path = path.display(),),
-            )?
-            .finish()
-            .map(|df| LazyFrame::Polars(df.lazy()))
-            .map_err(|error| {
-                anyhow!(
-                    "failed to parse file {path}: {error}",
-                    path = path.display(),
-                )
-            })
-    } else {
-        Ok(LazyFrame::Empty)
     }
 }

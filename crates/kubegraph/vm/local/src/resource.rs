@@ -199,11 +199,14 @@ impl NetworkConnectorDBWorker {
         Self {
             inner: ::tokio::spawn(
                 FuturesUnordered::from_iter(vec![
+                    #[cfg(feature = "connector-fake")]
+                    ::kubegraph_connector_fake::NetworkConnector::default()
+                        .loop_forever(vm.clone()),
+                    #[cfg(feature = "connector-local")]
+                    ::kubegraph_connector_local::NetworkConnector::default()
+                        .loop_forever(vm.clone()),
                     #[cfg(feature = "connector-prometheus")]
                     ::kubegraph_connector_prometheus::NetworkConnector::default()
-                        .loop_forever(vm.clone()),
-                    #[cfg(feature = "connector-simulation")]
-                    ::kubegraph_connector_simulation::NetworkConnector::default()
                         .loop_forever(vm.clone()),
                 ])
                 .collect::<()>(),

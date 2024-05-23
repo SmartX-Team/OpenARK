@@ -36,16 +36,24 @@ analyzer-full = ["analyzer-llm"]
 analyzer-llm = ["kubegraph-analyzer-llm", "kubegraph-api/analyzer-llm"]
 
 # Configure Connectors
-connector-full = ["connector-prometheus", "connector-simulation"]
+connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
+connector-fake = [
+    "kubegraph-api/connector-fake",
+    "kubegraph-connector-fake",
+    "kubegraph-connector-local?/connector-fake",
+    "kubegraph-connector-prometheus?/connector-fake",
+]
+connector-local = [
+    "kubegraph-api/connector-local",
+    "kubegraph-connector-fake?/connector-local",
+    "kubegraph-connector-local",
+    "kubegraph-connector-prometheus?/connector-local",
+]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
+    "kubegraph-connector-fake?/connector-prometheus",
+    "kubegraph-connector-local?/connector-prometheus",
     "kubegraph-connector-prometheus",
-    "kubegraph-connector-simulation?/connector-prometheus",
-]
-connector-simulation = [
-    "kubegraph-api/connector-simulation",
-    "kubegraph-connector-prometheus?/connector-simulation",
-    "kubegraph-connector-simulation",
 ]
 
 # Configure DataFrame
@@ -78,8 +86,9 @@ solver-ortools = ["kubegraph-solver-ortools"]
 [dependencies]
 kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
 kubegraph-api = { path = "../../api" }
+kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
+kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
-kubegraph-connector-simulation = { path = "../../connector/simulation", optional = true, default-features = false }
 kubegraph-function-dummy = { path = "../../function/dummy", optional = true, default-features = false }
 kubegraph-graph-local = { path = "../../graph/local", optional = true, default-features = false }
 kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }

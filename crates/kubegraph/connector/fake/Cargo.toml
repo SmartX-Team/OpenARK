@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-connector-prometheus"
+name = "kubegraph-connector-fake"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -24,13 +24,13 @@ default = ["full"]
 full = ["connector-full"]
 
 # Connectors
-connector-full = ["connector-fake", "connector-local"]
-connector-fake = ["kubegraph-api/connector-fake"]
+connector-full = ["connector-local", "connector-prometheus"]
 connector-local = ["kubegraph-api/connector-local"]
+connector-prometheus = ["kubegraph-api/connector-prometheus"]
 
 [dependencies]
 kubegraph-api = { path = "../../api", features = [
-    "connector-prometheus",
+    "connector-fake",
     "df-polars",
 ] }
 
@@ -38,5 +38,5 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 polars = { workspace = true }
-prometheus-http-query = { workspace = true }
+rand = { workspace = true }
 tracing = { workspace = true }

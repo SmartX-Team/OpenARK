@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-connector-simulation"
+name = "kubegraph-connector-local"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -24,12 +24,13 @@ default = ["full"]
 full = ["connector-full"]
 
 # Connectors
-connector-full = ["connector-prometheus"]
-connector-prometheus = []
+connector-full = ["connector-fake", "connector-prometheus"]
+connector-fake = ["kubegraph-api/connector-fake"]
+connector-prometheus = ["kubegraph-api/connector-prometheus"]
 
 [dependencies]
 kubegraph-api = { path = "../../api", features = [
-    "connector-simulation",
+    "connector-local",
     "df-polars",
 ] }
 

@@ -7,16 +7,16 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkConnectorSimulationSpec {
+pub struct NetworkConnectorLocalSpec {
     pub path: PathBuf,
 
-    #[serde(default = "NetworkConnectorSimulationSpec::default_key_edges")]
+    #[serde(default = "NetworkConnectorLocalSpec::default_key_edges")]
     pub key_edges: String,
-    #[serde(default = "NetworkConnectorSimulationSpec::default_key_nodes")]
+    #[serde(default = "NetworkConnectorLocalSpec::default_key_nodes")]
     pub key_nodes: String,
 }
 
-impl NetworkConnectorSimulationSpec {
+impl NetworkConnectorLocalSpec {
     fn default_key_edges() -> String {
         "edges.csv".into()
     }

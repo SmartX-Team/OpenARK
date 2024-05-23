@@ -414,7 +414,6 @@ impl GraphMetadataExt for GraphMetadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GraphMetadataRaw {
     #[serde(default, flatten)]
     pub extras: BTreeMap<String, String>,
@@ -476,7 +475,7 @@ mod impl_json_schema_for_graph_metadata_raw {
     #[allow(dead_code)]
     #[derive(JsonSchema)]
     #[serde(transparent)]
-    struct GraphMetadataRaw(BTreeMap<String, String>);
+    struct GraphMetadataRaw(#[validate(inner(length(min = 1)))] BTreeMap<String, String>);
 
     impl JsonSchema for super::GraphMetadataRaw {
         #[inline]
@@ -572,25 +571,33 @@ where
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct GraphMetadataPinned {
     #[serde(default = "GraphMetadataPinned::default_capacity")]
+    #[validate(length(min = 1))]
     pub capacity: String,
     #[serde(default = "GraphMetadataPinned::default_flow")]
+    #[validate(length(min = 1))]
     pub flow: String,
     #[serde(default = "GraphMetadataPinned::default_function")]
+    #[validate(length(min = 1))]
     pub function: String,
     #[serde(default = "GraphMetadataPinned::default_interval_ms", rename = "le")]
+    #[validate(length(min = 1))]
     pub interval_ms: String,
     #[serde(default = "GraphMetadataPinned::default_name")]
+    #[validate(length(min = 1))]
     pub name: String,
     #[serde(default = "GraphMetadataPinned::default_sink")]
+    #[validate(length(min = 1))]
     pub sink: String,
     #[serde(default = "GraphMetadataPinned::default_src")]
+    #[validate(length(min = 1))]
     pub src: String,
     #[serde(default = "GraphMetadataPinned::default_supply")]
+    #[validate(length(min = 1))]
     pub supply: String,
     #[serde(default = "GraphMetadataPinned::default_unit_cost")]
+    #[validate(length(min = 1))]
     pub unit_cost: String,
 }
 

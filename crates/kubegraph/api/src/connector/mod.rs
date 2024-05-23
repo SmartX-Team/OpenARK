@@ -1,7 +1,9 @@
+#[cfg(feature = "connector-fake")]
+pub mod fake;
+#[cfg(feature = "connector-local")]
+pub mod local;
 #[cfg(feature = "connector-prometheus")]
 pub mod prometheus;
-#[cfg(feature = "connector-simulation")]
-pub mod simulation;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -131,32 +133,38 @@ impl<M> PartialEq<NetworkConnectorType> for NetworkConnectorSpec<M> {
 #[non_exhaustive]
 #[serde(rename_all = "camelCase")]
 pub enum NetworkConnectorKind {
+    #[cfg(feature = "connector-fake")]
+    Fake(self::fake::NetworkConnectorFakeSpec),
+    #[cfg(feature = "connector-local")]
+    Local(self::local::NetworkConnectorLocalSpec),
     #[cfg(feature = "connector-prometheus")]
     Prometheus(self::prometheus::NetworkConnectorPrometheusSpec),
-    #[cfg(feature = "connector-simulation")]
-    Simulation(self::simulation::NetworkConnectorSimulationSpec),
 }
 
 impl NetworkConnectorKind {
     fn name(&self) -> String {
         match self {
+            #[cfg(feature = "connector-fake")]
+            Self::Fake(_) => NetworkConnectorType::Fake.name().into(),
+            #[cfg(feature = "connector-local")]
+            Self::Local(_) => NetworkConnectorType::Local.name().into(),
             #[cfg(feature = "connector-prometheus")]
             Self::Prometheus(spec) => format!(
                 "{type}/{spec}",
                 type = NetworkConnectorType::Prometheus.name(),
                 spec = spec.name(),
             ),
-            #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorType::Simulation.name().into(),
         }
     }
 
     const fn to_ref(&self) -> NetworkConnectorType {
         match self {
+            #[cfg(feature = "connector-fake")]
+            Self::Fake(_) => NetworkConnectorType::Fake,
+            #[cfg(feature = "connector-local")]
+            Self::Local(_) => NetworkConnectorType::Local,
             #[cfg(feature = "connector-prometheus")]
             Self::Prometheus(_) => NetworkConnectorType::Prometheus,
-            #[cfg(feature = "connector-simulation")]
-            Self::Simulation(_) => NetworkConnectorType::Simulation,
         }
     }
 }
@@ -173,19 +181,23 @@ impl PartialEq<NetworkConnectorType> for NetworkConnectorKind {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum NetworkConnectorType {
+    #[cfg(feature = "connector-fake")]
+    Fake,
+    #[cfg(feature = "connector-local")]
+    Local,
     #[cfg(feature = "connector-prometheus")]
     Prometheus,
-    #[cfg(feature = "connector-simulation")]
-    Simulation,
 }
 
 impl NetworkConnectorType {
     pub const fn name(&self) -> &'static str {
         match self {
+            #[cfg(feature = "connector-fake")]
+            Self::Fake => "fake",
+            #[cfg(feature = "connector-local")]
+            Self::Local => "local",
             #[cfg(feature = "connector-prometheus")]
             Self::Prometheus => "prometheus",
-            #[cfg(feature = "connector-simulation")]
-            Self::Simulation => "simulation",
         }
     }
 }

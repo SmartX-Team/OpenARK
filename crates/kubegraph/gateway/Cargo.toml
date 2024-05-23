@@ -44,14 +44,18 @@ analyzer-llm = [
 ]
 
 # Configure Connectors
-connector-full = ["connector-prometheus", "connector-simulation"]
+connector-full = ["connector-fake", "connector-prometheus", "connector-local"]
+connector-fake = [
+    "kubegraph-api/connector-fake",
+    "kubegraph-vm-local?/connector-fake",
+]
+connector-local = [
+    "kubegraph-api/connector-local",
+    "kubegraph-vm-local?/connector-local",
+]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
     "kubegraph-vm-local?/connector-prometheus",
-]
-connector-simulation = [
-    "kubegraph-api/connector-simulation",
-    "kubegraph-vm-local?/connector-simulation",
 ]
 
 # Configure DataFrame
