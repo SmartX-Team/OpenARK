@@ -84,7 +84,7 @@ blocks_in_conditions = "allow" # opentelemetry tracing macro would be noisy
 [workspace.dependencies]
 actix-cors = { version = "0.7" }
 actix-multipart = { version = "0.6", features = ["derive", "tempfile"] }
-actix-web = { version = "4.5", default-features = false, features = [
+actix-web = { version = "4.6", default-features = false, features = [
     "macros",
     "rustls",
 ] }
@@ -92,7 +92,7 @@ actix-web-opentelemetry = { version = "0.17", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 arrow = { version = "51" } # should be synced with deltalake and lancedb
 argon2 = { version = "0.5" }
-async-nats = { version = "0.34" }
+async-nats = { version = "0.35" }
 async-recursion = { version = "1.1" }
 async-stream = { version = "0.3" }
 async-trait = { version = "0.1" }
@@ -121,9 +121,9 @@ http-cache-reqwest = { version = "0.14", features = ["manager-cacache"] }
 image = { version = "0.25", default-features = false }
 inflector = { package = "Inflector", version = "0.11" }
 ipnet = { version = "2.9", features = ["schemars", "serde"] }
-itertools = { version = "0.12" }
-k8s-openapi = { version = "0.21", features = ["latest", "schemars"] }
-kube = { version = "0.90", default-features = false }
+itertools = { version = "0.13" }
+k8s-openapi = { version = "0.22", features = ["latest", "schemars"] }
+kube = { version = "0.91", default-features = false }
 lalrpop = { version = "0.20" }
 lalrpop-util = { version = "0.20", features = ["lexer", "unicode"] }
 lancedb = { version = "0.4", default-features = false }
@@ -171,7 +171,7 @@ ordered-float = { version = "4.2", default-features = false, features = [
     "serde",
     "std",
 ] }
-polars = { version = "0.39", features = [
+polars = { version = "0.40", features = [
     "diagonal_concat",
     "diff",
     "fmt",
@@ -191,7 +191,7 @@ prometheus-http-query = { version = "0.8", default-features = false, features = 
     "rustls-tls",
 ] }
 pyo3 = { version = "0.21" }
-r2r = { version = "0.8" }
+r2r = { version = "0.9" }
 rand = { version = "0.8" }
 rdkafka = { version = "0.36", features = ["cmake-build"] }
 regex = { version = "1.10" }
@@ -242,7 +242,7 @@ tracing = { version = "0.1" }
 tracing-opentelemetry = { version = "0.23", features = [
     "metrics",
     "tracing-log",
-] }
+] } # should be synced with opentelemetry
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
     "fmt",

@@ -12,7 +12,7 @@ use kubegraph_api::{
     graph::{Graph, GraphData, GraphMetadata, GraphScope},
 };
 use polars::{
-    io::{csv::CsvReader, SerReader},
+    io::{csv::read::CsvReadOptions, SerReader},
     lazy::frame::IntoLazy,
 };
 use tokio::fs;
@@ -109,11 +109,12 @@ async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
     path.push(filename);
 
     if fs::try_exists(&path).await? {
-        CsvReader::from_path(&path)
+        CsvReadOptions::default()
+            .with_has_header(true)
+            .try_into_reader_with_file_path(Some(path.to_path_buf()))
             .map_err(
                 |error| anyhow!("failed to load file {path}: {error}", path = path.display(),),
             )?
-            .has_header(true)
             .finish()
             .map(|df| LazyFrame::Polars(df.lazy()))
             .map_err(|error| {

@@ -6,7 +6,7 @@ use pl::{
         dsl,
         frame::{IntoLazy, LazyFrame},
     },
-    series::Series,
+    series::Series,prelude::UnionArgs,
 };
 
 use crate::graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt};
@@ -28,7 +28,7 @@ impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
     where
         I: IntoIterator<Item = GraphEdges<LazyFrame>>,
     {
-        let args = dsl::UnionArgs {
+        let args = UnionArgs {
             to_supertypes: true,
             ..Default::default()
         };
@@ -64,8 +64,8 @@ where
 }
 
 pub(super) fn concat(a: LazyFrame, b: LazyFrame) -> Result<LazyFrame> {
-    let args = ::pl::lazy::dsl::UnionArgs::default();
-    ::pl::lazy::dsl::concat([a, b], args).map_err(Into::into)
+    let args = UnionArgs::default();
+    dsl::concat([a, b], args).map_err(Into::into)
 }
 
 pub fn get_column(
