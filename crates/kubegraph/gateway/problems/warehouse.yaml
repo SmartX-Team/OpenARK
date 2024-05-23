@@ -20,7 +20,7 @@ spec:
     supply: payload
   fake:
     nodes:
-      count: 30
+      count: 2
       frame:
         name:
           type: Name
@@ -31,7 +31,7 @@ spec:
           valueType: I64
         payload:
           type: Normal
-          mean: 300
+          mean: 200
           std: 20
           valueType: I64
         unit_cost:
@@ -57,5 +57,5 @@ spec:
   dummy: {}
   filter: src != sink and src.supply > 0 and src.supply > sink.supply
   script: |
-    capacity = 49;
+    capacity = 50;
     unit_cost = 1;

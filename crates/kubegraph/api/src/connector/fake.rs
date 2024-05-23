@@ -51,7 +51,7 @@ impl NetworkConnectorFakeDataModel {
         None
     }
 
-    const fn default_seed() -> Option<i64> {
+    const fn default_seed() -> Option<u64> {
         None
     }
 
@@ -88,7 +88,7 @@ mod impl_json_schema_for_fake_data_model {
         prefix: Option<String>,
         r#type: NetworkConnectorFakeDataModelType,
         #[serde(default = "super::NetworkConnectorFakeDataModel::default_seed")]
-        seed: Option<i64>,
+        seed: Option<u64>,
         #[serde(default = "super::NetworkConnectorFakeDataModel::default_std")]
         #[validate(range(min = 0.0))]
         std: f64,
@@ -148,7 +148,7 @@ pub mod model {
         #[serde(default = "super::NetworkConnectorFakeDataModel::default_mean")]
         pub mean: f64,
         #[serde(default = "super::NetworkConnectorFakeDataModel::default_seed")]
-        pub seed: Option<i64>,
+        pub seed: Option<u64>,
         #[serde(default = "super::NetworkConnectorFakeDataModel::default_std")]
         #[validate(range(min = 0.0))]
         pub std: f64,

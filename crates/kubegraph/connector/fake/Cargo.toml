@@ -39,4 +39,5 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 polars = { workspace = true }
 rand = { workspace = true }
+rand_distr = { workspace = true }
 tracing = { workspace = true }

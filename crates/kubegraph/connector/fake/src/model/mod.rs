@@ -1,10 +1,12 @@
 mod constant;
+mod dist;
 mod name;
 mod normal;
 
 use anyhow::{anyhow, Error, Result};
 use kubegraph_api::{
     connector::fake::{
+        model::{ConstantModel, NormalModel},
         NetworkConnectorFakeData, NetworkConnectorFakeDataFrame, NetworkConnectorFakeDataModel,
     },
     frame::LazyFrame,
@@ -88,6 +90,12 @@ impl<'a> DataGenerator<'a> for NetworkConnectorFakeDataModel {
         match self {
             Self::Constant(model) => model.generate(count),
             Self::Name(model) => model.generate((scope, count)),
+            Self::Normal(NormalModel {
+                mean: value,
+                std,
+                value_type,
+                ..
+            }) if std <= 0.0 => ConstantModel { value, value_type }.generate(count),
             Self::Normal(model) => model.generate(count),
         }
     }

@@ -1,6 +1,9 @@
 use kubegraph_api::connector::fake::model::NormalModel;
 use polars::{error::PolarsError, series::Series};
-use rand::{distributions::Standard, rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+use rand_distr::Normal;
+
+use super::dist::GenericDistModel;
 
 impl<'a> super::DataGenerator<'a> for NormalModel {
     type Args = usize;
@@ -15,14 +18,28 @@ impl<'a> super::DataGenerator<'a> for NormalModel {
         let Self {
             mean,
             seed,
-            std,
+            std: std_dev,
             value_type,
         } = self;
-        Series::from_iter(
-            StdRng::from_entropy()
-                .sample_iter::<f64, _>(Standard)
-                .take(count),
-        )
-        .cast(&value_type.into())
+
+        let dist = Normal::new(mean, std_dev)
+            .map_err(|error| PolarsError::ComputeError(error.to_string().into()))?;
+
+        match seed {
+            Some(seed) => GenericDistModel {
+                count,
+                dist,
+                rng: SmallRng::seed_from_u64(seed),
+                value_type,
+            }
+            .generate(()),
+            None => GenericDistModel {
+                count,
+                dist,
+                rng: thread_rng(),
+                value_type,
+            }
+            .generate(()),
+        }
     }
 }

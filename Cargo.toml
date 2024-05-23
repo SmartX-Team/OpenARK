@@ -194,6 +194,7 @@ prometheus-http-query = { version = "0.8", default-features = false, features = 
 pyo3 = { version = "0.21" }
 r2r = { version = "0.9" }
 rand = { version = "0.8" }
+rand_distr = { version = "0.4" }
 rdkafka = { version = "0.36", features = ["cmake-build"] }
 regex = { version = "1.10" }
 reqwest = { version = "0.12", default-features = false, features = [

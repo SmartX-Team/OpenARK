@@ -84,8 +84,6 @@ impl NetworkConnectorItem {
         let GraphScope { namespace, name } = &scope;
         info!("Loading fake connector: {namespace}/{name}");
 
-        dbg!(nodes.clone().generate(&scope)?.collect().await?);
-
         Ok(Graph {
             data: GraphData {
                 edges: edges.generate(&scope).map_err(|error| {
