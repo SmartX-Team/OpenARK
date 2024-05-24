@@ -6,7 +6,8 @@ use pl::{
         dsl,
         frame::{IntoLazy, LazyFrame},
     },
-    series::Series,prelude::UnionArgs,
+    prelude::UnionArgs,
+    series::Series,
 };
 
 use crate::graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt};
@@ -45,14 +46,14 @@ where
     MF: GraphMetadataPinnedExt,
     MT: GraphMetadataPinnedExt,
 {
-    let exprs: &[dsl::Expr] = match ty {
-        GraphDataType::Edge => &[
+    let exprs = match ty {
+        GraphDataType::Edge => [
             dsl::col(&from.src()).alias(&to.src()),
             dsl::col(&from.sink()).alias(&to.sink()),
             dsl::col(&from.capacity()).alias(&to.capacity()),
             dsl::col(&from.unit_cost()).alias(&to.unit_cost()),
         ],
-        GraphDataType::Node => &[
+        GraphDataType::Node => [
             dsl::col(&from.name()).alias(&to.name()),
             dsl::col(&from.capacity()).alias(&to.capacity()),
             dsl::col(&from.supply()).alias(&to.supply()),
