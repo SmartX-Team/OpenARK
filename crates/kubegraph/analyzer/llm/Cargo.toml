@@ -34,4 +34,5 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 langchain-rust = { workspace = true }
+ort-sys = { workspace = true }        # add onnxruntime library support for `langchain-rust` crate
 tracing = { workspace = true }

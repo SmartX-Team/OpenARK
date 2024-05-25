@@ -166,6 +166,7 @@ or-tools = { git = "https://github.com/ulagbulag/or-tools-rs", version = "0.1", 
     "build-native",
     "solver-all",
 ] }
+ort-sys = { version = "2.0.0-rc.2", features = ["download-binaries", "load-dynamic"] }
 ordered-float = { version = "4.2", default-features = false, features = [
     "bytemuck",
     "schemars",
