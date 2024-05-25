@@ -25,5 +25,5 @@
         cat /etc/kubernetes/manifests/kube-apiserver.yaml
         | grep -Po '^ +memory:' >/dev/null 2>/dev/null
         || sed -i
-        's/^\( \+\)  \(cpu\:.\+\)$/\1  \2\n\1  memory: 256Mi\n\1limits:\n\1  cpu: 2000m\n\1  memory: 2Gi/g'
+        's/^\( \+\)  \(cpu\:.\+\)$/\1  \2\n\1  memory: 256Mi\n\1limits:\n\1  cpu: "4"\n\1  memory: 4Gi/g'
         /etc/kubernetes/manifests/kube-apiserver.yaml
