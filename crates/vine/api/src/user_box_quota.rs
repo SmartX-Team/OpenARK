@@ -116,7 +116,7 @@ impl UserBoxQuotaDesktopContainerSpec {
     }
 
     fn default_image_pull_policy() -> ImagePullPolicy {
-        ImagePullPolicy::Always
+        ImagePullPolicy::IfNotPresent
     }
 
     fn default_ports() -> Vec<ContainerPort> {
