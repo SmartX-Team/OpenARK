@@ -123,8 +123,9 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
         // TODO: remove when test is ended
         #[cfg(feature = "df-polars")]
-        {
+        if problem.spec.verbose {
             use pl::lazy::dsl;
+
             println!("{}", nodes.clone().try_into_polars()?.collect()?);
             println!(
                 "{}",

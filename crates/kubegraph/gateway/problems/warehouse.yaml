@@ -76,6 +76,7 @@ metadata:
 spec:
   metadata:
     supply: payload
+  verbose: true
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkFunction
