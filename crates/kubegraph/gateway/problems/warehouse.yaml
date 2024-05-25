@@ -13,14 +13,14 @@
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkConnector
 metadata:
-  name: warehouse-sample
+  name: warehouse-sample-a
   namespace: kubegraph
 spec:
   metadata:
     supply: payload
   fake:
     nodes:
-      count: 2
+      count: 1
       frame:
         name:
           type: Name
@@ -32,6 +32,35 @@ spec:
         payload:
           type: Normal
           mean: 200
+          std: 20
+          valueType: I64
+        unit_cost:
+          type: Constant
+          value: 3
+          valueType: I64
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: warehouse-sample-b
+  namespace: kubegraph
+spec:
+  metadata:
+    supply: payload
+  fake:
+    nodes:
+      count: 1
+      frame:
+        name:
+          type: Name
+        capacity:
+          type: Normal
+          mean: 300
+          std: 20
+          valueType: I64
+        payload:
+          type: Normal
+          mean: 100
           std: 20
           valueType: I64
         unit_cost:
@@ -57,5 +86,5 @@ spec:
   dummy: {}
   filter: src != sink and src.supply > 0 and src.supply > sink.supply
   script: |
-    capacity = 50;
+    capacity = min(50, (src.supply - sink.supply) / 2);
     unit_cost = 1;

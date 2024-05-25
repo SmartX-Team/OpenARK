@@ -45,3 +45,15 @@ pub trait Or<Rhs = Self> {
 
     fn or(self, rhs: Rhs) -> Self::Output;
 }
+
+pub trait Max {
+    type Output;
+
+    fn max(self) -> Self::Output;
+}
+
+pub trait Min {
+    type Output;
+
+    fn min(self) -> Self::Output;
+}

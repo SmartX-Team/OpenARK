@@ -1,4 +1,4 @@
-use kubegraph_api::vm::{BinaryExpr, Number, UnaryExpr};
+use kubegraph_api::vm::{BinaryExpr, FunctionExpr, Literal, Number, UnaryExpr};
 use lalrpop_util::lalrpop_mod;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,13 @@ pub enum Expr {
         rhs: Box<Expr>,
         op: BinaryExpr,
     },
+    //
+    // callable
+    //
+    Function {
+        op: FunctionExpr,
+        args: Vec<Expr>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -59,8 +66,3 @@ pub enum Provide {
     Ensure { value: Literal },
     Feature { lhs: Literal, rhs: Literal },
 }
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-pub struct Literal(pub String);

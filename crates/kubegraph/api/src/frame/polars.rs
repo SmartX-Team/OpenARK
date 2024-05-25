@@ -6,11 +6,14 @@ use pl::{
         dsl,
         frame::{IntoLazy, LazyFrame},
     },
-    prelude::UnionArgs,
+    prelude::{Literal, UnionArgs},
     series::Series,
 };
 
-use crate::graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt};
+use crate::{
+    graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt},
+    vm::{Feature, Number},
+};
 
 impl From<DataFrame> for super::LazyFrame {
     fn from(df: DataFrame) -> Self {
@@ -30,6 +33,7 @@ impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
         I: IntoIterator<Item = GraphEdges<LazyFrame>>,
     {
         let args = UnionArgs {
+            rechunk: true,
             to_supertypes: true,
             ..Default::default()
         };
@@ -65,7 +69,10 @@ where
 }
 
 pub(super) fn concat(a: LazyFrame, b: LazyFrame) -> Result<LazyFrame> {
-    let args = UnionArgs::default();
+    let args = UnionArgs {
+        rechunk: true,
+        ..Default::default()
+    };
     dsl::concat([a, b], args).map_err(Into::into)
 }
 
@@ -142,5 +149,17 @@ pub fn find_indices(key_name: &str, names: &Series, keys: &Series) -> Result<Opt
         }
         dtype if dtype.is_integer() => Ok(None),
         dtype => bail!("failed to use unknown type as node name: {dtype}"),
+    }
+}
+
+impl Literal for Feature {
+    fn lit(self) -> dsl::Expr {
+        self.into_inner().lit()
+    }
+}
+
+impl Literal for Number {
+    fn lit(self) -> dsl::Expr {
+        self.into_inner().lit()
     }
 }

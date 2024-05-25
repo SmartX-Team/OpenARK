@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use kubegraph_api::vm::Number;
+use kubegraph_api::vm::{BuiltInFunctionExpr, FunctionExpr, Literal, Number};
 
 use crate::*;
 
@@ -138,7 +138,21 @@ UnitExpr: Expr = {
     <value: Value> => Expr::Identity {
         value,
     },
+    <op: FunctionOp> "(" <args: Comma<Expr>> ")" => Expr::Function {
+        op,
+        args,
+    },
     "(" <x: Expr> ")" => x,
+};
+
+FunctionOp: FunctionExpr = {
+    <name: BuiltInFunctionOp> => FunctionExpr::BuiltIn(name),
+    <name: Literal> => FunctionExpr::Custom(name),
+};
+
+BuiltInFunctionOp: BuiltInFunctionExpr = {
+    "max" => BuiltInFunctionExpr::Max,
+    "min" => BuiltInFunctionExpr::Min,
 };
 
 Value: Value = {
@@ -158,6 +172,19 @@ Literal: Literal = {
 
 Number: Number = {
     <s: r"-?[0-9]+(\.[0-9]*)?"> => Number::new(f64::from_str(s).unwrap()),
+};
+
+Comma<T>: Vec<T> = {
+    => Vec::new(),
+    CommaOne<T> => <>,
+};
+
+CommaOne<T>: Vec<T> = {
+    <e: T> <v: ("," <T>)*> ","? => {
+        let mut v = v;
+        v.insert(0, e);
+        v
+    }
 };
 
 MultiLine<T>: Vec<T> = {

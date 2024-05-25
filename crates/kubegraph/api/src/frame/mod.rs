@@ -4,7 +4,7 @@ pub mod polars;
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
 use ::polars::datatypes::DataType;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 #[cfg(feature = "df-polars")]
 use pl::lazy::dsl;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     function::FunctionMetadata,
     graph::{GraphDataType, GraphMetadataPinnedExt, GraphScope},
-    ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+    ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
     problem::ProblemSpec,
     vm::{Feature, Number},
 };
@@ -233,6 +233,80 @@ impl LazyFrame {
         }
     }
 }
+
+#[derive(Clone)]
+pub enum LazySliceOrScalar<T> {
+    LazySlice(LazySlice),
+    Scalar(T),
+}
+
+macro_rules! impl_expr_function_builtin {
+    ( impl $ty:ident ( $fn:ident ) for Vec<LazySliceOrScalar< $scalar:ty >> {
+        polars: {
+            op: $fn_polars:ident,
+            acc: $acc_polars:expr,
+        },
+    } ) => {
+        impl $ty for Vec<LazySliceOrScalar<$scalar>> {
+            type Output = Result<LazySliceOrScalar<$scalar>>;
+
+            fn $fn(mut self) -> Self::Output {
+                let mut acc = self.pop().ok_or_else(|| {
+                    anyhow!(concat!(
+                        "cannot call ",
+                        stringify!($name),
+                        " with empty arguments",
+                    ))
+                })?;
+
+                while let Some(arg) = self.pop() {
+                    acc = match (acc, arg) {
+                        (LazySliceOrScalar::LazySlice(_), LazySliceOrScalar::LazySlice(_)) => {
+                            bail!(concat!(
+                                "cannot call ",
+                                stringify!($name),
+                                " with multiple slices",
+                            ))
+                        }
+                        #[cfg(feature = "df-polars")]
+                        (
+                            LazySliceOrScalar::LazySlice(LazySlice::Polars(slice)),
+                            LazySliceOrScalar::Scalar(b),
+                        )
+                        | (
+                            LazySliceOrScalar::Scalar(b),
+                            LazySliceOrScalar::LazySlice(LazySlice::Polars(slice)),
+                        ) => {
+                            let a = slice.$fn_polars();
+                            let b = dsl::lit(b);
+
+                            let acc = $acc_polars(a, b);
+                            LazySliceOrScalar::LazySlice(LazySlice::Polars(acc))
+                        }
+                        (LazySliceOrScalar::Scalar(a), LazySliceOrScalar::Scalar(b)) => {
+                            LazySliceOrScalar::Scalar(a.$fn(b))
+                        }
+                    };
+                }
+
+                Ok(acc)
+            }
+        }
+    };
+}
+
+impl_expr_function_builtin!(impl Max(max) for Vec<LazySliceOrScalar<Number>> {
+    polars: {
+        op: max,
+        acc: |a: dsl::Expr, b: dsl::Expr| dsl::when(a.clone().gt_eq(b.clone())).then(a).otherwise(b),
+    },
+});
+impl_expr_function_builtin!(impl Min(min) for Vec<LazySliceOrScalar<Number>> {
+    polars: {
+        op: min,
+        acc: |a: dsl::Expr, b: dsl::Expr| dsl::when(a.clone().lt_eq(b.clone())).then(a).otherwise(b),
+    },
+});
 
 #[derive(Clone)]
 pub enum LazySlice {

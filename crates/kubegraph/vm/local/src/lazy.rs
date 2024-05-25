@@ -41,12 +41,15 @@ mod impl_call {
 
     use anyhow::{bail, Error, Result};
     use kubegraph_api::{
-        frame::{IntoLazySlice, LazyFrame, LazySlice},
+        frame::{IntoLazySlice, LazyFrame, LazySlice, LazySliceOrScalar},
         function::FunctionMetadata,
         graph::{GraphEdges, GraphMetadataPinnedExt},
-        ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+        ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
         problem::VirtualProblem,
-        vm::{BinaryExpr, Feature, Instruction, Number, Stmt, UnaryExpr, Value},
+        vm::{
+            BinaryExpr, BuiltInFunctionExpr, Feature, FunctionExpr, Instruction, Number, Stmt,
+            UnaryExpr, Value,
+        },
     };
 
     impl super::LazyVirtualMachine {
@@ -103,7 +106,7 @@ mod impl_call {
                 let Instruction { name, stmt } = ins;
 
                 // fetch from stack
-                let value = match *stmt {
+                let value = match stmt.clone() {
                     Stmt::Identity { index } if index < pc => stack.get(index),
                     Stmt::Identity { index } => {
                         bail!("illegal instruction access: {pc} -> {index}")
@@ -118,6 +121,11 @@ mod impl_call {
                     Stmt::UnaryExpr { src, op } => {
                         let src = stack.fetch(src);
                         src.execute_expr_unary(op)?
+                    }
+                    Stmt::FunctionExpr { op, args } => {
+                        let args =
+                            VariableVec(args.into_iter().map(|arg| stack.fetch(arg)).collect());
+                        args.execute_expr_function(op)?
                     }
                 };
 
@@ -265,6 +273,24 @@ mod impl_call {
         }
     }
 
+    impl From<LazySliceOrScalar<Feature>> for Variable {
+        fn from(value: LazySliceOrScalar<Feature>) -> Self {
+            match value {
+                LazySliceOrScalar::LazySlice(value) => Self::LazySlice(value),
+                LazySliceOrScalar::Scalar(value) => Self::Feature(Some(value)),
+            }
+        }
+    }
+
+    impl From<LazySliceOrScalar<Number>> for Variable {
+        fn from(value: LazySliceOrScalar<Number>) -> Self {
+            match value {
+                LazySliceOrScalar::LazySlice(value) => Self::LazySlice(value),
+                LazySliceOrScalar::Scalar(value) => Self::Number(Some(value)),
+            }
+        }
+    }
+
     impl TryFrom<Variable> for LazySlice {
         type Error = Error;
 
@@ -302,40 +328,57 @@ mod impl_call {
         }
     }
 
+    struct VariableVec(Vec<Variable>);
+
+    impl VariableVec {
+        fn execute_expr_function(self, op: FunctionExpr) -> Result<Variable> {
+            match op {
+                FunctionExpr::BuiltIn(op) => self.execute_expr_function_builtin(op),
+                FunctionExpr::Custom(name) => bail!("unsupported function: {name}"),
+            }
+        }
+
+        fn execute_expr_function_builtin(self, op: BuiltInFunctionExpr) -> Result<Variable> {
+            match op {
+                BuiltInFunctionExpr::Max => self.max(),
+                BuiltInFunctionExpr::Min => self.min(),
+            }
+        }
+    }
+
     macro_rules! impl_expr_unary {
-        ( impl $fn:ident for $src:ident as Feature ) => {{
-            match $src {
-                Variable::LazySlice(src) => Ok(Variable::LazySlice(src.not())),
-                Variable::Feature(Some(src)) => Ok(Variable::Feature(Some(src.not()))),
-                Variable::Feature(None) => error_undefined_feature(),
-                Variable::Number(_) => error_unexpected_type_number(),
+        ( impl $name:ident ($fn:ident) for $src:ident as Feature ) => {
+            impl $name for Variable {
+                type Output = Result<Self>;
+
+                fn $fn(self) -> Self::Output {
+                    match self {
+                        Variable::LazySlice(src) => Ok(Variable::LazySlice(src.not())),
+                        Variable::Feature(Some(src)) => Ok(Variable::Feature(Some(src.not()))),
+                        Variable::Feature(None) => error_undefined_feature(),
+                        Variable::Number(_) => error_unexpected_type_number(),
+                    }
+                }
             }
-        }};
-        ( impl $fn:ident for $src:ident as Number ) => {{
-            match $src {
-                Variable::LazySlice(src) => Ok(Variable::LazySlice(src.neg())),
-                Variable::Feature(_) => error_unexpected_type_feature(),
-                Variable::Number(Some(src)) => Ok(Variable::Number(Some(src.neg()))),
-                Variable::Number(None) => error_undefined_number(),
+        };
+        ( impl $name:ident ($fn:ident) for $src:ident as Number ) => {
+            impl $name for Variable {
+                type Output = Result<Self>;
+
+                fn $fn(self) -> Self::Output {
+                    match self {
+                        Variable::LazySlice(src) => Ok(Variable::LazySlice(src.neg())),
+                        Variable::Feature(_) => error_unexpected_type_feature(),
+                        Variable::Number(Some(src)) => Ok(Variable::Number(Some(src.neg()))),
+                        Variable::Number(None) => error_undefined_number(),
+                    }
+                }
             }
-        }};
+        };
     }
 
-    impl Neg for Variable {
-        type Output = Result<Self>;
-
-        fn neg(self) -> Self::Output {
-            impl_expr_unary!(impl neg for self as Number)
-        }
-    }
-
-    impl Not for Variable {
-        type Output = Result<Self>;
-
-        fn not(self) -> Self::Output {
-            impl_expr_unary!(impl not for self as Feature)
-        }
-    }
+    impl_expr_unary!(impl Neg(neg) for self as Number);
+    impl_expr_unary!(impl Not(not) for self as Feature);
 
     macro_rules! impl_expr_binary {
         ( impl $ty:ident ( $fn:ident ) for Feature -> Feature ) => {
@@ -455,6 +498,48 @@ mod impl_call {
     impl_expr_binary!(impl And(and) for Feature -> Feature);
     impl_expr_binary!(impl Or(or) for Feature -> Feature);
 
+    macro_rules! impl_expr_function_builtin {
+        ( impl $name:ident ($fn:ident) for $args:ident as Number ) => {
+            impl $name for VariableVec {
+                type Output = Result<Variable>;
+
+                fn $fn(self) -> Self::Output {
+                    let Self(args) = self;
+
+                    if args
+                        .iter()
+                        .all(|arg| matches!(arg, Variable::Number(Some(_))))
+                    {
+                        let args = args
+                            .into_iter()
+                            .filter_map(|arg| match arg {
+                                Variable::Number(Some(arg)) => Some(arg),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>();
+
+                        $name::$fn(args).map(Some).map(Variable::Number)
+                    } else {
+                        let args = args
+                            .into_iter()
+                            .map(|arg| match arg {
+                                Variable::LazySlice(arg) => Ok(LazySliceOrScalar::LazySlice(arg)),
+                                Variable::Feature(_) => error_unexpected_type_feature(),
+                                Variable::Number(Some(arg)) => Ok(LazySliceOrScalar::Scalar(arg)),
+                                Variable::Number(None) => error_undefined_number(),
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+
+                        $name::$fn(args).map(Into::into)
+                    }
+                }
+            }
+        };
+    }
+
+    impl_expr_function_builtin!(impl Max(max) for self as Number);
+    impl_expr_function_builtin!(impl Min(min) for self as Number);
+
     fn error_undefined<T>(kind: &str) -> Result<T> {
         bail!("undefined {kind}")
     }
@@ -481,11 +566,12 @@ mod impl_call {
 }
 
 mod impl_execute {
-    use anyhow::{anyhow, Result};
+    use anyhow::{anyhow, bail, Result};
     use kubegraph_api::vm::{
-        BinaryExpr, Instruction, Number, Stmt as LazyStmt, UnaryExpr, Value as RefValue,
+        BinaryExpr, BuiltInFunctionExpr, FunctionExpr, Instruction, Literal, Number,
+        Stmt as LazyStmt, UnaryExpr, Value as RefValue,
     };
-    use kubegraph_parser::{Expr, Filter, Literal, Script, Stmt, Value};
+    use kubegraph_parser::{Expr, Filter, Script, Stmt, Value};
 
     impl super::LazyVirtualMachine {
         pub fn execute_script(&mut self, input: &str) -> Result<()> {
@@ -579,6 +665,7 @@ mod impl_execute {
                 Expr::Identity { value } => return self.execute_get_local_value(value),
                 Expr::Unary { value, op } => self.execute_expr_unary(op, *value)?,
                 Expr::Binary { lhs, rhs, op } => self.execute_expr_binary(op, *lhs, *rhs)?,
+                Expr::Function { op, args } => self.execute_expr_function(op, args)?,
             };
 
             match stmt.to_value() {
@@ -725,6 +812,41 @@ mod impl_execute {
             let lhs = self.execute_expr(lhs)?;
             let rhs = self.execute_expr(rhs)?;
             lhs.or(rhs)
+        }
+
+        fn execute_expr_function(&mut self, op: FunctionExpr, args: Vec<Expr>) -> Result<LazyStmt> {
+            let args = args
+                .into_iter()
+                .map(|expr| self.execute_expr(expr))
+                .collect::<Result<_>>()?;
+
+            match op {
+                FunctionExpr::BuiltIn(op) => self.execute_expr_function_builtin(op, args),
+                FunctionExpr::Custom(name) => bail!("unsupported function: {name}"),
+            }
+        }
+
+        fn execute_expr_function_builtin(
+            &mut self,
+            op: BuiltInFunctionExpr,
+            args: Vec<RefValue>,
+        ) -> Result<LazyStmt> {
+            match op {
+                BuiltInFunctionExpr::Max => self.execute_expr_function_builtin_max(args),
+                BuiltInFunctionExpr::Min => self.execute_expr_function_builtin_min(args),
+            }
+        }
+
+        fn execute_expr_function_builtin_max(&mut self, args: Vec<RefValue>) -> Result<LazyStmt> {
+            use kubegraph_api::ops::Max;
+
+            args.max()
+        }
+
+        fn execute_expr_function_builtin_min(&mut self, args: Vec<RefValue>) -> Result<LazyStmt> {
+            use kubegraph_api::ops::Min;
+
+            args.min()
         }
     }
 }

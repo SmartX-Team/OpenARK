@@ -1,12 +1,14 @@
 use std::{
+    fmt,
     ops::{Add, Div, Mul, Neg, Not, Sub},
     sync::Arc,
     time::Duration,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, TryStreamExt};
+use ordered_float::OrderedFloat;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
@@ -19,7 +21,7 @@ use crate::{
         Graph, GraphData, GraphEdges, GraphMetadata, GraphMetadataPinnedExt, GraphMetadataStandard,
         GraphScope, NetworkGraphDB, NetworkGraphDBExt, ScopedNetworkGraphDBContainer,
     },
-    ops::{And, Eq, Ge, Gt, Le, Lt, Ne, Or},
+    ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
     problem::VirtualProblem,
     resource::NetworkResourceCollectionDB,
     runner::NetworkRunner,
@@ -268,7 +270,7 @@ pub struct Instruction {
     pub stmt: Stmt,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Identity {
         index: usize,
@@ -287,6 +289,10 @@ pub enum Stmt {
     UnaryExpr {
         src: Value,
         op: UnaryExpr,
+    },
+    FunctionExpr {
+        op: FunctionExpr,
+        args: Vec<Value>,
     },
 }
 
@@ -322,6 +328,7 @@ impl Stmt {
             Stmt::DefineLocalValue { value: None } => None,
             Stmt::BinaryExpr { .. } => None,
             Stmt::UnaryExpr { .. } => None,
+            Stmt::FunctionExpr { .. } => None,
         }
     }
 }
@@ -334,45 +341,44 @@ pub enum Value {
 }
 
 macro_rules! impl_expr_unary {
-    ( impl $name:ident ($fn:ident) for $src:ident as Feature -> Feature ) => {{
-        match $src.to_feature()? {
-            Some(src) => Ok(Stmt::DefineLocalFeature {
-                value: Some(src.$fn()),
-            }),
-            _ => Ok(Stmt::UnaryExpr {
-                src: $src,
-                op: UnaryExpr::$name,
-            }),
+    ( impl $name:ident ($fn:ident) for $src:ident as Feature -> Feature ) => {
+        impl $name for Value {
+            type Output = Result<Stmt>;
+
+            fn $fn(self) -> Self::Output {
+                match self.to_feature()? {
+                    Some(src) => Ok(Stmt::DefineLocalFeature {
+                        value: Some(src.$fn()),
+                    }),
+                    _ => Ok(Stmt::UnaryExpr {
+                        src: self,
+                        op: UnaryExpr::$name,
+                    }),
+                }
+            }
         }
-    }};
-    ( impl $name:ident ($fn:ident) for $src:ident as Number -> Number ) => {{
-        match $src.to_number()? {
-            Some(src) => Ok(Stmt::DefineLocalValue {
-                value: Some(src.$fn()),
-            }),
-            _ => Ok(Stmt::UnaryExpr {
-                src: $src,
-                op: UnaryExpr::$name,
-            }),
+    };
+    ( impl $name:ident ($fn:ident) for $src:ident as Number -> Number ) => {
+        impl $name for Value {
+            type Output = Result<Stmt>;
+
+            fn $fn(self) -> Self::Output {
+                match self.to_number()? {
+                    Some(src) => Ok(Stmt::DefineLocalValue {
+                        value: Some(src.$fn()),
+                    }),
+                    _ => Ok(Stmt::UnaryExpr {
+                        src: self,
+                        op: UnaryExpr::$name,
+                    }),
+                }
+            }
         }
-    }};
+    };
 }
 
-impl Neg for Value {
-    type Output = Result<Stmt>;
-
-    fn neg(self) -> Self::Output {
-        impl_expr_unary!(impl Neg(neg) for self as Number -> Number)
-    }
-}
-
-impl Not for Value {
-    type Output = Result<Stmt>;
-
-    fn not(self) -> Self::Output {
-        impl_expr_unary!(impl Not(not) for self as Feature -> Feature)
-    }
-}
+impl_expr_unary!(impl Neg(neg) for self as Number -> Number);
+impl_expr_unary!(impl Not(not) for self as Feature -> Feature);
 
 macro_rules! impl_expr_binary {
     ( impl $ty:ident ($fn:ident) for Feature -> Feature ) => {
@@ -462,7 +468,70 @@ impl_expr_binary!(impl Lt(lt) for Number -> Feature);
 impl_expr_binary!(impl And(and) for Feature -> Feature);
 impl_expr_binary!(impl Or(or) for Feature -> Feature);
 
+macro_rules! impl_expr_function_builtin {
+    ( impl $name:ident ($fn:ident) for $args:ident as Number -> Number ) => {
+        impl $name for Vec<Value> {
+            type Output = Result<Stmt>;
+
+            fn $fn(self) -> Self::Output {
+                if self.iter().all(|value| value.is_number()) {
+                    Ok(Stmt::DefineLocalValue {
+                        value: self
+                            .into_iter()
+                            .filter_map(|value| value.to_number_opt())
+                            .$fn(),
+                    })
+                } else {
+                    Ok(Stmt::FunctionExpr {
+                        op: FunctionExpr::BuiltIn(BuiltInFunctionExpr::$name),
+                        args: self,
+                    })
+                }
+            }
+        }
+
+        impl $name for Vec<Number> {
+            type Output = Result<Number>;
+
+            fn $fn(self) -> Self::Output {
+                self.into_iter().$fn().ok_or_else(|| {
+                    anyhow!(concat!(
+                        "cannot call ",
+                        stringify!($name),
+                        " with empty arguments",
+                    ))
+                })
+            }
+        }
+    };
+}
+
+impl_expr_function_builtin!(impl Max(max) for self as Number -> Number);
+impl_expr_function_builtin!(impl Min(min) for self as Number -> Number);
+
 impl Value {
+    // fn is_feature(&self) -> bool {
+    //     matches!(self, Self::Feature(_))
+    // }
+
+    fn is_number(&self) -> bool {
+        matches!(self, Self::Number(_))
+    }
+
+    // fn to_feature_opt(&self) -> Option<Feature> {
+    //     match self {
+    //         Self::Feature(value) => Some(*value),
+    //         _ => None,
+    //     }
+    // }
+
+    fn to_number_opt(&self) -> Option<Number> {
+        match self {
+            Self::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
+
     fn to_feature(&self) -> Result<Option<Feature>> {
         match self {
             Self::Feature(value) => Ok(Some(*value)),
@@ -519,18 +588,20 @@ impl Or for Feature {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[repr(transparent)]
 #[serde(transparent)]
-pub struct Number(f64);
+pub struct Number(OrderedFloat<f64>);
 
 impl Number {
     pub const fn new(value: f64) -> Self {
-        Self(value)
+        Self(OrderedFloat(value))
     }
 
     pub const fn into_inner(self) -> f64 {
-        self.0
+        self.0 .0
     }
 }
 
@@ -650,4 +721,29 @@ pub enum BinaryExpr {
 pub enum UnaryExpr {
     Neg,
     Not,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub enum FunctionExpr {
+    BuiltIn(BuiltInFunctionExpr),
+    Custom(Literal),
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub enum BuiltInFunctionExpr {
+    Max,
+    Min,
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub struct Literal(pub String);
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
 }
