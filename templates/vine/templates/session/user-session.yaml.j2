@@ -305,9 +305,15 @@ spec:
 {% if not spec.persistence %}
       restartPolicy: Never
 {% endif %}
+      priorityClassName: system-node-critical
       serviceAccount: account
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 60
+      tolerations:
+        - operator: Exists
+          effect: NoExecute
+        - operator: Exists
+          effect: NoSchedule
       volumes:
         - name: cgroup
           hostPath:
