@@ -16,7 +16,7 @@ impl ClusterUpgradeArgs {
         let client = AnsibleClient::try_default(&kube).await?;
 
         info!("Selecting default cluster");
-        let cluster = ClusterState::load_current_cluster(&kube).await?;
+        let cluster = ClusterState::load_current_cluster(&kube, false).await?;
 
         let job = AnsibleJob {
             cron: None,
@@ -24,6 +24,8 @@ impl ClusterUpgradeArgs {
             r#box: cluster.get_first_control_plane()?,
             new_group: None,
             new_state: None,
+            is_critical: true,
+            use_workers: true,
         };
 
         if client.spawn(&kube, job).await? {

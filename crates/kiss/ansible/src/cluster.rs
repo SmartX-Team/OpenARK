@@ -14,9 +14,10 @@ use crate::config::KissConfig;
 
 pub struct ClusterState<'a> {
     config: Cow<'a, KissConfig>,
-    control_planes: ClusterControlPlaneState,
+    control_planes: ClusterBoxGroup,
     owner_group: Cow<'a, BoxGroupSpec>,
     owner_uuid: Uuid,
+    workers: Option<ClusterBoxGroup>,
 }
 
 impl<'a> ClusterState<'a> {
@@ -25,28 +26,45 @@ impl<'a> ClusterState<'a> {
         kube: &'a Client,
         config: &'a KissConfig,
         owner: &'a BoxSpec,
+        load_workers: bool,
     ) -> Result<ClusterState<'a>, Error> {
         Ok(Self {
             config: Cow::Borrowed(config),
-            control_planes: ClusterControlPlaneState::load(kube, &owner.group.cluster_name).await?,
+            control_planes: ClusterBoxGroup::load_control_planes(kube, &owner.group.cluster_name)
+                .await?,
             owner_group: Cow::Borrowed(&owner.group),
             owner_uuid: owner.machine.uuid,
+            workers: if load_workers {
+                Some(ClusterBoxGroup::load_worker_nodes(kube, &owner.group.cluster_name).await?)
+            } else {
+                None
+            },
         })
     }
 
     #[instrument(level = Level::INFO, skip(kube), err(Display))]
-    pub async fn load_current_cluster(kube: &'a Client) -> Result<ClusterState<'a>> {
+    pub async fn load_current_cluster(
+        kube: &'a Client,
+        load_workers: bool,
+    ) -> Result<ClusterState<'a>> {
         let config = KissConfig::try_default(kube).await?;
         let cluster_name = config.kiss_cluster_name.clone();
 
         // load the current control planes
-        let control_planes = ClusterControlPlaneState::load(kube, &cluster_name).await?;
+        let control_planes = ClusterBoxGroup::load_control_planes(kube, &cluster_name).await?;
 
         // load a master node
-        let filter = ClusterControlPlaneFilter::Running;
+        let filter = ClusterBoxFilter::Running;
         let owner = match control_planes.iter(filter).next() {
             Some((owner, _)) => owner.clone(),
             None => bail!("cluster {cluster_name:?} is not running"),
+        };
+
+        // load the current workers
+        let workers = if load_workers {
+            Some(ClusterBoxGroup::load_worker_nodes(kube, &cluster_name).await?)
+        } else {
+            None
         };
 
         Ok(Self {
@@ -57,12 +75,13 @@ impl<'a> ClusterState<'a> {
                 role: BoxGroupRole::ControlPlane,
             }),
             owner_uuid: owner.uuid,
+            workers,
         })
     }
 
     pub fn get_first_control_plane(&self) -> Result<&BoxCrd> {
         self.control_planes
-            .iter(ClusterControlPlaneFilter::Running)
+            .iter(ClusterBoxFilter::Running)
             .map(|(_, r#box)| r#box)
             .next()
             .ok_or_else(|| {
@@ -74,7 +93,7 @@ impl<'a> ClusterState<'a> {
     }
 
     pub fn get_control_planes_as_string(&self) -> String {
-        let filter = ClusterControlPlaneFilter::RunningWith {
+        let filter = ClusterBoxFilter::RunningWith {
             uuid: self.owner_uuid,
         };
         let nodes = self.control_planes.to_vec(filter);
@@ -84,7 +103,7 @@ impl<'a> ClusterState<'a> {
     }
 
     pub fn get_etcd_nodes_as_string(&self) -> String {
-        let filter = ClusterControlPlaneFilter::RunningWith {
+        let filter = ClusterBoxFilter::RunningWith {
             uuid: self.owner_uuid,
         };
         let mut nodes = self.control_planes.to_vec(filter);
@@ -112,6 +131,19 @@ impl<'a> ClusterState<'a> {
 
         const NODE_ROLE: &str = "etcd";
         get_nodes_as_string(nodes, NODE_ROLE)
+    }
+
+    pub fn get_worker_nodes_as_string(&self) -> String {
+        self.workers
+            .as_ref()
+            .map(|workers| {
+                let filter = ClusterBoxFilter::Running;
+                let nodes = workers.to_vec(filter);
+
+                const NODE_ROLE: &str = "kube_node";
+                get_nodes_as_string(nodes, NODE_ROLE)
+            })
+            .unwrap_or_default()
     }
 
     pub fn is_control_plane_ready(&self) -> bool {
@@ -155,40 +187,18 @@ impl<'a> ClusterState<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-struct ClusterBoxState {
-    created_at: Option<Time>,
-    hostname: String,
-    ip: Option<IpAddr>,
-    is_running: bool,
-    uuid: Uuid,
-}
-
-impl AsRef<Self> for ClusterBoxState {
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl ClusterBoxState {
-    fn get_host(&self) -> Option<String> {
-        Some(format!("{}:{}", &self.hostname, self.ip?))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 struct ClusterLockState {
     box_name: String,
     role: BoxGroupRole,
 }
 
-struct ClusterControlPlaneState {
+struct ClusterBoxGroup {
     nodes: BTreeMap<ClusterBoxState, BoxCrd>,
 }
 
-impl ClusterControlPlaneState {
+impl ClusterBoxGroup {
     #[instrument(level = Level::INFO, err(Display), skip(kube))]
-    async fn load(kube: &Client, cluster_name: &str) -> Result<Self, Error> {
+    async fn load_control_planes(kube: &Client, cluster_name: &str) -> Result<Self, Error> {
         let api = Api::<BoxCrd>::all(kube.clone());
         let lp = ListParams::default();
         Ok(Self {
@@ -202,21 +212,30 @@ impl ClusterControlPlaneState {
                         && r#box.spec.group.role == BoxGroupRole::ControlPlane
                 })
                 .map(|r#box| {
-                    let key = ClusterBoxState {
-                        created_at: r#box.metadata.creation_timestamp.clone(),
-                        hostname: r#box.spec.machine.hostname(),
-                        ip: r#box
-                            .status
-                            .as_ref()
-                            .and_then(|status| status.access.primary.as_ref())
-                            .map(|interface| interface.address),
-                        is_running: r#box
-                            .status
-                            .as_ref()
-                            .map(|status| matches!(status.state, BoxState::Running))
-                            .unwrap_or_default(),
-                        uuid: r#box.spec.machine.uuid,
-                    };
+                    let key = ClusterBoxState::from_box(&r#box);
+                    let value = r#box;
+                    (key, value)
+                })
+                .collect(),
+        })
+    }
+
+    #[instrument(level = Level::INFO, err(Display), skip(kube))]
+    async fn load_worker_nodes(kube: &Client, cluster_name: &str) -> Result<Self, Error> {
+        let api = Api::<BoxCrd>::all(kube.clone());
+        let lp = ListParams::default();
+        Ok(Self {
+            nodes: api
+                .list(&lp)
+                .await?
+                .items
+                .into_iter()
+                .filter(|r#box| {
+                    r#box.spec.group.cluster_name == cluster_name
+                        && r#box.spec.group.role != BoxGroupRole::ControlPlane
+                })
+                .map(|r#box| {
+                    let key = ClusterBoxState::from_box(&r#box);
                     let value = r#box;
                     (key, value)
                 })
@@ -240,10 +259,7 @@ impl ClusterControlPlaneState {
         self.nodes.iter().any(|(node, _)| node.is_running)
     }
 
-    fn iter(
-        &self,
-        filter: ClusterControlPlaneFilter,
-    ) -> impl Iterator<Item = (&ClusterBoxState, &BoxCrd)> {
+    fn iter(&self, filter: ClusterBoxFilter) -> impl Iterator<Item = (&ClusterBoxState, &BoxCrd)> {
         self.nodes
             .iter()
             .filter(|(node, _)| node.is_running || filter.contains(node.uuid))
@@ -261,17 +277,17 @@ impl ClusterControlPlaneState {
         self.nodes.len()
     }
 
-    fn to_vec(&self, filter: ClusterControlPlaneFilter) -> Vec<&ClusterBoxState> {
+    fn to_vec(&self, filter: ClusterBoxFilter) -> Vec<&ClusterBoxState> {
         self.iter(filter).map(|(node, _)| node).collect()
     }
 }
 
-enum ClusterControlPlaneFilter {
+enum ClusterBoxFilter {
     Running,
     RunningWith { uuid: Uuid },
 }
 
-impl ClusterControlPlaneFilter {
+impl ClusterBoxFilter {
     fn contains(&self, target: Uuid) -> bool {
         match self {
             Self::Running => false,
@@ -295,4 +311,44 @@ fn get_nodes_as_string(nodes: Vec<&ClusterBoxState>, node_role: &str) -> String 
         .filter_map(|node| node.get_host())
         .map(|host| format!("{node_role}:{host}"))
         .join(" ")
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ClusterBoxState {
+    created_at: Option<Time>,
+    hostname: String,
+    ip: Option<IpAddr>,
+    is_running: bool,
+    uuid: Uuid,
+}
+
+impl AsRef<Self> for ClusterBoxState {
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl ClusterBoxState {
+    fn from_box(object: &BoxCrd) -> Self {
+        Self {
+            created_at: object.metadata.creation_timestamp.clone(),
+            hostname: object.spec.machine.hostname(),
+            ip: object
+                .status
+                .as_ref()
+                .and_then(|status| status.access.primary.as_ref())
+                .map(|interface| interface.address),
+            is_running: object
+                .status
+                .as_ref()
+                .map(|status| matches!(status.state, BoxState::Running))
+                .unwrap_or_default(),
+            uuid: object.spec.machine.uuid,
+        }
+    }
+
+    fn get_host(&self) -> Option<String> {
+        Some(format!("{}:{}", &self.hostname, self.ip?))
+    }
 }

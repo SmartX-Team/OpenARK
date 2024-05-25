@@ -10,7 +10,7 @@ use k8s_openapi::{
         core::v1::{
             ConfigMapKeySelector, ConfigMapVolumeSource, Container, EnvVar, EnvVarSource,
             KeyToPath, PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector,
-            SecretVolumeSource, Volume, VolumeMount,
+            SecretVolumeSource, Toleration, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::api::resource::Quantity,
@@ -77,7 +77,8 @@ impl AnsibleClient {
 
         // realize mutual exclusivity (QUEUE)
         let cluster_state =
-            self::cluster::ClusterState::load(kube, &self.kiss, &job.r#box.spec).await?;
+            self::cluster::ClusterState::load(kube, &self.kiss, &job.r#box.spec, job.use_workers)
+                .await?;
         if let Some(new_state) = job.new_state {
             if matches!(new_state, BoxState::Joining) && !cluster_state.is_joinable() {
                 info!(
@@ -124,8 +125,25 @@ impl AnsibleClient {
                 }),
                 spec: Some(PodSpec {
                     affinity: Some(crate::job::affinity()),
+                    priority_class_name: Some("k8s-cluster-critical".into()),
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
+                    tolerations: if job.is_critical {
+                        Some(vec![
+                            Toleration {
+                                operator: Some("Exists".into()),
+                                effect: Some("NoExecute".into()),
+                                ..Default::default()
+                            },
+                            Toleration {
+                                operator: Some("Exists".into()),
+                                effect: Some("NoSchedule".into()),
+                                ..Default::default()
+                            },
+                        ])
+                    } else {
+                        None
+                    },
                     containers: vec![Container {
                         name: "ansible".into(),
                         image: Some(self.kiss.kubespray_image.clone()),
@@ -239,6 +257,15 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_cluster_is_new".into(),
                                 value: Some(cluster_state.is_new().to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_cluster_worker_nodes".into(),
+                                value: Some(if job.use_workers {
+                                    cluster_state.get_worker_nodes_as_string()
+                                } else {
+                                    Default::default()
+                                }),
                                 ..Default::default()
                             },
                             EnvVar {
@@ -596,4 +623,6 @@ pub struct AnsibleJob<'a> {
     pub r#box: &'a BoxCrd,
     pub new_group: Option<&'a BoxGroupSpec>,
     pub new_state: Option<BoxState>,
+    pub is_critical: bool,
+    pub use_workers: bool,
 }

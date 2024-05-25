@@ -167,6 +167,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                             r#box: &data,
                             new_group,
                             new_state: Some(new_state),
+                            is_critical: false,
+                            use_workers: false,
                         },
                     )
                     .await?;

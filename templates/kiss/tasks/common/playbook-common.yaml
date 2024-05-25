@@ -7,21 +7,33 @@
         ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
         box_state_completed: "{{ lookup('env', 'box_state_completed') }}"
 
+    - name: Install iputils-ping
+      apt:
+        name: iputils-ping
+        update_cache: yes
+
     - name: Add control planes
       loop: "{{ lookup('env', 'kiss_cluster_control_planes') | split(' ') }}"
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ./add-control_planes.yaml
+      include: ./add-node.yaml
 
     - name: Add etcd nodes
       loop: "{{ lookup('env', 'kiss_cluster_etcd_nodes') | split(' ') }}"
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ./add-control_planes.yaml
+      include: ./add-node.yaml
 
-    - name: Add workers
+    - name: Add worker nodes
+      loop: "{{ lookup('env', 'kiss_cluster_worker_nodes', errors='ignore') | default('') | split(' ') }}"
+      loop_control:
+        loop_var: node_packed
+      when: node_packed | length
+      include: ./add-node.yaml
+
+    - name: Add target node
       add_host:
         ansible_host: "{{ lookup('env', 'ansible_host') }}"
         ansible_host_id: "{{ lookup('env', 'ansible_host_id') }}"
