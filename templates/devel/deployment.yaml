@@ -6,6 +6,7 @@ metadata:
   labels:
     dash.ulagbulag.io/inject-nats: "false"
     dash.ulagbulag.io/inject-otlp: "true"
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: ServiceAccount

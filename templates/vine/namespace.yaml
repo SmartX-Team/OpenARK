@@ -5,3 +5,4 @@ metadata:
   name: vine
   labels:
     dash.ulagbulag.io/inject-otlp: "true"
+    pod-security.kubernetes.io/enforce: privileged

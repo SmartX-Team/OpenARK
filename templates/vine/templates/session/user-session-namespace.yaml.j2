@@ -8,6 +8,8 @@ metadata:
   name: "{{ metadata.namespace }}"
   annotations:
     scheduler.alpha.kubernetes.io/node-selector: "ark.ulagbulag.io/bind=true,ark.ulagbulag.io/bind.user={{ spec.userName }}"
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
 ###########################################################
 #   Service Account                                       #
 ###########################################################
