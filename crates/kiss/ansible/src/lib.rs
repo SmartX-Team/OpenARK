@@ -31,6 +31,8 @@ impl AnsibleClient {
     pub const LABEL_BOX_NAME: &'static str = "kiss.ulagbulag.io/box_name";
     pub const LABEL_BOX_MACHINE_UUID: &'static str = "kiss.ulagbulag.io/box_machine_uuid";
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.ulagbulag.io/completed_state";
+    pub const LABEL_JOB_NAME: &'static str = "kiss.ulagbulag.io/job_name";
+    pub const LABEL_JOB_IS_CRITICAL: &'static str = "kiss.ulagbulag.io/is_critical";
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default(kube: &Client) -> Result<Self> {
@@ -54,25 +56,27 @@ impl AnsibleClient {
         let group = &job.r#box.spec.group;
         let reset = self.kiss.group_force_reset || bind_group != Some(group);
 
-        // delete all previous cronjobs
         {
-            let api = Api::<CronJob>::namespaced(kube.clone(), ns);
             let dp = DeleteParams::background();
             let lp = ListParams {
-                label_selector: Some(format!("{}={}", AnsibleClient::LABEL_BOX_NAME, &box_name)),
+                label_selector: Some(format!(
+                    "{}={box_name},{}!=true",
+                    AnsibleClient::LABEL_BOX_NAME,
+                    AnsibleClient::LABEL_JOB_IS_CRITICAL,
+                )),
                 ..Default::default()
             };
-            api.delete_collection(&dp, &lp).await?;
-        }
-        // delete all previous jobs
-        {
-            let api = Api::<Job>::namespaced(kube.clone(), ns);
-            let dp = DeleteParams::background();
-            let lp = ListParams {
-                label_selector: Some(format!("{}={}", AnsibleClient::LABEL_BOX_NAME, &box_name)),
-                ..Default::default()
-            };
-            api.delete_collection(&dp, &lp).await?;
+
+            // delete all previous cronjobs
+            {
+                let api = Api::<CronJob>::namespaced(kube.clone(), ns);
+                api.delete_collection(&dp, &lp).await?;
+            }
+            // delete all previous jobs
+            {
+                let api = Api::<Job>::namespaced(kube.clone(), ns);
+                api.delete_collection(&dp, &lp).await?;
+            }
         }
 
         // realize mutual exclusivity (QUEUE)
@@ -103,6 +107,11 @@ impl AnsibleClient {
                         Self::LABEL_BOX_MACHINE_UUID.into(),
                         job.r#box.spec.machine.uuid.to_string(),
                     )),
+                    Some((
+                        Self::LABEL_JOB_IS_CRITICAL.into(),
+                        job.is_critical.to_string(),
+                    )),
+                    Some((Self::LABEL_JOB_NAME.into(), job.task.into())),
                     Some(("serviceType".into(), "ansible-task".to_string())),
                     job.new_state
                         .and_then(|state| state.complete())
@@ -210,6 +219,11 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_allow_pruning_network_interfaces".into(),
                                 value: Some(self.kiss.allow_pruning_network_interfaces.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_ansible_task_name".into(),
+                                value: Some(job.task.into()),
                                 ..Default::default()
                             },
                             EnvVar {

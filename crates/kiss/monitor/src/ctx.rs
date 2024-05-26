@@ -39,10 +39,16 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let box_name: String = match Self::get_box_name(&data) {
             Some(e) => e,
             None => {
-                info!("{} is not a target; skipping", &name);
+                info!("{name} is not a target; skipping");
                 return Ok(Action::await_change());
             }
         };
+
+        // skip reconciling if critical
+        if Self::is_critical(&data) {
+            info!("{name} is a critical job; skipping");
+            return Ok(Action::await_change());
+        }
 
         let status = data.status.as_ref();
         let completed_state = data
@@ -147,5 +153,9 @@ impl Ctx {
                 None
             }
         }
+    }
+
+    fn is_critical(data: &<Self as ::ark_core_k8s::manager::Ctx>::Data) -> bool {
+        Self::get_label(data, AnsibleClient::LABEL_JOB_IS_CRITICAL).unwrap_or_default()
     }
 }

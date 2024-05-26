@@ -133,6 +133,16 @@ impl<'a> ClusterState<'a> {
         get_nodes_as_string(nodes, NODE_ROLE)
     }
 
+    pub fn get_worker_nodes(&self) -> Result<impl Iterator<Item = &BoxCrd>> {
+        self.workers
+            .as_ref()
+            .map(|workers| {
+                let filter = ClusterBoxFilter::Running;
+                workers.iter(filter).map(|(_, object)| object)
+            })
+            .ok_or_else(|| anyhow!("worker nodes are not loaded"))
+    }
+
     pub fn get_worker_nodes_as_string(&self) -> String {
         self.workers
             .as_ref()

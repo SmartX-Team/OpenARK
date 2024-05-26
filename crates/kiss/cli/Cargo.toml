@@ -21,13 +21,17 @@ workspace = true
 
 [dependencies]
 kiss-ansible = { path = "../../kiss/ansible" }
+kiss-api = { path = "../../kiss/api" }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
+futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
     "runtime",
     "rustls-tls",
     "ws",
 ] }
+serde = { workspace = true, features = ["derive"] }
+strum = { workspace = true }
 tracing = { workspace = true }
