@@ -41,6 +41,7 @@ kernel-modules-core
 lvm2
 NetworkManager-bluetooth
 NetworkManager-wifi
+nfs-utils
 pciutils
 podman-docker
 vim
