@@ -49,6 +49,7 @@ helm upgrade --install "ingress-nginx" \
     --namespace "${NAMESPACE}" \
     --set controller.ingressClass="${DOMAIN_NAME}" \
     --set controller.ingressClassResource.name="${DOMAIN_NAME}" \
+    --set controller.ingressClassResource.controllerValue="k8s.io/ingress-nginx/${DOMAIN_NAME}" \
     --values "./values.yaml"
 
 # Finished!
