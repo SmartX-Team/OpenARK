@@ -39,8 +39,8 @@ full = [
 # Configure Analyzers
 analyzer-full = ["analyzer-llm"]
 analyzer-llm = [
-    "kubegraph-vm-local?/analyzer-llm",
     "kubegraph-api/analyzer-llm",
+    "kubegraph-vm-local?/analyzer-llm",
 ]
 
 # Configure Connectors
@@ -87,8 +87,8 @@ vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
 
 [dependencies]
-ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
-kubegraph-api = { path = "../api" }
+ark-core = { path = "../../ark/core" }
+kubegraph-api = { path = "../api", features = ["vm-entrypoint"] }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
 actix-web = { workspace = true }

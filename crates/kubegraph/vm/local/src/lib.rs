@@ -4,7 +4,6 @@ extern crate polars as pl;
 mod analyzer;
 mod function;
 mod graph;
-mod lazy;
 mod reloader;
 mod resource;
 mod runner;
@@ -38,32 +37,6 @@ pub struct NetworkVirtualMachine {
     vm_runner: Arc<Mutex<Option<NetworkVirtualMachineRunner>>>,
 }
 
-impl NetworkVirtualMachine {
-    pub async fn try_default() -> Result<Self> {
-        // Step 1. Initialize components
-        let vm = Self {
-            analyzer: self::analyzer::NetworkAnalyzer::try_default().await?,
-            graph_db: self::graph::NetworkGraphDB::try_default().await?,
-            resource_db: self::resource::NetworkResourceDB::default(),
-            resource_worker: Arc::new(Mutex::new(None)),
-            runner: self::runner::NetworkRunner::try_default().await?,
-            solver: self::solver::NetworkSolver::try_default().await?,
-            vm_runner: Arc::new(Mutex::new(None)),
-        };
-
-        // Step 2. Spawn workers
-        vm.resource_worker
-            .lock()
-            .await
-            .replace(self::resource::NetworkResourceWorker::try_spawn(&vm).await?);
-        vm.vm_runner
-            .lock()
-            .await
-            .replace(NetworkVirtualMachineRunner::spawn(vm.clone()));
-        Ok(vm)
-    }
-}
-
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type Analyzer = self::analyzer::NetworkAnalyzer;
@@ -95,6 +68,31 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     fn interval(&self) -> Option<Duration> {
         // TODO: use args instead
         Some(Duration::from_secs(5))
+    }
+
+    #[instrument(level = Level::INFO)]
+    async fn try_default() -> Result<Self> {
+        // Step 1. Initialize components
+        let vm = Self {
+            analyzer: self::analyzer::NetworkAnalyzer::try_default().await?,
+            graph_db: self::graph::NetworkGraphDB::try_default().await?,
+            resource_db: self::resource::NetworkResourceDB::default(),
+            resource_worker: Arc::new(Mutex::new(None)),
+            runner: self::runner::NetworkRunner::try_default().await?,
+            solver: self::solver::NetworkSolver::try_default().await?,
+            vm_runner: Arc::new(Mutex::new(None)),
+        };
+
+        // Step 2. Spawn workers
+        vm.resource_worker
+            .lock()
+            .await
+            .replace(self::resource::NetworkResourceWorker::try_spawn(&vm).await?);
+        vm.vm_runner
+            .lock()
+            .await
+            .replace(NetworkVirtualMachineRunner::spawn(vm.clone()));
+        Ok(vm)
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]

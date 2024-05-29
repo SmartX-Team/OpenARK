@@ -16,8 +16,6 @@ metadata:
   name: warehouse-sample-a
   namespace: kubegraph
 spec:
-  metadata:
-    supply: payload
   fake:
     nodes:
       count: 1
@@ -45,8 +43,6 @@ metadata:
   name: warehouse-sample-b
   namespace: kubegraph
 spec:
-  metadata:
-    supply: payload
   fake:
     nodes:
       count: 1
@@ -69,6 +65,16 @@ spec:
           valueType: I64
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkAnnotation
+metadata:
+  name: warehouse
+  namespace: kubegraph
+spec:
+  filter: src != sink and src.supply > 0 and src.supply > sink.supply + 1
+  script: |
+    supply = payload;
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkProblem
 metadata:
   name: warehouse
@@ -85,7 +91,7 @@ metadata:
   namespace: kubegraph
 spec:
   dummy: {}
-  filter: src != sink and src.supply > 0 and src.supply > sink.supply
+  filter: src != sink and src.supply > 0 and src.supply > sink.supply + 1
   script: |
     capacity = min(50, (src.supply - sink.supply) / 2);
     unit_cost = 1;

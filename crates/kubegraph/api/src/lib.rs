@@ -2,6 +2,7 @@
 extern crate polars as pl;
 
 pub mod analyzer;
+pub mod annotator;
 pub mod connector;
 pub mod frame;
 pub mod function;

@@ -33,6 +33,49 @@ pub trait NetworkVirtualMachineExt
 where
     Self: NetworkVirtualMachine,
 {
+    #[cfg(feature = "vm-entrypoint")]
+    async fn main<F>(handlers: F)
+    where
+        Self: 'static + Sized,
+        F: Send + FnOnce(&Self) -> Vec<::tokio::task::JoinHandle<()>>,
+    {
+        ::ark_core::tracer::init_once();
+        info!("Welcome to kubegraph!");
+
+        let signal = ::ark_core::signal::FunctionSignal::default().trap_on_panic();
+        if let Err(error) = signal.trap_on_sigint() {
+            error!("{error}");
+            return;
+        }
+
+        info!("Booting...");
+        let vm = match <Self as NetworkVirtualMachine>::try_default().await {
+            Ok(vm) => vm,
+            Err(error) => {
+                signal
+                    .panic(anyhow!("failed to init network virtual machine: {error}"))
+                    .await
+            }
+        };
+
+        info!("Registering side workers...");
+        let handlers = handlers(&vm);
+
+        info!("Ready");
+        signal.wait_to_terminate().await;
+
+        info!("Terminating...");
+        for handler in handlers {
+            handler.abort();
+        }
+
+        if let Err(error) = vm.close().await {
+            error!("{error}");
+        };
+
+        signal.exit().await
+    }
+
     #[instrument(level = Level::INFO, skip(self))]
     async fn loop_forever(&self) {
         let fallback_interval = self.fallback_interval();
@@ -200,6 +243,10 @@ where
 
     fn interval(&self) -> Option<Duration>;
 
+    async fn try_default() -> Result<Self>
+    where
+        Self: Sized;
+
     async fn infer_edges(
         &self,
         problem: &VirtualProblem,
@@ -242,6 +289,13 @@ where
 
     fn interval(&self) -> Option<Duration> {
         <T as NetworkVirtualMachine>::interval(&**self)
+    }
+
+    #[instrument(level = Level::INFO)]
+    async fn try_default() -> Result<Self> {
+        <T as NetworkVirtualMachine>::try_default()
+            .await
+            .map(Self::new)
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]

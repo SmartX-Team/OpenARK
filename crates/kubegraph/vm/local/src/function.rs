@@ -1,14 +1,12 @@
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
+    annotator::NetworkAnnotationSpec,
     frame::LazyFrame,
-    function::{
-        FunctionMetadata, NetworkFunctionCrd, NetworkFunctionMetadata, NetworkFunctionSpec,
-    },
+    function::{FunctionMetadata, NetworkFunctionCrd, NetworkFunctionSpec},
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
 };
-
-use crate::lazy::LazyVirtualMachine;
+use kubegraph_vm_lazy::LazyVirtualMachine;
 
 pub trait NetworkFunctionExt {
     fn infer_edges(
@@ -41,7 +39,7 @@ impl NetworkFunctionExt for NetworkFunctionSpec {
     }
 }
 
-impl NetworkFunctionExt for NetworkFunctionMetadata {
+impl NetworkFunctionExt for NetworkAnnotationSpec {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
@@ -52,7 +50,7 @@ impl NetworkFunctionExt for NetworkFunctionMetadata {
     }
 }
 
-impl<'a> NetworkFunctionExt for NetworkFunctionMetadata<&'a str> {
+impl<'a> NetworkFunctionExt for NetworkAnnotationSpec<&'a str> {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
@@ -63,7 +61,7 @@ impl<'a> NetworkFunctionExt for NetworkFunctionMetadata<&'a str> {
     }
 }
 
-impl NetworkFunctionExt for NetworkFunctionMetadata<LazyVirtualMachine> {
+impl NetworkFunctionExt for NetworkAnnotationSpec<LazyVirtualMachine> {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
@@ -83,17 +81,17 @@ impl NetworkFunctionExt for NetworkFunctionMetadata<LazyVirtualMachine> {
 
 fn parse_metadata<T>(
     function: &FunctionMetadata,
-    metadata: &NetworkFunctionMetadata<T>,
-) -> Result<NetworkFunctionMetadata<LazyVirtualMachine>>
+    metadata: &NetworkAnnotationSpec<T>,
+) -> Result<NetworkAnnotationSpec<LazyVirtualMachine>>
 where
     T: AsRef<str>,
 {
     let FunctionMetadata {
         scope: GraphScope { namespace, name },
     } = function;
-    let NetworkFunctionMetadata { filter, script } = metadata;
+    let NetworkAnnotationSpec { filter, script } = metadata;
 
-    Ok(NetworkFunctionMetadata {
+    Ok(NetworkAnnotationSpec {
         filter: filter
             .as_ref()
             .map(|input| LazyVirtualMachine::with_lazy_filter(input.as_ref()))
@@ -125,7 +123,7 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = NetworkFunctionMetadata {
+        let function_template = NetworkAnnotationSpec {
             filter: None,
             script: r"
                 capacity = 50;
@@ -171,7 +169,7 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = NetworkFunctionMetadata {
+        let function_template = NetworkAnnotationSpec {
             filter: Some("src != sink and src.supply >= 50 and sink.capacity >= 50"),
             script: r"
                 capacity = 50;
@@ -207,7 +205,7 @@ mod tests {
     fn expand_polars_dataframe(
         nodes: LazyFrame,
         function_name: &str,
-        function: NetworkFunctionMetadata<&'static str>,
+        function: NetworkAnnotationSpec<&'static str>,
     ) -> ::pl::frame::DataFrame {
         use kubegraph_api::{
             graph::{GraphFilter, GraphScope},

@@ -5,7 +5,7 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{graph::GraphScope, resource::NetworkResource};
+use crate::{annotator::NetworkAnnotationSpec, graph::GraphScope, resource::NetworkResource};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -33,21 +33,11 @@ pub struct NetworkFunctionSpec {
     #[serde(flatten)]
     pub kind: NetworkFunctionKind,
     #[serde(flatten)]
-    pub metadata: NetworkFunctionMetadata,
+    pub metadata: NetworkAnnotationSpec,
 }
 
 impl NetworkResource for NetworkFunctionCrd {
     type Filter = ();
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkFunctionMetadata<Script = String> {
-    #[serde(default)]
-    pub filter: Option<Script>,
-    pub script: Script,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

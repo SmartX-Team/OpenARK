@@ -1,0 +1,54 @@
+[package]
+name = "kubegraph-simulator"
+
+authors = { workspace = true }
+description = { workspace = true }
+documentation = { workspace = true }
+edition = { workspace = true }
+include = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+rust-version = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lints]
+workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["full"]
+full = ["analyzer-full", "solver-full"]
+
+# Configure Analyzers
+analyzer-full = ["analyzer-llm"]
+analyzer-llm = ["kubegraph-api/analyzer-llm", "kubegraph-vm-local/analyzer-llm"]
+
+# Configure Solvers
+solver-full = ["solver-ortools"]
+solver-ortools = ["kubegraph-vm-local/solver-ortools"]
+
+[dependencies]
+kubegraph-api = { path = "../api", default-features = false, features = [
+    "connector-fake",
+    "connector-local",
+    "df-polars",
+    "function-dummy",
+    "vm-entrypoint",
+] }
+kubegraph-vm-local = { path = "../vm/local", default-features = false, features = [
+    "connector-fake",
+    "connector-local",
+    "df-polars",
+    "function-dummy",
+    "graph-memory",
+    "runner-simulator",
+] }
+kubegraph-visualizer = { path = "../visualizer", default-features = false, features = [
+    "df-polars",
+] }
+
+tokio = { workspace = true, features = ["full"] }

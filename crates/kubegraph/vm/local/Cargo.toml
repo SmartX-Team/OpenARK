@@ -85,6 +85,7 @@ solver-ortools = ["kubegraph-solver-ortools"]
 
 [dependencies]
 kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
+kubegraph-annotator = { path = "../../annotator" }
 kubegraph-api = { path = "../../api" }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
@@ -95,6 +96,7 @@ kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default
 kubegraph-parser = { path = "../../parser" }
 kubegraph-runner-simulator = { path = "../../runner/simulator", optional = true, default-features = false }
 kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
+kubegraph-vm-lazy = { path = "../lazy" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

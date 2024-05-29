@@ -36,6 +36,7 @@ members = [
     "crates/kiss/monitor",
     "crates/kiss/operator",
     "crates/kubegraph/analyzer/llm",
+    "crates/kubegraph/annotator",
     "crates/kubegraph/api",
     "crates/kubegraph/connector/fake",
     "crates/kubegraph/connector/local",
@@ -47,8 +48,11 @@ members = [
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
     "crates/kubegraph/runner/simulator",
+    "crates/kubegraph/simulator",
     "crates/kubegraph/solver/ortools",
+    "crates/kubegraph/visualizer",
     "crates/kubegraph/vm/http",
+    "crates/kubegraph/vm/lazy",
     "crates/kubegraph/vm/local",
     "crates/straw/api",
     "crates/straw/provider",
@@ -113,6 +117,9 @@ deltalake = { version = "0.17", features = [
 ] }
 derivative = { version = "2.2" }
 dirs = { version = "5.0" }
+eframe = { version = "0.27" }
+egui = { version = "0.27" }
+egui_graphs = { version = "0.20" }
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.4" }
@@ -176,6 +183,7 @@ ordered-float = { version = "4.2", default-features = false, features = [
     "serde",
     "std",
 ] }
+petgraph = { version = "0.6" }
 polars = { version = "0.40", features = [
     "diagonal_concat",
     "diff",

@@ -53,7 +53,7 @@ mod impl_call {
     };
 
     impl super::LazyVirtualMachine {
-        pub(crate) fn call(
+        pub fn call(
             &self,
             problem: &VirtualProblem,
             function: &FunctionMetadata,
@@ -65,11 +65,7 @@ mod impl_call {
                 .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), function))
         }
 
-        pub(crate) fn call_filter(
-            &self,
-            problem: &VirtualProblem,
-            nodes: LazyFrame,
-        ) -> Result<LazySlice> {
+        pub fn call_filter(&self, problem: &VirtualProblem, nodes: LazyFrame) -> Result<LazySlice> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, None)
                 .and_then(|ctx| ctx.try_into_filter())
