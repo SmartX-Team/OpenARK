@@ -3,7 +3,7 @@ pub mod polars;
 
 use std::collections::BTreeMap;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use futures::try_join;
 use kube::ResourceExt;
@@ -14,6 +14,7 @@ use tracing::{instrument, Level};
 use crate::{
     frame::{DataFrame, LazyFrame},
     function::FunctionMetadata,
+    vm::{Feature, Number},
 };
 
 pub(crate) struct ScopedNetworkGraphDBContainer<'a, T>
@@ -166,6 +167,51 @@ pub struct Graph<T, M = GraphMetadata> {
     pub data: GraphData<T>,
     pub metadata: M,
     pub scope: GraphScope,
+}
+
+#[cfg(feature = "petgraph")]
+impl<M> TryFrom<Graph<LazyFrame, M>>
+    for ::petgraph::stable_graph::StableDiGraph<GraphEntry, GraphEntry>
+where
+    M: GraphMetadataExt,
+{
+    type Error = Error;
+
+    fn try_from(graph: Graph<LazyFrame, M>) -> Result<Self, Self::Error> {
+        let Graph {
+            data: GraphData { edges, nodes },
+            metadata,
+            scope: _,
+        } = graph;
+
+        let mut graph = ::petgraph::stable_graph::StableDiGraph::default();
+
+        let name_map = match nodes {
+            LazyFrame::Empty => GraphNameMap::default(),
+            #[cfg(feature = "df-polars")]
+            LazyFrame::Polars(df) => self::polars::transform_petgraph_nodes(
+                &mut graph, &metadata, df,
+            )
+            .map_err(|error| {
+                ::anyhow::anyhow!(
+                    "failed to transform polars nodes dataframe into petgraph: {error}"
+                )
+            })?,
+        };
+        match edges {
+            LazyFrame::Empty => (),
+            #[cfg(feature = "df-polars")]
+            LazyFrame::Polars(df) => {
+                self::polars::transform_petgraph_edges(&mut graph, &metadata, name_map, df)
+                    .map_err(|error| {
+                        ::anyhow::anyhow!(
+                            "failed to transform polars edges dataframe into petgraph: {error}"
+                        )
+                    })?
+            }
+        }
+        Ok(graph)
+    }
 }
 
 impl<M> Graph<DataFrame, M> {
@@ -839,4 +885,86 @@ pub struct GraphNamespacedScope {
 pub enum GraphDataType {
     Edge,
     Node,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEntry {
+    #[serde(flatten)]
+    pub others: BTreeMap<String, GraphEntryValue>,
+}
+
+impl GraphEntry {
+    #[cfg(feature = "petgraph")]
+    fn get_as_petgraph(
+        &self,
+        name_map: &GraphNameMap,
+        key: &str,
+    ) -> Result<::petgraph::graph::NodeIndex> {
+        self.others
+            .get(key)
+            .ok_or_else(|| ::anyhow::anyhow!("failed to get graph entry column {key}"))
+            .and_then(|name| {
+                name.as_string()
+                    .ok_or_else(|| {
+                        ::anyhow::anyhow!("failed to assert that graph node is a string {key}")
+                    })
+                    .and_then(|name| {
+                        name_map.data.get(name).ok_or_else(|| {
+                            ::anyhow::anyhow!("failed to find the graph node {name:?}")
+                        })
+                    })
+            })
+            .copied()
+            .map(::petgraph::graph::NodeIndex::new)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum GraphEntryValue {
+    Feature(Feature),
+    Number(Number),
+    String(String),
+}
+
+impl GraphEntryValue {
+    pub const fn as_feature(&self) -> Option<Feature> {
+        match self {
+            Self::Feature(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub const fn as_number(&self) -> Option<Number> {
+        match self {
+            Self::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub const fn as_string(&self) -> Option<&String> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(feature = "petgraph")]
+#[derive(Default)]
+struct GraphNameMap {
+    data: BTreeMap<String, usize>,
+}
+
+#[cfg(feature = "petgraph")]
+impl FromIterator<(String, usize)> for GraphNameMap {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = (String, usize)>,
+    {
+        Self {
+            data: iter.into_iter().collect(),
+        }
+    }
 }

@@ -8,6 +8,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, TryStreamExt};
+use num_traits::FromPrimitive;
 use ordered_float::OrderedFloat;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,7 @@ use crate::{
     resource::NetworkResourceCollectionDB,
     runner::NetworkRunner,
     solver::NetworkSolver,
+    visualizer::NetworkVisualizer,
 };
 
 #[async_trait]
@@ -157,19 +159,28 @@ where
         let graph = self.solver().solve(graph, &problem.spec).await?;
 
         // Step 4. Apply edges to real-world (or simulator)
+        let graph_db_metadata = GraphMetadata::Standard(problem.spec.metadata);
         let graph_db_scope = GraphScope {
             namespace: problem.scope.namespace.clone(),
             name: GraphScope::NAME_GLOBAL.into(),
         };
         let graph_db_scoped = ScopedNetworkGraphDBContainer {
             inner: self.graph_db(),
-            metadata: &GraphMetadata::Standard(problem.spec.metadata),
+            metadata: &graph_db_metadata,
             scope: &graph_db_scope,
             static_edges,
         };
         self.runner()
-            .execute(&graph_db_scoped, graph, &problem.spec)
-            .await
+            .execute(&graph_db_scoped, graph.clone(), &problem.spec)
+            .await?;
+
+        // Step 5. Visualize the outputs
+        let graph = Graph {
+            data: graph,
+            metadata: graph_db_metadata,
+            scope: graph_db_scope,
+        };
+        self.visualizer().register(graph).await
     }
 
     #[instrument(level = Level::INFO, skip(self, problem))]
@@ -226,6 +237,7 @@ where
     type GraphDB: 'static + Send + Clone + NetworkGraphDB;
     type Runner: NetworkRunner<GraphData<LazyFrame>>;
     type Solver: NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
+    type Visualizer: NetworkVisualizer;
 
     fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer;
 
@@ -236,6 +248,8 @@ where
     fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner;
 
     fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver;
+
+    fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer;
 
     fn fallback_interval(&self) -> Duration {
         Duration::from_secs(5)
@@ -266,6 +280,7 @@ where
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
     type Solver = <T as NetworkVirtualMachine>::Solver;
+    type Visualizer = <T as NetworkVirtualMachine>::Visualizer;
 
     fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer {
         <T as NetworkVirtualMachine>::analyzer(&**self)
@@ -285,6 +300,10 @@ where
 
     fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver {
         <T as NetworkVirtualMachine>::solver(&**self)
+    }
+
+    fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer {
+        <T as NetworkVirtualMachine>::visualizer(&**self)
     }
 
     fn interval(&self) -> Option<Duration> {
@@ -652,6 +671,18 @@ pub struct Number(OrderedFloat<f64>);
 impl Number {
     pub const fn new(value: f64) -> Self {
         Self(OrderedFloat(value))
+    }
+
+    pub fn from_i64(value: i64) -> Option<Self> {
+        OrderedFloat::from_i64(value).map(Self)
+    }
+
+    pub fn from_u64(value: u64) -> Option<Self> {
+        OrderedFloat::from_u64(value).map(Self)
+    }
+
+    pub fn from_f32(value: f32) -> Option<Self> {
+        OrderedFloat::from_f32(value).map(Self)
     }
 
     pub const fn into_inner(self) -> f64 {

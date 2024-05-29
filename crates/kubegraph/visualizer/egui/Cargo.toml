@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-visualizer"
+name = "kubegraph-visualizer-egui"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -22,17 +22,20 @@ workspace = true
 [features]
 default = ["full"]
 full = ["df-full"]
+persistence = ["egui/persistence", "egui_graphs/egui_persistence"]
 
 # DataFrame
 df-full = ["df-polars"]
-df-polars = ["dep:polars"]
+df-polars = ["kubegraph-api/df-polars"]
 
 [dependencies]
-kubegraph-api = { path = "../api" }
+kubegraph-api = { path = "../../api", features = ["petgraph"] }
 
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 eframe = { workspace = true }
 egui = { workspace = true }
 egui_graphs = { workspace = true }
-petgraph = { workspace = true }
-polars = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["rt", "sync"] }
+tracing = { workspace = true }
+winit = { workspace = true }

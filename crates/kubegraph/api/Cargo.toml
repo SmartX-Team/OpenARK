@@ -57,7 +57,9 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["derive"] }
+num-traits = { workspace = true }
 ordered-float = { workspace = true }
+petgraph = { workspace = true, optional = true }
 polars = { workspace = true, optional = true }
 schemars = { workspace = true }
 serde = { workspace = true }

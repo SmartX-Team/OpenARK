@@ -8,6 +8,7 @@ mod reloader;
 mod resource;
 mod runner;
 mod solver;
+mod visualizer;
 
 use std::{sync::Arc, time::Duration};
 
@@ -19,6 +20,7 @@ use kubegraph_api::{
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
     resource::NetworkResourceDB,
+    visualizer::NetworkVisualizer,
     vm::NetworkVirtualMachineExt,
 };
 use tokio::{sync::Mutex, task::JoinHandle};
@@ -34,6 +36,7 @@ pub struct NetworkVirtualMachine {
     resource_worker: Arc<Mutex<Option<self::resource::NetworkResourceWorker>>>,
     runner: self::runner::NetworkRunner,
     solver: self::solver::NetworkSolver,
+    visualizer: self::visualizer::NetworkVisualizer,
     vm_runner: Arc<Mutex<Option<NetworkVirtualMachineRunner>>>,
 }
 
@@ -44,6 +47,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
     type Solver = self::solver::NetworkSolver;
+    type Visualizer = self::visualizer::NetworkVisualizer;
 
     fn analyzer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Analyzer {
         &self.analyzer
@@ -65,6 +69,10 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         &self.solver
     }
 
+    fn visualizer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Visualizer {
+        &self.visualizer
+    }
+
     fn interval(&self) -> Option<Duration> {
         // TODO: use args instead
         Some(Duration::from_secs(5))
@@ -80,6 +88,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
             resource_worker: Arc::new(Mutex::new(None)),
             runner: self::runner::NetworkRunner::try_default().await?,
             solver: self::solver::NetworkSolver::try_default().await?,
+            visualizer: self::visualizer::NetworkVisualizer::try_default().await?,
             vm_runner: Arc::new(Mutex::new(None)),
         };
 

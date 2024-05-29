@@ -63,6 +63,7 @@ df-polars = [
     "kubegraph-api/df-polars",
     "kubegraph-runner-simulator?/df-polars",
     "kubegraph-solver-ortools?/df-polars",
+    "kubegraph-visualizer-egui?/df-polars",
     "polars",
 ]
 
@@ -83,6 +84,10 @@ runner-simulator = ["kubegraph-runner-simulator"]
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-solver-ortools"]
 
+# Configure Visualizers
+visualizer-auto = ["visualizer-egui"]
+visualizer-egui = ["kubegraph-visualizer-egui"]
+
 [dependencies]
 kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
 kubegraph-annotator = { path = "../../annotator" }
@@ -96,6 +101,9 @@ kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default
 kubegraph-parser = { path = "../../parser" }
 kubegraph-runner-simulator = { path = "../../runner/simulator", optional = true, default-features = false }
 kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
+kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, default-features = false, features = [
+    "df-polars",
+] }
 kubegraph-vm-lazy = { path = "../lazy" }
 
 anyhow = { workspace = true }
