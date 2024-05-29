@@ -7,6 +7,8 @@ set dotenv-load
 
 # Configure environment variables
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.18')
+export DESKTOP_DIST := env_var_or_default('DESKTOP_DIST', 'ubuntu')
+export DESKTOP_VERSION := env_var_or_default('DESKTOP_VERSION', 'latest')
 export OCI_BUILD_LOG_DIR := env_var_or_default('OCI_BUILD_LOG_DIR', './logs/')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
@@ -58,6 +60,8 @@ oci-build-devel *ARGS:
     --file './Dockerfile.devel' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+    --build-arg DESKTOP_DIST="${DESKTOP_DIST}" \
+    --build-arg DESKTOP_VERSION="${DESKTOP_VERSION}" \
     --platform "linux/amd64" \
     --pull \
     {{ ARGS }} \

@@ -58,6 +58,9 @@ RUN true \
     texlive-full \
     # Backup SSH Configurations
     && cp -r /etc/ssh /etc/.ssh \
+    # Grant X11 Forwarding
+    && echo 'X11Forwarding yes' >/etc/ssh/sshd_config.d/10-x11-forwarding.conf \
+    && echo 'X11UseLocalhost no' >>/etc/ssh/sshd_config.d/10-x11-forwarding.conf \
     # Grant user-level dockerd access
     && gpasswd -a user docker \
     # Update ldconfig
