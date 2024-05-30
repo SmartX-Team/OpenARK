@@ -3,7 +3,7 @@ pub mod polars;
 
 use std::collections::BTreeMap;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::try_join;
 use kube::ResourceExt;
@@ -175,7 +175,7 @@ impl<M> TryFrom<Graph<LazyFrame, M>>
 where
     M: GraphMetadataExt,
 {
-    type Error = Error;
+    type Error = ::anyhow::Error;
 
     fn try_from(graph: Graph<LazyFrame, M>) -> Result<Self, Self::Error> {
         let Graph {

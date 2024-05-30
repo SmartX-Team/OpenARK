@@ -34,6 +34,7 @@ full = [
     "runner-full",
     "solver-full",
     "vm-full",
+    "visualizer-full",
 ]
 
 # Configure Analyzers
@@ -85,6 +86,9 @@ solver-ortools = ["kubegraph-vm-local?/solver-ortools"]
 # Configure Virtual Machines
 vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
+
+# Configure Visualizers
+visualizer-full = []
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["signal"] }

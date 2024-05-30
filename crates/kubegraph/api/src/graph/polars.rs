@@ -1,5 +1,3 @@
-use std::ops::RangeFrom;
-
 use pl::{
     error::PolarsError,
     frame::DataFrame,
@@ -126,7 +124,7 @@ impl<'a> IntoIterator for DataSeries<'a> {
 
 #[cfg(feature = "petgraph")]
 struct DataSeriesIter<'a> {
-    indices: RangeFrom<usize>,
+    indices: ::std::ops::RangeFrom<usize>,
     series: DataSeries<'a>,
 }
 
