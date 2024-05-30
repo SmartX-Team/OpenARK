@@ -2,6 +2,7 @@
 extern crate polars as pl;
 
 mod analyzer;
+mod args;
 mod function;
 mod graph;
 mod reloader;
@@ -10,9 +11,10 @@ mod runner;
 mod solver;
 mod visualizer;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::LazyFrame,
@@ -21,7 +23,10 @@ use kubegraph_api::{
     problem::VirtualProblem,
     resource::NetworkResourceDB,
     visualizer::NetworkVisualizer,
-    vm::NetworkVirtualMachineExt,
+    vm::{
+        NetworkVirtualMachineExt, NetworkVirtualMachineFallbackPolicy,
+        NetworkVirtualMachineRestartPolicy,
+    },
 };
 use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{instrument, Level};
@@ -31,6 +36,7 @@ use crate::function::NetworkFunctionExt;
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
     analyzer: self::analyzer::NetworkAnalyzer,
+    args: self::args::NetworkVirtualMachineArgs,
     graph_db: self::graph::NetworkGraphDB,
     resource_db: self::resource::NetworkResourceDB,
     resource_worker: Arc<Mutex<Option<self::resource::NetworkResourceWorker>>>,
@@ -43,6 +49,7 @@ pub struct NetworkVirtualMachine {
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type Analyzer = self::analyzer::NetworkAnalyzer;
+    type Args = self::args::NetworkVirtualMachineArgs;
     type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
@@ -73,22 +80,29 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         &self.visualizer
     }
 
-    fn interval(&self) -> Option<Duration> {
-        // TODO: use args instead
-        Some(Duration::from_secs(5))
+    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
+        self.args.fallback_policy
+    }
+
+    fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
+        self.args.restart_policy
     }
 
     #[instrument(level = Level::INFO)]
-    async fn try_default() -> Result<Self> {
+    async fn try_new(
+        args: <Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
         // Step 1. Initialize components
         let vm = Self {
             analyzer: self::analyzer::NetworkAnalyzer::try_default().await?,
+            args,
             graph_db: self::graph::NetworkGraphDB::try_default().await?,
             resource_db: self::resource::NetworkResourceDB::default(),
             resource_worker: Arc::new(Mutex::new(None)),
             runner: self::runner::NetworkRunner::try_default().await?,
             solver: self::solver::NetworkSolver::try_default().await?,
-            visualizer: self::visualizer::NetworkVisualizer::try_default().await?,
+            visualizer: self::visualizer::NetworkVisualizer::try_new(signal).await?,
             vm_runner: Arc::new(Mutex::new(None)),
         };
 
@@ -96,11 +110,11 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         vm.resource_worker
             .lock()
             .await
-            .replace(self::resource::NetworkResourceWorker::try_spawn(&vm).await?);
+            .replace(self::resource::NetworkResourceWorker::try_spawn(signal, &vm).await?);
         vm.vm_runner
             .lock()
             .await
-            .replace(NetworkVirtualMachineRunner::spawn(vm.clone()));
+            .replace(NetworkVirtualMachineRunner::spawn(signal, vm.clone()));
         Ok(vm)
     }
 
@@ -128,7 +142,6 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
             })
             .collect::<Result<GraphEdges<LazyFrame>>>()?;
 
-        // TODO: remove when test is ended
         #[cfg(feature = "df-polars")]
         if problem.spec.verbose {
             use pl::lazy::dsl;
@@ -170,9 +183,14 @@ struct NetworkVirtualMachineRunner {
 }
 
 impl NetworkVirtualMachineRunner {
-    pub(crate) fn spawn(vm: impl 'static + NetworkVirtualMachineExt) -> Self {
+    pub(crate) fn spawn(
+        signal: &FunctionSignal,
+        vm: impl 'static + NetworkVirtualMachineExt,
+    ) -> Self {
+        let signal = signal.clone();
+
         Self {
-            inner: ::tokio::spawn(async move { vm.loop_forever().await }),
+            inner: ::tokio::spawn(async move { vm.loop_forever(signal).await }),
         }
     }
 
@@ -194,7 +212,8 @@ mod tests {
         };
 
         // Step 1. Define problems
-        let vm = NetworkVirtualMachine::try_default()
+        let signal = FunctionSignal::default();
+        let vm = NetworkVirtualMachine::try_default(&signal)
             .await
             .expect("failed to init vm");
 
@@ -321,7 +340,8 @@ mod tests {
         };
 
         // Step 1. Define problems
-        let vm = NetworkVirtualMachine::try_default()
+        let signal = FunctionSignal::default();
+        let vm = NetworkVirtualMachine::try_default(&signal)
             .await
             .expect("failed to init vm");
 

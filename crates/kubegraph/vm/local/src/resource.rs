@@ -1,11 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::{anyhow, Result};
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use kube::Client;
 use kubegraph_api::{
-    connector::{NetworkConnector, NetworkConnectorCrd, NetworkConnectorType},
+    connector::{NetworkConnectorCrd, NetworkConnectorExt, NetworkConnectorType},
     function::NetworkFunctionCrd,
     graph::GraphScope,
     problem::NetworkProblemCrd,
@@ -169,16 +170,19 @@ pub(crate) struct NetworkResourceWorker {
 }
 
 impl NetworkResourceWorker {
-    pub(crate) async fn try_spawn(vm: &(impl 'static + NetworkVirtualMachine)) -> Result<Self> {
+    pub(crate) async fn try_spawn(
+        signal: &FunctionSignal,
+        vm: &(impl 'static + NetworkVirtualMachine),
+    ) -> Result<Self> {
         let client = Client::try_default()
             .await
             .map_err(|error| anyhow!("failed to load kubernetes account: {error}"))?;
 
         Ok(Self {
             connector_db: NetworkConnectorDBWorker::spawn(vm),
-            connector_reloader: NetworkResourceReloader::spawn(client.clone(), vm),
-            function_reloader: NetworkResourceReloader::spawn(client.clone(), vm),
-            problem_reloader: NetworkResourceReloader::spawn(client, vm),
+            connector_reloader: NetworkResourceReloader::spawn(signal.clone(), client.clone(), vm),
+            function_reloader: NetworkResourceReloader::spawn(signal.clone(), client.clone(), vm),
+            problem_reloader: NetworkResourceReloader::spawn(signal.clone(), client, vm),
         })
     }
 

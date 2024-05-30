@@ -29,6 +29,7 @@ df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars"]
 
 [dependencies]
+ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", features = ["petgraph"] }
 
 anyhow = { workspace = true }

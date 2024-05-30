@@ -1,6 +1,7 @@
-use std::{fmt, marker::PhantomData, time::Duration};
+use std::{fmt, marker::PhantomData};
 
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::{
     runtime::watcher::{watcher, Config, Error, Event},
@@ -9,7 +10,7 @@ use kube::{
 use kubegraph_api::{
     graph::GraphScope,
     resource::{NetworkResource, NetworkResourceDB},
-    vm::NetworkVirtualMachine,
+    vm::{NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy},
 };
 use serde::de::DeserializeOwned;
 use tokio::{task::JoinHandle, time::sleep};
@@ -32,7 +33,7 @@ where
         + NetworkResource,
     <K as Resource>::DynamicType: Default,
 {
-    pub(crate) fn spawn<VM>(kube: Client, vm: &VM) -> Self
+    pub(crate) fn spawn<VM>(signal: FunctionSignal, kube: Client, vm: &VM) -> Self
     where
         VM: NetworkVirtualMachine,
         <VM as NetworkVirtualMachine>::ResourceDB: NetworkResourceDB<K>,
@@ -40,9 +41,10 @@ where
         Self {
             _crd: PhantomData,
             inner: ::tokio::spawn(loop_forever::<K>(
+                signal,
                 kube,
                 vm.resource_db().clone(),
-                vm.fallback_interval(),
+                vm.fallback_policy(),
             )),
         }
     }
@@ -56,9 +58,10 @@ where
 }
 
 async fn loop_forever<K>(
+    signal: FunctionSignal,
     kube: Client,
     resource_db: impl 'static + NetworkResourceDB<K>,
-    fallback_interval: Duration,
+    fallback_interval: NetworkVirtualMachineFallbackPolicy,
 ) where
     K: 'static
         + Send
@@ -76,8 +79,16 @@ async fn loop_forever<K>(
         if let Err(error) = try_loop_forever::<K>(&kube, &resource_db).await {
             error!("failed to operate {name} reloader: {error}");
 
-            warn!("restaring {name} reloader in {fallback_interval:?}...");
-            sleep(fallback_interval).await
+            match fallback_interval {
+                NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
+                    warn!("restarting {name} reloader in {interval:?}...");
+                    sleep(interval).await
+                }
+                NetworkVirtualMachineFallbackPolicy::Never => {
+                    signal.terminate_on_panic();
+                    break;
+                }
+            }
         }
     }
 }

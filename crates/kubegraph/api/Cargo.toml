@@ -54,6 +54,8 @@ ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true }
+duration-string = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["derive"] }

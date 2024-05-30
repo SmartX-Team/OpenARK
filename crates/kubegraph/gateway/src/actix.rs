@@ -3,9 +3,12 @@ use std::net::SocketAddr;
 use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::{anyhow, Result};
-use ark_core::env::infer;
+use ark_core::{env::infer, signal::FunctionSignal};
 use futures::TryFutureExt;
-use kubegraph_api::{graph::NetworkGraphDB, vm::NetworkVirtualMachine};
+use kubegraph_api::{
+    graph::NetworkGraphDB,
+    vm::{NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy},
+};
 use tokio::time::sleep;
 use tracing::{error, info, instrument, warn, Level};
 
@@ -15,15 +18,21 @@ async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
 }
 
-pub async fn loop_forever(vm: impl NetworkVirtualMachine) {
-    let fallback_interval = vm.fallback_interval();
-
+pub async fn loop_forever(signal: FunctionSignal, vm: impl NetworkVirtualMachine) {
     loop {
         if let Err(error) = try_loop_forever(&vm).await {
             error!("failed to operate http server: {error}");
 
-            warn!("restaring http server in {fallback_interval:?}...");
-            sleep(fallback_interval).await
+            match vm.fallback_policy() {
+                NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
+                    warn!("restarting http server in {interval:?}...");
+                    sleep(interval).await
+                }
+                NetworkVirtualMachineFallbackPolicy::Never => {
+                    signal.terminate_on_panic();
+                    break;
+                }
+            }
         }
     }
 }

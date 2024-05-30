@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use eframe::{run_native, App, AppCreator, NativeOptions};
 use egui::Context;
@@ -16,7 +17,7 @@ use tokio::{
     sync::Mutex,
     task::{spawn_blocking, JoinHandle},
 };
-use tracing::error;
+use tracing::{error, info};
 use winit::platform::wayland::EventLoopBuilderExtWayland;
 
 #[derive(Clone)]
@@ -27,7 +28,7 @@ pub struct NetworkVisualizer {
 
 #[async_trait]
 impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
-    async fn try_default() -> Result<Self> {
+    async fn try_new(signal: &FunctionSignal) -> Result<Self> {
         let data = Self {
             graph: Arc::default(),
             session: Arc::default(),
@@ -35,7 +36,8 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
 
         data.session.lock().await.replace(spawn_blocking({
             let data = data.clone();
-            || data.loop_forever()
+            let signal = signal.clone();
+            || data.loop_forever(signal)
         }));
 
         Ok(data)
@@ -52,6 +54,11 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
         Ok(())
     }
 
+    async fn wait_to_next(&self) {
+        // TODO: to be implemented
+        ::tokio::time::sleep(::std::time::Duration::from_secs(1)).await
+    }
+
     async fn close(&self) -> Result<()> {
         if let Some(session) = self.session.lock().await.take() {
             session.abort();
@@ -61,7 +68,9 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
 }
 
 impl NetworkVisualizer {
-    fn loop_forever(self) {
+    fn loop_forever(self, signal: FunctionSignal) {
+        info!("Starting egui visualizer...");
+
         let app = NetworkVisualizerApp { data: self };
 
         let app_name = "kubegraph_visualizer";
@@ -73,8 +82,15 @@ impl NetworkVisualizer {
         };
         let app_creator: AppCreator = Box::new(|_| Box::new(app));
 
-        if let Err(error) = run_native(app_name, native_options, app_creator) {
-            error!("failed to operate visualizer: {error}");
+        match run_native(app_name, native_options, app_creator) {
+            Ok(()) => {
+                info!("Completed egui visualizer");
+                signal.terminate()
+            }
+            Err(error) => {
+                error!("failed to operate egui visualizer: {error}");
+                signal.terminate_on_panic()
+            }
         }
     }
 }

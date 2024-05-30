@@ -1,12 +1,16 @@
 use std::{
     fmt,
     ops::{Add, Div, Mul, Neg, Not, Sub},
+    str::FromStr,
     sync::Arc,
     time::Duration,
 };
 
 use anyhow::{anyhow, bail, Result};
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::Parser;
+use duration_string::DurationString;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use num_traits::FromPrimitive;
 use ordered_float::OrderedFloat;
@@ -39,19 +43,19 @@ where
     async fn main<F>(handlers: F)
     where
         Self: 'static + Sized,
-        F: Send + FnOnce(&Self) -> Vec<::tokio::task::JoinHandle<()>>,
+        F: Send + FnOnce(&FunctionSignal, &Self) -> Vec<::tokio::task::JoinHandle<()>>,
     {
         ::ark_core::tracer::init_once();
         info!("Welcome to kubegraph!");
 
-        let signal = ::ark_core::signal::FunctionSignal::default().trap_on_panic();
+        let signal = FunctionSignal::default().trap_on_panic();
         if let Err(error) = signal.trap_on_sigint() {
             error!("{error}");
             return;
         }
 
         info!("Booting...");
-        let vm = match <Self as NetworkVirtualMachine>::try_default().await {
+        let vm = match <Self as NetworkVirtualMachineExt>::try_default(&signal).await {
             Ok(vm) => vm,
             Err(error) => {
                 signal
@@ -61,7 +65,7 @@ where
         };
 
         info!("Registering side workers...");
-        let handlers = handlers(&vm);
+        let handlers = handlers(&signal, &vm);
 
         info!("Ready");
         signal.wait_to_terminate().await;
@@ -78,18 +82,36 @@ where
         signal.exit().await
     }
 
+    #[instrument(level = Level::INFO)]
+    async fn try_default(signal: &FunctionSignal) -> Result<Self> {
+        let args = <Self as NetworkVirtualMachine>::Args::parse();
+        <Self as NetworkVirtualMachine>::try_new(args, signal).await
+    }
+
     #[instrument(level = Level::INFO, skip(self))]
-    async fn loop_forever(&self) {
-        let fallback_interval = self.fallback_interval();
+    async fn loop_forever(&self, signal: FunctionSignal) {
+        let fallback_interval = self.fallback_policy();
 
         loop {
             match self.try_loop_forever().await {
-                Ok(()) => break,
+                Ok(()) => {
+                    info!("Completed VM");
+                    signal.terminate();
+                    break;
+                }
                 Err(error) => {
                     error!("failed to operate kubegraph VM: {error}");
 
-                    warn!("restarting VM in {fallback_interval:?}...");
-                    sleep(fallback_interval).await
+                    let interval = match fallback_interval {
+                        NetworkVirtualMachineFallbackPolicy::Interval { interval } => interval,
+                        NetworkVirtualMachineFallbackPolicy::Never => {
+                            signal.terminate_on_panic();
+                            break;
+                        }
+                    };
+
+                    warn!("restarting VM in {interval:?}...");
+                    sleep(interval).await
                 }
             }
         }
@@ -104,11 +126,20 @@ where
 
             self.step().await?;
 
-            if let Some(interval) = self.interval() {
-                let elapsed = instant.elapsed() + Duration::from_micros(500);
-                if elapsed < interval {
-                    sleep(interval - elapsed).await;
+            let interval = match self.restart_policy() {
+                NetworkVirtualMachineRestartPolicy::Always => {
+                    NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
                 }
+                NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                NetworkVirtualMachineRestartPolicy::Manually => {
+                    self.visualizer().wait_to_next().await;
+                    continue;
+                }
+                NetworkVirtualMachineRestartPolicy::Never => break Ok(()),
+            };
+            let elapsed = instant.elapsed() + Duration::from_micros(500);
+            if elapsed < interval {
+                sleep(interval - elapsed).await;
             }
         }
     }
@@ -233,6 +264,7 @@ where
     Self: Clone + Send + Sync,
 {
     type Analyzer: NetworkAnalyzer;
+    type Args: Send + fmt::Debug + Parser;
     type ResourceDB: 'static + Send + Clone + NetworkResourceCollectionDB;
     type GraphDB: 'static + Send + Clone + NetworkGraphDB;
     type Runner: NetworkRunner<GraphData<LazyFrame>>;
@@ -251,13 +283,18 @@ where
 
     fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer;
 
-    fn fallback_interval(&self) -> Duration {
-        Duration::from_secs(5)
+    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
+        NetworkVirtualMachineFallbackPolicy::default()
     }
 
-    fn interval(&self) -> Option<Duration>;
+    fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
+        NetworkVirtualMachineRestartPolicy::default()
+    }
 
-    async fn try_default() -> Result<Self>
+    async fn try_new(
+        args: <Self as NetworkVirtualMachine>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self>
     where
         Self: Sized;
 
@@ -276,6 +313,7 @@ where
     T: ?Sized + NetworkVirtualMachine,
 {
     type Analyzer = <T as NetworkVirtualMachine>::Analyzer;
+    type Args = <T as NetworkVirtualMachine>::Args;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
@@ -306,13 +344,20 @@ where
         <T as NetworkVirtualMachine>::visualizer(&**self)
     }
 
-    fn interval(&self) -> Option<Duration> {
-        <T as NetworkVirtualMachine>::interval(&**self)
+    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
+        <T as NetworkVirtualMachine>::fallback_policy(&**self)
+    }
+
+    fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
+        <T as NetworkVirtualMachine>::restart_policy(&**self)
     }
 
     #[instrument(level = Level::INFO)]
-    async fn try_default() -> Result<Self> {
-        <T as NetworkVirtualMachine>::try_default()
+    async fn try_new(
+        args: <Self as NetworkVirtualMachine>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        <T as NetworkVirtualMachine>::try_new(args, signal)
             .await
             .map(Self::new)
     }
@@ -329,6 +374,100 @@ where
     #[instrument(level = Level::INFO, skip(self))]
     async fn close_workers(&self) -> Result<()> {
         <T as NetworkVirtualMachine>::close_workers(&**self).await
+    }
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub enum NetworkVirtualMachineFallbackPolicy<T = Duration> {
+    Interval { interval: T },
+    Never,
+}
+
+impl NetworkVirtualMachineFallbackPolicy {
+    pub const DEFAULT_INTERVAL: Duration = NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL;
+}
+
+impl Default for NetworkVirtualMachineFallbackPolicy {
+    fn default() -> Self {
+        Self::Interval {
+            interval: Self::DEFAULT_INTERVAL,
+        }
+    }
+}
+
+impl FromStr for NetworkVirtualMachineFallbackPolicy {
+    type Err = ::duration_string::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Never" | "never" | "False" | "false" | "No" | "no" => Ok(Self::Never),
+            s => DurationString::from_str(s).map(|interval| Self::Interval {
+                interval: interval.into(),
+            }),
+        }
+    }
+}
+
+impl fmt::Display for NetworkVirtualMachineFallbackPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
+                fmt::Debug::fmt(interval, f)
+            }
+            NetworkVirtualMachineFallbackPolicy::Never => "Never".fmt(f),
+        }
+    }
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+pub enum NetworkVirtualMachineRestartPolicy<T = Duration> {
+    Always,
+    Interval { interval: T },
+    Manually,
+    Never,
+}
+
+impl NetworkVirtualMachineRestartPolicy {
+    pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(5);
+}
+
+impl Default for NetworkVirtualMachineRestartPolicy {
+    fn default() -> Self {
+        Self::Interval {
+            interval: Self::DEFAULT_INTERVAL,
+        }
+    }
+}
+
+impl FromStr for NetworkVirtualMachineRestartPolicy {
+    type Err = ::duration_string::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Always" | "always" | "True" | "true" | "Yes" | "yes" => Ok(Self::Always),
+            "Manually" | "manually" => Ok(Self::Manually),
+            "Never" | "never" | "False" | "false" | "No" | "no" => Ok(Self::Never),
+            s => DurationString::from_str(s).map(|interval| Self::Interval {
+                interval: interval.into(),
+            }),
+        }
+    }
+}
+
+impl fmt::Display for NetworkVirtualMachineRestartPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NetworkVirtualMachineRestartPolicy::Always => "Always".fmt(f),
+            NetworkVirtualMachineRestartPolicy::Interval { interval } => {
+                fmt::Debug::fmt(interval, f)
+            }
+            NetworkVirtualMachineRestartPolicy::Manually => "Manually".fmt(f),
+            NetworkVirtualMachineRestartPolicy::Never => "Never".fmt(f),
+        }
     }
 }
 

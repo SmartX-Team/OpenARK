@@ -107,7 +107,9 @@ kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, d
 kubegraph-vm-lazy = { path = "../lazy" }
 
 anyhow = { workspace = true }
+ark-core = { path = "../../../ark/core", features = ["signal"] }
 async-trait = { workspace = true }
+clap = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true, features = [
     "client",
@@ -116,7 +118,8 @@ kube = { workspace = true, features = [
     "ws",
 ] }
 polars = { workspace = true, optional = true }
-serde = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }
 

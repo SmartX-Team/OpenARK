@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::LazyFrame,
@@ -15,10 +16,10 @@ pub struct NetworkVisualizer {
 #[async_trait]
 impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
     #[instrument(level = Level::INFO)]
-    async fn try_default() -> Result<Self> {
+    async fn try_new(signal: &FunctionSignal) -> Result<Self> {
         Ok(Self {
             #[cfg(feature = "visualizer-egui")]
-            egui: ::kubegraph_visualizer_egui::NetworkVisualizer::try_default().await?,
+            egui: ::kubegraph_visualizer_egui::NetworkVisualizer::try_new(signal).await?,
         })
     }
 
@@ -33,6 +34,13 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
         }
         let _ = graph;
         Ok(())
+    }
+
+    async fn wait_to_next(&self) {
+        #[cfg(feature = "visualizer-egui")]
+        {
+            self.egui.wait_to_next().await;
+        }
     }
 
     #[instrument(level = Level::INFO, skip(self))]
