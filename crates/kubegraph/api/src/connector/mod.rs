@@ -18,7 +18,7 @@ use crate::{
     frame::LazyFrame,
     graph::{Graph, GraphMetadataRaw, NetworkGraphDB},
     resource::{NetworkResource, NetworkResourceDB},
-    visualizer::NetworkVisualizer,
+    visualizer::NetworkVisualizerExt,
     vm::{NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
 };
 
@@ -67,8 +67,13 @@ where
                     NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
                 }
                 NetworkVirtualMachineRestartPolicy::Manually => {
-                    vm.visualizer().wait_to_next().await;
-                    continue;
+                    match vm.visualizer().wait_to_next().await {
+                        Ok(()) => continue,
+                        Err(error) => {
+                            error!("failed to wait visualizer next event: {error}");
+                            break;
+                        }
+                    }
                 }
                 NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
                 NetworkVirtualMachineRestartPolicy::Never => {

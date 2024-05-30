@@ -31,7 +31,7 @@ use crate::{
     resource::NetworkResourceCollectionDB,
     runner::NetworkRunner,
     solver::NetworkSolver,
-    visualizer::NetworkVisualizer,
+    visualizer::{NetworkVisualizer, NetworkVisualizerExt},
 };
 
 #[async_trait]
@@ -132,7 +132,7 @@ where
                 }
                 NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
                 NetworkVirtualMachineRestartPolicy::Manually => {
-                    self.visualizer().wait_to_next().await;
+                    self.visualizer().wait_to_next().await?;
                     continue;
                 }
                 NetworkVirtualMachineRestartPolicy::Never => break Ok(()),
@@ -449,7 +449,7 @@ impl FromStr for NetworkVirtualMachineRestartPolicy {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Always" | "always" | "True" | "true" | "Yes" | "yes" => Ok(Self::Always),
-            "Manually" | "manually" => Ok(Self::Manually),
+            "Manually" | "manually" | "Manual" | "manual" => Ok(Self::Manually),
             "Never" | "never" | "False" | "false" | "No" | "no" => Ok(Self::Never),
             s => DurationString::from_str(s).map(|interval| Self::Interval {
                 interval: interval.into(),

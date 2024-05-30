@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use kubegraph_api::{
     frame::LazyFrame,
     graph::{Graph, GraphMetadataExt},
+    visualizer::NetworkVisualizerEvent,
 };
 use tracing::{instrument, Level};
 
@@ -36,11 +37,13 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
         Ok(())
     }
 
-    async fn wait_to_next(&self) {
+    async fn call(&self, event: NetworkVisualizerEvent) -> Result<()> {
         #[cfg(feature = "visualizer-egui")]
         {
-            self.egui.wait_to_next().await;
+            self.egui.call(event).await?;
         }
+        let _ = event;
+        Ok(())
     }
 
     #[instrument(level = Level::INFO, skip(self))]
