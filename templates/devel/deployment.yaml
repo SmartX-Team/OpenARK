@@ -121,7 +121,7 @@ spec:
             # - name: USER_PASSWORD
             #   value: my-ssh-password!
             - name: USER_SHELL
-              value: /bin/bash
+              value: /bin/zsh
           ports:
             - name: ssh
               protocol: TCP
