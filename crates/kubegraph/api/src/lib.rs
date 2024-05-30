@@ -13,6 +13,7 @@ pub mod query;
 pub mod resource;
 pub mod runner;
 pub mod solver;
+pub mod visualizer;
 pub mod vm;
 
 pub mod consts {

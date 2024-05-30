@@ -46,9 +46,7 @@ kubegraph-vm-local = { path = "../vm/local", default-features = false, features 
     "function-dummy",
     "graph-memory",
     "runner-simulator",
-] }
-kubegraph-visualizer = { path = "../visualizer", default-features = false, features = [
-    "df-polars",
+    "visualizer-auto",
 ] }
 
 tokio = { workspace = true, features = ["full"] }

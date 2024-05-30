@@ -18,15 +18,15 @@ use crate::{
     frame::LazyFrame,
     graph::{Graph, GraphMetadataRaw, NetworkGraphDB},
     resource::{NetworkResource, NetworkResourceDB},
-    vm::NetworkVirtualMachine,
+    visualizer::NetworkVisualizerExt,
+    vm::{NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
 };
 
 #[async_trait]
-pub trait NetworkConnector {
-    fn connector_type(&self) -> NetworkConnectorType;
-
-    fn name(&self) -> &str;
-
+pub trait NetworkConnectorExt
+where
+    Self: NetworkConnector,
+{
     #[instrument(level = Level::INFO, skip(self, vm))]
     async fn loop_forever(mut self, vm: impl NetworkVirtualMachine)
     where
@@ -62,14 +62,42 @@ pub trait NetworkConnector {
                 }
             }
 
-            if let Some(interval) = vm.interval() {
-                let elapsed = instant.elapsed();
-                if elapsed < interval {
-                    sleep(interval - elapsed).await;
+            let interval = match vm.restart_policy() {
+                NetworkVirtualMachineRestartPolicy::Always => {
+                    NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
                 }
+                NetworkVirtualMachineRestartPolicy::Manually => {
+                    match vm.visualizer().wait_to_next().await {
+                        Ok(()) => continue,
+                        Err(error) => {
+                            error!("failed to wait visualizer next event: {error}");
+                            break;
+                        }
+                    }
+                }
+                NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                NetworkVirtualMachineRestartPolicy::Never => {
+                    let name = self.name();
+                    info!("Completed {name} connector");
+                    break;
+                }
+            };
+            let elapsed = instant.elapsed();
+            if elapsed < interval {
+                sleep(interval - elapsed).await;
             }
         }
     }
+}
+
+#[async_trait]
+impl<T> NetworkConnectorExt for T where Self: NetworkConnector {}
+
+#[async_trait]
+pub trait NetworkConnector {
+    fn connector_type(&self) -> NetworkConnectorType;
+
+    fn name(&self) -> &str;
 
     async fn pull(&mut self, connectors: Vec<NetworkConnectorCrd>)
         -> Result<Vec<Graph<LazyFrame>>>;

@@ -50,7 +50,7 @@ members = [
     "crates/kubegraph/runner/simulator",
     "crates/kubegraph/simulator",
     "crates/kubegraph/solver/ortools",
-    "crates/kubegraph/visualizer",
+    "crates/kubegraph/visualizer/egui",
     "crates/kubegraph/vm/http",
     "crates/kubegraph/vm/lazy",
     "crates/kubegraph/vm/local",
@@ -117,7 +117,8 @@ deltalake = { version = "0.17", features = [
 ] }
 derivative = { version = "2.2" }
 dirs = { version = "5.0" }
-eframe = { version = "0.27" }
+duration-string = { version = "0.4" }
+eframe = { version = "0.27", features = ["default_fonts", "glow", "wayland"] }
 egui = { version = "0.27" }
 egui_graphs = { version = "0.20" }
 email_address = { version = "0.2" }
@@ -144,6 +145,7 @@ minio = { git = "https://github.com/ulagbulag/minio-rs.git", version = "0.2.0-al
 map-macro = { version = "0.3" }
 maplit = { version = "1.0" }
 ndarray = { version = "0.15" }
+num-traits = { version = "0.2" }
 object_store = { version = "0.10", default-features = false }
 octocrab = { version = "0.38", default-features = false, features = [
     "default-client",
@@ -265,6 +267,9 @@ tracing-subscriber = { version = "0.3", features = [
 url = { version = "2.5", features = ["serde"] }
 uuid = { version = "1.8", features = ["js", "serde", "v4"] }
 which = { version = "6.0" }
+winit = { version = "0.29", features = [
+    "wayland",
+] } # should be synced with eframe
 
 [patch.crates-io]
 # FIXME: Waiting for PR merged: https://github.com/GREsau/schemars/pull/255

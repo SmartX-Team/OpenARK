@@ -87,7 +87,7 @@ vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
 
 [dependencies]
-ark-core = { path = "../../ark/core" }
+ark-core = { path = "../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../api", features = ["vm-entrypoint"] }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
