@@ -93,7 +93,7 @@ actix-web = { version = "4.6", default-features = false, features = [
     "macros",
     "rustls",
 ] }
-actix-web-opentelemetry = { version = "0.17", features = ["metrics"] }
+actix-web-opentelemetry = { version = "0.18", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 arrow = { version = "51" } # should be synced with deltalake and lancedb
 argon2 = { version = "0.5" }
@@ -154,18 +154,18 @@ octocrab = { version = "0.38", default-features = false, features = [
 opencv = { version = "0.92", default-features = false, features = [
     "clang-runtime",
 ] }
-opentelemetry = { version = "0.22", features = ["logs", "metrics", "trace"] }
-opentelemetry-appender-tracing = { version = "0.3", features = [
+opentelemetry = { version = "0.23", features = ["logs", "metrics", "trace"] }
+opentelemetry-appender-tracing = { version = "0.4", features = [
     # "experimental_metadata_attributes",
     "logs_level_enabled",
 ] }
-opentelemetry-otlp = { version = "0.15", features = [
+opentelemetry-otlp = { version = "0.16", features = [
     "logs",
     "metrics",
     "trace",
 ] }
-opentelemetry-proto = { version = "0.5", features = ["with-serde", "zpages"] }
-opentelemetry_sdk = { version = "0.22", features = [
+opentelemetry-proto = { version = "0.6", features = ["with-serde", "zpages"] }
+opentelemetry_sdk = { version = "0.23", features = [
     "logs_level_enabled",
     "metrics",
     "rt-tokio",
@@ -255,7 +255,7 @@ tonic = { version = "0.11", features = [
     "gzip",
 ] } # should be synced with opentelemetry-proto
 tracing = { version = "0.1" }
-tracing-opentelemetry = { version = "0.23", features = [
+tracing-opentelemetry = { version = "0.24", features = [
     "metrics",
     "tracing-log",
 ] } # should be synced with opentelemetry

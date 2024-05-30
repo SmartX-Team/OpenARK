@@ -330,10 +330,11 @@ mod tests {
     async fn simulate_simple_with_function() {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
+            annotator::NetworkAnnotationSpec,
             frame::DataFrame,
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
-                NetworkFunctionMetadata, NetworkFunctionSpec,
+                NetworkFunctionSpec,
             },
             graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblemAnalyzer},
@@ -379,7 +380,7 @@ mod tests {
             },
             spec: NetworkFunctionSpec {
                 kind: NetworkFunctionKind::Dummy(NetworkFunctionDummySpec {}),
-                metadata: NetworkFunctionMetadata {
+                metadata: NetworkAnnotationSpec {
                     filter: Some(
                         "src != sink and src.supply > 0 and src.supply > sink.supply".into(),
                     ),
