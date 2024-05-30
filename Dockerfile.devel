@@ -41,6 +41,7 @@ RUN true \
     pkg-config \
     python3-full \
     s3fs \
+    xauth \
     # GStreamer
     libges-1.0-dev \
     libgstreamer1.0-dev \

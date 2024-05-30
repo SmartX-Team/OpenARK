@@ -291,6 +291,7 @@ RUN apt-get update && apt-get install -y \
     s3fs \
     trash-cli \
     tumbler \
+    xauth \
     xdg-dbus-proxy xdg-desktop-portal-gtk xdg-user-dirs \
     xmlstarlet \
     zenity \
