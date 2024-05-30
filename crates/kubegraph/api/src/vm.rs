@@ -211,7 +211,7 @@ where
             metadata: graph_db_metadata,
             scope: graph_db_scope,
         };
-        self.visualizer().register(graph).await
+        self.visualizer().replace_graph(graph).await
     }
 
     #[instrument(level = Level::INFO, skip(self, problem))]

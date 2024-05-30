@@ -48,7 +48,7 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
         Ok(this)
     }
 
-    async fn register<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
+    async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt,
     {

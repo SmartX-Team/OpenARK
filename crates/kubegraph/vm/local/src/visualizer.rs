@@ -25,13 +25,13 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
     }
 
     #[instrument(level = Level::INFO, skip(self, graph))]
-    async fn register<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
+    async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt,
     {
         #[cfg(feature = "visualizer-egui")]
         {
-            self.egui.register(graph.clone()).await?;
+            self.egui.replace_graph(graph.clone()).await?;
         }
         let _ = graph;
         Ok(())
