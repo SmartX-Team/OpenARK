@@ -28,6 +28,14 @@ pub struct NetworkGraphDBArgs {
     db_path: String,
 }
 
+impl Default for NetworkGraphDBArgs {
+    fn default() -> Self {
+        Self {
+            db_path: Self::default_db_path(),
+        }
+    }
+}
+
 impl NetworkGraphDBArgs {
     fn default_db_path() -> String {
         "default.sled".into()
@@ -40,7 +48,7 @@ pub struct NetworkGraphDB {
 }
 
 #[async_trait]
-impl NetworkComponent for NetworkRunner {
+impl NetworkComponent for NetworkGraphDB {
     type Args = NetworkGraphDBArgs;
 
     #[instrument(level = Level::INFO)]

@@ -68,7 +68,6 @@ pub struct NetworkGraphDBArgs {
 #[serde(rename_all = "kebab-case")]
 pub enum NetworkGraphDBType {
     #[cfg(feature = "graph-local")]
-    #[default]
     Local,
     #[cfg(feature = "graph-memory")]
     #[default]

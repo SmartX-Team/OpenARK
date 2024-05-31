@@ -222,6 +222,7 @@ mod tests {
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
+            component::NetworkComponentExt,
             graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblemAnalyzer},
         };
@@ -346,6 +347,7 @@ mod tests {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
             annotator::NetworkAnnotationSpec,
+            component::NetworkComponentExt,
             frame::DataFrame,
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
