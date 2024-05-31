@@ -1,25 +1,107 @@
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use clap::{Parser, ValueEnum};
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
     graph::{GraphData, GraphMetadataStandard, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
 
-#[derive(Clone)]
-pub struct NetworkRunner {
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkRunnerArgs {
+    #[arg(
+        long,
+        env = "KUBEGRAPH_RUNNER",
+        value_enum,
+        value_name = "IMPL",
+        default_value_t = NetworkRunnerType::default(),
+    )]
+    #[serde(default)]
+    pub runner: NetworkRunnerType,
+
     #[cfg(feature = "runner-simulator")]
-    simulator: ::kubegraph_runner_simulator::NetworkRunner,
+    #[command(flatten)]
+    #[serde(default)]
+    pub simulator: <::kubegraph_runner_simulator::NetworkRunner as NetworkComponent>::Args,
 }
 
-impl NetworkRunner {
-    pub async fn try_default() -> Result<Self> {
-        Ok(Self {
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    ValueEnum,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
+pub enum NetworkRunnerType {
+    Disabled,
+    #[cfg(feature = "runner-simulator")]
+    #[default]
+    Simulator,
+}
+
+#[derive(Clone)]
+pub enum NetworkRunner {
+    Disabled,
+    #[cfg(feature = "runner-simulator")]
+    Simulator(::kubegraph_runner_simulator::NetworkRunner),
+}
+
+#[async_trait]
+impl NetworkComponent for NetworkRunner {
+    type Args = NetworkRunnerArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(
+        args: <Self as NetworkComponent>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        let NetworkRunnerArgs {
+            runner,
             #[cfg(feature = "runner-simulator")]
-            simulator: ::kubegraph_runner_simulator::NetworkRunner::default(),
-        })
+            simulator,
+        } = args;
+
+        match runner {
+            NetworkRunnerType::Disabled => {
+                let _ = signal;
+                Ok(Self::Disabled)
+            }
+            #[cfg(feature = "runner-simulator")]
+            NetworkRunnerType::Simulator => Ok(Self::Simulator(
+                ::kubegraph_runner_simulator::NetworkRunner::try_new(simulator, signal).await?,
+            )),
+        }
     }
 }
 
@@ -32,11 +114,15 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for NetworkRun
         graph: GraphData<LazyFrame>,
         problem: &ProblemSpec<GraphMetadataStandard>,
     ) -> Result<()> {
-        let tasks = vec![
+        match self {
+            Self::Disabled => {
+                let _ = graph_db;
+                let _ = graph;
+                let _ = problem;
+                Ok(())
+            }
             #[cfg(feature = "runner-simulator")]
-            self.simulator.execute(graph_db, graph.clone(), problem),
-        ];
-
-        FuturesUnordered::from_iter(tasks).try_collect().await
+            Self::Simulator(runtime) => runtime.execute(graph_db, graph, problem).await,
+        }
     }
 }

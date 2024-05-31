@@ -21,6 +21,7 @@ use tracing::{error, info, instrument, warn, Level};
 
 use crate::{
     analyzer::{NetworkAnalyzer, NetworkAnalyzerExt},
+    component::{NetworkComponent, NetworkComponentExt},
     frame::LazyFrame,
     graph::{
         Graph, GraphData, GraphEdges, GraphMetadata, GraphMetadataPinnedExt, GraphMetadataStandard,
@@ -37,7 +38,8 @@ use crate::{
 #[async_trait]
 pub trait NetworkVirtualMachineExt
 where
-    Self: NetworkVirtualMachine,
+    Self: NetworkComponentExt + NetworkVirtualMachine,
+    <Self as NetworkComponent>::Args: Parser,
 {
     #[cfg(feature = "vm-entrypoint")]
     async fn main<F>(handlers: F)
@@ -55,7 +57,7 @@ where
         }
 
         info!("Booting...");
-        let vm = match <Self as NetworkVirtualMachineExt>::try_default(&signal).await {
+        let vm = match <Self as NetworkComponentExt>::try_default(&signal).await {
             Ok(vm) => vm,
             Err(error) => {
                 signal
@@ -80,12 +82,6 @@ where
         };
 
         signal.exit().await
-    }
-
-    #[instrument(level = Level::INFO)]
-    async fn try_default(signal: &FunctionSignal) -> Result<Self> {
-        let args = <Self as NetworkVirtualMachine>::Args::parse();
-        <Self as NetworkVirtualMachine>::try_new(args, signal).await
     }
 
     #[instrument(level = Level::INFO, skip(self))]
@@ -256,20 +252,25 @@ where
     }
 }
 
-impl<T> NetworkVirtualMachineExt for T where Self: NetworkVirtualMachine {}
+impl<T> NetworkVirtualMachineExt for T
+where
+    Self: NetworkComponentExt + NetworkVirtualMachine,
+    <Self as NetworkComponent>::Args: Parser,
+{
+}
 
 #[async_trait]
 pub trait NetworkVirtualMachine
 where
     Self: Clone + Send + Sync,
 {
-    type Analyzer: NetworkAnalyzer;
-    type Args: Send + fmt::Debug + Parser;
-    type ResourceDB: 'static + Send + Clone + NetworkResourceCollectionDB;
-    type GraphDB: 'static + Send + Clone + NetworkGraphDB;
-    type Runner: NetworkRunner<GraphData<LazyFrame>>;
-    type Solver: NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
-    type Visualizer: NetworkVisualizer;
+    type Analyzer: NetworkComponent + NetworkAnalyzer;
+    type ResourceDB: 'static + Send + Clone + NetworkComponent + NetworkResourceCollectionDB;
+    type GraphDB: 'static + Send + Clone + NetworkComponent + NetworkGraphDB;
+    type Runner: NetworkComponent + NetworkRunner<GraphData<LazyFrame>>;
+    type Solver: NetworkComponent
+        + NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
+    type Visualizer: NetworkComponent + NetworkVisualizer;
 
     fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer;
 
@@ -291,13 +292,6 @@ where
         NetworkVirtualMachineRestartPolicy::default()
     }
 
-    async fn try_new(
-        args: <Self as NetworkVirtualMachine>::Args,
-        signal: &FunctionSignal,
-    ) -> Result<Self>
-    where
-        Self: Sized;
-
     async fn infer_edges(
         &self,
         problem: &VirtualProblem,
@@ -313,7 +307,6 @@ where
     T: ?Sized + NetworkVirtualMachine,
 {
     type Analyzer = <T as NetworkVirtualMachine>::Analyzer;
-    type Args = <T as NetworkVirtualMachine>::Args;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
@@ -350,16 +343,6 @@ where
 
     fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
         <T as NetworkVirtualMachine>::restart_policy(&**self)
-    }
-
-    #[instrument(level = Level::INFO)]
-    async fn try_new(
-        args: <Self as NetworkVirtualMachine>::Args,
-        signal: &FunctionSignal,
-    ) -> Result<Self> {
-        <T as NetworkVirtualMachine>::try_new(args, signal)
-            .await
-            .map(Self::new)
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]

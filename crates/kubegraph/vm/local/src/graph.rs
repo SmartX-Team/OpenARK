@@ -1,37 +1,114 @@
 use anyhow::Result;
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::{Parser, ValueEnum};
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphFilter, GraphScope, IntoGraph},
+    graph::{Graph, GraphFilter, GraphScope},
 };
-use tracing::{info, instrument, Level};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use tracing::{instrument, Level};
 
-#[derive(Clone)]
-pub struct NetworkGraphDB {
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkGraphDBArgs {
+    #[arg(
+        long,
+        env = "KUBEGRAPH_GRAPH_DB",
+        value_enum,
+        value_name = "IMPL",
+        default_value_t = NetworkGraphDBType::default(),
+    )]
+    #[serde(default)]
+    pub graph_db: NetworkGraphDBType,
+
     #[cfg(feature = "graph-local")]
-    local: ::kubegraph_graph_local::NetworkGraphDB,
+    #[command(flatten)]
+    #[serde(default)]
+    pub local: <::kubegraph_graph_local::NetworkGraphDB as NetworkComponent>::Args,
+
     #[cfg(feature = "graph-memory")]
-    memory: ::kubegraph_graph_memory::NetworkGraphDB,
+    #[command(flatten)]
+    #[serde(default)]
+    pub memory: <::kubegraph_graph_memory::NetworkGraphDB as NetworkComponent>::Args,
 }
 
-impl NetworkGraphDB {
-    pub async fn try_default() -> Result<Self> {
-        Ok(Self {
-            #[cfg(feature = "graph-local")]
-            local: ::kubegraph_graph_local::NetworkGraphDB::try_default().await?,
-            #[cfg(feature = "graph-memory")]
-            memory: ::kubegraph_graph_memory::NetworkGraphDB::default(),
-        })
-    }
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    ValueEnum,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
+pub enum NetworkGraphDBType {
+    #[cfg(feature = "graph-local")]
+    #[default]
+    Local,
+    #[cfg(feature = "graph-memory")]
+    #[default]
+    Memory,
+}
 
-    fn get_default_db(&self) -> &impl ::kubegraph_api::graph::NetworkGraphDB {
-        #[cfg(feature = "graph-local")]
-        {
-            &self.local
-        }
-        #[cfg(feature = "graph-memory")]
-        {
-            &self.memory
+#[derive(Clone)]
+pub enum NetworkGraphDB {
+    #[cfg(feature = "graph-local")]
+    Local(::kubegraph_graph_local::NetworkGraphDB),
+    #[cfg(feature = "graph-memory")]
+    Memory(::kubegraph_graph_memory::NetworkGraphDB),
+}
+
+#[async_trait]
+impl NetworkComponent for NetworkGraphDB {
+    type Args = NetworkGraphDBArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(
+        args: <Self as NetworkComponent>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        let NetworkGraphDBArgs {
+            graph_db,
+            #[cfg(feature = "graph-local")]
+            local,
+            #[cfg(feature = "graph-memory")]
+            memory,
+        } = args;
+
+        match graph_db {
+            #[cfg(feature = "graph-local")]
+            NetworkGraphDBType::Local => Ok(Self::Local(
+                ::kubegraph_graph_local::NetworkGraphDB::try_new(local, signal).await?,
+            )),
+            #[cfg(feature = "graph-memory")]
+            NetworkGraphDBType::Memory => Ok(Self::Memory(
+                ::kubegraph_graph_memory::NetworkGraphDB::try_new(memory, signal).await?,
+            )),
         }
     }
 }
@@ -40,44 +117,41 @@ impl NetworkGraphDB {
 impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     #[instrument(level = Level::INFO, skip(self))]
     async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>> {
-        self.get_default_db().get(scope).await
+        match self {
+            #[cfg(feature = "graph-local")]
+            Self::Local(runtime) => runtime.get(scope).await,
+            #[cfg(feature = "graph-memory")]
+            Self::Memory(runtime) => runtime.get(scope).await,
+        }
     }
 
     #[instrument(level = Level::INFO, skip(self, graph))]
     async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()> {
-        self.get_default_db().insert(graph).await
+        match self {
+            #[cfg(feature = "graph-local")]
+            Self::Local(runtime) => runtime.insert(graph).await,
+            #[cfg(feature = "graph-memory")]
+            Self::Memory(runtime) => runtime.insert(graph).await,
+        }
     }
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>> {
-        self.get_default_db().list(filter).await
+        match self {
+            #[cfg(feature = "graph-local")]
+            Self::Local(runtime) => runtime.list(filter).await,
+            #[cfg(feature = "graph-memory")]
+            Self::Memory(runtime) => runtime.list(filter).await,
+        }
     }
 
     #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
-        info!("Closing network graph...");
-
-        #[cfg(feature = "graph-local")]
-        self.local.close().await?;
-
-        #[cfg(feature = "graph-memory")]
-        self.memory.close().await?;
-
-        Ok(())
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct GraphContext {
-    pub(crate) graph: GraphData<Option<LazyFrame>>,
-}
-
-impl IntoGraph<LazyFrame> for GraphContext {
-    fn try_into_graph(self) -> Result<GraphData<LazyFrame>> {
-        let GraphData { edges, nodes } = self.graph;
-        Ok(GraphData {
-            edges: edges.unwrap_or_default(),
-            nodes: nodes.unwrap_or_default(),
-        })
+        match self {
+            #[cfg(feature = "graph-local")]
+            Self::Local(runtime) => runtime.close().await,
+            #[cfg(feature = "graph-memory")]
+            Self::Memory(runtime) => runtime.close().await,
+        }
     }
 }

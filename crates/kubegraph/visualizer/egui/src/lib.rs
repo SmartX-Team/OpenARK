@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::Parser;
 use eframe::{run_native, App, AppCreator, Frame, NativeOptions};
 use egui::{Button, Context, Ui};
 use egui_graphs::{
@@ -10,17 +11,39 @@ use egui_graphs::{
     SettingsStyle,
 };
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
     graph::{Graph, GraphEntry, GraphMetadataExt},
     visualizer::NetworkVisualizerEvent,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tokio::{
     runtime::Handle,
     sync::{mpsc, oneshot, Mutex},
     task::{spawn_blocking, JoinHandle},
 };
-use tracing::{error, info};
+use tracing::{error, info, instrument, Level};
 use winit::platform::wayland::EventLoopBuilderExtWayland;
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkVisualizerArgs {}
 
 #[derive(Clone)]
 pub struct NetworkVisualizer {
@@ -29,8 +52,16 @@ pub struct NetworkVisualizer {
 }
 
 #[async_trait]
-impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
-    async fn try_new(signal: &FunctionSignal) -> Result<Self> {
+impl NetworkComponent for NetworkVisualizer {
+    type Args = NetworkVisualizerArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(
+        args: <Self as NetworkComponent>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        let NetworkVisualizerArgs {} = args;
+
         let (event_channel, event_collectors) = mpsc::channel(Self::MAX_EVENT_CHANNEL);
 
         let ctx = NetworkVisualizerContext::new(event_collectors);
@@ -47,7 +78,11 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
 
         Ok(this)
     }
+}
 
+#[async_trait]
+impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
+    #[instrument(level = Level::INFO, skip(self, graph))]
     async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt,
@@ -60,10 +95,12 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
         Ok(())
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     async fn call(&self, event: NetworkVisualizerEvent) -> Result<()> {
         self.data.call(event).await
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         if let Some(session) = self.task.lock().await.take() {
             session.abort();

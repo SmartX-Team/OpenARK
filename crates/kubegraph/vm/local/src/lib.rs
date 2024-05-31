@@ -16,13 +16,14 @@ use std::sync::Arc;
 use anyhow::Result;
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::Parser;
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
     function::{FunctionMetadata, NetworkFunctionCrd},
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
     resource::NetworkResourceDB,
-    visualizer::NetworkVisualizer,
     vm::{
         NetworkVirtualMachineExt, NetworkVirtualMachineFallbackPolicy,
         NetworkVirtualMachineRestartPolicy,
@@ -47,9 +48,52 @@ pub struct NetworkVirtualMachine {
 }
 
 #[async_trait]
+impl NetworkComponent for NetworkVirtualMachine {
+    type Args = self::args::NetworkArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(
+        args: <Self as NetworkComponent>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        // Step 1. Initialize components
+        let self::args::NetworkArgs {
+            analyzer,
+            graph_db,
+            resource_db,
+            runner,
+            solver,
+            visualizer,
+            vm,
+        } = args;
+        let vm = Self {
+            analyzer: self::analyzer::NetworkAnalyzer::try_new(analyzer, signal).await?,
+            args: vm,
+            graph_db: self::graph::NetworkGraphDB::try_new(graph_db, signal).await?,
+            resource_db: self::resource::NetworkResourceDB::try_new(resource_db, signal).await?,
+            resource_worker: Arc::new(Mutex::new(None)),
+            runner: self::runner::NetworkRunner::try_new(runner, signal).await?,
+            solver: self::solver::NetworkSolver::try_new(solver, signal).await?,
+            visualizer: self::visualizer::NetworkVisualizer::try_new(visualizer, signal).await?,
+            vm_runner: Arc::new(Mutex::new(None)),
+        };
+
+        // Step 2. Spawn workers
+        vm.resource_worker
+            .lock()
+            .await
+            .replace(self::resource::NetworkResourceWorker::try_spawn(signal, &vm).await?);
+        vm.vm_runner
+            .lock()
+            .await
+            .replace(NetworkVirtualMachineRunner::spawn(signal, vm.clone()));
+        Ok(vm)
+    }
+}
+
+#[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type Analyzer = self::analyzer::NetworkAnalyzer;
-    type Args = self::args::NetworkVirtualMachineArgs;
     type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
@@ -86,36 +130,6 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
     fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
         self.args.restart_policy
-    }
-
-    #[instrument(level = Level::INFO)]
-    async fn try_new(
-        args: <Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Args,
-        signal: &FunctionSignal,
-    ) -> Result<Self> {
-        // Step 1. Initialize components
-        let vm = Self {
-            analyzer: self::analyzer::NetworkAnalyzer::try_default().await?,
-            args,
-            graph_db: self::graph::NetworkGraphDB::try_default().await?,
-            resource_db: self::resource::NetworkResourceDB::default(),
-            resource_worker: Arc::new(Mutex::new(None)),
-            runner: self::runner::NetworkRunner::try_default().await?,
-            solver: self::solver::NetworkSolver::try_default().await?,
-            visualizer: self::visualizer::NetworkVisualizer::try_new(signal).await?,
-            vm_runner: Arc::new(Mutex::new(None)),
-        };
-
-        // Step 2. Spawn workers
-        vm.resource_worker
-            .lock()
-            .await
-            .replace(self::resource::NetworkResourceWorker::try_spawn(signal, &vm).await?);
-        vm.vm_runner
-            .lock()
-            .await
-            .replace(NetworkVirtualMachineRunner::spawn(signal, vm.clone()));
-        Ok(vm)
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]
@@ -183,10 +197,11 @@ struct NetworkVirtualMachineRunner {
 }
 
 impl NetworkVirtualMachineRunner {
-    pub(crate) fn spawn(
-        signal: &FunctionSignal,
-        vm: impl 'static + NetworkVirtualMachineExt,
-    ) -> Self {
+    pub(crate) fn spawn<VM>(signal: &FunctionSignal, vm: VM) -> Self
+    where
+        VM: 'static + NetworkVirtualMachineExt,
+        <VM as NetworkComponent>::Args: Parser,
+    {
         let signal = signal.clone();
 
         Self {

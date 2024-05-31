@@ -25,7 +25,7 @@ full = [
     "analyzer-full",
     "connector-full",
     "function-full",
-    "graph-auto",
+    "graph-full",
     "df-full",
     "runner-full",
     "solver-full",
@@ -72,7 +72,7 @@ function-full = ["function-dummy"]
 function-dummy = ["kubegraph-api/function-dummy", "kubegraph-function-dummy"]
 
 # Configure Graph Databases
-graph-auto = ["graph-memory"]
+graph-full = ["graph-memory", "graph-memory"]
 graph-local = ["kubegraph-graph-local"]
 graph-memory = ["kubegraph-graph-memory"]
 

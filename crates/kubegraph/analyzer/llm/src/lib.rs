@@ -2,9 +2,12 @@ mod llm_model;
 mod prompt;
 
 use anyhow::{bail, Result};
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::Parser;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
     graph::{
         Graph, GraphFilter, GraphMetadataExt, GraphMetadataRaw, GraphMetadataStandard, GraphScope,
@@ -16,7 +19,28 @@ use kubegraph_api::{
     resource::NetworkResourceCollectionDB,
 };
 use langchain_rust::language_models::llm::LLM;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkAnalyzerArgs {}
 
 #[derive(Clone)]
 pub struct NetworkAnalyzer<M = self::llm_model::GenericLLM> {
@@ -24,8 +48,13 @@ pub struct NetworkAnalyzer<M = self::llm_model::GenericLLM> {
     prompt: self::prompt::PromptLoader,
 }
 
-impl NetworkAnalyzer {
-    pub async fn try_default() -> Result<Self> {
+#[async_trait]
+impl NetworkComponent for NetworkAnalyzer {
+    type Args = NetworkAnalyzerArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(args: <Self as NetworkComponent>::Args, _: &FunctionSignal) -> Result<Self> {
+        let NetworkAnalyzerArgs {} = args;
         Ok(Self {
             llm: self::llm_model::GenericLLM::default(),
             prompt: self::prompt::PromptLoader::try_default().await?,

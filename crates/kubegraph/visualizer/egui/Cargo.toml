@@ -34,9 +34,12 @@ kubegraph-api = { path = "../../api", features = ["petgraph"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true }
 eframe = { workspace = true }
 egui = { workspace = true }
 egui_graphs = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true, features = ["rt", "sync"] }
 tracing = { workspace = true }
 winit = { workspace = true }

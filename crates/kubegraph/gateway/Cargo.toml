@@ -30,7 +30,7 @@ full = [
     "connector-full",
     "df-full",
     "function-full",
-    "graph-auto",
+    "graph-full",
     "runner-full",
     "solver-full",
     "vm-full",
@@ -71,7 +71,7 @@ function-dummy = [
 ]
 
 # Configure Graph Databases
-graph-auto = ["graph-memory"]
+graph-full = ["graph-local", "graph-memory"]
 graph-local = ["kubegraph-vm-local?/graph-local"]
 graph-memory = ["kubegraph-vm-local?/graph-memory"]
 

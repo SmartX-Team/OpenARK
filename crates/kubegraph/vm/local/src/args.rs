@@ -1,9 +1,50 @@
 use clap::Parser;
-use kubegraph_api::vm::{NetworkVirtualMachineFallbackPolicy, NetworkVirtualMachineRestartPolicy};
+use kubegraph_api::{
+    component::NetworkComponent,
+    vm::{
+        NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy,
+        NetworkVirtualMachineRestartPolicy,
+    },
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkArgs {
+    #[command(flatten)]
+    #[serde(default)]
+    pub analyzer: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Analyzer as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub graph_db: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::GraphDB as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub resource_db: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::ResourceDB as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub runner: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Runner as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub solver: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Solver as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub visualizer: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Visualizer as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
+    pub vm: NetworkVirtualMachineArgs,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
 pub struct NetworkVirtualMachineArgs {
     #[arg(
         long,

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -27,10 +26,6 @@ pub trait NetworkVisualizer
 where
     Self: Sync,
 {
-    async fn try_new(signal: &FunctionSignal) -> Result<Self>
-    where
-        Self: Sized;
-
     async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt;

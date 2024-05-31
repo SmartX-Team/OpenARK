@@ -28,11 +28,15 @@ df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars"]
 
 [dependencies]
+ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true }
 futures = { workspace = true }
 langchain-rust = { workspace = true }
 ort-sys = { workspace = true }        # add onnxruntime library support for `langchain-rust` crate
+schemars = { workspace = true }
+serde = { workspace = true }
 tracing = { workspace = true }

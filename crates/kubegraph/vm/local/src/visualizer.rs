@@ -1,57 +1,146 @@
 use anyhow::Result;
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::{Parser, ValueEnum};
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::LazyFrame,
     graph::{Graph, GraphMetadataExt},
     visualizer::NetworkVisualizerEvent,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
 
-#[derive(Clone)]
-pub struct NetworkVisualizer {
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkVisualizerArgs {
+    #[arg(
+        long,
+        env = "KUBEGRAPH_VISUALIZER",
+        value_enum,
+        value_name = "IMPL",
+        default_value_t = NetworkVisualizerType::default(),
+    )]
+    #[serde(default)]
+    pub visualizer: NetworkVisualizerType,
+
     #[cfg(feature = "visualizer-egui")]
-    egui: ::kubegraph_visualizer_egui::NetworkVisualizer,
+    #[command(flatten)]
+    #[serde(default)]
+    pub egui: <::kubegraph_visualizer_egui::NetworkVisualizer as NetworkComponent>::Args,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    ValueEnum,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
+pub enum NetworkVisualizerType {
+    Disabled,
+    #[cfg(feature = "visualizer-egui")]
+    #[default]
+    Egui,
+}
+
+#[derive(Clone)]
+pub enum NetworkVisualizer {
+    Disabled,
+    #[cfg(feature = "visualizer-egui")]
+    Egui(::kubegraph_visualizer_egui::NetworkVisualizer),
+}
+
+#[async_trait]
+impl NetworkComponent for NetworkVisualizer {
+    type Args = NetworkVisualizerArgs;
+
+    #[instrument(level = Level::INFO)]
+    async fn try_new(
+        args: <Self as NetworkComponent>::Args,
+        signal: &FunctionSignal,
+    ) -> Result<Self> {
+        let NetworkVisualizerArgs {
+            visualizer,
+            #[cfg(feature = "visualizer-egui")]
+            egui,
+        } = args;
+
+        match visualizer {
+            NetworkVisualizerType::Disabled => {
+                let _ = signal;
+                Ok(Self::Disabled)
+            }
+            #[cfg(feature = "visualizer-egui")]
+            NetworkVisualizerType::Egui => Ok(Self::Egui(
+                ::kubegraph_visualizer_egui::NetworkVisualizer::try_new(egui, signal).await?,
+            )),
+        }
+    }
 }
 
 #[async_trait]
 impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
-    #[instrument(level = Level::INFO)]
-    async fn try_new(signal: &FunctionSignal) -> Result<Self> {
-        Ok(Self {
-            #[cfg(feature = "visualizer-egui")]
-            egui: ::kubegraph_visualizer_egui::NetworkVisualizer::try_new(signal).await?,
-        })
-    }
-
     #[instrument(level = Level::INFO, skip(self, graph))]
     async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt,
     {
-        #[cfg(feature = "visualizer-egui")]
-        {
-            self.egui.replace_graph(graph.clone()).await?;
+        match self {
+            Self::Disabled => {
+                let _ = graph;
+                Ok(())
+            }
+            #[cfg(feature = "visualizer-egui")]
+            Self::Egui(runtime) => runtime.replace_graph(graph).await,
         }
-        let _ = graph;
-        Ok(())
-    }
-
-    async fn call(&self, event: NetworkVisualizerEvent) -> Result<()> {
-        #[cfg(feature = "visualizer-egui")]
-        {
-            self.egui.call(event).await?;
-        }
-        let _ = event;
-        Ok(())
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn close(&self) -> Result<()> {
-        #[cfg(feature = "visualizer-egui")]
-        {
-            self.egui.close().await?;
+    async fn call(&self, event: NetworkVisualizerEvent) -> Result<()> {
+        match self {
+            Self::Disabled => {
+                let _ = event;
+                Ok(())
+            }
+            #[cfg(feature = "visualizer-egui")]
+            Self::Egui(runtime) => runtime.call(event).await,
         }
-        Ok(())
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn close(&self) -> Result<()> {
+        match self {
+            Self::Disabled => Ok(()),
+            #[cfg(feature = "visualizer-egui")]
+            Self::Egui(runtime) => runtime.close().await,
+        }
     }
 }

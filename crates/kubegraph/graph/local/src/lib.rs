@@ -1,15 +1,22 @@
 use anyhow::{anyhow, Result};
+use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
+    component::NetworkComponent,
     frame::{DataFrame, LazyFrame},
     graph::{Graph, GraphFilter, GraphScope},
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sled::{Config, Db};
 use tracing::{info, instrument, Level};
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema, Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
 pub struct NetworkGraphDBArgs {
     #[arg(
         long,
@@ -22,7 +29,7 @@ pub struct NetworkGraphDBArgs {
 }
 
 impl NetworkGraphDBArgs {
-    pub fn default_db_path() -> String {
+    fn default_db_path() -> String {
         "default.sled".into()
     }
 }
@@ -32,15 +39,12 @@ pub struct NetworkGraphDB {
     db: Db,
 }
 
-impl NetworkGraphDB {
-    #[instrument(level = Level::INFO)]
-    pub async fn try_default() -> Result<Self> {
-        let args = NetworkGraphDBArgs::try_parse()?;
-        Self::try_new(&args).await
-    }
+#[async_trait]
+impl NetworkComponent for NetworkRunner {
+    type Args = NetworkGraphDBArgs;
 
-    #[instrument(level = Level::INFO, skip(args))]
-    pub async fn try_new(args: &NetworkGraphDBArgs) -> Result<Self> {
+    #[instrument(level = Level::INFO)]
+    async fn try_new(args: <Self as NetworkComponent>::Args, _: &FunctionSignal) -> Result<Self> {
         info!("Loading local db...");
 
         let NetworkGraphDBArgs { db_path } = args;
