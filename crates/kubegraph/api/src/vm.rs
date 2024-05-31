@@ -121,22 +121,48 @@ where
     async fn try_loop_forever(&self) -> Result<()> {
         info!("Starting kubegraph VM...");
 
+        let mut state = self::sealed::NetworkVirtualMachineState::Pending;
         loop {
             let instant = Instant::now();
 
-            self.step().await?;
+            state = self.step(state).await?;
 
-            let interval = match self.restart_policy() {
-                NetworkVirtualMachineRestartPolicy::Always => {
-                    NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+            let interval = match state {
+                self::sealed::NetworkVirtualMachineState::Pending => {
+                    NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
                 }
-                NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
-                NetworkVirtualMachineRestartPolicy::Manually => {
-                    self.visualizer().wait_to_next().await?;
-                    continue;
+                self::sealed::NetworkVirtualMachineState::Ready
+                | self::sealed::NetworkVirtualMachineState::EmptyNodes
+                | self::sealed::NetworkVirtualMachineState::EmptyEdges => {
+                    match self.restart_policy() {
+                        NetworkVirtualMachineRestartPolicy::Always => {
+                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                        }
+                        NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                        NetworkVirtualMachineRestartPolicy::Manually => {
+                            self.visualizer().wait_to_next().await?;
+                            continue;
+                        }
+                        NetworkVirtualMachineRestartPolicy::Never => {
+                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
+                        }
+                    }
                 }
-                NetworkVirtualMachineRestartPolicy::Never => break Ok(()),
+                self::sealed::NetworkVirtualMachineState::Completed => {
+                    match self.restart_policy() {
+                        NetworkVirtualMachineRestartPolicy::Always => {
+                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                        }
+                        NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                        NetworkVirtualMachineRestartPolicy::Manually => {
+                            self.visualizer().wait_to_next().await?;
+                            continue;
+                        }
+                        NetworkVirtualMachineRestartPolicy::Never => break Ok(()),
+                    }
+                }
             };
+
             let elapsed = instant.elapsed() + Duration::from_micros(500);
             if elapsed < interval {
                 sleep(interval - elapsed).await;
@@ -145,28 +171,56 @@ where
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn step(&self) -> Result<()> {
+    async fn step(
+        &self,
+        state: self::sealed::NetworkVirtualMachineState,
+    ) -> Result<self::sealed::NetworkVirtualMachineState> {
         // Define-or-Reuse a converged problem
         let problems = self.analyzer().inspect(self.resource_db()).await?;
+        if problems.is_empty() {
+            return Ok(self::sealed::NetworkVirtualMachineState::Ready);
+        }
 
         // Apply it
         problems
             .into_iter()
-            .map(|problem| self.step_with_custom_problem(problem))
+            .map(|problem| self.step_with_custom_problem(state, problem))
             .collect::<FuturesUnordered<_>>()
             .try_collect()
             .await
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn step_with_custom_problem(&self, problem: VirtualProblem) -> Result<()> {
-        // Step 1. Pull & Convert nodes (and "static" edges)
-        let GraphData { edges, nodes } = match self.pull_graph(&problem).await? {
-            Some(graph) => graph,
-            None => return Ok(()),
+    async fn step_with_custom_problem(
+        &self,
+        state: self::sealed::NetworkVirtualMachineState,
+        problem: VirtualProblem,
+    ) -> Result<self::sealed::NetworkVirtualMachineState> {
+        // Step 1. Configure the problem
+        let metadata = GraphMetadata::Standard(problem.spec.metadata);
+        let scope = GraphScope {
+            namespace: problem.scope.namespace.clone(),
+            name: GraphScope::NAME_GLOBAL.into(),
         };
 
-        // Step 2. Infer edges by functions
+        // Step 2. Pull & Convert nodes (and "static" edges)
+        let GraphData { edges, nodes } = match self.pull_graph(&problem).await? {
+            Some(data) => match state {
+                self::sealed::NetworkVirtualMachineState::Pending => {
+                    let graph = Graph {
+                        data,
+                        metadata,
+                        scope,
+                    };
+                    self.visualizer().replace_graph(graph).await?;
+                    return Ok(self::sealed::NetworkVirtualMachineState::Ready);
+                }
+                _ => data,
+            },
+            None => return Ok(self::sealed::NetworkVirtualMachineState::EmptyNodes),
+        };
+
+        // Step 3. Infer edges by functions
         let function_edges = self.infer_edges(&problem, nodes.clone()).await?;
         let static_edges = GraphEdges::from_static(
             &problem.scope.namespace,
@@ -178,40 +232,36 @@ where
             (Some(function_edges), Some(static_edges)) => function_edges.concat(static_edges)?,
             (Some(function_edges), None) => function_edges,
             (None, Some(static_edges)) => static_edges,
-            (None, None) => return Ok(()),
+            (None, None) => return Ok(self::sealed::NetworkVirtualMachineState::EmptyEdges),
         };
 
-        let graph = GraphData {
+        let data = GraphData {
             edges: edges.into_inner(),
             nodes: nodes.clone(),
         };
 
-        // Step 3. Solve edge flows
-        let graph = self.solver().solve(graph, &problem.spec).await?;
+        // Step 4. Solve edge flows
+        let data = self.solver().solve(data, &problem.spec).await?;
 
-        // Step 4. Apply edges to real-world (or simulator)
-        let graph_db_metadata = GraphMetadata::Standard(problem.spec.metadata);
-        let graph_db_scope = GraphScope {
-            namespace: problem.scope.namespace.clone(),
-            name: GraphScope::NAME_GLOBAL.into(),
-        };
+        // Step 5. Apply edges to real-world (or simulator)
         let graph_db_scoped = ScopedNetworkGraphDBContainer {
             inner: self.graph_db(),
-            metadata: &graph_db_metadata,
-            scope: &graph_db_scope,
+            metadata: &metadata,
+            scope: &scope,
             static_edges,
         };
         self.runner()
-            .execute(&graph_db_scoped, graph.clone(), &problem.spec)
+            .execute(&graph_db_scoped, data.clone(), &problem.spec)
             .await?;
 
-        // Step 5. Visualize the outputs
+        // Step 6. Visualize the outputs
         let graph = Graph {
-            data: graph,
-            metadata: graph_db_metadata,
-            scope: graph_db_scope,
+            data,
+            metadata,
+            scope,
         };
-        self.visualizer().replace_graph(graph).await
+        self.visualizer().replace_graph(graph).await?;
+        Ok(self::sealed::NetworkVirtualMachineState::Completed)
     }
 
     #[instrument(level = Level::INFO, skip(self, problem))]
@@ -257,6 +307,24 @@ where
 }
 
 impl<T> NetworkVirtualMachineExt for T where Self: NetworkVirtualMachine {}
+
+mod sealed {
+    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum NetworkVirtualMachineState {
+        Pending,
+        Ready,
+        EmptyNodes,
+        EmptyEdges,
+        #[default]
+        Completed,
+    }
+
+    impl Extend<Self> for NetworkVirtualMachineState {
+        fn extend<T: IntoIterator<Item = Self>>(&mut self, iter: T) {
+            *self = iter.into_iter().min().unwrap_or(*self)
+        }
+    }
+}
 
 #[async_trait]
 pub trait NetworkVirtualMachine
@@ -433,6 +501,7 @@ pub enum NetworkVirtualMachineRestartPolicy<T = Duration> {
 
 impl NetworkVirtualMachineRestartPolicy {
     pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(5);
+    pub const DEFAULT_INTERVAL_INIT: Duration = Duration::from_millis(200);
 }
 
 impl Default for NetworkVirtualMachineRestartPolicy {

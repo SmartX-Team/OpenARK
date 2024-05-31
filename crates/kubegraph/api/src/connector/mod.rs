@@ -35,10 +35,13 @@ where
         let name = self.name();
         info!("Starting {name} connector...");
 
+        let mut inited = false;
         loop {
             let instant = Instant::now();
 
             if let Some(connectors) = vm.resource_db().list(self.connector_type()).await {
+                inited = true;
+
                 let name = self.name();
                 info!("Reloading {name} connector...");
 
@@ -64,22 +67,34 @@ where
 
             let interval = match vm.restart_policy() {
                 NetworkVirtualMachineRestartPolicy::Always => {
-                    NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                    if inited {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                    } else {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
+                    }
                 }
                 NetworkVirtualMachineRestartPolicy::Manually => {
-                    match vm.visualizer().wait_to_next().await {
-                        Ok(()) => continue,
-                        Err(error) => {
-                            error!("failed to wait visualizer next event: {error}");
-                            break;
+                    if inited {
+                        match vm.visualizer().wait_to_next().await {
+                            Ok(()) => continue,
+                            Err(error) => {
+                                error!("failed to wait visualizer next event: {error}");
+                                break;
+                            }
                         }
+                    } else {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
                     }
                 }
                 NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
                 NetworkVirtualMachineRestartPolicy::Never => {
-                    let name = self.name();
-                    info!("Completed {name} connector");
-                    break;
+                    if inited {
+                        let name = self.name();
+                        info!("Completed {name} connector");
+                        break;
+                    } else {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
+                    }
                 }
             };
             let elapsed = instant.elapsed();
