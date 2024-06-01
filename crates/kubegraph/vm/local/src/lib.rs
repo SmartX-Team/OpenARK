@@ -284,9 +284,10 @@ mod tests {
         // Step 5. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step_with_custom_problem(problem.clone())
+            let state = Default::default();
+            vm.step_with_custom_problem(state, problem.clone())
                 .await
-                .expect("failed to optimize")
+                .expect("failed to optimize");
         }
 
         // Step 6. Collect the output graph
@@ -428,9 +429,10 @@ mod tests {
         // Step 6. Do optimize
         let n_step = 10;
         for _ in 0..n_step {
-            vm.step_with_custom_problem(problem.clone())
+            let state = Default::default();
+            vm.step_with_custom_problem(state, problem.clone())
                 .await
-                .expect("failed to optimize")
+                .expect("failed to optimize");
         }
 
         // Step 7. Collect the output graph
