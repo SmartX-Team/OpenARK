@@ -306,7 +306,7 @@ impl GraphData<DataFrame> {
 impl GraphData<LazyFrame> {
     pub fn cast<MF, MT>(self, from: &MF, to: &MT) -> Self
     where
-        MF: GraphMetadataPinnedExt,
+        MF: GraphMetadataExt,
         MT: GraphMetadataPinnedExt,
     {
         let Self { edges, nodes } = self;

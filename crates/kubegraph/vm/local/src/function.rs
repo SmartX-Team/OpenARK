@@ -208,8 +208,8 @@ mod tests {
         function: NetworkAnnotationSpec<&'static str>,
     ) -> ::pl::frame::DataFrame {
         use kubegraph_api::{
-            analyzer::VirtualProblemAnalyzer,
-            graph::{GraphFilter, GraphScope},
+            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
+            graph::{GraphFilter, GraphMetadataRaw, GraphScope},
             problem::ProblemSpec,
         };
 
@@ -223,7 +223,10 @@ mod tests {
 
         // Step 2. Define a problem
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer::Empty,
+            analyzer: VirtualProblemAnalyzer {
+                original_metadata: GraphMetadataRaw::default(),
+                r#type: VirtualProblemAnalyzerType::Empty,
+            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),

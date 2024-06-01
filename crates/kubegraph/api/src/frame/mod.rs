@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     function::FunctionMetadata,
-    graph::{GraphDataType, GraphMetadataPinnedExt, GraphScope},
+    graph::{GraphDataType, GraphMetadataExt, GraphMetadataPinnedExt, GraphScope},
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
     problem::ProblemSpec,
     vm::{Feature, Number},
@@ -86,7 +86,7 @@ impl LazyFrame {
 
     pub fn cast<MF, MT>(self, ty: GraphDataType, from: &MF, to: &MT) -> Self
     where
-        MF: GraphMetadataPinnedExt,
+        MF: GraphMetadataExt,
         MT: GraphMetadataPinnedExt,
     {
         match self {

@@ -6,10 +6,12 @@ use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
-    analyzer::{llm::VirtualProblemLLMAnalyzer, VirtualProblemAnalyzer},
+    analyzer::{
+        llm::VirtualProblemAnalyzerLLM, VirtualProblemAnalyzer, VirtualProblemAnalyzerType,
+    },
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataExt, GraphMetadataRaw, GraphMetadataStandard},
+    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard},
     problem::VirtualProblem,
 };
 use langchain_rust::language_models::llm::LLM;
@@ -67,10 +69,10 @@ where
         problem: &VirtualProblem,
         graph: Graph<LazyFrame, GraphMetadataRaw>,
     ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
-        let VirtualProblemLLMAnalyzer {
-            map: map_from,
+        let VirtualProblemAnalyzer {
             original_metadata,
-        } = problem.analyzer.to_llm()?;
+            r#type: VirtualProblemAnalyzerLLM {},
+        } = problem.analyzer.clone().into_llm()?;
         let map_to = problem.spec.metadata;
 
         // TODO: to be implemented
@@ -80,7 +82,7 @@ where
             scope,
         } = graph;
         Ok(Graph {
-            data: data.cast(map_from, &map_to),
+            data: data.cast(&original_metadata, &map_to),
             metadata: map_to,
             scope,
         })
@@ -100,10 +102,10 @@ where
         //     .map_err(|error| anyhow!("failed to execute LLM: {error}"))?;
         // println!("{response}");
 
-        let analyzer = VirtualProblemAnalyzer::LLM(VirtualProblemLLMAnalyzer {
-            map: metadata.to_pinned(),
+        let analyzer = VirtualProblemAnalyzer {
             original_metadata: metadata,
-        });
+            r#type: VirtualProblemAnalyzerType::LLM(VirtualProblemAnalyzerLLM {}),
+        };
 
         let metadata = GraphMetadataStandard::default();
         Ok((analyzer, metadata))
@@ -111,13 +113,21 @@ where
 }
 
 trait VirtualProblemAnalyzerExt {
-    fn to_llm(&self) -> Result<&VirtualProblemLLMAnalyzer>;
+    fn into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>>;
 }
 
 impl VirtualProblemAnalyzerExt for VirtualProblemAnalyzer {
-    fn to_llm(&self) -> Result<&VirtualProblemLLMAnalyzer> {
-        match self {
-            Self::LLM(analyzer) => Ok(analyzer),
+    fn into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>> {
+        let Self {
+            original_metadata,
+            r#type,
+        } = self;
+
+        match r#type {
+            VirtualProblemAnalyzerType::LLM(r#type) => Ok(VirtualProblemAnalyzer {
+                original_metadata,
+                r#type,
+            }),
             analyzer => {
                 let name = analyzer.name();
                 bail!("unexpected analyzer: {name}")

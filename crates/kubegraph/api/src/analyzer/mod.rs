@@ -123,13 +123,26 @@ where
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum VirtualProblemAnalyzer {
-    Empty,
-    #[cfg(feature = "analyzer-llm")]
-    LLM(self::llm::VirtualProblemLLMAnalyzer),
+pub struct VirtualProblemAnalyzer<T = VirtualProblemAnalyzerType> {
+    pub original_metadata: GraphMetadataRaw,
+    pub r#type: T,
 }
 
 impl VirtualProblemAnalyzer {
+    pub const fn name(&self) -> &'static str {
+        self.r#type.name()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum VirtualProblemAnalyzerType {
+    Empty,
+    #[cfg(feature = "analyzer-llm")]
+    LLM(self::llm::VirtualProblemAnalyzerLLM),
+}
+
+impl VirtualProblemAnalyzerType {
     pub const fn name(&self) -> &'static str {
         match self {
             Self::Empty => "empty",

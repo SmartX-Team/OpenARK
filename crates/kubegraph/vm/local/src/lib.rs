@@ -222,8 +222,11 @@ mod tests {
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
-            analyzer::VirtualProblemAnalyzer,
-            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
+            graph::{
+                Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
+                NetworkGraphDB,
+            },
             problem::ProblemSpec,
         };
 
@@ -281,7 +284,10 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer::Empty,
+            analyzer: VirtualProblemAnalyzer {
+                original_metadata: GraphMetadataRaw::default(),
+                r#type: VirtualProblemAnalyzerType::Empty,
+            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
@@ -359,14 +365,17 @@ mod tests {
     async fn simulate_simple_with_function() {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
-            analyzer::VirtualProblemAnalyzer,
+            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
             annotator::NetworkAnnotationSpec,
             frame::DataFrame,
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
                 NetworkFunctionSpec,
             },
-            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            graph::{
+                Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
+                NetworkGraphDB,
+            },
             problem::ProblemSpec,
         };
 
@@ -438,7 +447,10 @@ mod tests {
 
         // Step 5. Add cost & value function (heuristic)
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer::Empty,
+            analyzer: VirtualProblemAnalyzer {
+                original_metadata: GraphMetadataRaw::default(),
+                r#type: VirtualProblemAnalyzerType::Empty,
+            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),

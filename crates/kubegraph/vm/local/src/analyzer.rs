@@ -3,7 +3,7 @@ use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use kubegraph_api::{
-    analyzer::VirtualProblemAnalyzer,
+    analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
     component::NetworkComponent,
     frame::LazyFrame,
     graph::{Graph, GraphMetadataExt, GraphMetadataRaw, GraphMetadataStandard},
@@ -142,7 +142,10 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
     ) -> Result<(VirtualProblemAnalyzer, GraphMetadataStandard)> {
         match self {
             Self::Disabled => {
-                let analyzer = VirtualProblemAnalyzer::Empty;
+                let analyzer = VirtualProblemAnalyzer {
+                    original_metadata: metadata,
+                    r#type: VirtualProblemAnalyzerType::Empty,
+                };
                 let metadata = {
                     let _ = metadata;
                     GraphMetadataStandard::default()

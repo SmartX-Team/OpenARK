@@ -11,7 +11,7 @@ use pl::{
 };
 
 use crate::{
-    graph::{GraphDataType, GraphEdges, GraphMetadataPinnedExt},
+    graph::{GraphDataType, GraphEdges, GraphMetadataExt, GraphMetadataPinnedExt},
     vm::{Feature, Number},
 };
 
@@ -47,7 +47,7 @@ impl FromIterator<GraphEdges<LazyFrame>> for GraphEdges<super::LazyFrame> {
 
 pub(super) fn cast<MF, MT>(df: LazyFrame, ty: GraphDataType, from: &MF, to: &MT) -> LazyFrame
 where
-    MF: GraphMetadataPinnedExt,
+    MF: GraphMetadataExt,
     MT: GraphMetadataPinnedExt,
 {
     let exprs = match ty {
