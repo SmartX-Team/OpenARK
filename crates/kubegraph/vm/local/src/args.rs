@@ -9,7 +9,7 @@ use kubegraph_api::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkArgs {

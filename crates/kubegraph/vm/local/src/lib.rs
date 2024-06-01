@@ -222,14 +222,25 @@ mod tests {
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
-            component::NetworkComponentExt,
             graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblemAnalyzer},
         };
 
+        use crate::{
+            args::NetworkArgs,
+            visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
+        };
+
         // Step 1. Define problems
+        let args = NetworkArgs {
+            visualizer: NetworkVisualizerArgs {
+                visualizer: NetworkVisualizerType::Disabled,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let signal = FunctionSignal::default();
-        let vm = NetworkVirtualMachine::try_default(&signal)
+        let vm = NetworkVirtualMachine::try_new(args, &signal)
             .await
             .expect("failed to init vm");
 
@@ -348,7 +359,6 @@ mod tests {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
             annotator::NetworkAnnotationSpec,
-            component::NetworkComponentExt,
             frame::DataFrame,
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
@@ -358,9 +368,21 @@ mod tests {
             problem::{ProblemSpec, VirtualProblemAnalyzer},
         };
 
+        use crate::{
+            args::NetworkArgs,
+            visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
+        };
+
         // Step 1. Define problems
+        let args = NetworkArgs {
+            visualizer: NetworkVisualizerArgs {
+                visualizer: NetworkVisualizerType::Disabled,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let signal = FunctionSignal::default();
-        let vm = NetworkVirtualMachine::try_default(&signal)
+        let vm = NetworkVirtualMachine::try_new(args, &signal)
             .await
             .expect("failed to init vm");
 

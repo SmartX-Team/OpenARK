@@ -64,6 +64,7 @@ pub struct NetworkVisualizerArgs {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 pub enum NetworkVisualizerType {
+    #[cfg_attr(not(feature = "visualizer-egui"), default)]
     Disabled,
     #[cfg(feature = "visualizer-egui")]
     #[default]
