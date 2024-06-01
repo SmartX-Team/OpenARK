@@ -6,7 +6,7 @@ use kubegraph_api::{
     analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataExt, GraphMetadataRaw, GraphMetadataStandard},
+    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard},
     problem::VirtualProblem,
 };
 use schemars::JsonSchema;
@@ -119,13 +119,14 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
             Self::Disabled => {
                 let Graph {
                     data,
-                    metadata: map_from,
+                    metadata: _,
                     scope,
                 } = graph;
+                let map_from = &problem.analyzer.original_metadata;
                 let map_to = problem.spec.metadata;
 
                 Ok(Graph {
-                    data: data.cast(&map_from.to_pinned(), &map_to),
+                    data: data.cast(map_from, &map_to),
                     metadata: map_to,
                     scope,
                 })

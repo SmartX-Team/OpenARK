@@ -70,9 +70,9 @@ where
         graph: Graph<LazyFrame, GraphMetadataRaw>,
     ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
         let VirtualProblemAnalyzer {
-            original_metadata,
+            original_metadata: map_from,
             r#type: VirtualProblemAnalyzerLLM {},
-        } = problem.analyzer.clone().into_llm()?;
+        } = problem.analyzer.clone().try_into_llm()?;
         let map_to = problem.spec.metadata;
 
         // TODO: to be implemented
@@ -82,7 +82,7 @@ where
             scope,
         } = graph;
         Ok(Graph {
-            data: data.cast(&original_metadata, &map_to),
+            data: data.cast(&map_from, &map_to),
             metadata: map_to,
             scope,
         })
@@ -113,11 +113,11 @@ where
 }
 
 trait VirtualProblemAnalyzerExt {
-    fn into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>>;
+    fn try_into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>>;
 }
 
 impl VirtualProblemAnalyzerExt for VirtualProblemAnalyzer {
-    fn into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>> {
+    fn try_into_llm(self) -> Result<VirtualProblemAnalyzer<VirtualProblemAnalyzerLLM>> {
         let Self {
             original_metadata,
             r#type,
