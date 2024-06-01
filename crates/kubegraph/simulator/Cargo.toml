@@ -21,7 +21,7 @@ workspace = true
 
 [features]
 default = ["full"]
-full = ["analyzer-full", "solver-full"]
+full = ["solver-full"]
 
 # Configure Analyzers
 analyzer-full = ["analyzer-llm"]

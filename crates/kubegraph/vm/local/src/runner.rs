@@ -64,6 +64,7 @@ pub struct NetworkRunnerArgs {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 pub enum NetworkRunnerType {
+    #[cfg_attr(not(feature = "runner-simulator"), default)]
     Disabled,
     #[cfg(feature = "runner-simulator")]
     #[default]

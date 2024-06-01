@@ -64,6 +64,7 @@ pub struct NetworkSolverArgs {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 pub enum NetworkSolverType {
+    #[cfg_attr(not(feature = "solver-ortools"), default)]
     Disabled,
     #[cfg(feature = "solver-ortools")]
     #[default]

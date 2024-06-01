@@ -3,11 +3,11 @@ use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use kubegraph_api::{
+    analyzer::VirtualProblemAnalyzer,
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard},
+    graph::{Graph, GraphMetadataExt, GraphMetadataRaw, GraphMetadataStandard},
     problem::VirtualProblem,
-    resource::NetworkResourceCollectionDB,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -65,6 +65,7 @@ pub struct NetworkAnalyzerArgs {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 pub enum NetworkAnalyzerType {
+    #[cfg_attr(not(feature = "analyzer-llm"), default)]
     Disabled,
     #[cfg(feature = "analyzer-llm")]
     #[default]
@@ -108,21 +109,6 @@ impl NetworkComponent for NetworkAnalyzer {
 
 #[async_trait]
 impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
-    #[instrument(level = Level::INFO, skip(self, resource_db))]
-    async fn inspect(
-        &self,
-        resource_db: &dyn NetworkResourceCollectionDB,
-    ) -> Result<Vec<VirtualProblem>> {
-        match self {
-            Self::Disabled => {
-                let _ = resource_db;
-                Ok(Vec::default())
-            }
-            #[cfg(feature = "analyzer-llm")]
-            Self::LLM(runtime) => runtime.inspect(resource_db).await,
-        }
-    }
-
     #[instrument(level = Level::INFO, skip(self, problem, graph))]
     async fn pin_graph_raw(
         &self,
@@ -131,20 +117,40 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
     ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
         match self {
             Self::Disabled => {
-                let _ = problem;
                 let Graph {
                     data,
-                    metadata: _,
+                    metadata: map_from,
                     scope,
                 } = graph;
+                let map_to = problem.spec.metadata;
+
                 Ok(Graph {
-                    data,
-                    metadata: GraphMetadataStandard::default(),
+                    data: data.cast(&map_from.to_pinned(), &map_to),
+                    metadata: map_to,
                     scope,
                 })
             }
             #[cfg(feature = "analyzer-llm")]
             Self::LLM(runtime) => runtime.pin_graph_raw(problem, graph).await,
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip(self, metadata))]
+    async fn pin_graph_metadata_raw(
+        &self,
+        metadata: GraphMetadataRaw,
+    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataStandard)> {
+        match self {
+            Self::Disabled => {
+                let analyzer = VirtualProblemAnalyzer::Empty;
+                let metadata = {
+                    let _ = metadata;
+                    GraphMetadataStandard::default()
+                };
+                Ok((analyzer, metadata))
+            }
+            #[cfg(feature = "analyzer-llm")]
+            Self::LLM(runtime) => runtime.pin_graph_metadata_raw(metadata).await,
         }
     }
 }

@@ -20,16 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["full"]
-full = [
-    "analyzer-full",
-    "connector-full",
-    "function-full",
-    "graph-full",
-    "df-full",
-    "runner-full",
-    "solver-full",
-]
+default = []
 
 # Configure Analyzers
 analyzer-full = ["analyzer-llm"]

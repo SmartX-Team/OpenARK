@@ -1,11 +1,9 @@
-#[cfg(feature = "analyzer-llm")]
-pub mod llm;
-
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
+    analyzer::VirtualProblemAnalyzer,
     graph::{GraphFilter, GraphMetadataRaw, GraphMetadataStandard, GraphScope},
     resource::NetworkResource,
 };
@@ -29,24 +27,6 @@ pub struct VirtualProblem<A = VirtualProblemAnalyzer, M = GraphMetadataStandard>
     pub scope: GraphScope,
     #[serde(default)]
     pub spec: ProblemSpec<M>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum VirtualProblemAnalyzer {
-    Empty,
-    #[cfg(feature = "analyzer-llm")]
-    LLM(self::llm::VirtualProblemLLMAnalyzer),
-}
-
-impl VirtualProblemAnalyzer {
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::Empty => "empty",
-            #[cfg(feature = "analyzer-llm")]
-            Self::LLM(_) => "llm",
-        }
-    }
 }
 
 #[derive(
