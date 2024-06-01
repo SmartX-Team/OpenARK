@@ -208,8 +208,9 @@ mod tests {
         function: NetworkAnnotationSpec<&'static str>,
     ) -> ::pl::frame::DataFrame {
         use kubegraph_api::{
+            analyzer::VirtualProblemAnalyzer,
             graph::{GraphFilter, GraphScope},
-            problem::{ProblemSpec, VirtualProblemAnalyzer},
+            problem::ProblemSpec,
         };
 
         // Step 1. Define a function metadata
