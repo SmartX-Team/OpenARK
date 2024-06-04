@@ -1,7 +1,7 @@
 #[cfg(feature = "df-polars")]
 pub mod polars;
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, mem::swap};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -134,6 +134,18 @@ impl GraphEdges<LazyFrame> {
     }
 }
 
+impl Extend<Self> for GraphEdges<LazyFrame> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        let mut src = Self(LazyFrame::Empty);
+        swap(self, &mut src);
+
+        *self = Some(src).into_iter().chain(iter).collect();
+    }
+}
+
 impl FromIterator<Self> for GraphEdges<LazyFrame> {
     fn from_iter<I>(iter: I) -> Self
     where
@@ -141,15 +153,15 @@ impl FromIterator<Self> for GraphEdges<LazyFrame> {
     {
         let mut iter = iter
             .into_iter()
-            .filter(|GraphEdges(edges)| !matches!(edges, LazyFrame::Empty))
+            .filter(|Self(edges)| !matches!(edges, LazyFrame::Empty))
             .peekable();
 
         match iter.peek() {
-            Some(GraphEdges(LazyFrame::Empty)) | None => Self(LazyFrame::Empty),
+            Some(Self(LazyFrame::Empty)) | None => Self(LazyFrame::Empty),
             #[cfg(feature = "df-polars")]
-            Some(GraphEdges(LazyFrame::Polars(_))) => iter
-                .filter_map(|GraphEdges(edges)| edges.try_into_polars().ok().map(GraphEdges))
-                .collect::<GraphEdges<_>>(),
+            Some(Self(LazyFrame::Polars(_))) => iter
+                .filter_map(|Self(edges)| edges.try_into_polars().ok().map(GraphEdges))
+                .collect(),
         }
     }
 }

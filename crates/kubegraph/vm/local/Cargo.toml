@@ -52,6 +52,7 @@ df-full = ["df-polars"]
 df-polars = [
     "kubegraph-analyzer-llm?/df-polars",
     "kubegraph-api/df-polars",
+    "kubegraph-dependency-solver/df-polars",
     "kubegraph-runner-simulator?/df-polars",
     "kubegraph-solver-ortools?/df-polars",
     "kubegraph-visualizer-egui?/df-polars",
@@ -81,12 +82,12 @@ visualizer-egui = ["kubegraph-visualizer-egui"]
 
 [dependencies]
 kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
-kubegraph-annotator = { path = "../../annotator" }
 kubegraph-api = { path = "../../api" }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
 kubegraph-function-dummy = { path = "../../function/dummy", optional = true, default-features = false }
+kubegraph-dependency-solver = { path = "../../dependency/solver", default-features = false }
 kubegraph-graph-local = { path = "../../graph/local", optional = true, default-features = false }
 kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }
 kubegraph-parser = { path = "../../parser" }

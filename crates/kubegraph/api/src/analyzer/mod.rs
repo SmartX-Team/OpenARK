@@ -109,6 +109,8 @@ pub trait NetworkAnalyzer
 where
     Self: Sync,
 {
+    type Spec: Send;
+
     async fn pin_graph_raw(
         &self,
         problem: &VirtualProblem,

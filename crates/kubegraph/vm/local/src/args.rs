@@ -19,6 +19,10 @@ pub struct NetworkArgs {
 
     #[command(flatten)]
     #[serde(default)]
+    pub dependency_graph: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::DependencySolver as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
     pub graph_db: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::GraphDB as NetworkComponent>::Args,
 
     #[command(flatten)]

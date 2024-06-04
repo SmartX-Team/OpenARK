@@ -65,24 +65,25 @@ spec:
           valueType: I64
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
-kind: NetworkAnnotation
-metadata:
-  name: warehouse
-  namespace: kubegraph
-spec:
-  filter: src != sink and src.supply > 0 and src.supply > sink.supply + 1
-  script: |
-    supply = payload;
----
-apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkProblem
 metadata:
   name: warehouse
   namespace: kubegraph
 spec:
   metadata:
-    supply: payload
+    supply: supply
   verbose: true
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkFunction
+metadata:
+  name: warehouse
+  namespace: kubegraph
+spec:
+  annotation: {}
+  filter: src != sink and src.payload > 0 and src.payload > sink.payload + 1
+  script: |
+    supply = payload;
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkFunction

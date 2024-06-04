@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
 use kubegraph_api::{
-    annotator::NetworkAnnotationSpec,
     frame::LazyFrame,
-    function::{FunctionMetadata, NetworkFunctionCrd, NetworkFunctionSpec},
+    function::{
+        FunctionMetadata, NetworkFunctionCrd, NetworkFunctionSpec, NetworkFunctionTemplate,
+    },
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
 };
@@ -12,7 +13,7 @@ pub trait NetworkFunctionExt {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>>;
 }
@@ -21,10 +22,10 @@ impl NetworkFunctionExt for NetworkFunctionCrd {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        self.spec.infer_edges(problem, function, nodes)
+        self.spec.infer_edges(problem, metadata, nodes)
     }
 }
 
@@ -32,40 +33,40 @@ impl NetworkFunctionExt for NetworkFunctionSpec {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        self.metadata.infer_edges(problem, function, nodes)
+        self.template.infer_edges(problem, metadata, nodes)
     }
 }
 
-impl NetworkFunctionExt for NetworkAnnotationSpec {
+impl NetworkFunctionExt for NetworkFunctionTemplate {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(function, self)?.infer_edges(problem, function, nodes)
+        parse_metadata(metadata, self)?.infer_edges(problem, metadata, nodes)
     }
 }
 
-impl<'a> NetworkFunctionExt for NetworkAnnotationSpec<&'a str> {
+impl<'a> NetworkFunctionExt for NetworkFunctionTemplate<&'a str> {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(function, self)?.infer_edges(problem, function, nodes)
+        parse_metadata(metadata, self)?.infer_edges(problem, metadata, nodes)
     }
 }
 
-impl NetworkFunctionExt for NetworkAnnotationSpec<LazyVirtualMachine> {
+impl NetworkFunctionExt for NetworkFunctionTemplate<LazyVirtualMachine> {
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
-        function: &FunctionMetadata,
+        metadata: &FunctionMetadata,
         nodes: LazyFrame,
     ) -> Result<GraphEdges<LazyFrame>> {
         let Self { filter, script } = self;
@@ -75,23 +76,23 @@ impl NetworkFunctionExt for NetworkAnnotationSpec<LazyVirtualMachine> {
             .map(|filter| filter.call_filter(problem, nodes.clone()))
             .transpose()?;
 
-        script.call(problem, function, nodes, filter)
+        script.call(problem, metadata, nodes, filter)
     }
 }
 
 fn parse_metadata<T>(
     function: &FunctionMetadata,
-    metadata: &NetworkAnnotationSpec<T>,
-) -> Result<NetworkAnnotationSpec<LazyVirtualMachine>>
+    metadata: &NetworkFunctionTemplate<T>,
+) -> Result<NetworkFunctionTemplate<LazyVirtualMachine>>
 where
     T: AsRef<str>,
 {
     let FunctionMetadata {
         scope: GraphScope { namespace, name },
     } = function;
-    let NetworkAnnotationSpec { filter, script } = metadata;
+    let NetworkFunctionTemplate { filter, script } = metadata;
 
-    Ok(NetworkAnnotationSpec {
+    Ok(NetworkFunctionTemplate {
         filter: filter
             .as_ref()
             .map(|input| LazyVirtualMachine::with_lazy_filter(input.as_ref()))
@@ -123,7 +124,7 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = NetworkAnnotationSpec {
+        let function_template = NetworkFunctionTemplate {
             filter: None,
             script: r"
                 capacity = 50;
@@ -169,7 +170,7 @@ mod tests {
         .into();
 
         // Step 2. Add a function
-        let function_template = NetworkAnnotationSpec {
+        let function_template = NetworkFunctionTemplate {
             filter: Some("src != sink and src.supply >= 50 and sink.capacity >= 50"),
             script: r"
                 capacity = 50;
@@ -205,7 +206,7 @@ mod tests {
     fn expand_polars_dataframe(
         nodes: LazyFrame,
         function_name: &str,
-        function: NetworkAnnotationSpec<&'static str>,
+        function: NetworkFunctionTemplate<&'static str>,
     ) -> ::pl::frame::DataFrame {
         use kubegraph_api::{
             analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},

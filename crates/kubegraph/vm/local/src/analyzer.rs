@@ -109,6 +109,8 @@ impl NetworkComponent for NetworkAnalyzer {
 
 #[async_trait]
 impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
+    type Spec = VirtualProblemAnalyzer;
+
     #[instrument(level = Level::INFO, skip(self, problem, graph))]
     async fn pin_graph_raw(
         &self,

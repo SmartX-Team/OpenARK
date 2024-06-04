@@ -90,7 +90,7 @@ vm-local = ["kubegraph-vm-local"]
 visualizer-full = []
 
 [dependencies]
-ark-core = { path = "../../ark/core", features = ["signal"] }
+ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
 kubegraph-api = { path = "../api", features = ["vm-entrypoint"] }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 

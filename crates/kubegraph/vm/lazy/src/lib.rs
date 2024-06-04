@@ -56,13 +56,13 @@ mod impl_call {
         pub fn call(
             &self,
             problem: &VirtualProblem,
-            function: &FunctionMetadata,
+            metadata: &FunctionMetadata,
             nodes: LazyFrame,
             filter: Option<LazySlice>,
         ) -> Result<GraphEdges<LazyFrame>> {
             Context::try_new(problem, nodes)?
                 .call(&self.local_variables, filter)
-                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), function))
+                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), metadata))
         }
 
         pub fn call_filter(&self, problem: &VirtualProblem, nodes: LazyFrame) -> Result<LazySlice> {

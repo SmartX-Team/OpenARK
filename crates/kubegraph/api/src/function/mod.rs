@@ -1,3 +1,4 @@
+pub mod annotation;
 #[cfg(feature = "function-dummy")]
 pub mod dummy;
 
@@ -5,7 +6,7 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{annotator::NetworkAnnotationSpec, graph::GraphScope, resource::NetworkResource};
+use crate::{graph::GraphScope, resource::NetworkResource};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -33,7 +34,7 @@ pub struct NetworkFunctionSpec {
     #[serde(flatten)]
     pub kind: NetworkFunctionKind,
     #[serde(flatten)]
-    pub metadata: NetworkAnnotationSpec,
+    pub template: NetworkFunctionTemplate,
 }
 
 impl NetworkResource for NetworkFunctionCrd {
@@ -44,8 +45,17 @@ impl NetworkResource for NetworkFunctionCrd {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum NetworkFunctionKind {
+    Annotation(self::annotation::NetworkFunctionAnnotationSpec),
     #[cfg(feature = "function-dummy")]
     Dummy(self::dummy::NetworkFunctionDummySpec),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkFunctionTemplate<Script = String> {
+    #[serde(default)]
+    pub filter: Option<Script>,
+    pub script: Script,
 }
 
 #[derive(

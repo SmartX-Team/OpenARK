@@ -10,7 +10,6 @@ pub(crate) mod consts {
 #[tokio::main]
 async fn main() {
     join!(
-        self::ctx::annotation::Ctx::spawn_crd(),
         self::ctx::connector::Ctx::spawn_crd(),
         self::ctx::function::Ctx::spawn_crd(),
         self::ctx::problem::Ctx::spawn_crd(),

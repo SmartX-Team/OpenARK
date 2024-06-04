@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-annotator"
+name = "kubegraph-dependency-graph"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,8 +20,3 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kubegraph-api = { path = "../api" }
-kubegraph-vm-lazy = { path = "../vm/lazy" }
-
-anyhow = { workspace = true }
-async-trait = { workspace = true }

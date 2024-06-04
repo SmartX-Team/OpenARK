@@ -22,14 +22,19 @@ use tracing::{error, info, instrument, warn, Level};
 use crate::{
     analyzer::{NetworkAnalyzer, NetworkAnalyzerExt},
     component::{NetworkComponent, NetworkComponentExt},
+    dependency::{
+        NetworkDependencyPipeline, NetworkDependencyPipelineTemplate, NetworkDependencySolver,
+        NetworkDependencySolverSpec,
+    },
     frame::LazyFrame,
+    function::NetworkFunctionCrd,
     graph::{
-        Graph, GraphData, GraphEdges, GraphMetadata, GraphMetadataPinnedExt, GraphMetadataStandard,
-        GraphScope, NetworkGraphDB, NetworkGraphDBExt, ScopedNetworkGraphDBContainer,
+        Graph, GraphData, GraphEdges, GraphMetadata, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
+        ScopedNetworkGraphDBContainer,
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
-    problem::VirtualProblem,
-    resource::NetworkResourceCollectionDB,
+    problem::{ProblemSpec, VirtualProblem},
+    resource::{NetworkResourceCollectionDB, NetworkResourceDB},
     runner::NetworkRunner,
     solver::NetworkSolver,
     visualizer::{NetworkVisualizer, NetworkVisualizerExt},
@@ -84,7 +89,7 @@ where
         signal.exit().await
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self, signal))]
     async fn loop_forever(&self, signal: FunctionSignal) {
         let fallback_interval = self.fallback_policy();
 
@@ -128,22 +133,19 @@ where
                     NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
                 }
                 self::sealed::NetworkVirtualMachineState::Ready
-                | self::sealed::NetworkVirtualMachineState::EmptyNodes
-                | self::sealed::NetworkVirtualMachineState::EmptyEdges => {
-                    match self.restart_policy() {
-                        NetworkVirtualMachineRestartPolicy::Always => {
-                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
-                        }
-                        NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
-                        NetworkVirtualMachineRestartPolicy::Manually => {
-                            self.visualizer().wait_to_next().await?;
-                            continue;
-                        }
-                        NetworkVirtualMachineRestartPolicy::Never => {
-                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
-                        }
+                | self::sealed::NetworkVirtualMachineState::Empty => match self.restart_policy() {
+                    NetworkVirtualMachineRestartPolicy::Always => {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
                     }
-                }
+                    NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                    NetworkVirtualMachineRestartPolicy::Manually => {
+                        self.visualizer().wait_to_next().await?;
+                        continue;
+                    }
+                    NetworkVirtualMachineRestartPolicy::Never => {
+                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
+                    }
+                },
                 self::sealed::NetworkVirtualMachineState::Completed => {
                     match self.restart_policy() {
                         NetworkVirtualMachineRestartPolicy::Always => {
@@ -192,54 +194,31 @@ where
         state: self::sealed::NetworkVirtualMachineState,
         problem: VirtualProblem,
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
-        // Step 1. Configure the problem
-        let metadata = GraphMetadata::Standard(problem.spec.metadata);
-        let scope = GraphScope {
-            namespace: problem.scope.namespace.clone(),
-            name: GraphScope::NAME_GLOBAL.into(),
-        };
-
-        // Step 2. Pull & Convert nodes (and "static" edges)
-        let GraphData { edges, nodes } = match self.pull_graph(&problem).await? {
-            Some(data) => match state {
+        // Step 1. Pull & Convert graphs
+        let NetworkDependencyPipelineTemplate {
+            graph:
+                Graph {
+                    data,
+                    metadata,
+                    scope,
+                },
+            problem,
+            static_edges,
+        } = match self.pull_graph(&problem).await? {
+            Some(pipeline) => match state {
                 self::sealed::NetworkVirtualMachineState::Pending => {
-                    let graph = Graph {
-                        data,
-                        metadata,
-                        scope,
-                    };
-                    self.visualizer().replace_graph(graph).await?;
+                    self.visualizer().replace_graph(pipeline.graph).await?;
                     return Ok(self::sealed::NetworkVirtualMachineState::Ready);
                 }
-                _ => data,
+                _ => pipeline,
             },
-            None => return Ok(self::sealed::NetworkVirtualMachineState::EmptyNodes),
+            None => return Ok(self::sealed::NetworkVirtualMachineState::Empty),
         };
 
-        // Step 3. Infer edges by functions
-        let function_edges = self.infer_edges(&problem, nodes.clone()).await?;
-        let static_edges = GraphEdges::from_static(
-            &problem.scope.namespace,
-            &problem.spec.metadata.function(),
-            edges,
-        )?;
-
-        let edges = match (function_edges, static_edges.clone()) {
-            (Some(function_edges), Some(static_edges)) => function_edges.concat(static_edges)?,
-            (Some(function_edges), None) => function_edges,
-            (None, Some(static_edges)) => static_edges,
-            (None, None) => return Ok(self::sealed::NetworkVirtualMachineState::EmptyEdges),
-        };
-
-        let data = GraphData {
-            edges: edges.into_inner(),
-            nodes: nodes.clone(),
-        };
-
-        // Step 4. Solve edge flows
+        // Step 2. Solve edge flows
         let data = self.solver().solve(data, &problem.spec).await?;
 
-        // Step 5. Apply edges to real-world (or simulator)
+        // Step 3. Apply edges to real-world (or simulator)
         let graph_db_scoped = ScopedNetworkGraphDBContainer {
             inner: self.graph_db(),
             metadata: &metadata,
@@ -250,7 +229,7 @@ where
             .execute(&graph_db_scoped, data.clone(), &problem.spec)
             .await?;
 
-        // Step 6. Visualize the outputs
+        // Step 4. Visualize the outputs
         let graph = Graph {
             data,
             metadata,
@@ -261,38 +240,63 @@ where
     }
 
     #[instrument(level = Level::INFO, skip(self, problem))]
-    async fn pull_graph(&self, problem: &VirtualProblem) -> Result<Option<GraphData<LazyFrame>>> {
-        let VirtualProblem { filter, scope, .. } = problem;
+    async fn pull_graph(
+        &self,
+        problem: &VirtualProblem,
+    ) -> Result<Option<NetworkDependencyPipeline<Graph<LazyFrame>, Self::Analyzer>>> {
+        let VirtualProblem {
+            analyzer: _,
+            filter,
+            scope,
+            spec: ProblemSpec {
+                metadata,
+                verbose: _,
+            },
+        } = problem;
 
-        // If there is a global graph, use this
-        if let Some(graph) = self
+        // Step 1. Collect all graphs
+        let graphs = match self
             .graph_db()
             .get_global_namespaced(&scope.namespace)
             .await?
         {
-            let graph = self.analyzer().pin_graph(problem, graph).await?;
-            return Ok(Some(graph.data));
-        }
-
-        let graphs = self.graph_db().list(filter).await?;
+            // If there is a global graph, use this
+            Some(graph) => vec![graph],
+            None => self.graph_db().list(filter).await?,
+        };
         if graphs.is_empty() {
             return Ok(None);
         }
 
-        graphs
-            .into_iter()
-            .map(|graph| self.analyzer().pin_graph(problem, graph))
-            .collect::<FuturesUnordered<_>>()
-            .map_ok(
-                |Graph {
-                     data,
-                     metadata: GraphMetadataStandard {},
-                     scope: _,
-                 }| data,
-            )
-            .try_fold(GraphData::default(), |a, b| async move { a.concat(b) })
-            .await
-            .map(Some)
+        // Step 2. Collect all functions
+        let functions = self.resource_db().list(()).await.unwrap_or_default();
+        if functions.is_empty() {
+            return Ok(None);
+        }
+
+        // Step 3. Solve the dependencies
+        let spec = NetworkDependencySolverSpec { functions, graphs };
+        let NetworkDependencyPipelineTemplate {
+            graph: data,
+            problem,
+            static_edges,
+        } = self
+            .dependency_solver()
+            .build_pipeline(self.analyzer(), &problem, spec)
+            .await?;
+
+        Ok(Some(NetworkDependencyPipelineTemplate {
+            graph: Graph {
+                data,
+                metadata: GraphMetadata::Standard(*metadata),
+                scope: GraphScope {
+                    namespace: scope.namespace.clone(),
+                    name: GraphScope::NAME_GLOBAL.into(),
+                },
+            },
+            problem,
+            static_edges,
+        }))
     }
 
     #[instrument(level = Level::INFO, skip(self))]
@@ -314,8 +318,7 @@ mod sealed {
     pub enum NetworkVirtualMachineState {
         Pending,
         Ready,
-        EmptyNodes,
-        EmptyEdges,
+        Empty,
         #[default]
         Completed,
     }
@@ -330,9 +333,10 @@ mod sealed {
 #[async_trait]
 pub trait NetworkVirtualMachine
 where
-    Self: Clone + Send + Sync,
+    Self: Send + Sync,
 {
     type Analyzer: NetworkComponent + NetworkAnalyzer;
+    type DependencySolver: NetworkComponent + NetworkDependencySolver;
     type ResourceDB: 'static + Send + Clone + NetworkComponent + NetworkResourceCollectionDB;
     type GraphDB: 'static + Send + Clone + NetworkComponent + NetworkGraphDB;
     type Runner: NetworkComponent + NetworkRunner<GraphData<LazyFrame>>;
@@ -341,6 +345,8 @@ where
     type Visualizer: NetworkComponent + NetworkVisualizer;
 
     fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer;
+
+    fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver;
 
     fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB;
 
@@ -360,11 +366,12 @@ where
         NetworkVirtualMachineRestartPolicy::default()
     }
 
-    async fn infer_edges(
+    async fn infer_edges_by_function(
         &self,
         problem: &VirtualProblem,
+        function: NetworkFunctionCrd,
         nodes: LazyFrame,
-    ) -> Result<Option<GraphEdges<LazyFrame>>>;
+    ) -> Result<GraphEdges<LazyFrame>>;
 
     async fn close_workers(&self) -> Result<()>;
 }
@@ -375,6 +382,7 @@ where
     T: ?Sized + NetworkVirtualMachine,
 {
     type Analyzer = <T as NetworkVirtualMachine>::Analyzer;
+    type DependencySolver = <T as NetworkVirtualMachine>::DependencySolver;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
@@ -383,6 +391,10 @@ where
 
     fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer {
         <T as NetworkVirtualMachine>::analyzer(&**self)
+    }
+
+    fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver {
+        <T as NetworkVirtualMachine>::dependency_solver(&**self)
     }
 
     fn graph_db(&self) -> &<Self as NetworkVirtualMachine>::GraphDB {
@@ -414,12 +426,14 @@ where
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]
-    async fn infer_edges(
+    async fn infer_edges_by_function(
         &self,
         problem: &VirtualProblem,
+        function: NetworkFunctionCrd,
         nodes: LazyFrame,
-    ) -> Result<Option<GraphEdges<LazyFrame>>> {
-        <T as NetworkVirtualMachine>::infer_edges(&**self, problem, nodes).await
+    ) -> Result<GraphEdges<LazyFrame>> {
+        <T as NetworkVirtualMachine>::infer_edges_by_function(&**self, problem, function, nodes)
+            .await
     }
 
     #[instrument(level = Level::INFO, skip(self))]

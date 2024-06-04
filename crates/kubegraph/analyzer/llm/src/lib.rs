@@ -63,6 +63,8 @@ impl<M> ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer<M>
 where
     M: LLM,
 {
+    type Spec = VirtualProblemAnalyzerLLM;
+
     #[instrument(level = Level::INFO, skip(self, problem, graph))]
     async fn pin_graph_raw(
         &self,

@@ -27,8 +27,7 @@ rules:
   - apiGroups:
       - kubegraph.ulagbulag.io
     resources:
-      - networkedgeconnectors
-      - networknodeconnectors
+      - "*"
     verbs:
       - get
       - list

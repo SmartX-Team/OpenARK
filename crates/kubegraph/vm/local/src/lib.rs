@@ -3,6 +3,7 @@ extern crate polars as pl;
 
 mod analyzer;
 mod args;
+mod dependency;
 mod function;
 mod graph;
 mod reloader;
@@ -23,7 +24,6 @@ use kubegraph_api::{
     function::{FunctionMetadata, NetworkFunctionCrd},
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
-    resource::NetworkResourceDB,
     vm::{
         NetworkVirtualMachineExt, NetworkVirtualMachineFallbackPolicy,
         NetworkVirtualMachineRestartPolicy,
@@ -37,6 +37,7 @@ use crate::function::NetworkFunctionExt;
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
     analyzer: self::analyzer::NetworkAnalyzer,
+    dependency_graph: self::dependency::NetworkDependencyGraph,
     args: self::args::NetworkVirtualMachineArgs,
     graph_db: self::graph::NetworkGraphDB,
     resource_db: self::resource::NetworkResourceDB,
@@ -59,6 +60,7 @@ impl NetworkComponent for NetworkVirtualMachine {
         // Step 1. Initialize components
         let self::args::NetworkArgs {
             analyzer,
+            dependency_graph,
             graph_db,
             resource_db,
             runner,
@@ -69,6 +71,11 @@ impl NetworkComponent for NetworkVirtualMachine {
         let vm = Self {
             analyzer: self::analyzer::NetworkAnalyzer::try_new(analyzer, signal).await?,
             args: vm,
+            dependency_graph: self::dependency::NetworkDependencyGraph::try_new(
+                dependency_graph,
+                signal,
+            )
+            .await?,
             graph_db: self::graph::NetworkGraphDB::try_new(graph_db, signal).await?,
             resource_db: self::resource::NetworkResourceDB::try_new(resource_db, signal).await?,
             resource_worker: Arc::new(Mutex::new(None)),
@@ -94,6 +101,7 @@ impl NetworkComponent for NetworkVirtualMachine {
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type Analyzer = self::analyzer::NetworkAnalyzer;
+    type DependencySolver = self::dependency::NetworkDependencyGraph;
     type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
@@ -102,6 +110,12 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
     fn analyzer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Analyzer {
         &self.analyzer
+    }
+
+    fn dependency_solver(
+        &self,
+    ) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::DependencySolver {
+        &self.dependency_graph
     }
 
     fn resource_db(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::ResourceDB {
@@ -133,51 +147,16 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     }
 
     #[instrument(level = Level::INFO, skip(self, problem, nodes))]
-    async fn infer_edges(
+    async fn infer_edges_by_function(
         &self,
         problem: &VirtualProblem,
+        function: NetworkFunctionCrd,
         nodes: LazyFrame,
-    ) -> Result<Option<GraphEdges<LazyFrame>>> {
-        // Step 1. Collect all functions
-        let functions = self.resource_db.list(()).await.unwrap_or_default();
-        if functions.is_empty() {
-            return Ok(None);
-        }
-
-        // Step 2. Predict all functions' outputs
-        let edges = functions
-            .into_iter()
-            .map(|object: NetworkFunctionCrd| {
-                let function = FunctionMetadata {
-                    scope: GraphScope::from_resource(&object),
-                };
-
-                object.infer_edges(problem, &function, nodes.clone())
-            })
-            .collect::<Result<GraphEdges<LazyFrame>>>()?;
-
-        #[cfg(feature = "df-polars")]
-        if problem.spec.verbose {
-            use pl::lazy::dsl;
-
-            println!("{}", nodes.clone().try_into_polars()?.collect()?);
-            println!(
-                "{}",
-                edges
-                    .clone()
-                    .into_inner()
-                    .try_into_polars()?
-                    .select([
-                        dsl::col("src"),
-                        dsl::col("sink"),
-                        dsl::col("capacity"),
-                        dsl::col("unit_cost"),
-                        dsl::col("function"),
-                    ])
-                    .collect()?
-            );
-        }
-        Ok(Some(edges))
+    ) -> Result<GraphEdges<LazyFrame>> {
+        let metadata = FunctionMetadata {
+            scope: GraphScope::from_resource(&function),
+        };
+        function.infer_edges(problem, &metadata, nodes.clone())
     }
 
     #[instrument(level = Level::INFO, skip(self))]
@@ -366,17 +345,17 @@ mod tests {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
             analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
-            annotator::NetworkAnnotationSpec,
             frame::DataFrame,
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
-                NetworkFunctionSpec,
+                NetworkFunctionSpec, NetworkFunctionTemplate,
             },
             graph::{
                 Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
                 NetworkGraphDB,
             },
             problem::ProblemSpec,
+            resource::NetworkResourceDB,
         };
 
         use crate::{
@@ -431,7 +410,7 @@ mod tests {
             },
             spec: NetworkFunctionSpec {
                 kind: NetworkFunctionKind::Dummy(NetworkFunctionDummySpec {}),
-                metadata: NetworkAnnotationSpec {
+                template: NetworkFunctionTemplate {
                     filter: Some(
                         "src != sink and src.supply > 0 and src.supply > sink.supply".into(),
                     ),

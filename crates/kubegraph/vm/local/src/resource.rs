@@ -172,7 +172,7 @@ pub(crate) struct NetworkResourceWorker {
 impl NetworkResourceWorker {
     pub(crate) async fn try_spawn(
         signal: &FunctionSignal,
-        vm: &(impl 'static + NetworkVirtualMachine),
+        vm: &(impl 'static + Clone + NetworkVirtualMachine),
     ) -> Result<Self> {
         let client = Client::try_default()
             .await
@@ -199,7 +199,7 @@ struct NetworkConnectorDBWorker {
 }
 
 impl NetworkConnectorDBWorker {
-    fn spawn(vm: &(impl 'static + NetworkVirtualMachine)) -> Self {
+    fn spawn(vm: &(impl 'static + Clone + NetworkVirtualMachine)) -> Self {
         Self {
             inner: ::tokio::spawn(
                 FuturesUnordered::from_iter(vec![
