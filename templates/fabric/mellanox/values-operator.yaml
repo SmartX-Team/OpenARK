@@ -57,7 +57,7 @@ rdmaSharedDevicePlugin:
 
 sriovDevicePlugin:
   # Deploy SR-IOV Network device plugin
-  deploy: true
+  deploy: false
 
 ibKubernetes:
   # Deploy IB Kubernetes
