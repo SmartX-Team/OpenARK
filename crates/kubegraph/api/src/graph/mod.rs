@@ -108,24 +108,17 @@ impl<T> GraphEdges<T> {
 }
 
 impl GraphEdges<LazyFrame> {
-    pub fn from_static(
-        namespace: impl Into<String>,
-        key: &str,
-        edges: LazyFrame,
-    ) -> Result<Option<Self>> {
-        let function = FunctionMetadata {
+    pub fn mark_as_static(self, namespace: impl Into<String>, key: &str) -> Result<Self> {
+        let metadata = FunctionMetadata {
             scope: GraphScope {
                 namespace: namespace.into(),
                 name: FunctionMetadata::NAME_STATIC.into(),
             },
         };
 
-        match edges {
-            LazyFrame::Empty => Ok(None),
-            mut edges => edges
-                .alias(key, &function)
-                .map(|()| Self::new(edges))
-                .map(Some),
+        match self.0 {
+            LazyFrame::Empty => Ok(self),
+            mut edges => edges.alias(key, &metadata).map(|()| Self::new(edges)),
         }
     }
 

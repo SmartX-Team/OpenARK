@@ -67,5 +67,5 @@ pub struct FunctionMetadata {
 }
 
 impl FunctionMetadata {
-    pub const NAME_STATIC: &'static str = "static";
+    pub const NAME_STATIC: &'static str = "__static__";
 }

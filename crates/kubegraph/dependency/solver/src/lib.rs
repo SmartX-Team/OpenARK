@@ -37,7 +37,7 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
         _analyzer: &A,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<Option<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>>
+    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>
     where
         A: NetworkAnalyzer,
     {
@@ -48,28 +48,36 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
             .map(|cr| Function::new(cr, problem))
             .collect::<Result<Graph<_>>>()?;
 
-        // Step 2. Collect all pipelines per graph
-        let pipelines = graph.build_pipelines(problem, spec.graphs);
-        if pipelines.is_empty() {
-            return Ok(None);
+        // Step 2. Disaggregate the graphs
+        let mut static_edges = Vec::with_capacity(spec.graphs.len());
+        let mut static_nodes = Vec::with_capacity(spec.graphs.len());
+        for ::kubegraph_api::graph::Graph {
+            data: GraphData { edges, nodes },
+            metadata,
+            scope: _,
+        } in spec.graphs
+        {
+            static_edges.push(edges);
+            static_nodes.push((metadata, nodes));
         }
 
-        // Step 3. Merge duplicated pipelines
-        let mut static_edges = vec![];
+        // Step 3. Collect all static edges
+        let static_edges: GraphEdges<_> = static_edges.into_iter().map(GraphEdges::new).collect();
+        let static_edges = static_edges
+            .mark_as_static(&problem.scope.namespace, problem.spec.metadata.function())?;
+
+        // Step 4. Collect all pipelines per graph
+        // NOTE: static edges can be used instead of pipelines
+        let (pipelines, static_nodes) = graph.build_pipelines(problem, static_nodes);
+
+        // Step 5. Merge duplicated pipelines
         let merged_pipelines = pipelines
             .into_iter()
             .map(
                 |GraphPipeline {
-                     graph:
-                         ::kubegraph_api::graph::Graph {
-                             data: GraphData { edges, nodes },
-                             metadata: _,
-                             scope: _,
-                         },
                      inner: ::kubegraph_dependency_graph::GraphPipeline { nodes: functions },
+                     nodes,
                  }| {
-                    static_edges.push(edges);
-
                     let mut nodes = Some(nodes);
                     let nodes = ::std::iter::from_fn(move || Some(nodes.take()));
                     functions
@@ -81,7 +89,7 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
             )
             .merge_pipelines();
 
-        // Step 4. Build the dependency pipeline graph
+        // Step 6. Build the dependency pipeline graph
         let mut finalized_edges = Vec::default();
         let mut finalized_nodes = Vec::default();
         let mut stack = BTreeMap::<_, Vec<_>>::default();
@@ -137,9 +145,17 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
             finalized_edges.append(&mut nodes);
         }
 
-        // Step 5. Collect all graphs
-        let edges: GraphEdges<_> = finalized_edges.into_iter().map(GraphEdges::new).collect();
-        let nodes: GraphEdges<_> = finalized_nodes.into_iter().map(GraphEdges::new).collect();
+        // Step 7. Collect all graphs
+        let edges: GraphEdges<_> = finalized_edges
+            .into_iter()
+            .map(GraphEdges::new)
+            .chain(Some(static_edges.clone()))
+            .collect();
+        let nodes: GraphEdges<_> = finalized_nodes
+            .into_iter()
+            .chain(static_nodes)
+            .map(GraphEdges::new)
+            .collect();
         let graph = GraphData {
             edges: edges.into_inner(),
             nodes: nodes.into_inner(),
@@ -147,74 +163,83 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
 
         if problem.spec.verbose {
             let GraphData { edges, nodes } = graph.clone().collect().await?;
-            println!("Edges: {edges}");
             println!("Nodes: {nodes}");
+            println!("Edges: {edges}");
             println!();
         }
 
-        let static_edges = static_edges.into_iter().map(GraphEdges::new).collect();
-
-        Ok(Some(NetworkDependencyPipeline::<GraphData<LazyFrame>, A> {
+        Ok(NetworkDependencyPipeline::<GraphData<LazyFrame>, A> {
             graph,
             problem: VirtualProblem {
                 // TODO: to be implemented
-                // TODO: 여기부터 시작
+                // TODO: 여기부터 시작 (그냥 없앨까..? 아니면 함수 복원용으로..?)
                 analyzer: BTreeMap::default(),
                 filter: problem.filter.clone(),
                 scope: problem.scope.clone(),
                 spec: problem.spec.clone(),
             },
             static_edges: Some(static_edges),
-        }))
+        })
     }
 }
 
 trait GraphPipelineBuilder {
-    fn build_pipelines(
+    fn build_pipelines<M>(
         &self,
         problem: &VirtualProblem,
-        graphs: Vec<::kubegraph_api::graph::Graph<LazyFrame>>,
-    ) -> Vec<GraphPipeline<'_>>;
+        nodes: Vec<(M, LazyFrame)>,
+    ) -> (Vec<GraphPipeline<'_>>, Vec<LazyFrame>)
+    where
+        M: GraphMetadataExt;
 }
 
 impl GraphPipelineBuilder for Graph<Function> {
-    fn build_pipelines(
+    fn build_pipelines<M>(
         &self,
         problem: &VirtualProblem,
-        graphs: Vec<::kubegraph_api::graph::Graph<LazyFrame>>,
-    ) -> Vec<GraphPipeline<'_>> {
-        graphs
-            .into_iter()
-            .filter_map(|graph| {
-                let src = graph.metadata.all_node_inputs_raw();
-                let sink: Vec<_> = problem
-                    .spec
-                    .metadata
-                    .all_node_inputs()
-                    .iter()
-                    .map(|&column| column.into())
-                    .collect();
+        nodes: Vec<(M, LazyFrame)>,
+    ) -> (Vec<GraphPipeline<'_>>, Vec<LazyFrame>)
+    where
+        M: GraphMetadataExt,
+    {
+        let mut dropped_nodes = Vec::default();
+        let mut pipelines = Vec::default();
 
-                let claim = GraphPipelineClaim {
-                    option: GraphPipelineClaimOptions {
-                        fastest: true,
-                        ..Default::default()
-                    },
-                    src: &src,
-                    sink: &sink,
-                };
+        for (metadata, nodes) in nodes {
+            let src = metadata.all_node_inputs_raw();
+            let sink: Vec<_> = problem
+                .spec
+                .metadata
+                .all_node_inputs()
+                .iter()
+                .map(|&column| column.into())
+                .collect();
 
-                self.build_pipeline(&claim)
-                    .and_then(|mut pipelines| pipelines.pop())
-                    .map(|inner| GraphPipeline { graph, inner })
-            })
-            .collect()
+            let claim = GraphPipelineClaim {
+                option: GraphPipelineClaimOptions {
+                    fastest: true,
+                    ..Default::default()
+                },
+                src: &src,
+                sink: &sink,
+            };
+
+            match self
+                .build_pipeline(&claim)
+                .and_then(|mut pipelines| pipelines.pop())
+            {
+                Some(inner) => pipelines.push(GraphPipeline { inner, nodes }),
+                None => dropped_nodes.push(nodes),
+            }
+        }
+
+        (pipelines, dropped_nodes)
     }
 }
 
 struct GraphPipeline<'a> {
-    graph: ::kubegraph_api::graph::Graph<LazyFrame>,
     inner: ::kubegraph_dependency_graph::GraphPipeline<'a, Function>,
+    nodes: LazyFrame,
 }
 
 impl<'a> fmt::Debug for GraphPipeline<'a> {

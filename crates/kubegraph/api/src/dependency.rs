@@ -18,7 +18,7 @@ pub trait NetworkDependencySolver {
         analyzer: &A,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<Option<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>>
+    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>
     where
         A: NetworkAnalyzer;
 }

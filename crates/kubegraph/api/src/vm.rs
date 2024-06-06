@@ -268,10 +268,8 @@ where
         }
 
         // Step 2. Collect all functions
+        // NOTE: static edges can be used instead of functions
         let functions = self.resource_db().list(()).await.unwrap_or_default();
-        if functions.is_empty() {
-            return Ok(None);
-        }
 
         // Step 3. Solve the dependencies
         let spec = NetworkDependencySolverSpec { functions, graphs };
@@ -279,14 +277,10 @@ where
             graph: data,
             problem,
             static_edges,
-        } = match self
+        } = self
             .dependency_solver()
             .build_pipeline(self.analyzer(), &problem, spec)
-            .await?
-        {
-            Some(pipeline) => pipeline,
-            None => return Ok(None),
-        };
+            .await?;
 
         Ok(Some(NetworkDependencyPipelineTemplate {
             graph: Graph {

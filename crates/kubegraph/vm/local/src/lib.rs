@@ -177,7 +177,7 @@ impl NetworkVirtualMachineRunner {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "df-polars")]
+    #[cfg(all(feature = "df-polars", feature = "runner-simulator"))]
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
@@ -191,11 +191,16 @@ mod tests {
 
         use crate::{
             args::NetworkArgs,
+            runner::{NetworkRunnerArgs, NetworkRunnerType},
             visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
         };
 
         // Step 1. Define problems
         let args = NetworkArgs {
+            runner: NetworkRunnerArgs {
+                runner: NetworkRunnerType::Simulator,
+                ..Default::default()
+            },
             visualizer: NetworkVisualizerArgs {
                 visualizer: NetworkVisualizerType::Disabled,
                 ..Default::default()
@@ -309,17 +314,17 @@ mod tests {
         assert_eq!(
             output_edges,
             ::pl::df!(
-                "src"       => [     "a"],
-                "sink"      => [     "b"],
-                "capacity"  => [   50i64],
-                "unit_cost" => [    1i64],
-                "function"  => ["static"],
+                "src"       => [         "a"],
+                "sink"      => [         "b"],
+                "capacity"  => [       50i64],
+                "unit_cost" => [        1i64],
+                "function"  => ["__static__"],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
     }
 
-    #[cfg(all(feature = "df-polars", feature = "function-dummy"))]
+    #[cfg(all(feature = "df-polars", feature = "runner-simulator"))]
     #[::tokio::test]
     async fn simulate_simple_with_function() {
         use kube::api::ObjectMeta;
@@ -340,11 +345,16 @@ mod tests {
 
         use crate::{
             args::NetworkArgs,
+            runner::{NetworkRunnerArgs, NetworkRunnerType},
             visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
         };
 
         // Step 1. Define problems
         let args = NetworkArgs {
+            runner: NetworkRunnerArgs {
+                runner: NetworkRunnerType::Simulator,
+                ..Default::default()
+            },
             visualizer: NetworkVisualizerArgs {
                 visualizer: NetworkVisualizerType::Disabled,
                 ..Default::default()
