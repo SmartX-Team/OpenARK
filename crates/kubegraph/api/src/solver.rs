@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::{graph::GraphMetadataStandard, problem::ProblemSpec};
+use crate::{graph::GraphMetadataPinned, problem::ProblemSpec};
 
 #[async_trait]
 pub trait NetworkSolver<G> {
@@ -10,6 +10,6 @@ pub trait NetworkSolver<G> {
     async fn solve(
         &self,
         graph: G,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<Self::Output>;
 }

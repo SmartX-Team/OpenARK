@@ -16,6 +16,10 @@ metadata:
   name: warehouse-sample-a
   namespace: kubegraph
 spec:
+  metadata:
+    capacity: capacity
+    payload: payload
+    unit_cost: unit_cost
   fake:
     nodes:
       count: 1
@@ -43,6 +47,10 @@ metadata:
   name: warehouse-sample-b
   namespace: kubegraph
 spec:
+  metadata:
+    capacity: capacity
+    payload: payload
+    unit_cost: unit_cost
   fake:
     nodes:
       count: 1
@@ -77,11 +85,11 @@ spec:
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkFunction
 metadata:
-  name: warehouse
+  name: warehouse-annotation
   namespace: kubegraph
 spec:
   annotation: {}
-  filter: src != sink and src.payload > 0 and src.payload > sink.payload + 1
+  filter: payload >= 0
   script: |
     supply = payload;
 ---

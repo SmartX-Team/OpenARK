@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     analyzer::VirtualProblemAnalyzer,
-    graph::{GraphFilter, GraphMetadataRaw, GraphMetadataStandard, GraphScope},
+    graph::{GraphFilter, GraphMetadataPinned, GraphMetadataRaw, GraphScope},
     resource::NetworkResource,
 };
 
@@ -20,7 +20,7 @@ use crate::{
         M: Default + Serialize + DeserializeOwned,
     "
 )]
-pub struct VirtualProblem<A = VirtualProblemAnalyzer, M = GraphMetadataStandard> {
+pub struct VirtualProblem<A = VirtualProblemAnalyzer, M = GraphMetadataPinned> {
     pub analyzer: A,
     pub filter: GraphFilter,
     #[serde(flatten)]

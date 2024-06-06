@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::LazyFrame,
-    graph::{GraphData, GraphMetadataStandard, ScopedNetworkGraphDB},
+    graph::{GraphData, GraphMetadataPinned, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 use tracing::{instrument, Level};
@@ -23,7 +23,7 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for NetworkRun
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<()> {
         match graph {
             GraphData {

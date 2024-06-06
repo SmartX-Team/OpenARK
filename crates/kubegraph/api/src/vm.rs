@@ -27,9 +27,8 @@ use crate::{
         NetworkDependencySolverSpec,
     },
     frame::LazyFrame,
-    function::NetworkFunctionCrd,
     graph::{
-        Graph, GraphData, GraphEdges, GraphMetadata, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
+        Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
         ScopedNetworkGraphDBContainer,
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
@@ -280,15 +279,19 @@ where
             graph: data,
             problem,
             static_edges,
-        } = self
+        } = match self
             .dependency_solver()
             .build_pipeline(self.analyzer(), &problem, spec)
-            .await?;
+            .await?
+        {
+            Some(pipeline) => pipeline,
+            None => return Ok(None),
+        };
 
         Ok(Some(NetworkDependencyPipelineTemplate {
             graph: Graph {
                 data,
-                metadata: GraphMetadata::Standard(*metadata),
+                metadata: GraphMetadata::Pinned(metadata.clone()),
                 scope: GraphScope {
                     namespace: scope.namespace.clone(),
                     name: GraphScope::NAME_GLOBAL.into(),
@@ -366,13 +369,6 @@ where
         NetworkVirtualMachineRestartPolicy::default()
     }
 
-    async fn infer_edges_by_function(
-        &self,
-        problem: &VirtualProblem,
-        function: NetworkFunctionCrd,
-        nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>>;
-
     async fn close_workers(&self) -> Result<()>;
 }
 
@@ -423,17 +419,6 @@ where
 
     fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
         <T as NetworkVirtualMachine>::restart_policy(&**self)
-    }
-
-    #[instrument(level = Level::INFO, skip(self, problem, nodes))]
-    async fn infer_edges_by_function(
-        &self,
-        problem: &VirtualProblem,
-        function: NetworkFunctionCrd,
-        nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>> {
-        <T as NetworkVirtualMachine>::infer_edges_by_function(&**self, problem, function, nodes)
-            .await
     }
 
     #[instrument(level = Level::INFO, skip(self))]

@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    graph::{GraphMetadataStandard, ScopedNetworkGraphDB},
+    graph::{GraphMetadataPinned, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 
@@ -12,6 +12,6 @@ pub trait NetworkRunner<G> {
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: G,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<()>;
 }

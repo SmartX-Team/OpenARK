@@ -4,7 +4,6 @@ extern crate polars as pl;
 mod analyzer;
 mod args;
 mod dependency;
-mod function;
 mod graph;
 mod reloader;
 mod resource;
@@ -20,10 +19,6 @@ use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
-    frame::LazyFrame,
-    function::{FunctionMetadata, NetworkFunctionCrd},
-    graph::{GraphEdges, GraphScope},
-    problem::VirtualProblem,
     vm::{
         NetworkVirtualMachineExt, NetworkVirtualMachineFallbackPolicy,
         NetworkVirtualMachineRestartPolicy,
@@ -31,8 +26,6 @@ use kubegraph_api::{
 };
 use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{instrument, Level};
-
-use crate::function::NetworkFunctionExt;
 
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
@@ -146,19 +139,6 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         self.args.restart_policy
     }
 
-    #[instrument(level = Level::INFO, skip(self, problem, nodes))]
-    async fn infer_edges_by_function(
-        &self,
-        problem: &VirtualProblem,
-        function: NetworkFunctionCrd,
-        nodes: LazyFrame,
-    ) -> Result<GraphEdges<LazyFrame>> {
-        let metadata = FunctionMetadata {
-            scope: GraphScope::from_resource(&function),
-        };
-        function.infer_edges(problem, &metadata, nodes.clone())
-    }
-
     #[instrument(level = Level::INFO, skip(self))]
     async fn close_workers(&self) -> Result<()> {
         if let Some(worker) = self.resource_worker.lock().await.take() {
@@ -206,7 +186,7 @@ mod tests {
                 Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
                 NetworkGraphDB,
             },
-            problem::ProblemSpec,
+            problem::{ProblemSpec, VirtualProblem},
         };
 
         use crate::{
@@ -345,7 +325,7 @@ mod tests {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
             analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
-            frame::DataFrame,
+            frame::{DataFrame, LazyFrame},
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
                 NetworkFunctionSpec, NetworkFunctionTemplate,
@@ -354,7 +334,7 @@ mod tests {
                 Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
                 NetworkGraphDB,
             },
-            problem::ProblemSpec,
+            problem::{ProblemSpec, VirtualProblem},
             resource::NetworkResourceDB,
         };
 

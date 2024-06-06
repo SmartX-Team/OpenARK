@@ -11,7 +11,8 @@ use tracing::{instrument, Level};
 use crate::{
     frame::LazyFrame,
     graph::{
-        Graph, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphMetadataStandard, GraphScope,
+        Graph, GraphFilter, GraphMetadata, GraphMetadataExt, GraphMetadataPinned, GraphMetadataRaw,
+        GraphScope,
     },
     problem::{NetworkProblemCrd, ProblemSpec, VirtualProblem},
     resource::NetworkResourceCollectionDB,
@@ -49,7 +50,7 @@ where
         &self,
         problem: &VirtualProblem,
         graph: Graph<LazyFrame>,
-    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
+    ) -> Result<Graph<LazyFrame, GraphMetadataPinned>> {
         let Graph {
             data,
             metadata,
@@ -68,11 +69,10 @@ where
                 data,
                 metadata,
                 scope,
-            }
-            .cast(GraphMetadataStandard {})),
+            }),
             GraphMetadata::Standard(metadata) => Ok(Graph {
                 data,
-                metadata,
+                metadata: metadata.to_pinned(),
                 scope,
             }),
         }
@@ -115,12 +115,12 @@ where
         &self,
         problem: &VirtualProblem,
         graph: Graph<LazyFrame, GraphMetadataRaw>,
-    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>>;
+    ) -> Result<Graph<LazyFrame, GraphMetadataPinned>>;
 
     async fn pin_graph_metadata_raw(
         &self,
         metadata: GraphMetadataRaw,
-    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataStandard)>;
+    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataPinned)>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

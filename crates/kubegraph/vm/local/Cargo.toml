@@ -61,7 +61,11 @@ df-polars = [
 
 # Configure Functions
 function-full = ["function-dummy"]
-function-dummy = ["kubegraph-api/function-dummy", "kubegraph-function-dummy"]
+function-dummy = [
+    "kubegraph-api/function-dummy",
+    "kubegraph-function-dummy",
+    "kubegraph-dependency-solver/function-dummy",
+]
 
 # Configure Graph Databases
 graph-full = ["graph-memory", "graph-memory"]

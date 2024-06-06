@@ -1,6 +1,9 @@
+pub mod merge;
+
 use std::{
     collections::{BTreeSet, VecDeque},
     fmt,
+    slice::Iter,
 };
 
 #[derive(Clone, Debug)]
@@ -16,17 +19,64 @@ impl<N> Default for Graph<N> {
     }
 }
 
-impl<N> Graph<N>
+impl<N> FromIterator<N> for Graph<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        Self {
+            nodes: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl<N> fmt::Display for Graph<N>
 where
-    N: Node,
+    N: fmt::Display,
 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for node in &self.nodes {
+            writeln!(f, "{node}")?;
+        }
+        Ok(())
+    }
+}
+
+impl<N> IntoIterator for Graph<N> {
+    type Item = <Vec<N> as IntoIterator>::Item;
+
+    type IntoIter = <Vec<N> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let Self { nodes } = self;
+        nodes.into_iter()
+    }
+}
+
+impl<'a, N> IntoIterator for &'a Graph<N> {
+    type Item = &'a N;
+
+    type IntoIter = Iter<'a, N>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<N> Graph<N> {
     pub fn add_node(&mut self, node: N) {
         self.nodes.push(node)
     }
 
+    pub fn iter(&self) -> Iter<'_, N> {
+        self.nodes.iter()
+    }
+}
+
+impl<N> Graph<N>
+where
+    N: Node,
+{
     pub fn build_pipeline(
         &self,
-        claim: &GraphPipelineClaim<<N as Node>::Key>,
+        claim: &GraphPipelineClaim<<N as Node>::Feature>,
     ) -> Option<Vec<GraphPipeline<N>>> {
         let GraphPipelineClaim {
             option: GraphPipelineClaimOptions { fastest, max_depth },
@@ -34,23 +84,42 @@ where
             sink: claim_sink,
         } = claim;
 
-        // Prepare initial nodes to trigger the building
-        let mut states: VecDeque<_> = self
-            .nodes
-            .iter()
-            .enumerate()
-            .filter(|(_, sink)| claim_src.contains_all(sink.requirements()))
-            .map(|(sink_index, sink)| GraphVisitState {
-                keys: claim_src.iter().chain(sink.provided()).collect(),
-                node: sink,
-                travelled: vec![sink_index],
-            })
-            .collect();
+        if claim_sink.is_empty() || claim_src.contains_all(claim_sink) {
+            return Some(vec![]);
+        }
 
-        let mut pipelines = vec![];
+        // Prepare initial nodes to trigger the building
+        let mut pipelines = Vec::default();
+        let mut states = VecDeque::default();
+        for (sink_index, sink) in self.nodes.iter().enumerate() {
+            // Test the pre-constraints
+            if !claim_src.contains_all(sink.requirements()) {
+                continue;
+            }
+
+            // Register the output pipelines
+            let mut provided: BTreeSet<_> = claim_src.iter().collect();
+            provided.extend(sink.provided());
+            if provided.contains_all(&claim_sink) {
+                let pipeline = GraphPipeline { nodes: vec![sink] };
+
+                if *fastest {
+                    return Some(vec![pipeline]);
+                } else {
+                    pipelines.push(pipeline);
+                    continue;
+                }
+            }
+
+            // Mark the sink node as visited
+            states.push_back(GraphVisitState {
+                features: claim_src.iter().chain(sink.provided()).collect(),
+                travelled: vec![sink_index],
+            });
+        }
+
         while let Some(GraphVisitState {
-            keys: provided,
-            node: src,
+            features: provided,
             travelled,
         }) = states.pop_front()
         {
@@ -87,11 +156,13 @@ where
                         continue;
                     }
                 }
+                if sink.is_final() {
+                    continue;
+                }
 
                 // Mark the sink node as visited
                 let next = GraphVisitState {
-                    keys: provided,
-                    node: sink,
+                    features: provided,
                     travelled: {
                         let mut travelled = travelled.clone();
                         travelled.push(sink_index);
@@ -158,24 +229,21 @@ where
     }
 }
 
-struct GraphVisitState<'a, N>
-where
-    N: Node,
-{
-    keys: BTreeSet<&'a <N as Node>::Key>,
-    node: &'a N,
+struct GraphVisitState<'a, T> {
+    features: BTreeSet<&'a T>,
     travelled: Vec<usize>,
 }
 
-pub trait Node
-where
-    Self: fmt::Debug,
-{
-    type Key: Clone + fmt::Debug + Ord + ToString;
+pub trait Node {
+    type Feature: Ord;
 
-    fn provided(&self) -> &[Self::Key];
+    fn is_final(&self) -> bool {
+        false
+    }
 
-    fn requirements(&self) -> &[Self::Key];
+    fn provided(&self) -> &[Self::Feature];
+
+    fn requirements(&self) -> &[Self::Feature];
 }
 
 trait ContainsAll<T>

@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::LazyFrame,
-    graph::{GraphData, GraphMetadataStandard},
+    graph::{GraphData, GraphMetadataPinned},
     problem::ProblemSpec,
 };
 use tracing::{instrument, Level};
@@ -24,7 +24,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for NetworkSol
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<Self::Output> {
         match graph {
             GraphData {

@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use kubegraph_api::{
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{GraphData, GraphMetadataStandard},
+    graph::{GraphData, GraphMetadataPinned},
     problem::ProblemSpec,
 };
 use schemars::JsonSchema;
@@ -114,7 +114,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for NetworkSol
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<Self::Output> {
         match self {
             Self::Disabled => {

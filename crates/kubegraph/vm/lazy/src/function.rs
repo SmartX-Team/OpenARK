@@ -7,77 +7,117 @@ use kubegraph_api::{
     graph::{GraphEdges, GraphScope},
     problem::VirtualProblem,
 };
-use kubegraph_vm_lazy::LazyVirtualMachine;
 
-pub trait NetworkFunctionExt {
+use crate::LazyVirtualMachine;
+
+pub trait NetworkFunctionExt
+where
+    Self: NetworkFunction,
+{
     fn infer_edges(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        let infer_type = NetworkFunctionInferType::Edge;
+        self.infer(problem, metadata, nodes, infer_type)
+    }
+
+    fn infer_nodes(
+        &self,
+        problem: &VirtualProblem,
+        metadata: &FunctionMetadata,
+        nodes: LazyFrame,
+    ) -> Result<GraphEdges<LazyFrame>> {
+        let infer_type = NetworkFunctionInferType::Node;
+        self.infer(problem, metadata, nodes, infer_type)
+    }
+}
+
+impl<T> NetworkFunctionExt for T where Self: NetworkFunction {}
+
+pub trait NetworkFunction {
+    fn infer(
+        &self,
+        problem: &VirtualProblem,
+        metadata: &FunctionMetadata,
+        nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>>;
 }
 
-impl NetworkFunctionExt for NetworkFunctionCrd {
-    fn infer_edges(
+impl NetworkFunction for NetworkFunctionCrd {
+    fn infer(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>> {
-        self.spec.infer_edges(problem, metadata, nodes)
+        self.spec.infer(problem, metadata, nodes, infer_type)
     }
 }
 
-impl NetworkFunctionExt for NetworkFunctionSpec {
-    fn infer_edges(
+impl NetworkFunction for NetworkFunctionSpec {
+    fn infer(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>> {
-        self.template.infer_edges(problem, metadata, nodes)
+        self.template.infer(problem, metadata, nodes, infer_type)
     }
 }
 
-impl NetworkFunctionExt for NetworkFunctionTemplate {
-    fn infer_edges(
+impl NetworkFunction for NetworkFunctionTemplate {
+    fn infer(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(metadata, self)?.infer_edges(problem, metadata, nodes)
+        parse_metadata(metadata, self)?.infer(problem, metadata, nodes, infer_type)
     }
 }
 
-impl<'a> NetworkFunctionExt for NetworkFunctionTemplate<&'a str> {
-    fn infer_edges(
+impl<'a> NetworkFunction for NetworkFunctionTemplate<&'a str> {
+    fn infer(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>> {
-        parse_metadata(metadata, self)?.infer_edges(problem, metadata, nodes)
+        parse_metadata(metadata, self)?.infer(problem, metadata, nodes, infer_type)
     }
 }
 
-impl NetworkFunctionExt for NetworkFunctionTemplate<LazyVirtualMachine> {
-    fn infer_edges(
+impl NetworkFunction for NetworkFunctionTemplate<LazyVirtualMachine> {
+    fn infer(
         &self,
         problem: &VirtualProblem,
         metadata: &FunctionMetadata,
         nodes: LazyFrame,
+        infer_type: NetworkFunctionInferType,
     ) -> Result<GraphEdges<LazyFrame>> {
         let Self { filter, script } = self;
 
         let filter = filter
             .as_ref()
-            .map(|filter| filter.call_filter(problem, nodes.clone()))
+            .map(|filter| filter.call_filter(problem, nodes.clone(), infer_type))
             .transpose()?;
 
-        script.call(problem, metadata, nodes, filter)
+        script.call(problem, metadata, nodes, filter, infer_type)
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NetworkFunctionInferType {
+    Edge,
+    Node,
 }
 
 fn parse_metadata<T>(
@@ -110,11 +150,10 @@ where
 mod tests {
     use super::*;
 
-    #[cfg(feature = "df-polars")]
     #[test]
     fn expand_polars_dataframe_simple() {
         // Step 1. Add nodes
-        let nodes: LazyFrame = ::pl::df!(
+        let nodes: LazyFrame = ::polars::df!(
             "name"      => [  "a",   "b"],
             "capacity"  => [300.0,   0.0],
             "supply"    => [300.0, 300.0],
@@ -138,7 +177,7 @@ mod tests {
         // Step 4. Test outputs
         assert_eq!(
             edges,
-            ::pl::df!(
+            ::polars::df!(
                 "src"            => [   "a",    "a",    "b",    "b"],
                 "src.capacity"   => [ 300.0,  300.0,    0.0,    0.0],
                 "src.supply"     => [ 300.0,  300.0,  300.0,  300.0],
@@ -156,11 +195,10 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "df-polars")]
     #[test]
     fn expand_polars_dataframe_simple_with_filter() {
         // Step 1. Add nodes
-        let nodes: LazyFrame = ::pl::df!(
+        let nodes: LazyFrame = ::polars::df!(
             "name"      => [  "a",   "b"],
             "capacity"  => [300.0, 300.0],
             "supply"    => [300.0,   0.0],
@@ -184,7 +222,7 @@ mod tests {
         // Step 4. Test outputs
         assert_eq!(
             edges,
-            ::pl::df!(
+            ::polars::df!(
                 "src"            => [   "a"],
                 "src.capacity"   => [ 300.0],
                 "src.supply"     => [ 300.0],
@@ -202,12 +240,11 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "df-polars")]
     fn expand_polars_dataframe(
         nodes: LazyFrame,
         function_name: &str,
         function: NetworkFunctionTemplate<&'static str>,
-    ) -> ::pl::frame::DataFrame {
+    ) -> ::polars::frame::DataFrame {
         use kubegraph_api::{
             analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
             graph::{GraphFilter, GraphMetadataRaw, GraphScope},

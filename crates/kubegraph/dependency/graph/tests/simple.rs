@@ -12,13 +12,13 @@ struct Package<'a> {
 }
 
 impl<'a> Node for Package<'a> {
-    type Key = &'a str;
+    type Feature = &'a str;
 
-    fn provided(&self) -> &[Self::Key] {
+    fn provided(&self) -> &[Self::Feature] {
         self.provides
     }
 
-    fn requirements(&self) -> &[Self::Key] {
+    fn requirements(&self) -> &[Self::Feature] {
         self.requirements
     }
 }
@@ -27,8 +27,8 @@ impl<'a> fmt::Display for Package<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             name,
-            provides,
-            requirements,
+            provides: _,
+            requirements: _,
         } = self;
         write!(f, "{name}")?;
         Ok(())

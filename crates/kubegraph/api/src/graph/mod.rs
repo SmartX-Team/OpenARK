@@ -369,6 +369,64 @@ pub trait GraphMetadataExt
 where
     Self: Into<GraphMetadata>,
 {
+    fn all(&self) -> Vec<String> {
+        let mut values = vec![
+            self.capacity().into(),
+            self.flow().into(),
+            self.function().into(),
+            self.interval_ms().into(),
+            self.name().into(),
+            self.sink().into(),
+            self.src().into(),
+            self.supply().into(),
+            self.unit_cost().into(),
+        ];
+        if let Some(extras) = self.extras() {
+            values.extend(extras.values().cloned())
+        }
+        values
+    }
+
+    fn all_cores(&self) -> [&str; 9] {
+        [
+            self.capacity(),
+            self.flow(),
+            self.function(),
+            self.interval_ms(),
+            self.name(),
+            self.sink(),
+            self.src(),
+            self.supply(),
+            self.unit_cost(),
+        ]
+    }
+
+    fn all_node_inputs(&self) -> [&str; 8] {
+        [
+            self.capacity(),
+            self.function(),
+            self.interval_ms(),
+            self.name(),
+            self.sink(),
+            self.src(),
+            self.supply(),
+            self.unit_cost(),
+        ]
+    }
+
+    fn all_node_inputs_raw(&self) -> Vec<String> {
+        let mut values = vec![
+            self.interval_ms().into(),
+            self.name().into(),
+            self.sink().into(),
+            self.src().into(),
+        ];
+        if let Some(extras) = self.extras() {
+            values.extend(extras.values().cloned())
+        }
+        values
+    }
+
     fn extras(&self) -> Option<&BTreeMap<String, String>>;
 
     fn capacity(&self) -> &str {
@@ -414,6 +472,8 @@ where
             .unwrap_or(GraphMetadataStandard::DEFAULT_UNIT_COST)
     }
 
+    fn to_raw(&self) -> GraphMetadataRaw;
+
     fn to_pinned(&self) -> GraphMetadataPinned {
         GraphMetadataPinned {
             capacity: self.capacity().into(),
@@ -430,11 +490,67 @@ where
 }
 
 impl GraphMetadataExt for GraphMetadata {
+    fn all(&self) -> Vec<String> {
+        match self {
+            GraphMetadata::Raw(m) => m.all(),
+            GraphMetadata::Pinned(m) => m.all(),
+            GraphMetadata::Standard(m) => m.all(),
+        }
+    }
+
+    fn all_cores(&self) -> [&str; 9] {
+        match self {
+            GraphMetadata::Raw(m) => m.all_cores(),
+            GraphMetadata::Pinned(m) => m.all_cores(),
+            GraphMetadata::Standard(m) => m.all_cores(),
+        }
+    }
+
+    fn all_node_inputs(&self) -> [&str; 8] {
+        match self {
+            GraphMetadata::Raw(m) => m.all_node_inputs(),
+            GraphMetadata::Pinned(m) => m.all_node_inputs(),
+            GraphMetadata::Standard(m) => m.all_node_inputs(),
+        }
+    }
+
+    fn all_node_inputs_raw(&self) -> Vec<String> {
+        match self {
+            GraphMetadata::Raw(m) => m.all_node_inputs_raw(),
+            GraphMetadata::Pinned(m) => m.all_node_inputs_raw(),
+            GraphMetadata::Standard(m) => m.all_node_inputs_raw(),
+        }
+    }
+
     fn extras(&self) -> Option<&BTreeMap<String, String>> {
         match self {
             GraphMetadata::Raw(m) => m.extras(),
             GraphMetadata::Pinned(m) => m.extras(),
             GraphMetadata::Standard(m) => m.extras(),
+        }
+    }
+
+    fn capacity(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.capacity(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::capacity(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::capacity(m),
+        }
+    }
+
+    fn flow(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.flow(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::flow(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::flow(m),
+        }
+    }
+
+    fn function(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.function(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::function(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::function(m),
         }
     }
 
@@ -467,6 +583,38 @@ impl GraphMetadataExt for GraphMetadata {
             GraphMetadata::Raw(m) => m.src(),
             GraphMetadata::Pinned(m) => GraphMetadataExt::src(m),
             GraphMetadata::Standard(m) => GraphMetadataExt::src(m),
+        }
+    }
+
+    fn supply(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.supply(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::supply(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::supply(m),
+        }
+    }
+
+    fn unit_cost(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.unit_cost(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::unit_cost(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::unit_cost(m),
+        }
+    }
+
+    fn to_raw(&self) -> GraphMetadataRaw {
+        match self {
+            GraphMetadata::Raw(m) => m.to_raw(),
+            GraphMetadata::Pinned(m) => m.to_raw(),
+            GraphMetadata::Standard(m) => m.to_raw(),
+        }
+    }
+
+    fn to_pinned(&self) -> GraphMetadataPinned {
+        match self {
+            GraphMetadata::Raw(m) => m.to_pinned(),
+            GraphMetadata::Pinned(m) => m.to_pinned(),
+            GraphMetadata::Standard(m) => m.to_pinned(),
         }
     }
 }
@@ -522,6 +670,10 @@ impl GraphMetadataExt for GraphMetadataRaw {
 
     fn src(&self) -> &str {
         &self.src
+    }
+
+    fn to_raw(&self) -> GraphMetadataRaw {
+        self.clone()
     }
 }
 
@@ -585,6 +737,18 @@ impl<T> GraphMetadataExt for T
 where
     Self: GraphMetadataPinnedExt,
 {
+    fn all_node_inputs_raw(&self) -> Vec<String> {
+        vec![
+            self.capacity().into(),
+            self.interval_ms().into(),
+            self.name().into(),
+            self.sink().into(),
+            self.src().into(),
+            self.supply().into(),
+            self.unit_cost().into(),
+        ]
+    }
+
     fn extras(&self) -> Option<&BTreeMap<String, String>> {
         None
     }
@@ -623,6 +787,41 @@ where
 
     fn unit_cost(&self) -> &str {
         GraphMetadataPinnedExt::unit_cost(self)
+    }
+
+    fn to_raw(&self) -> GraphMetadataRaw {
+        let extras = vec![
+            (
+                GraphMetadataStandard::DEFAULT_CAPACITY.into(),
+                self.capacity().into(),
+            ),
+            (
+                GraphMetadataStandard::DEFAULT_FLOW.into(),
+                self.flow().into(),
+            ),
+            (
+                GraphMetadataStandard::DEFAULT_FUNCTION.into(),
+                self.function().into(),
+            ),
+            (
+                GraphMetadataStandard::DEFAULT_SUPPLY.into(),
+                self.supply().into(),
+            ),
+            (
+                GraphMetadataStandard::DEFAULT_UNIT_COST.into(),
+                self.unit_cost().into(),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        GraphMetadataRaw {
+            extras,
+            interval_ms: self.interval_ms().into(),
+            name: self.name().into(),
+            sink: self.sink().into(),
+            src: self.src().into(),
+        }
     }
 }
 
@@ -880,9 +1079,23 @@ impl GraphScope {
         K: ResourceExt,
     {
         Self {
-            namespace: object.namespace().unwrap_or_else(|| "default".into()),
-            name: object.name_any(),
+            namespace: Self::parse_namespace(object),
+            name: Self::parse_name(object),
         }
+    }
+
+    pub fn parse_namespace<K>(object: &K) -> String
+    where
+        K: ResourceExt,
+    {
+        object.namespace().unwrap_or_else(|| "default".into())
+    }
+
+    pub fn parse_name<K>(object: &K) -> String
+    where
+        K: ResourceExt,
+    {
+        object.name_any()
     }
 }
 

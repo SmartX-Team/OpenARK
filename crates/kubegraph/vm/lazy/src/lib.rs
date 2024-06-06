@@ -1,7 +1,11 @@
+pub mod function;
+
+use std::fmt;
+
 use anyhow::Result;
 use kubegraph_api::vm::Instruction;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct LazyVirtualMachine {
     local_variables: Vec<Instruction>,
     parsers: ParserGroup,
@@ -25,8 +29,7 @@ impl LazyVirtualMachine {
         this.execute_script(input).map(|()| this)
     }
 
-    #[cfg(test)]
-    fn dump_script(&self) -> ::kubegraph_api::vm::Script {
+    pub fn dump_script(&self) -> ::kubegraph_api::vm::Script {
         ::kubegraph_api::vm::Script {
             code: self.local_variables.clone(),
         }
@@ -52,6 +55,8 @@ mod impl_call {
         },
     };
 
+    use crate::function::NetworkFunctionInferType;
+
     impl super::LazyVirtualMachine {
         pub fn call(
             &self,
@@ -59,14 +64,20 @@ mod impl_call {
             metadata: &FunctionMetadata,
             nodes: LazyFrame,
             filter: Option<LazySlice>,
+            infer_type: NetworkFunctionInferType,
         ) -> Result<GraphEdges<LazyFrame>> {
-            Context::try_new(problem, nodes)?
+            Context::try_new(problem, nodes, infer_type)?
                 .call(&self.local_variables, filter)
                 .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), metadata))
         }
 
-        pub fn call_filter(&self, problem: &VirtualProblem, nodes: LazyFrame) -> Result<LazySlice> {
-            Context::try_new(problem, nodes)?
+        pub fn call_filter(
+            &self,
+            problem: &VirtualProblem,
+            nodes: LazyFrame,
+            infer_type: NetworkFunctionInferType,
+        ) -> Result<LazySlice> {
+            Context::try_new(problem, nodes, infer_type)?
                 .call(&self.local_variables, None)
                 .and_then(|ctx| ctx.try_into_filter())
         }
@@ -78,9 +89,16 @@ mod impl_call {
     }
 
     impl Context {
-        fn try_new(problem: &VirtualProblem, nodes: LazyFrame) -> Result<Self> {
-            // Create a fully-connected edges
-            let edges = nodes.fabric(&problem.spec)?;
+        fn try_new(
+            problem: &VirtualProblem,
+            nodes: LazyFrame,
+            infer_type: NetworkFunctionInferType,
+        ) -> Result<Self> {
+            let edges = match infer_type {
+                // Create a fully-connected edges
+                NetworkFunctionInferType::Edge => nodes.fabric(&problem.spec)?,
+                NetworkFunctionInferType::Node => nodes,
+            };
 
             Ok(Self {
                 heap: Heap::new(edges),
@@ -856,6 +874,12 @@ struct ParserGroup {
 impl Clone for ParserGroup {
     fn clone(&self) -> Self {
         Self::default()
+    }
+}
+
+impl fmt::Debug for ParserGroup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ParserGroup").finish()
     }
 }
 

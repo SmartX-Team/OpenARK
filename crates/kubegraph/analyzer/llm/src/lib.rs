@@ -11,7 +11,7 @@ use kubegraph_api::{
     },
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard},
+    graph::{Graph, GraphMetadataPinned, GraphMetadataRaw},
     problem::VirtualProblem,
 };
 use langchain_rust::language_models::llm::LLM;
@@ -70,12 +70,12 @@ where
         &self,
         problem: &VirtualProblem,
         graph: Graph<LazyFrame, GraphMetadataRaw>,
-    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
+    ) -> Result<Graph<LazyFrame, GraphMetadataPinned>> {
         let VirtualProblemAnalyzer {
             original_metadata: map_from,
             r#type: VirtualProblemAnalyzerLLM {},
         } = problem.analyzer.clone().try_into_llm()?;
-        let map_to = problem.spec.metadata;
+        let map_to = problem.spec.metadata.clone();
 
         // TODO: to be implemented
         let Graph {
@@ -94,7 +94,7 @@ where
     async fn pin_graph_metadata_raw(
         &self,
         metadata: GraphMetadataRaw,
-    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataStandard)> {
+    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataPinned)> {
         // TODO: to be implemented
         // let prompt = self.prompt.build(&metadata)?;
         // let response = self
@@ -109,7 +109,7 @@ where
             r#type: VirtualProblemAnalyzerType::LLM(VirtualProblemAnalyzerLLM {}),
         };
 
-        let metadata = GraphMetadataStandard::default();
+        let metadata = GraphMetadataPinned::default();
         Ok((analyzer, metadata))
     }
 }

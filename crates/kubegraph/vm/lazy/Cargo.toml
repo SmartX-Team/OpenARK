@@ -24,3 +24,6 @@ kubegraph-api = { path = "../../api" }
 kubegraph-parser = { path = "../../parser" }
 
 anyhow = { workspace = true }
+
+[dev-dependencies]
+polars = { workspace = true }

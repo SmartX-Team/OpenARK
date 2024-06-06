@@ -7,7 +7,7 @@ use crate::{
     analyzer::{NetworkAnalyzer, VirtualProblemAnalyzer},
     frame::LazyFrame,
     function::NetworkFunctionCrd,
-    graph::{Graph, GraphData, GraphEdges, GraphMetadataStandard, GraphScope},
+    graph::{Graph, GraphData, GraphEdges, GraphMetadataPinned, GraphScope},
     problem::VirtualProblem,
 };
 
@@ -18,7 +18,7 @@ pub trait NetworkDependencySolver {
         analyzer: &A,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>
+    ) -> Result<Option<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>>
     where
         A: NetworkAnalyzer;
 }
@@ -31,11 +31,8 @@ pub struct NetworkDependencySolverSpec {
 pub type NetworkDependencyPipeline<G, A> =
     NetworkDependencyPipelineTemplate<G, BTreeMap<GraphScope, <A as NetworkAnalyzer>::Spec>>;
 
-pub struct NetworkDependencyPipelineTemplate<
-    G,
-    A = VirtualProblemAnalyzer,
-    M = GraphMetadataStandard,
-> {
+pub struct NetworkDependencyPipelineTemplate<G, A = VirtualProblemAnalyzer, M = GraphMetadataPinned>
+{
     pub graph: G,
     pub problem: VirtualProblem<A, M>,
     pub static_edges: Option<GraphEdges<LazyFrame>>,

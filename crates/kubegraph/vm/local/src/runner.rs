@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use kubegraph_api::{
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{GraphData, GraphMetadataStandard, ScopedNetworkGraphDB},
+    graph::{GraphData, GraphMetadataPinned, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 use schemars::JsonSchema;
@@ -113,7 +113,7 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for NetworkRun
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<()> {
         match self {
             Self::Disabled => {

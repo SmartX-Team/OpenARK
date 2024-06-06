@@ -6,7 +6,7 @@ use kubegraph_api::{
     analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataRaw, GraphMetadataStandard},
+    graph::{Graph, GraphMetadataPinned, GraphMetadataRaw},
     problem::VirtualProblem,
 };
 use schemars::JsonSchema;
@@ -116,7 +116,7 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
         &self,
         problem: &VirtualProblem,
         graph: Graph<LazyFrame, GraphMetadataRaw>,
-    ) -> Result<Graph<LazyFrame, GraphMetadataStandard>> {
+    ) -> Result<Graph<LazyFrame, GraphMetadataPinned>> {
         match self {
             Self::Disabled => {
                 let Graph {
@@ -125,7 +125,7 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
                     scope,
                 } = graph;
                 let map_from = &problem.analyzer.original_metadata;
-                let map_to = problem.spec.metadata;
+                let map_to = problem.spec.metadata.clone();
 
                 Ok(Graph {
                     data: data.cast(map_from, &map_to),
@@ -142,7 +142,7 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
     async fn pin_graph_metadata_raw(
         &self,
         metadata: GraphMetadataRaw,
-    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataStandard)> {
+    ) -> Result<(VirtualProblemAnalyzer, GraphMetadataPinned)> {
         match self {
             Self::Disabled => {
                 let analyzer = VirtualProblemAnalyzer {
@@ -151,7 +151,7 @@ impl ::kubegraph_api::analyzer::NetworkAnalyzer for NetworkAnalyzer {
                 };
                 let metadata = {
                     let _ = metadata;
-                    GraphMetadataStandard::default()
+                    GraphMetadataPinned::default()
                 };
                 Ok((analyzer, metadata))
             }

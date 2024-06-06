@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
-    graph::{GraphData, GraphMetadataPinnedExt, GraphMetadataStandard, ScopedNetworkGraphDB},
+    graph::{GraphData, GraphMetadataPinned, GraphMetadataPinnedExt, ScopedNetworkGraphDB},
     problem::ProblemSpec,
 };
 use pl::lazy::{
@@ -19,7 +19,7 @@ impl ::kubegraph_api::runner::NetworkRunner<GraphData<LazyFrame>> for super::Net
         &self,
         graph_db: &dyn ScopedNetworkGraphDB,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<()> {
         let ProblemSpec {
             metadata,

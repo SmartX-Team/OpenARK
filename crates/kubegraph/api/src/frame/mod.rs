@@ -1,7 +1,10 @@
 #[cfg(feature = "df-polars")]
 pub mod polars;
 
-use std::ops::{Add, Div, Mul, Neg, Not, Sub};
+use std::{
+    fmt,
+    ops::{Add, Div, Mul, Neg, Not, Sub},
+};
 
 use ::polars::datatypes::DataType;
 use anyhow::{anyhow, bail, Result};
@@ -23,6 +26,15 @@ pub enum DataFrame {
     Empty,
     #[cfg(feature = "df-polars")]
     Polars(::pl::frame::DataFrame),
+}
+
+impl fmt::Display for DataFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => "Empty".fmt(f),
+            Self::Polars(df) => df.fmt(f),
+        }
+    }
 }
 
 impl DataFrame {

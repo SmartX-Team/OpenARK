@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
     frame::polars::{find_indices, get_column},
-    graph::{GraphData, GraphMetadataPinnedExt, GraphMetadataStandard},
+    graph::{GraphData, GraphMetadataPinned, GraphMetadataPinnedExt},
     problem::ProblemSpec,
 };
 use or_tools::graph::{
@@ -25,7 +25,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::Net
     async fn solve(
         &self,
         graph: GraphData<DataFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<Self::Output> {
         ::kubegraph_api::solver::NetworkSolver::<GraphData<LazyFrame>>::solve(
             self,
@@ -44,7 +44,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::Net
     async fn solve(
         &self,
         graph: GraphData<LazyFrame>,
-        problem: &ProblemSpec<GraphMetadataStandard>,
+        problem: &ProblemSpec<GraphMetadataPinned>,
     ) -> Result<Self::Output> {
         let ProblemSpec { metadata, verbose } = problem;
         let key_capacity = metadata.capacity();
