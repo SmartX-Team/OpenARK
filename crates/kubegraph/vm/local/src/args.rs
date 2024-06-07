@@ -15,10 +15,6 @@ use serde::{Deserialize, Serialize};
 pub struct NetworkArgs {
     #[command(flatten)]
     #[serde(default)]
-    pub analyzer: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Analyzer as NetworkComponent>::Args,
-
-    #[command(flatten)]
-    #[serde(default)]
     pub dependency_graph: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::DependencySolver as NetworkComponent>::Args,
 
     #[command(flatten)]

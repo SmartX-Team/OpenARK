@@ -3,25 +3,21 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    analyzer::VirtualProblemAnalyzer,
-    graph::{GraphFilter, GraphMetadataPinned, GraphMetadataRaw, GraphScope},
+    graph::{GraphFilter, GraphMetadataPinned, GraphScope},
     resource::NetworkResource,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(bound = "
-    A: JsonSchema,
     M: Default + JsonSchema,
 ")]
 #[serde(
     rename_all = "camelCase",
     bound = "
-        A: Serialize + DeserializeOwned,
         M: Default + Serialize + DeserializeOwned,
     "
 )]
-pub struct VirtualProblem<A = VirtualProblemAnalyzer, M = GraphMetadataPinned> {
-    pub analyzer: A,
+pub struct VirtualProblem<M = GraphMetadataPinned> {
     pub filter: GraphFilter,
     #[serde(flatten)]
     pub scope: GraphScope,
@@ -67,7 +63,7 @@ pub struct VirtualProblem<A = VirtualProblemAnalyzer, M = GraphMetadataPinned> {
     rename_all = "camelCase",
     bound = "M: Default + Serialize + DeserializeOwned"
 )]
-pub struct ProblemSpec<M = GraphMetadataRaw> {
+pub struct ProblemSpec<M = GraphMetadataPinned> {
     #[serde(default)]
     pub metadata: M,
 

@@ -20,19 +20,15 @@ use tokio::time::{sleep, Instant};
 use tracing::{error, info, instrument, warn, Level};
 
 use crate::{
-    analyzer::{NetworkAnalyzer, NetworkAnalyzerExt},
     component::{NetworkComponent, NetworkComponentExt},
-    dependency::{
-        NetworkDependencyPipeline, NetworkDependencyPipelineTemplate, NetworkDependencySolver,
-        NetworkDependencySolverSpec,
-    },
+    dependency::{NetworkDependencyPipeline, NetworkDependencySolver, NetworkDependencySolverSpec},
     frame::LazyFrame,
     graph::{
-        Graph, GraphData, GraphMetadata, GraphScope, NetworkGraphDB, NetworkGraphDBExt,
-        ScopedNetworkGraphDBContainer,
+        Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB,
+        NetworkGraphDBExt, ScopedNetworkGraphDBContainer,
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
-    problem::{ProblemSpec, VirtualProblem},
+    problem::{NetworkProblemCrd, ProblemSpec, VirtualProblem},
     resource::{NetworkResourceCollectionDB, NetworkResourceDB},
     runner::NetworkRunner,
     solver::NetworkSolver,
@@ -173,7 +169,7 @@ where
         state: self::sealed::NetworkVirtualMachineState,
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
         // Define-or-Reuse a converged problem
-        let problems = self.analyzer().inspect(self.resource_db()).await?;
+        let problems = self.pull_problems().await?;
         if problems.is_empty() {
             return Ok(self::sealed::NetworkVirtualMachineState::Ready);
         }
@@ -194,14 +190,13 @@ where
         problem: VirtualProblem,
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
         // Step 1. Pull & Convert graphs
-        let NetworkDependencyPipelineTemplate {
+        let NetworkDependencyPipeline {
             graph:
                 Graph {
                     data,
                     metadata,
                     scope,
                 },
-            problem,
             static_edges,
         } = match self.pull_graph(&problem).await? {
             Some(pipeline) => match state {
@@ -238,13 +233,31 @@ where
         Ok(self::sealed::NetworkVirtualMachineState::Completed)
     }
 
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn pull_problems(&self) -> Result<Vec<VirtualProblem>> {
+        Ok(self
+            .resource_db()
+            .list(())
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|cr: NetworkProblemCrd| {
+                let scope = GraphScope::from_resource(&cr);
+                VirtualProblem {
+                    filter: GraphFilter::all(scope.namespace.clone()),
+                    scope,
+                    spec: cr.spec,
+                }
+            })
+            .collect())
+    }
+
     #[instrument(level = Level::INFO, skip(self, problem))]
     async fn pull_graph(
         &self,
         problem: &VirtualProblem,
-    ) -> Result<Option<NetworkDependencyPipeline<Graph<LazyFrame>, Self::Analyzer>>> {
+    ) -> Result<Option<NetworkDependencyPipeline<Graph<LazyFrame>>>> {
         let VirtualProblem {
-            analyzer: _,
             filter,
             scope,
             spec: ProblemSpec {
@@ -273,16 +286,15 @@ where
 
         // Step 3. Solve the dependencies
         let spec = NetworkDependencySolverSpec { functions, graphs };
-        let NetworkDependencyPipelineTemplate {
+        let NetworkDependencyPipeline {
             graph: data,
-            problem,
             static_edges,
         } = self
             .dependency_solver()
-            .build_pipeline(self.analyzer(), &problem, spec)
+            .build_pipeline(problem, spec)
             .await?;
 
-        Ok(Some(NetworkDependencyPipelineTemplate {
+        Ok(Some(NetworkDependencyPipeline {
             graph: Graph {
                 data,
                 metadata: GraphMetadata::Pinned(metadata.clone()),
@@ -291,7 +303,6 @@ where
                     name: GraphScope::NAME_GLOBAL.into(),
                 },
             },
-            problem,
             static_edges,
         }))
     }
@@ -332,7 +343,6 @@ pub trait NetworkVirtualMachine
 where
     Self: Send + Sync,
 {
-    type Analyzer: NetworkComponent + NetworkAnalyzer;
     type DependencySolver: NetworkComponent + NetworkDependencySolver;
     type ResourceDB: 'static + Send + Clone + NetworkComponent + NetworkResourceCollectionDB;
     type GraphDB: 'static + Send + Clone + NetworkComponent + NetworkGraphDB;
@@ -340,8 +350,6 @@ where
     type Solver: NetworkComponent
         + NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
     type Visualizer: NetworkComponent + NetworkVisualizer;
-
-    fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer;
 
     fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver;
 
@@ -371,17 +379,12 @@ impl<T> NetworkVirtualMachine for Arc<T>
 where
     T: ?Sized + NetworkVirtualMachine,
 {
-    type Analyzer = <T as NetworkVirtualMachine>::Analyzer;
     type DependencySolver = <T as NetworkVirtualMachine>::DependencySolver;
     type GraphDB = <T as NetworkVirtualMachine>::GraphDB;
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
     type Solver = <T as NetworkVirtualMachine>::Solver;
     type Visualizer = <T as NetworkVirtualMachine>::Visualizer;
-
-    fn analyzer(&self) -> &<Self as NetworkVirtualMachine>::Analyzer {
-        <T as NetworkVirtualMachine>::analyzer(&**self)
-    }
 
     fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver {
         <T as NetworkVirtualMachine>::dependency_solver(&**self)

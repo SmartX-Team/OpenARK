@@ -23,10 +23,6 @@ workspace = true
 default = ["full"]
 full = ["solver-full"]
 
-# Configure Analyzers
-analyzer-full = ["analyzer-llm"]
-analyzer-llm = ["kubegraph-api/analyzer-llm", "kubegraph-vm-local/analyzer-llm"]
-
 # Configure Solvers
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-vm-local/solver-ortools"]

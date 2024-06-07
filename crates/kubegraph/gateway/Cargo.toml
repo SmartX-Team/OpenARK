@@ -36,13 +36,6 @@ full = [
     "visualizer-full",
 ]
 
-# Configure Analyzers
-analyzer-full = ["analyzer-llm"]
-analyzer-llm = [
-    "kubegraph-api/analyzer-llm",
-    "kubegraph-vm-local?/analyzer-llm",
-]
-
 # Configure Connectors
 connector-full = ["connector-fake", "connector-prometheus", "connector-local"]
 connector-fake = [

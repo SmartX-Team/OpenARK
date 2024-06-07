@@ -246,8 +246,7 @@ mod tests {
         function: NetworkFunctionTemplate<&'static str>,
     ) -> ::polars::frame::DataFrame {
         use kubegraph_api::{
-            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
-            graph::{GraphFilter, GraphMetadataRaw, GraphScope},
+            graph::{GraphFilter, GraphScope},
             problem::ProblemSpec,
         };
 
@@ -261,10 +260,6 @@ mod tests {
 
         // Step 2. Define a problem
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer {
-                original_metadata: GraphMetadataRaw::default(),
-                r#type: VirtualProblemAnalyzerType::Empty,
-            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),

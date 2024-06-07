@@ -22,10 +22,6 @@ workspace = true
 [features]
 default = []
 
-# Configure Analyzers
-analyzer-full = ["analyzer-llm"]
-analyzer-llm = ["kubegraph-analyzer-llm", "kubegraph-api/analyzer-llm"]
-
 # Configure Connectors
 connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
 connector-fake = [
@@ -50,7 +46,6 @@ connector-prometheus = [
 # Configure DataFrame
 df-full = ["df-polars"]
 df-polars = [
-    "kubegraph-analyzer-llm?/df-polars",
     "kubegraph-api/df-polars",
     "kubegraph-dependency-solver/df-polars",
     "kubegraph-runner-simulator?/df-polars",
@@ -85,7 +80,6 @@ visualizer-auto = ["visualizer-egui"]
 visualizer-egui = ["kubegraph-visualizer-egui"]
 
 [dependencies]
-kubegraph-analyzer-llm = { path = "../../analyzer/llm", optional = true, default-features = false }
 kubegraph-api = { path = "../../api" }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }

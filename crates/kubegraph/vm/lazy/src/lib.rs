@@ -55,7 +55,7 @@ mod impl_call {
         },
     };
 
-    use crate::function::NetworkFunctionInferType;
+    use super::function::NetworkFunctionInferType;
 
     impl super::LazyVirtualMachine {
         pub fn call(

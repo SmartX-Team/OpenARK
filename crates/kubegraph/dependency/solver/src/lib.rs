@@ -7,7 +7,6 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
-    analyzer::NetworkAnalyzer,
     dependency::{NetworkDependencyPipeline, NetworkDependencySolverSpec},
     frame::LazyFrame,
     function::{
@@ -32,15 +31,11 @@ pub struct NetworkDependencyGraph {}
 
 #[async_trait]
 impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyGraph {
-    async fn build_pipeline<A>(
+    async fn build_pipeline(
         &self,
-        _analyzer: &A,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>, A>>
-    where
-        A: NetworkAnalyzer,
-    {
+    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>>> {
         // Step 1. Register all available functions
         let graph = spec
             .functions
@@ -168,16 +163,8 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
             println!();
         }
 
-        Ok(NetworkDependencyPipeline::<GraphData<LazyFrame>, A> {
+        Ok(NetworkDependencyPipeline {
             graph,
-            problem: VirtualProblem {
-                // TODO: to be implemented
-                // TODO: 여기부터 시작 (그냥 없앨까..? 아니면 함수 복원용으로..?)
-                analyzer: BTreeMap::default(),
-                filter: problem.filter.clone(),
-                scope: problem.scope.clone(),
-                spec: problem.spec.clone(),
-            },
             static_edges: Some(static_edges),
         })
     }
@@ -293,7 +280,7 @@ struct Function {
 }
 
 impl Function {
-    fn new<A, M>(cr: NetworkFunctionCrd, problem: &VirtualProblem<A, M>) -> Result<Self>
+    fn new<M>(cr: NetworkFunctionCrd, problem: &VirtualProblem<M>) -> Result<Self>
     where
         M: GraphMetadataExt,
     {

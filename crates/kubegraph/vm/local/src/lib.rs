@@ -1,7 +1,6 @@
 #[cfg(feature = "df-polars")]
 extern crate polars as pl;
 
-mod analyzer;
 mod args;
 mod dependency;
 mod graph;
@@ -29,7 +28,6 @@ use tracing::{instrument, Level};
 
 #[derive(Clone)]
 pub struct NetworkVirtualMachine {
-    analyzer: self::analyzer::NetworkAnalyzer,
     dependency_graph: self::dependency::NetworkDependencyGraph,
     args: self::args::NetworkVirtualMachineArgs,
     graph_db: self::graph::NetworkGraphDB,
@@ -52,7 +50,6 @@ impl NetworkComponent for NetworkVirtualMachine {
     ) -> Result<Self> {
         // Step 1. Initialize components
         let self::args::NetworkArgs {
-            analyzer,
             dependency_graph,
             graph_db,
             resource_db,
@@ -62,7 +59,6 @@ impl NetworkComponent for NetworkVirtualMachine {
             vm,
         } = args;
         let vm = Self {
-            analyzer: self::analyzer::NetworkAnalyzer::try_new(analyzer, signal).await?,
             args: vm,
             dependency_graph: self::dependency::NetworkDependencyGraph::try_new(
                 dependency_graph,
@@ -93,17 +89,12 @@ impl NetworkComponent for NetworkVirtualMachine {
 
 #[async_trait]
 impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
-    type Analyzer = self::analyzer::NetworkAnalyzer;
     type DependencySolver = self::dependency::NetworkDependencyGraph;
     type ResourceDB = self::resource::NetworkResourceDB;
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
     type Solver = self::solver::NetworkSolver;
     type Visualizer = self::visualizer::NetworkVisualizer;
-
-    fn analyzer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Analyzer {
-        &self.analyzer
-    }
 
     fn dependency_solver(
         &self,
@@ -181,11 +172,7 @@ mod tests {
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
-            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
-            graph::{
-                Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
-                NetworkGraphDB,
-            },
+            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblem},
         };
 
@@ -248,10 +235,6 @@ mod tests {
 
         // Step 4. Add cost & value function (heuristic)
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer {
-                original_metadata: GraphMetadataRaw::default(),
-                r#type: VirtualProblemAnalyzerType::Empty,
-            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
@@ -329,16 +312,12 @@ mod tests {
     async fn simulate_simple_with_function() {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
-            analyzer::{VirtualProblemAnalyzer, VirtualProblemAnalyzerType},
             frame::{DataFrame, LazyFrame},
             function::{
                 dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
                 NetworkFunctionSpec, NetworkFunctionTemplate,
             },
-            graph::{
-                Graph, GraphData, GraphFilter, GraphMetadata, GraphMetadataRaw, GraphScope,
-                NetworkGraphDB,
-            },
+            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblem},
             resource::NetworkResourceDB,
         };
@@ -416,10 +395,6 @@ mod tests {
 
         // Step 5. Add cost & value function (heuristic)
         let problem = VirtualProblem {
-            analyzer: VirtualProblemAnalyzer {
-                original_metadata: GraphMetadataRaw::default(),
-                r#type: VirtualProblemAnalyzerType::Empty,
-            },
             filter: GraphFilter::all("default".into()),
             scope: GraphScope {
                 namespace: "default".into(),
