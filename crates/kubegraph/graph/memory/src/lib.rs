@@ -41,6 +41,12 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
+    async fn remove(&self, scope: GraphScope) -> Result<()> {
+        self.map.write().await.remove(&scope);
+        Ok(())
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         info!("Closing in-memory db...");
         Ok(())

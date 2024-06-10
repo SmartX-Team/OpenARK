@@ -5,6 +5,8 @@ pub mod local;
 #[cfg(feature = "connector-prometheus")]
 pub mod prometheus;
 
+use std::collections::BTreeMap;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, TryStreamExt};
@@ -16,7 +18,7 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphMetadataRaw, NetworkGraphDB},
+    graph::{Graph, GraphData, GraphMetadataRaw, GraphScope, NetworkGraphDB},
     resource::{NetworkResource, NetworkResourceDB},
     visualizer::NetworkVisualizerExt,
     vm::{NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
@@ -36,6 +38,7 @@ where
         info!("Starting {name} connector...");
 
         let mut inited = false;
+        let mut scopes = BTreeMap::default();
         loop {
             let instant = Instant::now();
 
@@ -45,17 +48,58 @@ where
                 let name = self.name();
                 info!("Reloading {name} connector...");
 
-                match self.pull(connectors).await {
+                // Collect all new/updated resource scopes
+                let mut new_connectors = Vec::default();
+                let mut new_scopes = BTreeMap::default();
+                for cr in connectors {
+                    let scope = GraphScope::from_resource::<NetworkConnectorCrd>(&cr);
+                    let version = cr.metadata.resource_version.clone();
+
+                    if scopes
+                        .get(&scope) // updated
+                        .map(|last_version| last_version != &version)
+                        // new
+                        .unwrap_or(true)
+                    {
+                        new_connectors.push(cr);
+                    }
+                    new_scopes.insert(scope, version);
+                }
+
+                // Collect all removed scopes
+                let mut events: Vec<_> = scopes
+                    .keys()
+                    .filter(|&scope| !new_scopes.contains_key(scope))
+                    .cloned()
+                    .map(NetworkConnectorEvent::Deleted)
+                    .collect();
+
+                match self.pull(new_connectors).await {
                     Ok(data) => {
-                        if let Err(error) = data
+                        // Collect all new/updated resources
+                        events.extend(data.into_iter().map(NetworkConnectorEvent::Applied));
+
+                        // Notify all events
+                        match events
                             .into_iter()
-                            .map(|data| vm.graph_db().insert(data))
+                            .map(|event| match event {
+                                NetworkConnectorEvent::Applied(data) => vm.graph_db().insert(data),
+                                NetworkConnectorEvent::Deleted(scope) => {
+                                    vm.graph_db().remove(scope)
+                                }
+                            })
                             .collect::<FuturesUnordered<_>>()
                             .try_collect::<()>()
                             .await
                         {
-                            let name = self.name();
-                            error!("failed to store graphs from {name:?}: {error}");
+                            Ok(()) => {
+                                // Update the scopes database
+                                scopes = new_scopes;
+                            }
+                            Err(error) => {
+                                let name = self.name();
+                                error!("failed to store graphs from {name:?}: {error}");
+                            }
                         }
                     }
                     Err(error) => {
@@ -118,6 +162,11 @@ pub trait NetworkConnector {
         &mut self,
         connectors: Vec<NetworkConnectorCrd>,
     ) -> Result<Vec<Graph<GraphData<LazyFrame>>>>;
+}
+
+enum NetworkConnectorEvent {
+    Applied(Graph<GraphData<LazyFrame>>),
+    Deleted(GraphScope),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]

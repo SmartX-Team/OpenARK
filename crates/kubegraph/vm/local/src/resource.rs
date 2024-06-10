@@ -112,18 +112,13 @@ impl LocalResourceDB {
         let updated = self.connectors_has_updated.entry(r#type).or_insert(true);
         if *updated {
             *updated = false;
-            let connectors: Vec<_> = self
-                .connectors
-                .values()
-                .filter(|&cr| cr.spec == r#type)
-                .cloned()
-                .collect();
-
-            if connectors.is_empty() {
-                None
-            } else {
-                Some(connectors)
-            }
+            Some(
+                self.connectors
+                    .values()
+                    .filter(|&cr| cr.spec == r#type)
+                    .cloned()
+                    .collect(),
+            )
         } else {
             None
         }

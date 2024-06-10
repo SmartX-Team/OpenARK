@@ -115,6 +115,16 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
+    async fn remove(&self, scope: GraphScope) -> Result<()> {
+        let key = ::serde_json::to_vec(&scope)?;
+
+        self.db
+            .remove(&key)
+            .map(|_| ())
+            .map_err(|error| anyhow!("failed to delete a graph from local db: {error}"))
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         info!("Closing local db...");
 

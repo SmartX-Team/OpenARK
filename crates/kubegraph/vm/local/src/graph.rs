@@ -145,6 +145,16 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
+    async fn remove(&self, scope: GraphScope) -> Result<()> {
+        match self {
+            #[cfg(feature = "graph-local")]
+            Self::Local(runtime) => runtime.remove(scope).await,
+            #[cfg(feature = "graph-memory")]
+            Self::Memory(runtime) => runtime.remove(scope).await,
+        }
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         match self {
             #[cfg(feature = "graph-local")]

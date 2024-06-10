@@ -107,6 +107,8 @@ where
 
     async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<GraphData<LazyFrame>>>>;
 
+    async fn remove(&self, scope: GraphScope) -> Result<()>;
+
     async fn close(&self) -> Result<()>;
 }
 
