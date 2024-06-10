@@ -142,7 +142,8 @@ spec:
             privileged: true
           resources:
             limits:
-              nvidia.com/gpu: "1"
+              cpu: "32"
+              memory: 128Gi
               squat.ai/fuse: "1"
           volumeMounts:
             - name: home
