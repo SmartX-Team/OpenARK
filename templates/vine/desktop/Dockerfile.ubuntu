@@ -393,6 +393,19 @@ RUN apt-get update && apt-get install -y \
     latexmk \
     libreoffice libreoffice-gtk3 \
     texlive-full \
+    # Printer
+    cups-client \
+    system-config-printer \
+    # Printer - Driver
+    cups \
+    cups-bsd \
+    cups-filters \
+    hp-ppd \
+    hpijs-ppds \
+    hplip \
+    openprinting-ppds \
+    printer-driver-all \
+    printer-driver-cups-pdf \
     # Utility
     sqlite3 \
     ssh-askpass \
