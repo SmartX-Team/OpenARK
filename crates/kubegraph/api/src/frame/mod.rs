@@ -178,19 +178,35 @@ impl LazyFrame {
         }
     }
 
-    pub fn alias(&mut self, key: &str, metadata: &FunctionMetadata) -> Result<()> {
-        let FunctionMetadata {
-            scope: GraphScope { namespace: _, name },
-        } = metadata;
-
+    fn alias(&mut self, key: &str, value: &str) -> Result<()> {
         match self {
             Self::Empty => bail!("cannot make an alias to empty lazyframe: {key:?}"),
             #[cfg(feature = "df-polars")]
             Self::Polars(df) => {
-                *df = df.clone().with_column(dsl::lit(name.as_str()).alias(key));
+                *df = df.clone().with_column(dsl::lit(value).alias(key));
                 Ok(())
             }
         }
+    }
+
+    pub fn alias_function<M>(&mut self, metadata: &M, function: &FunctionMetadata) -> Result<()>
+    where
+        M: GraphMetadataExt,
+    {
+        let FunctionMetadata {
+            scope: GraphScope { namespace: _, name },
+        } = function;
+
+        self.alias(metadata.function(), name)
+    }
+
+    pub fn alias_nodes<M>(&mut self, metadata: &M, scope: &GraphScope) -> Result<()>
+    where
+        M: GraphMetadataExt,
+    {
+        let GraphScope { namespace: _, name } = scope;
+
+        self.alias(metadata.connector(), name)
     }
 
     pub fn apply_filter(&mut self, filter: LazySlice) -> Result<()> {

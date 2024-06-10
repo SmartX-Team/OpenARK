@@ -21,7 +21,7 @@ workspace = true
 
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

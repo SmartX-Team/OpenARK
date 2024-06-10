@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataExt},
+    graph::{Graph, GraphData, GraphMetadataExt},
 };
 
 #[async_trait]
@@ -26,7 +26,7 @@ pub trait NetworkVisualizer
 where
     Self: Sync,
 {
-    async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
+    async fn replace_graph<M>(&self, graph: Graph<GraphData<LazyFrame>, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt;
 

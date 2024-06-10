@@ -30,7 +30,9 @@ df-polars = ["kubegraph-api/df-polars"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
-kubegraph-api = { path = "../../api", features = ["petgraph"] }
+kubegraph-api = { path = "../../api", default-features = false, features = [
+    "petgraph",
+] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

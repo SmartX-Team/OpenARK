@@ -32,16 +32,15 @@ kubegraph-api = { path = "../api", default-features = false, features = [
     "connector-fake",
     "connector-local",
     "df-polars",
-    "function-dummy",
+    "function-fake",
     "vm-entrypoint",
 ] }
 kubegraph-vm-local = { path = "../vm/local", default-features = false, features = [
     "connector-fake",
     "connector-local",
     "df-polars",
-    "function-dummy",
+    "function-fake",
     "graph-memory",
-    "runner-simulator",
     "visualizer-auto",
 ] }
 

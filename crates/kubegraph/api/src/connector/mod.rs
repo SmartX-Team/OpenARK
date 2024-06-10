@@ -16,7 +16,7 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataRaw, NetworkGraphDB},
+    graph::{Graph, GraphData, GraphMetadataRaw, NetworkGraphDB},
     resource::{NetworkResource, NetworkResourceDB},
     visualizer::NetworkVisualizerExt,
     vm::{NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
@@ -114,8 +114,10 @@ pub trait NetworkConnector {
 
     fn name(&self) -> &str;
 
-    async fn pull(&mut self, connectors: Vec<NetworkConnectorCrd>)
-        -> Result<Vec<Graph<LazyFrame>>>;
+    async fn pull(
+        &mut self,
+        connectors: Vec<NetworkConnectorCrd>,
+    ) -> Result<Vec<Graph<GraphData<LazyFrame>>>>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
@@ -176,6 +178,7 @@ impl<M> PartialEq<NetworkConnectorType> for NetworkConnectorSpec<M> {
 #[non_exhaustive]
 #[serde(rename_all = "camelCase")]
 pub enum NetworkConnectorKind {
+    Unknown {},
     #[cfg(feature = "connector-fake")]
     Fake(self::fake::NetworkConnectorFakeSpec),
     #[cfg(feature = "connector-local")]
@@ -187,6 +190,7 @@ pub enum NetworkConnectorKind {
 impl NetworkConnectorKind {
     fn name(&self) -> String {
         match self {
+            Self::Unknown {} => NetworkConnectorType::Unknown.name().into(),
             #[cfg(feature = "connector-fake")]
             Self::Fake(_) => NetworkConnectorType::Fake.name().into(),
             #[cfg(feature = "connector-local")]
@@ -202,6 +206,7 @@ impl NetworkConnectorKind {
 
     const fn to_ref(&self) -> NetworkConnectorType {
         match self {
+            Self::Unknown {} => NetworkConnectorType::Unknown,
             #[cfg(feature = "connector-fake")]
             Self::Fake(_) => NetworkConnectorType::Fake,
             #[cfg(feature = "connector-local")]
@@ -222,8 +227,8 @@ impl PartialEq<NetworkConnectorType> for NetworkConnectorKind {
     Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub enum NetworkConnectorType {
+    Unknown,
     #[cfg(feature = "connector-fake")]
     Fake,
     #[cfg(feature = "connector-local")]
@@ -235,6 +240,7 @@ pub enum NetworkConnectorType {
 impl NetworkConnectorType {
     pub const fn name(&self) -> &'static str {
         match self {
+            Self::Unknown => "unknown",
             #[cfg(feature = "connector-fake")]
             Self::Fake => "fake",
             #[cfg(feature = "connector-local")]

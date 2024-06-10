@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use kubegraph_api::{
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphFilter, GraphScope},
+    graph::{Graph, GraphData, GraphFilter, GraphScope},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ impl NetworkComponent for NetworkGraphDB {
 #[async_trait]
 impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>> {
+    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<GraphData<LazyFrame>>>> {
         match self {
             #[cfg(feature = "graph-local")]
             Self::Local(runtime) => runtime.get(scope).await,
@@ -125,7 +125,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self, graph))]
-    async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()> {
+    async fn insert(&self, graph: Graph<GraphData<LazyFrame>>) -> Result<()> {
         match self {
             #[cfg(feature = "graph-local")]
             Self::Local(runtime) => runtime.insert(graph).await,
@@ -135,7 +135,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>> {
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<GraphData<LazyFrame>>>> {
         match self {
             #[cfg(feature = "graph-local")]
             Self::Local(runtime) => runtime.list(filter).await,

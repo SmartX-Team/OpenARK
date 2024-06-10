@@ -1,6 +1,7 @@
 pub mod annotation;
-#[cfg(feature = "function-dummy")]
-pub mod dummy;
+#[cfg(feature = "function-fake")]
+pub mod fake;
+pub mod spawn;
 
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -46,8 +47,8 @@ impl NetworkResource for NetworkFunctionCrd {
 #[non_exhaustive]
 pub enum NetworkFunctionKind {
     Annotation(self::annotation::NetworkFunctionAnnotationSpec),
-    #[cfg(feature = "function-dummy")]
-    Dummy(self::dummy::NetworkFunctionDummySpec),
+    #[cfg(feature = "function-fake")]
+    Fake(self::fake::NetworkFunctionFakeSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use kubegraph_api::{
     component::NetworkComponent,
     frame::LazyFrame,
-    graph::{Graph, GraphMetadataExt},
+    graph::{Graph, GraphData, GraphMetadataExt},
     visualizer::NetworkVisualizerEvent,
 };
 use schemars::JsonSchema;
@@ -109,7 +109,7 @@ impl NetworkComponent for NetworkVisualizer {
 #[async_trait]
 impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
     #[instrument(level = Level::INFO, skip(self, graph))]
-    async fn replace_graph<M>(&self, graph: Graph<LazyFrame, M>) -> Result<()>
+    async fn replace_graph<M>(&self, graph: Graph<GraphData<LazyFrame>, M>) -> Result<()>
     where
         M: Send + Clone + GraphMetadataExt,
     {

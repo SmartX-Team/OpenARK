@@ -46,7 +46,7 @@ mod impl_call {
     use kubegraph_api::{
         frame::{IntoLazySlice, LazyFrame, LazySlice, LazySliceOrScalar},
         function::FunctionMetadata,
-        graph::{GraphEdges, GraphMetadataPinnedExt},
+        graph::{GraphEdges, GraphMetadataExt},
         ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
         problem::VirtualProblem,
         vm::{
@@ -68,7 +68,7 @@ mod impl_call {
         ) -> Result<GraphEdges<LazyFrame>> {
             Context::try_new(problem, nodes, infer_type)?
                 .call(&self.local_variables, filter)
-                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata.function(), metadata))
+                .and_then(|ctx| ctx.try_into_edges(&problem.spec.metadata, metadata))
         }
 
         pub fn call_filter(
@@ -162,12 +162,15 @@ mod impl_call {
             Ok(self)
         }
 
-        fn try_into_edges(
+        fn try_into_edges<M>(
             self,
-            key: &str,
-            metadata: &FunctionMetadata,
-        ) -> Result<GraphEdges<LazyFrame>> {
-            self.heap.try_into_edges(key, metadata)
+            metadata: &M,
+            function: &FunctionMetadata,
+        ) -> Result<GraphEdges<LazyFrame>>
+        where
+            M: GraphMetadataExt,
+        {
+            self.heap.try_into_edges(metadata, function)
         }
 
         /// Pop the last instruction result.
@@ -229,13 +232,16 @@ mod impl_call {
             Ok(())
         }
 
-        fn try_into_edges(
+        fn try_into_edges<M>(
             self,
-            key: &str,
-            metadata: &FunctionMetadata,
-        ) -> Result<GraphEdges<LazyFrame>> {
+            metadata: &M,
+            function: &FunctionMetadata,
+        ) -> Result<GraphEdges<LazyFrame>>
+        where
+            M: GraphMetadataExt,
+        {
             let mut edges = self.edges;
-            edges.alias(key, metadata)?;
+            edges.alias_function(metadata, function)?;
             Ok(GraphEdges::new(edges))
         }
     }

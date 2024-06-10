@@ -23,7 +23,7 @@ workspace = true
 lalrpop = { workspace = true }
 
 [dependencies]
-kubegraph-api = { path = "../api" }
+kubegraph-api = { path = "../api", default-features = false }
 
 lalrpop-util = { workspace = true }
 schemars = { workspace = true }

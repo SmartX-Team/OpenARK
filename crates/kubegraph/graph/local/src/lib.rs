@@ -5,7 +5,7 @@ use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
     frame::{DataFrame, LazyFrame},
-    graph::{Graph, GraphFilter, GraphScope},
+    graph::{Graph, GraphData, GraphFilter, GraphScope},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -69,7 +69,7 @@ impl NetworkComponent for NetworkGraphDB {
 #[async_trait]
 impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>> {
+    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<GraphData<LazyFrame>>>> {
         let key = ::serde_json::to_vec(scope)?;
 
         self.db
@@ -78,7 +78,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
             .and_then(|maybe_graph| {
                 maybe_graph
                     .map(|graph| {
-                        ::serde_json::from_slice::<Graph<DataFrame>>(&graph)
+                        ::serde_json::from_slice::<Graph<GraphData<DataFrame>>>(&graph)
                             .map_err(Into::into)
                             .map(|graph| graph.lazy())
                     })
@@ -87,7 +87,7 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self, graph))]
-    async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()> {
+    async fn insert(&self, graph: Graph<GraphData<LazyFrame>>) -> Result<()> {
         let graph = graph.collect().await?;
         let key = ::serde_json::to_vec(&graph.scope)?;
         let value = ::serde_json::to_vec(&graph)?;
@@ -99,14 +99,14 @@ impl ::kubegraph_api::graph::NetworkGraphDB for NetworkGraphDB {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>> {
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<GraphData<LazyFrame>>>> {
         Ok(self
             .db
             .iter()
             .filter_map(|result| result.ok())
             .filter_map(|(key, value)| {
                 let key = ::serde_json::from_slice(&key).ok()?;
-                let value = ::serde_json::from_slice::<Graph<DataFrame>>(&value).ok()?;
+                let value = ::serde_json::from_slice::<Graph<GraphData<DataFrame>>>(&value).ok()?;
                 Some((key, value))
             })
             .filter(|(key, _)| filter.contains(key))

@@ -30,7 +30,6 @@ full = [
     "df-full",
     "function-full",
     "graph-full",
-    "runner-full",
     "solver-full",
     "vm-full",
     "visualizer-full",
@@ -56,20 +55,16 @@ df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars", "kubegraph-vm-local?/df-polars"]
 
 # Configure Functions
-function-full = ["function-dummy"]
-function-dummy = [
-    "kubegraph-api/function-dummy",
-    "kubegraph-vm-local?/function-dummy",
+function-full = ["function-fake"]
+function-fake = [
+    "kubegraph-api/function-fake",
+    "kubegraph-vm-local?/function-fake",
 ]
 
 # Configure Graph Databases
 graph-full = ["graph-local", "graph-memory"]
 graph-local = ["kubegraph-vm-local?/graph-local"]
 graph-memory = ["kubegraph-vm-local?/graph-memory"]
-
-# Configure Runners
-runner-full = ["runner-simulator"]
-runner-simulator = ["kubegraph-vm-local?/runner-simulator"]
 
 # Configure Solvers
 solver-full = ["solver-ortools"]
@@ -84,7 +79,9 @@ visualizer-full = []
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
-kubegraph-api = { path = "../api", features = ["vm-entrypoint"] }
+kubegraph-api = { path = "../api", default-features = false, features = [
+    "vm-entrypoint",
+] }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
 actix-web = { workspace = true }

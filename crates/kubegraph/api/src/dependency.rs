@@ -1,10 +1,13 @@
+use std::{collections::BTreeMap, sync::Arc};
+
 use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
+    connector::NetworkConnectorCrd,
     frame::LazyFrame,
     function::NetworkFunctionCrd,
-    graph::{Graph, GraphData, GraphEdges},
+    graph::{Graph, GraphData, GraphEdges, GraphScope},
     problem::VirtualProblem,
 };
 
@@ -14,15 +17,21 @@ pub trait NetworkDependencySolver {
         &self,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>>>;
+    ) -> Result<NetworkDependencyPipelineTemplate<GraphData<LazyFrame>>>;
 }
 
 pub struct NetworkDependencySolverSpec {
-    pub functions: Vec<NetworkFunctionCrd>,
-    pub graphs: Vec<Graph<LazyFrame>>,
+    pub functions: BTreeMap<GraphScope, NetworkFunctionCrd>,
+    pub graphs: Vec<Graph<GraphData<LazyFrame>>>,
 }
 
 pub struct NetworkDependencyPipeline<G> {
+    pub connectors: BTreeMap<GraphScope, Arc<NetworkConnectorCrd>>,
+    pub functions: BTreeMap<GraphScope, NetworkFunctionCrd>,
+    pub template: NetworkDependencyPipelineTemplate<G>,
+}
+
+pub struct NetworkDependencyPipelineTemplate<G> {
     pub graph: G,
     pub static_edges: Option<GraphEdges<LazyFrame>>,
 }

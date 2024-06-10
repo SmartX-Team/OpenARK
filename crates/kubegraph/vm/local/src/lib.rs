@@ -1,6 +1,3 @@
-#[cfg(feature = "df-polars")]
-extern crate polars as pl;
-
 mod args;
 mod dependency;
 mod graph;
@@ -166,28 +163,28 @@ impl NetworkVirtualMachineRunner {
 
 #[cfg(test)]
 mod tests {
+    use kube::api::ObjectMeta;
+    use kubegraph_api::{
+        connector::{NetworkConnectorCrd, NetworkConnectorKind, NetworkConnectorSpec},
+        graph::{GraphMetadata, GraphMetadataRaw},
+    };
+
     use super::*;
 
-    #[cfg(all(feature = "df-polars", feature = "runner-simulator"))]
     #[::tokio::test]
     async fn simulate_simple_with_edges() {
         use kubegraph_api::{
-            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            graph::{Graph, GraphData, GraphFilter, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblem},
         };
 
         use crate::{
             args::NetworkArgs,
-            runner::{NetworkRunnerArgs, NetworkRunnerType},
             visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
         };
 
         // Step 1. Define problems
         let args = NetworkArgs {
-            runner: NetworkRunnerArgs {
-                runner: NetworkRunnerType::Simulator,
-                ..Default::default()
-            },
             visualizer: NetworkVisualizerArgs {
                 visualizer: NetworkVisualizerType::Disabled,
                 ..Default::default()
@@ -200,7 +197,7 @@ mod tests {
             .expect("failed to init vm");
 
         // Step 2. Define nodes
-        let nodes = ::pl::df!(
+        let nodes = ::polars::df!(
             "name"      => [    "a",     "b"],
             "capacity"  => [ 300i64,  300i64],
             "supply"    => [ 300i64,    0i64],
@@ -210,7 +207,7 @@ mod tests {
         .expect("failed to create nodes dataframe");
 
         // Step 3. Define edges
-        let edges = ::pl::df!(
+        let edges = ::polars::df!(
             "src"       => [    "a"],
             "sink"      => [    "b"],
             "capacity"  => [  50i64],
@@ -219,11 +216,20 @@ mod tests {
         .expect("failed to create edges dataframe");
 
         // Step 4. Register the initial graph
-        let scope = GraphScope {
-            namespace: "default".into(),
-            name: "warehouse".into(),
+        let connector = NetworkConnectorCrd {
+            metadata: ObjectMeta {
+                namespace: Some("default".into()),
+                name: Some("warehouse".into()),
+                ..Default::default()
+            },
+            spec: NetworkConnectorSpec {
+                metadata: GraphMetadataRaw::default(),
+                kind: NetworkConnectorKind::Unknown {},
+            },
         };
+        let scope = GraphScope::from_resource(&connector);
         let graph = Graph {
+            connector: Some(connector.into()),
             data: GraphData {
                 edges: edges.into(),
                 nodes: nodes.into(),
@@ -256,10 +262,6 @@ mod tests {
         }
 
         // Step 6. Collect the output graph
-        let output_graph_scope = GraphScope {
-            namespace: "default".into(),
-            name: GraphScope::NAME_GLOBAL.into(),
-        };
         let Graph {
             data:
                 GraphData {
@@ -267,7 +269,7 @@ mod tests {
                     nodes: output_nodes,
                 },
             ..
-        } = vm.graph_db.get(&output_graph_scope).await.unwrap().unwrap();
+        } = vm.graph_db.get(&scope).await.unwrap().unwrap();
         let output_edges = output_edges
             .try_into_polars()
             .unwrap()
@@ -285,10 +287,10 @@ mod tests {
         // Step 7. Verify the output graph
         assert_eq!(
             output_nodes,
-            ::pl::df!(
+            ::polars::df!(
                 "name"      => [    "a",     "b"],
                 "capacity"  => [ 300i64,  300i64],
-                "supply"    => [   0i64,  300i64],
+                "supply"    => [ 300i64,    0i64],  // Nothing changed, because there is no function
                 "unit_cost" => [   5i64,    1i64],
                 "warehouse" => [   true,    true],
             )
@@ -296,44 +298,37 @@ mod tests {
         );
         assert_eq!(
             output_edges,
-            ::pl::df!(
-                "src"       => [         "a"],
-                "sink"      => [         "b"],
-                "capacity"  => [       50i64],
-                "unit_cost" => [        1i64],
-                "function"  => ["__static__"],
+            ::polars::df!(
+                "src"       => [    "a"],
+                "sink"      => [    "b"],
+                "capacity"  => [  50i64],
+                "unit_cost" => [   1i64],
             )
             .expect("failed to create ground-truth nodes dataframe"),
         );
     }
 
-    #[cfg(all(feature = "df-polars", feature = "runner-simulator"))]
     #[::tokio::test]
     async fn simulate_simple_with_function() {
         use kube::api::ObjectMeta;
         use kubegraph_api::{
             frame::{DataFrame, LazyFrame},
             function::{
-                dummy::NetworkFunctionDummySpec, NetworkFunctionCrd, NetworkFunctionKind,
+                fake::NetworkFunctionFakeSpec, NetworkFunctionCrd, NetworkFunctionKind,
                 NetworkFunctionSpec, NetworkFunctionTemplate,
             },
-            graph::{Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB},
+            graph::{Graph, GraphData, GraphFilter, GraphScope, NetworkGraphDB},
             problem::{ProblemSpec, VirtualProblem},
             resource::NetworkResourceDB,
         };
 
         use crate::{
             args::NetworkArgs,
-            runner::{NetworkRunnerArgs, NetworkRunnerType},
             visualizer::{NetworkVisualizerArgs, NetworkVisualizerType},
         };
 
         // Step 1. Define problems
         let args = NetworkArgs {
-            runner: NetworkRunnerArgs {
-                runner: NetworkRunnerType::Simulator,
-                ..Default::default()
-            },
             visualizer: NetworkVisualizerArgs {
                 visualizer: NetworkVisualizerType::Disabled,
                 ..Default::default()
@@ -346,7 +341,7 @@ mod tests {
             .expect("failed to init vm");
 
         // Step 2. Define nodes
-        let nodes = ::pl::df!(
+        let nodes = ::polars::df!(
             "name"      => [    "a",     "b"],
             "capacity"  => [ 300i64,  300i64],
             "supply"    => [ 300i64,    0i64],
@@ -356,11 +351,20 @@ mod tests {
         .expect("failed to create nodes dataframe");
 
         // Step 3. Register the initial graph
-        let scope = GraphScope {
-            namespace: "default".into(),
-            name: "warehouse".into(),
+        let connector = NetworkConnectorCrd {
+            metadata: ObjectMeta {
+                namespace: Some("default".into()),
+                name: Some("warehouse".into()),
+                ..Default::default()
+            },
+            spec: NetworkConnectorSpec {
+                metadata: GraphMetadataRaw::default(),
+                kind: NetworkConnectorKind::Unknown {},
+            },
         };
+        let scope = GraphScope::from_resource(&connector);
         let graph = Graph {
+            connector: Some(connector.into()),
             data: GraphData {
                 edges: LazyFrame::default(),
                 nodes: nodes.into(),
@@ -378,7 +382,7 @@ mod tests {
                 ..Default::default()
             },
             spec: NetworkFunctionSpec {
-                kind: NetworkFunctionKind::Dummy(NetworkFunctionDummySpec {}),
+                kind: NetworkFunctionKind::Fake(NetworkFunctionFakeSpec {}),
                 template: NetworkFunctionTemplate {
                     filter: Some(
                         "src != sink and src.supply > 0 and src.supply > sink.supply".into(),
@@ -416,10 +420,6 @@ mod tests {
         }
 
         // Step 7. Collect the output graph
-        let output_graph_scope = GraphScope {
-            namespace: "default".into(),
-            name: GraphScope::NAME_GLOBAL.into(),
-        };
         let Graph {
             data:
                 GraphData {
@@ -427,7 +427,7 @@ mod tests {
                     nodes: output_nodes,
                 },
             ..
-        } = vm.graph_db.get(&output_graph_scope).await.unwrap().unwrap();
+        } = vm.graph_db.get(&scope).await.unwrap().unwrap();
         let output_nodes = output_nodes
             .try_into_polars()
             .unwrap()
@@ -439,7 +439,7 @@ mod tests {
         // Step 7. Verify the output graph
         assert_eq!(
             output_nodes,
-            ::pl::df!(
+            ::polars::df!(
                 "name"      => [    "a",     "b"],
                 "capacity"  => [ 300i64,  300i64],
                 "supply"    => [ 150i64,  150i64],

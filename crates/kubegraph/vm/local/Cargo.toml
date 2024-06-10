@@ -20,7 +20,15 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["full"]
+full = [
+    "connector-full",
+    "df-full",
+    "function-full",
+    "graph-full",
+    "solver-full",
+    "visualizer-full",
+]
 
 # Configure Connectors
 connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
@@ -48,18 +56,17 @@ df-full = ["df-polars"]
 df-polars = [
     "kubegraph-api/df-polars",
     "kubegraph-dependency-solver/df-polars",
-    "kubegraph-runner-simulator?/df-polars",
+    "kubegraph-runner/df-polars",
     "kubegraph-solver-ortools?/df-polars",
     "kubegraph-visualizer-egui?/df-polars",
-    "polars",
 ]
 
 # Configure Functions
-function-full = ["function-dummy"]
-function-dummy = [
-    "kubegraph-api/function-dummy",
-    "kubegraph-function-dummy",
-    "kubegraph-dependency-solver/function-dummy",
+function-full = ["function-fake"]
+function-fake = [
+    "kubegraph-api/function-fake",
+    "kubegraph-dependency-solver/function-fake",
+    "kubegraph-runner/function-fake",
 ]
 
 # Configure Graph Databases
@@ -67,34 +74,26 @@ graph-full = ["graph-memory", "graph-memory"]
 graph-local = ["kubegraph-graph-local"]
 graph-memory = ["kubegraph-graph-memory"]
 
-# Configure Runners
-runner-full = ["runner-simulator"]
-runner-simulator = ["kubegraph-runner-simulator"]
-
 # Configure Solvers
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-solver-ortools"]
 
 # Configure Visualizers
 visualizer-auto = ["visualizer-egui"]
+visualizer-full = ["visualizer-egui"]
 visualizer-egui = ["kubegraph-visualizer-egui"]
 
 [dependencies]
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
-kubegraph-function-dummy = { path = "../../function/dummy", optional = true, default-features = false }
 kubegraph-dependency-solver = { path = "../../dependency/solver", default-features = false }
 kubegraph-graph-local = { path = "../../graph/local", optional = true, default-features = false }
 kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }
-kubegraph-parser = { path = "../../parser" }
-kubegraph-runner-simulator = { path = "../../runner/simulator", optional = true, default-features = false }
+kubegraph-runner = { path = "../../runner", default-features = false }
 kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
-kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, default-features = false, features = [
-    "df-polars",
-] }
-kubegraph-vm-lazy = { path = "../lazy" }
+kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, default-features = false }
 
 anyhow = { workspace = true }
 ark-core = { path = "../../../ark/core", features = ["signal"] }
@@ -107,14 +106,13 @@ kube = { workspace = true, features = [
     "rustls-tls",
     "ws",
 ] }
-polars = { workspace = true, optional = true }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
-kubegraph-runner-simulator = { path = "../../runner/simulator" }
 kubegraph-solver-ortools = { path = "../../solver/ortools" }
 
+polars = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

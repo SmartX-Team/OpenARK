@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-runner-simulator"
+name = "kubegraph-function-fake"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -25,10 +25,12 @@ full = ["df-full"]
 
 # DataFrame
 df-full = ["df-polars"]
-df-polars = ["dep:polars", "kubegraph-api/df-polars"]
+df-polars = ["kubegraph-api/df-polars", "polars"]
 
 [dependencies]
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false, features = [
+    "function-fake",
+] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

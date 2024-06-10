@@ -28,17 +28,18 @@ df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars"]
 
 # Configure Functions
-function-full = ["function-dummy"]
-function-dummy = ["kubegraph-api/function-dummy"]
+function-full = ["function-fake"]
+function-fake = ["kubegraph-api/function-fake"]
 
 [dependencies]
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-dependency-graph = { path = "../graph" }
 kubegraph-vm-lazy = { path = "../../vm/lazy" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 regex = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

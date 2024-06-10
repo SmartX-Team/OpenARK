@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -44,15 +44,16 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     async fn pull(
         &mut self,
         connectors: Vec<NetworkConnectorCrd>,
-    ) -> Result<Vec<Graph<LazyFrame>>> {
+    ) -> Result<Vec<Graph<GraphData<LazyFrame>>>> {
         let items = connectors.into_iter().filter_map(|object| {
+            let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
             let NetworkConnectorSpec { metadata, kind } = object.spec;
             let metadata = GraphMetadata::Raw(metadata);
 
             match kind {
                 NetworkConnectorKind::Prometheus(spec) => {
-                    match NetworkConnectorItem::try_new(scope, metadata, spec) {
+                    match NetworkConnectorItem::try_new(cr, scope, metadata, spec) {
                         Ok(item) => Some(item),
                         Err(error) => {
                             warn!("{error}");
@@ -81,6 +82,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 
 struct NetworkConnectorItem<T, M> {
     client: Client,
+    cr: Arc<NetworkConnectorCrd>,
     metadata: M,
     query: NetworkQuery<T>,
     scope: GraphScope,
@@ -88,6 +90,7 @@ struct NetworkConnectorItem<T, M> {
 
 impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
     fn try_new(
+        cr: Arc<NetworkConnectorCrd>,
         scope: GraphScope,
         metadata: M,
         spec: NetworkConnectorPrometheusSpec,
@@ -101,6 +104,7 @@ impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
         }
 
         Ok(Self {
+            cr,
             client: load_client(&spec)?,
             metadata,
             query: spec.template,
@@ -109,11 +113,12 @@ impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn load_graph_data(self) -> Result<Graph<LazyFrame, GraphMetadata>>
+    async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>, GraphMetadata>>
     where
         M: GraphMetadataExt,
     {
         let Self {
+            cr,
             client,
             metadata,
             scope,
@@ -138,6 +143,7 @@ impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
         let metadata = collect_extras(&df, metadata);
 
         let graph = Graph {
+            connector: Some(cr.clone()),
             data: match r#type {
                 NetworkQueryMetadataType::Edge => GraphData {
                     edges: df.into(),

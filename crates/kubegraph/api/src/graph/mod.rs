@@ -1,7 +1,7 @@
 #[cfg(feature = "df-polars")]
 pub mod polars;
 
-use std::{collections::BTreeMap, mem::swap};
+use std::{collections::BTreeMap, mem::swap, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -12,53 +12,67 @@ use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
 
 use crate::{
+    connector::NetworkConnectorCrd,
     frame::{DataFrame, LazyFrame},
     function::FunctionMetadata,
     vm::{Feature, Number},
 };
 
-pub(crate) struct ScopedNetworkGraphDBContainer<'a, T>
+pub struct ScopedNetworkGraphDBContainer<'a, T>
 where
     T: NetworkGraphDB,
 {
     pub(crate) inner: &'a T,
-    pub(crate) metadata: &'a GraphMetadata,
     pub(crate) scope: &'a GraphScope,
-    pub(crate) static_edges: Option<GraphEdges<LazyFrame>>,
 }
 
 #[async_trait]
-impl<'a, T> ScopedNetworkGraphDB for ScopedNetworkGraphDBContainer<'a, T>
+impl<'a, DB, T, M> ScopedNetworkGraphDB<T, M> for ScopedNetworkGraphDBContainer<'a, DB>
 where
-    T: NetworkGraphDB,
+    DB: NetworkGraphDB,
 {
-    #[instrument(level = Level::INFO, skip(self, nodes))]
-    async fn insert(&self, nodes: LazyFrame) -> Result<()> {
+    #[instrument(level = Level::INFO, skip(self, graph))]
+    async fn insert(&self, graph: Graph<GraphData<T>, M>) -> Result<()>
+    where
+        T: 'async_trait + Send + Into<LazyFrame>,
+        M: 'async_trait + Send + Into<GraphMetadata>,
+    {
         let Self {
             inner,
-            metadata,
-            scope,
-            static_edges,
+            scope: GraphScope { namespace, name: _ },
         } = self;
+        let Graph {
+            connector,
+            data: GraphData { edges, nodes },
+            metadata,
+            scope: GraphScope { namespace: _, name },
+        } = graph;
 
         let graph = Graph {
+            connector,
             data: GraphData {
-                nodes,
-                edges: static_edges.clone().unwrap_or_default().into_inner(),
+                edges: edges.into(),
+                nodes: nodes.into(),
             },
-            metadata: (*metadata).clone(),
-            scope: (*scope).clone(),
+            metadata: metadata.into(),
+            scope: GraphScope {
+                namespace: namespace.clone(),
+                name,
+            },
         };
         inner.insert(graph).await
     }
 }
 
 #[async_trait]
-pub trait ScopedNetworkGraphDB
+pub trait ScopedNetworkGraphDB<T, M>
 where
     Self: Sync,
 {
-    async fn insert(&self, nodes: LazyFrame) -> Result<()>;
+    async fn insert(&self, graph: Graph<GraphData<T>, M>) -> Result<()>
+    where
+        T: 'async_trait + Send + Into<LazyFrame>,
+        M: 'async_trait + Send + Into<GraphMetadata>;
 }
 
 #[async_trait]
@@ -67,7 +81,10 @@ where
     Self: NetworkGraphDB,
 {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn get_global_namespaced(&self, namespace: &str) -> Result<Option<Graph<LazyFrame>>> {
+    async fn get_global_namespaced(
+        &self,
+        namespace: &str,
+    ) -> Result<Option<Graph<GraphData<LazyFrame>>>> {
         let scope = GraphScope {
             namespace: namespace.into(),
             name: GraphScope::NAME_GLOBAL.into(),
@@ -84,11 +101,11 @@ pub trait NetworkGraphDB
 where
     Self: Sync,
 {
-    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<LazyFrame>>>;
+    async fn get(&self, scope: &GraphScope) -> Result<Option<Graph<GraphData<LazyFrame>>>>;
 
-    async fn insert(&self, graph: Graph<LazyFrame>) -> Result<()>;
+    async fn insert(&self, graph: Graph<GraphData<LazyFrame>>) -> Result<()>;
 
-    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<LazyFrame>>>;
+    async fn list(&self, filter: &GraphFilter) -> Result<Vec<Graph<GraphData<LazyFrame>>>>;
 
     async fn close(&self) -> Result<()>;
 }
@@ -108,8 +125,11 @@ impl<T> GraphEdges<T> {
 }
 
 impl GraphEdges<LazyFrame> {
-    pub fn mark_as_static(self, namespace: impl Into<String>, key: &str) -> Result<Self> {
-        let metadata = FunctionMetadata {
+    pub fn mark_as_static<M>(self, metadata: &M, namespace: impl Into<String>) -> Result<Self>
+    where
+        M: GraphMetadataExt,
+    {
+        let function = FunctionMetadata {
             scope: GraphScope {
                 namespace: namespace.into(),
                 name: FunctionMetadata::NAME_STATIC.into(),
@@ -118,7 +138,9 @@ impl GraphEdges<LazyFrame> {
 
         match self.0 {
             LazyFrame::Empty => Ok(self),
-            mut edges => edges.alias(key, &metadata).map(|()| Self::new(edges)),
+            mut edges => edges
+                .alias_function(metadata, &function)
+                .map(|()| Self::new(edges)),
         }
     }
 
@@ -166,24 +188,27 @@ pub trait IntoGraph<T> {
         Self: Sized;
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Graph<T, M = GraphMetadata> {
-    pub data: GraphData<T>,
+    #[serde(default)]
+    pub connector: Option<Arc<NetworkConnectorCrd>>,
+    pub data: T,
     pub metadata: M,
     pub scope: GraphScope,
 }
 
 #[cfg(feature = "petgraph")]
-impl<M> TryFrom<Graph<LazyFrame, M>>
+impl<M> TryFrom<Graph<GraphData<LazyFrame>, M>>
     for ::petgraph::stable_graph::StableDiGraph<GraphEntry, GraphEntry>
 where
     M: GraphMetadataExt,
 {
     type Error = ::anyhow::Error;
 
-    fn try_from(graph: Graph<LazyFrame, M>) -> Result<Self, Self::Error> {
+    fn try_from(graph: Graph<GraphData<LazyFrame>, M>) -> Result<Self, Self::Error> {
         let Graph {
+            connector: _,
             data: GraphData { edges, nodes },
             metadata,
             scope: _,
@@ -219,27 +244,31 @@ where
     }
 }
 
-impl<M> Graph<DataFrame, M> {
+impl<M> Graph<GraphData<DataFrame>, M> {
     pub fn drop_null_columns(self) -> Self {
         let Self {
+            connector,
             data,
             metadata,
             scope,
         } = self;
         Self {
+            connector,
             data: data.drop_null_columns(),
             metadata,
             scope,
         }
     }
 
-    pub fn lazy(self) -> Graph<LazyFrame, M> {
+    pub fn lazy(self) -> Graph<GraphData<LazyFrame>, M> {
         let Self {
+            connector,
             data,
             metadata,
             scope,
         } = self;
         Graph {
+            connector,
             data: data.lazy(),
             metadata,
             scope,
@@ -247,20 +276,22 @@ impl<M> Graph<DataFrame, M> {
     }
 }
 
-impl<M> Graph<LazyFrame, M>
+impl<M> Graph<GraphData<LazyFrame>, M>
 where
     M: GraphMetadataPinnedExt,
 {
-    pub fn cast<MT>(self, to: MT) -> Graph<LazyFrame, MT>
+    pub fn cast<MT>(self, to: MT) -> Graph<GraphData<LazyFrame>, MT>
     where
         MT: GraphMetadataPinnedExt,
     {
         let Self {
+            connector,
             data,
             metadata,
             scope,
         } = self;
         Graph {
+            connector,
             data: data.cast(&metadata, &to),
             metadata: to,
             scope,
@@ -268,14 +299,16 @@ where
     }
 }
 
-impl<M> Graph<LazyFrame, M> {
-    pub async fn collect(self) -> Result<Graph<DataFrame, M>> {
+impl<M> Graph<GraphData<LazyFrame>, M> {
+    pub async fn collect(self) -> Result<Graph<GraphData<DataFrame>, M>> {
         let Self {
+            connector,
             data,
             metadata,
             scope,
         } = self;
         Ok(Graph {
+            connector,
             data: data.collect().await?,
             metadata,
             scope,
@@ -365,6 +398,7 @@ where
     fn all(&self) -> Vec<String> {
         let mut values = vec![
             self.capacity().into(),
+            self.connector().into(),
             self.flow().into(),
             self.function().into(),
             self.interval_ms().into(),
@@ -380,9 +414,10 @@ where
         values
     }
 
-    fn all_cores(&self) -> [&str; 9] {
+    fn all_cores(&self) -> [&str; 10] {
         [
             self.capacity(),
+            self.connector(),
             self.flow(),
             self.function(),
             self.interval_ms(),
@@ -394,9 +429,10 @@ where
         ]
     }
 
-    fn all_node_inputs(&self) -> [&str; 8] {
+    fn all_node_inputs(&self) -> [&str; 9] {
         [
             self.capacity(),
+            self.connector(),
             self.function(),
             self.interval_ms(),
             self.name(),
@@ -409,6 +445,7 @@ where
 
     fn all_node_inputs_raw(&self) -> Vec<String> {
         let mut values = vec![
+            self.connector().into(),
             self.interval_ms().into(),
             self.name().into(),
             self.sink().into(),
@@ -427,6 +464,13 @@ where
             .and_then(|extras| extras.get("capacity"))
             .map(|value| value.as_str())
             .unwrap_or(GraphMetadataStandard::DEFAULT_CAPACITY)
+    }
+
+    fn connector(&self) -> &str {
+        self.extras()
+            .and_then(|extras| extras.get("connector"))
+            .map(|value| value.as_str())
+            .unwrap_or(GraphMetadataStandard::DEFAULT_CONNECTOR)
     }
 
     fn flow(&self) -> &str {
@@ -470,6 +514,7 @@ where
     fn to_pinned(&self) -> GraphMetadataPinned {
         GraphMetadataPinned {
             capacity: self.capacity().into(),
+            connector: self.connector().into(),
             flow: self.flow().into(),
             function: self.function().into(),
             interval_ms: self.interval_ms().into(),
@@ -491,7 +536,7 @@ impl GraphMetadataExt for GraphMetadata {
         }
     }
 
-    fn all_cores(&self) -> [&str; 9] {
+    fn all_cores(&self) -> [&str; 10] {
         match self {
             GraphMetadata::Raw(m) => m.all_cores(),
             GraphMetadata::Pinned(m) => m.all_cores(),
@@ -499,7 +544,7 @@ impl GraphMetadataExt for GraphMetadata {
         }
     }
 
-    fn all_node_inputs(&self) -> [&str; 8] {
+    fn all_node_inputs(&self) -> [&str; 9] {
         match self {
             GraphMetadata::Raw(m) => m.all_node_inputs(),
             GraphMetadata::Pinned(m) => m.all_node_inputs(),
@@ -528,6 +573,14 @@ impl GraphMetadataExt for GraphMetadata {
             GraphMetadata::Raw(m) => m.capacity(),
             GraphMetadata::Pinned(m) => GraphMetadataExt::capacity(m),
             GraphMetadata::Standard(m) => GraphMetadataExt::capacity(m),
+        }
+    }
+
+    fn connector(&self) -> &str {
+        match self {
+            GraphMetadata::Raw(m) => m.connector(),
+            GraphMetadata::Pinned(m) => GraphMetadataExt::connector(m),
+            GraphMetadata::Standard(m) => GraphMetadataExt::connector(m),
         }
     }
 
@@ -709,6 +762,8 @@ where
 {
     fn capacity(&self) -> &str;
 
+    fn connector(&self) -> &str;
+
     fn flow(&self) -> &str;
 
     fn function(&self) -> &str;
@@ -733,6 +788,7 @@ where
     fn all_node_inputs_raw(&self) -> Vec<String> {
         vec![
             self.capacity().into(),
+            self.connector().into(),
             self.interval_ms().into(),
             self.name().into(),
             self.sink().into(),
@@ -748,6 +804,10 @@ where
 
     fn capacity(&self) -> &str {
         GraphMetadataPinnedExt::capacity(self)
+    }
+
+    fn connector(&self) -> &str {
+        GraphMetadataPinnedExt::connector(self)
     }
 
     fn flow(&self) -> &str {
@@ -789,6 +849,10 @@ where
                 self.capacity().into(),
             ),
             (
+                GraphMetadataStandard::DEFAULT_CONNECTOR.into(),
+                self.connector().into(),
+            ),
+            (
                 GraphMetadataStandard::DEFAULT_FLOW.into(),
                 self.flow().into(),
             ),
@@ -825,6 +889,9 @@ pub struct GraphMetadataPinned {
     #[serde(default = "GraphMetadataPinned::default_capacity")]
     #[validate(length(min = 1))]
     pub capacity: String,
+    #[serde(default = "GraphMetadataPinned::default_connector")]
+    #[validate(length(min = 1))]
+    pub connector: String,
     #[serde(default = "GraphMetadataPinned::default_flow")]
     #[validate(length(min = 1))]
     pub flow: String,
@@ -861,6 +928,7 @@ impl Default for GraphMetadataPinned {
     fn default() -> Self {
         Self {
             capacity: Self::default_capacity(),
+            connector: Self::default_connector(),
             flow: Self::default_flow(),
             function: Self::default_function(),
             interval_ms: Self::default_interval_ms(),
@@ -876,6 +944,10 @@ impl Default for GraphMetadataPinned {
 impl GraphMetadataPinned {
     pub fn default_capacity() -> String {
         GraphMetadataStandard::DEFAULT_CAPACITY.into()
+    }
+
+    pub fn default_connector() -> String {
+        GraphMetadataStandard::DEFAULT_CONNECTOR.into()
     }
 
     pub fn default_flow() -> String {
@@ -914,6 +986,10 @@ impl GraphMetadataPinned {
 impl GraphMetadataPinnedExt for GraphMetadataPinned {
     fn capacity(&self) -> &str {
         &self.capacity
+    }
+
+    fn connector(&self) -> &str {
+        &self.connector
     }
 
     fn flow(&self) -> &str {
@@ -968,6 +1044,7 @@ pub struct GraphMetadataStandard {}
 
 impl GraphMetadataStandard {
     pub const DEFAULT_CAPACITY: &'static str = "capacity";
+    pub const DEFAULT_CONNECTOR: &'static str = "connector";
     pub const DEFAULT_FLOW: &'static str = "flow";
     pub const DEFAULT_FUNCTION: &'static str = "function";
     pub const DEFAULT_INTERVAL_MS: &'static str = "le";
@@ -987,6 +1064,10 @@ impl From<GraphMetadataStandard> for GraphMetadata {
 impl GraphMetadataPinnedExt for GraphMetadataStandard {
     fn capacity(&self) -> &str {
         Self::DEFAULT_CAPACITY
+    }
+
+    fn connector(&self) -> &str {
+        Self::DEFAULT_CONNECTOR
     }
 
     fn flow(&self) -> &str {

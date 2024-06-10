@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt,
     ops::{Add, Div, Mul, Neg, Not, Sub},
     str::FromStr,
@@ -21,7 +22,10 @@ use tracing::{error, info, instrument, warn, Level};
 
 use crate::{
     component::{NetworkComponent, NetworkComponentExt},
-    dependency::{NetworkDependencyPipeline, NetworkDependencySolver, NetworkDependencySolverSpec},
+    dependency::{
+        NetworkDependencyPipeline, NetworkDependencyPipelineTemplate, NetworkDependencySolver,
+        NetworkDependencySolverSpec,
+    },
     frame::LazyFrame,
     graph::{
         Graph, GraphData, GraphFilter, GraphMetadata, GraphScope, NetworkGraphDB,
@@ -30,7 +34,7 @@ use crate::{
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
     problem::{NetworkProblemCrd, ProblemSpec, VirtualProblem},
     resource::{NetworkResourceCollectionDB, NetworkResourceDB},
-    runner::NetworkRunner,
+    runner::{NetworkRunner, NetworkRunnerContext},
     solver::NetworkSolver,
     visualizer::{NetworkVisualizer, NetworkVisualizerExt},
 };
@@ -191,17 +195,25 @@ where
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
         // Step 1. Pull & Convert graphs
         let NetworkDependencyPipeline {
-            graph:
-                Graph {
-                    data,
-                    metadata,
-                    scope,
+            connectors,
+            functions,
+            template:
+                NetworkDependencyPipelineTemplate {
+                    graph:
+                        Graph {
+                            connector,
+                            data,
+                            metadata,
+                            scope,
+                        },
+                    static_edges,
                 },
-            static_edges,
         } = match self.pull_graph(&problem).await? {
             Some(pipeline) => match state {
                 self::sealed::NetworkVirtualMachineState::Pending => {
-                    self.visualizer().replace_graph(pipeline.graph).await?;
+                    self.visualizer()
+                        .replace_graph(pipeline.template.graph)
+                        .await?;
                     return Ok(self::sealed::NetworkVirtualMachineState::Ready);
                 }
                 _ => pipeline,
@@ -213,18 +225,22 @@ where
         let data = self.solver().solve(data, &problem.spec).await?;
 
         // Step 3. Apply edges to real-world (or simulator)
-        let graph_db_scoped = ScopedNetworkGraphDBContainer {
-            inner: self.graph_db(),
-            metadata: &metadata,
-            scope: &scope,
+        let runner_ctx = NetworkRunnerContext {
+            connectors,
+            functions,
+            graph: data.clone(),
+            graph_db: ScopedNetworkGraphDBContainer {
+                inner: self.graph_db(),
+                scope: &scope,
+            },
+            problem,
             static_edges,
         };
-        self.runner()
-            .execute(&graph_db_scoped, data.clone(), &problem.spec)
-            .await?;
+        self.runner().execute(runner_ctx).await?;
 
         // Step 4. Visualize the outputs
         let graph = Graph {
+            connector,
             data,
             metadata,
             scope,
@@ -256,7 +272,7 @@ where
     async fn pull_graph(
         &self,
         problem: &VirtualProblem,
-    ) -> Result<Option<NetworkDependencyPipeline<Graph<LazyFrame>>>> {
+    ) -> Result<Option<NetworkDependencyPipeline<Graph<GraphData<LazyFrame>>>>> {
         let VirtualProblem {
             filter,
             scope,
@@ -280,13 +296,31 @@ where
             return Ok(None);
         }
 
-        // Step 2. Collect all functions
+        // Step 2. Collect all connectors
         // NOTE: static edges can be used instead of functions
-        let functions = self.resource_db().list(()).await.unwrap_or_default();
+        let connectors = graphs
+            .iter()
+            .filter_map(|graph| graph.connector.clone())
+            .map(|cr| (GraphScope::from_resource(&*cr), cr))
+            .collect();
 
-        // Step 3. Solve the dependencies
-        let spec = NetworkDependencySolverSpec { functions, graphs };
-        let NetworkDependencyPipeline {
+        // Step 3. Collect all functions
+        // NOTE: static edges can be used instead of functions
+        let functions: BTreeMap<_, _> = self
+            .resource_db()
+            .list(())
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|cr| (GraphScope::from_resource(&cr), cr))
+            .collect();
+
+        // Step 4. Solve the dependencies
+        let spec = NetworkDependencySolverSpec {
+            functions: functions.clone(),
+            graphs,
+        };
+        let NetworkDependencyPipelineTemplate {
             graph: data,
             static_edges,
         } = self
@@ -295,15 +329,20 @@ where
             .await?;
 
         Ok(Some(NetworkDependencyPipeline {
-            graph: Graph {
-                data,
-                metadata: GraphMetadata::Pinned(metadata.clone()),
-                scope: GraphScope {
-                    namespace: scope.namespace.clone(),
-                    name: GraphScope::NAME_GLOBAL.into(),
+            connectors,
+            functions,
+            template: NetworkDependencyPipelineTemplate {
+                graph: Graph {
+                    connector: None,
+                    data,
+                    metadata: GraphMetadata::Pinned(metadata.clone()),
+                    scope: GraphScope {
+                        namespace: scope.namespace.clone(),
+                        name: GraphScope::NAME_GLOBAL.into(),
+                    },
                 },
+                static_edges,
             },
-            static_edges,
         }))
     }
 
@@ -346,7 +385,8 @@ where
     type DependencySolver: NetworkComponent + NetworkDependencySolver;
     type ResourceDB: 'static + Send + Clone + NetworkComponent + NetworkResourceCollectionDB;
     type GraphDB: 'static + Send + Clone + NetworkComponent + NetworkGraphDB;
-    type Runner: NetworkComponent + NetworkRunner<GraphData<LazyFrame>>;
+    type Runner: NetworkComponent
+        + for<'a> NetworkRunner<<Self as NetworkVirtualMachine>::GraphDB, LazyFrame>;
     type Solver: NetworkComponent
         + NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
     type Visualizer: NetworkComponent + NetworkVisualizer;

@@ -29,7 +29,7 @@ connector-local = ["kubegraph-api/connector-local"]
 connector-prometheus = ["kubegraph-api/connector-prometheus"]
 
 [dependencies]
-kubegraph-api = { path = "../../api", features = [
+kubegraph-api = { path = "../../api", default-features = false, features = [
     "connector-fake",
     "df-polars",
 ] }

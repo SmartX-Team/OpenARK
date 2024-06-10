@@ -1,5 +1,7 @@
 mod model;
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::{stream::iter, StreamExt};
@@ -34,14 +36,16 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     async fn pull(
         &mut self,
         connectors: Vec<NetworkConnectorCrd>,
-    ) -> Result<Vec<Graph<LazyFrame>>> {
+    ) -> Result<Vec<Graph<GraphData<LazyFrame>>>> {
         let items = connectors.into_iter().filter_map(|object| {
+            let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
             let NetworkConnectorSpec { metadata, kind } = object.spec;
             let metadata = GraphMetadata::Raw(metadata);
 
             match kind {
                 NetworkConnectorKind::Fake(spec) => Some(NetworkConnectorItem {
+                    cr,
                     metadata,
                     scope,
                     spec,
@@ -67,6 +71,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 
 #[derive(Clone, Debug)]
 struct NetworkConnectorItem {
+    cr: Arc<NetworkConnectorCrd>,
     metadata: GraphMetadata,
     scope: GraphScope,
     spec: NetworkConnectorFakeSpec,
@@ -74,8 +79,9 @@ struct NetworkConnectorItem {
 
 impl NetworkConnectorItem {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn load_graph_data(self) -> Result<Graph<LazyFrame>> {
+    async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>>> {
         let Self {
+            cr,
             metadata,
             scope,
             spec: NetworkConnectorFakeSpec { edges, nodes },
@@ -85,6 +91,7 @@ impl NetworkConnectorItem {
         info!("Loading fake connector: {namespace}/{name}");
 
         Ok(Graph {
+            connector: Some(cr.clone()),
             data: GraphData {
                 edges: edges.generate(&scope).map_err(|error| {
                     anyhow!("failed to generate fake edges ({namespace}/{name}): {error}")

@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use kubegraph_api::{
-    dependency::{NetworkDependencyPipeline, NetworkDependencySolverSpec},
+    dependency::{NetworkDependencyPipelineTemplate, NetworkDependencySolverSpec},
     frame::LazyFrame,
     function::{
         FunctionMetadata, NetworkFunctionCrd, NetworkFunctionKind, NetworkFunctionTemplate,
@@ -25,21 +25,23 @@ use kubegraph_vm_lazy::{
     LazyVirtualMachine,
 };
 use regex::Regex;
+use tracing::{instrument, Level};
 
 #[derive(Clone, Default)]
 pub struct NetworkDependencyGraph {}
 
 #[async_trait]
 impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyGraph {
+    #[instrument(level = Level::INFO, skip(self, problem, spec))]
     async fn build_pipeline(
         &self,
         problem: &VirtualProblem,
         spec: NetworkDependencySolverSpec,
-    ) -> Result<NetworkDependencyPipeline<GraphData<LazyFrame>>> {
+    ) -> Result<NetworkDependencyPipelineTemplate<GraphData<LazyFrame>>> {
         // Step 1. Register all available functions
         let graph = spec
             .functions
-            .into_iter()
+            .into_values()
             .map(|cr| Function::new(cr, problem))
             .collect::<Result<Graph<_>>>()?;
 
@@ -47,19 +49,23 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
         let mut static_edges = Vec::with_capacity(spec.graphs.len());
         let mut static_nodes = Vec::with_capacity(spec.graphs.len());
         for ::kubegraph_api::graph::Graph {
-            data: GraphData { edges, nodes },
+            connector: _,
+            data: GraphData { edges, mut nodes },
             metadata,
-            scope: _,
+            scope,
         } in spec.graphs
         {
+            // Mark the connector
+            nodes.alias_nodes(&problem.spec.metadata, &scope)?;
+
             static_edges.push(edges);
             static_nodes.push((metadata, nodes));
         }
 
         // Step 3. Collect all static edges
         let static_edges: GraphEdges<_> = static_edges.into_iter().map(GraphEdges::new).collect();
-        let static_edges = static_edges
-            .mark_as_static(&problem.scope.namespace, problem.spec.metadata.function())?;
+        let static_edges =
+            static_edges.mark_as_static(&problem.spec.metadata, &problem.scope.namespace)?;
 
         // Step 4. Collect all pipelines per graph
         // NOTE: static edges can be used instead of pipelines
@@ -163,7 +169,7 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
             println!();
         }
 
-        Ok(NetworkDependencyPipeline {
+        Ok(NetworkDependencyPipelineTemplate {
             graph,
             static_edges: Some(static_edges),
         })

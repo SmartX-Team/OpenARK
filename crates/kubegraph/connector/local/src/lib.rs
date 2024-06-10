@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -37,14 +37,16 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     async fn pull(
         &mut self,
         connectors: Vec<NetworkConnectorCrd>,
-    ) -> Result<Vec<Graph<LazyFrame>>> {
+    ) -> Result<Vec<Graph<GraphData<LazyFrame>>>> {
         let items = connectors.into_iter().filter_map(|object| {
+            let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
             let NetworkConnectorSpec { metadata, kind } = object.spec;
             let metadata = GraphMetadata::Raw(metadata);
 
             match kind {
                 NetworkConnectorKind::Local(spec) => Some(NetworkConnectorItem {
+                    cr,
                     metadata,
                     scope,
                     spec,
@@ -70,6 +72,7 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 
 #[derive(Clone, Debug)]
 struct NetworkConnectorItem {
+    cr: Arc<NetworkConnectorCrd>,
     metadata: GraphMetadata,
     scope: GraphScope,
     spec: NetworkConnectorLocalSpec,
@@ -77,8 +80,9 @@ struct NetworkConnectorItem {
 
 impl NetworkConnectorItem {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn load_graph_data(self) -> Result<Graph<LazyFrame>> {
+    async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>>> {
         let Self {
+            cr,
             metadata,
             scope,
             spec:
@@ -93,6 +97,7 @@ impl NetworkConnectorItem {
         info!("Loading local connector: {namespace}/{name}");
 
         Ok(Graph {
+            connector: Some(cr.clone()),
             data: GraphData {
                 edges: load_csv(&base_dir, &key_edges).await?,
                 nodes: load_csv(&base_dir, &key_nodes).await?,

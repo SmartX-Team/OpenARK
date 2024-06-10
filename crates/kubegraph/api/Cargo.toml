@@ -20,8 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["minimal"]
-minimal = ["connector-fake", "connector-local", "df-polars", "function-dummy"]
+default = []
 full = ["connector-full", "df-full", "function-full"]
 
 # Connectors
@@ -35,8 +34,8 @@ df-full = ["df-polars"]
 df-polars = ["dep:polars"]
 
 # Functions
-function-full = ["function-dummy"]
-function-dummy = []
+function-full = ["function-fake"]
+function-fake = []
 
 # Virtual Machines
 vm-entrypoint = []
