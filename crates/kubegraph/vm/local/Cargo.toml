@@ -62,11 +62,16 @@ df-polars = [
 ]
 
 # Configure Functions
-function-full = ["function-fake"]
+function-full = ["function-fake", "function-webhook"]
 function-fake = [
     "kubegraph-api/function-fake",
     "kubegraph-dependency-solver/function-fake",
     "kubegraph-runner/function-fake",
+]
+function-webhook = [
+    "kubegraph-api/function-webhook",
+    "kubegraph-dependency-solver/function-webhook",
+    "kubegraph-runner/function-webhook",
 ]
 
 # Configure Graph Databases

@@ -33,7 +33,7 @@ use crate::{
     },
     ops::{And, Eq, Ge, Gt, Le, Lt, Max, Min, Ne, Or},
     problem::{NetworkProblemCrd, ProblemSpec, VirtualProblem},
-    resource::{NetworkResourceCollectionDB, NetworkResourceDB},
+    resource::{NetworkResourceClient, NetworkResourceCollectionDB, NetworkResourceDB},
     runner::{NetworkRunner, NetworkRunnerContext},
     solver::NetworkSolver,
     visualizer::{NetworkVisualizer, NetworkVisualizerExt},
@@ -228,6 +228,7 @@ where
         let runner_ctx = NetworkRunnerContext {
             connectors,
             functions,
+            kube: self.resource_db().kube(),
             graph: data.clone(),
             graph_db: ScopedNetworkGraphDBContainer {
                 inner: self.graph_db(),

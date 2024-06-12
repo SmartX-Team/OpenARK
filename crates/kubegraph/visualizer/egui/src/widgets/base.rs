@@ -1,7 +1,7 @@
 use egui::Pos2;
 
 pub(crate) enum Alignment {
-    Center,
+    // Center,
     Top,
 }
 

@@ -42,6 +42,7 @@ members = [
     "crates/kubegraph/dependency/graph",
     "crates/kubegraph/dependency/solver",
     "crates/kubegraph/function/fake",
+    "crates/kubegraph/function/webhook",
     "crates/kubegraph/gateway",
     "crates/kubegraph/graph/local",
     "crates/kubegraph/graph/memory",

@@ -3,23 +3,67 @@ use std::{collections::BTreeMap, sync::Arc};
 use anyhow::{anyhow, Result};
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use clap::Parser;
 use futures::{stream::FuturesUnordered, StreamExt};
 use kube::Client;
 use kubegraph_api::{
+    component::NetworkComponent,
     connector::{NetworkConnectorCrd, NetworkConnectorExt, NetworkConnectorType},
     function::NetworkFunctionCrd,
     graph::GraphScope,
     problem::NetworkProblemCrd,
     vm::NetworkVirtualMachine,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{info, instrument, Level};
 
 use crate::reloader::NetworkResourceReloader;
 
-#[derive(Clone, Default)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Parser,
+)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkResourceDBArgs {}
+
+#[derive(Clone)]
 pub struct NetworkResourceDB {
     inner: Arc<Mutex<LocalResourceDB>>,
+    kube: Client,
+}
+
+#[async_trait]
+impl NetworkComponent for NetworkResourceDB {
+    type Args = NetworkResourceDBArgs;
+
+    async fn try_new(args: <Self as NetworkComponent>::Args, _: &FunctionSignal) -> Result<Self> {
+        Ok(Self {
+            inner: Arc::default(),
+            kube: Client::try_default()
+                .await
+                .map_err(|error| anyhow!("failed to load kubernetes account: {error}"))?,
+        })
+    }
+}
+
+impl ::kubegraph_api::resource::NetworkResourceClient for NetworkResourceDB {
+    fn kube(&self) -> &Client {
+        &self.kube
+    }
 }
 
 #[async_trait]
@@ -169,15 +213,11 @@ impl NetworkResourceWorker {
         signal: &FunctionSignal,
         vm: &(impl 'static + Clone + NetworkVirtualMachine),
     ) -> Result<Self> {
-        let client = Client::try_default()
-            .await
-            .map_err(|error| anyhow!("failed to load kubernetes account: {error}"))?;
-
         Ok(Self {
             connector_db: NetworkConnectorDBWorker::spawn(vm),
-            connector_reloader: NetworkResourceReloader::spawn(signal.clone(), client.clone(), vm),
-            function_reloader: NetworkResourceReloader::spawn(signal.clone(), client.clone(), vm),
-            problem_reloader: NetworkResourceReloader::spawn(signal.clone(), client, vm),
+            connector_reloader: NetworkResourceReloader::spawn(signal.clone(), vm),
+            function_reloader: NetworkResourceReloader::spawn(signal.clone(), vm),
+            problem_reloader: NetworkResourceReloader::spawn(signal.clone(), vm),
         })
     }
 

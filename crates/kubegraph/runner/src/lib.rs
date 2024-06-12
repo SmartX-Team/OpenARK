@@ -28,6 +28,7 @@ where
             functions,
             graph,
             graph_db,
+            kube,
             problem,
             static_edges,
         } = ctx;
@@ -63,6 +64,7 @@ where
                     functions,
                     graph: GraphData { edges, nodes },
                     graph_db,
+                    kube,
                     problem,
                     static_edges: None,
                 };
@@ -81,6 +83,7 @@ where
                     functions,
                     graph: GraphData { edges, nodes },
                     graph_db,
+                    kube,
                     problem,
                     static_edges: Some(GraphEdges::new(static_edges)),
                 };

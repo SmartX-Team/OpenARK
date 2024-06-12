@@ -34,8 +34,9 @@ df-full = ["df-polars"]
 df-polars = ["dep:polars"]
 
 # Functions
-function-full = ["function-fake"]
+function-full = ["function-fake", "function-webhook"]
 function-fake = []
+function-webhook = []
 
 # Virtual Machines
 vm-entrypoint = []

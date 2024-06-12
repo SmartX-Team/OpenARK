@@ -11,7 +11,7 @@ use kubegraph_api::{
 };
 
 #[async_trait]
-pub trait NetworkFunctionFake<DB, T, M>
+pub trait NetworkFunctionWebhook<DB, T, M>
 where
     DB: ScopedNetworkGraphDB<LazyFrame, M>,
 {

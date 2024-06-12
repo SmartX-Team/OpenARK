@@ -29,18 +29,25 @@ df-polars = [
     "dep:polars",
     "kubegraph-api/df-polars",
     "kubegraph-function-fake?/df-polars",
+    "kubegraph-function-webhook?/df-polars",
 ]
 
 # Configure Functions
-function-full = ["function-fake"]
+function-full = ["function-fake", "function-webhook"]
 function-fake = ["kubegraph-api/function-fake", "kubegraph-function-fake"]
+function-webhook = [
+    "kubegraph-api/function-webhook",
+    "kubegraph-function-webhook",
+]
 
 [dependencies]
 kubegraph-api = { path = "../api", default-features = false }
 kubegraph-function-fake = { path = "../function/fake", optional = true, default-features = false }
+kubegraph-function-webhook = { path = "../function/webhook", optional = true, default-features = false }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+kube = { workspace = true }
 polars = { workspace = true, optional = true }
 tracing = { workspace = true }

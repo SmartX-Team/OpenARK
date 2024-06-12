@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use kube::Client;
 
 use crate::{
     connector::NetworkConnectorCrd,
@@ -29,6 +30,7 @@ where
     pub functions: BTreeMap<GraphScope, NetworkFunctionCrd>,
     pub graph: GraphData<T>,
     pub graph_db: ScopedNetworkGraphDBContainer<'a, DB>,
+    pub kube: &'a Client,
     pub problem: VirtualProblem<GraphMetadataPinned>,
     pub static_edges: Option<GraphEdges<T>>,
 }

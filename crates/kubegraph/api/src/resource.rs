@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use kube::CustomResourceExt;
+use kube::{Client, CustomResourceExt};
 
 use crate::{
     connector::NetworkConnectorCrd, function::NetworkFunctionCrd, graph::GraphScope,
@@ -10,6 +10,7 @@ use crate::{
 pub trait NetworkResourceCollectionDB
 where
     Self: Sync
+        + NetworkResourceClient
         + NetworkResourceDB<NetworkConnectorCrd>
         + NetworkResourceDB<NetworkFunctionCrd>
         + NetworkResourceDB<NetworkProblemCrd>,
@@ -19,10 +20,15 @@ where
 #[async_trait]
 impl<T> NetworkResourceCollectionDB for T where
     Self: Sync
+        + NetworkResourceClient
         + NetworkResourceDB<NetworkConnectorCrd>
         + NetworkResourceDB<NetworkFunctionCrd>
         + NetworkResourceDB<NetworkProblemCrd>
 {
+}
+
+pub trait NetworkResourceClient {
+    fn kube(&self) -> &Client;
 }
 
 #[async_trait]

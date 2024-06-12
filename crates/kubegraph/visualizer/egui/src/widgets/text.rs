@@ -37,11 +37,11 @@ impl TextWidget {
 
         // we need to offset label by half its size to place it in the center of the rect
         let offset = match alignment {
-            Alignment::Center => {
-                let x = -galley.size().x / 2.;
-                let y = -galley.size().y / 2.;
-                Vec2::new(x, y)
-            }
+            // Alignment::Center => {
+            //     let x = -galley.size().x / 2.;
+            //     let y = -galley.size().y / 2.;
+            //     Vec2::new(x, y)
+            // }
             Alignment::Top => {
                 let x = -galley.size().x / 2.;
                 let y = -galley.size().y - size / 2.;
