@@ -1,11 +1,14 @@
 use actix_web::{
-    get,
-    web::{Data, Path},
+    get, post,
+    web::{Data, Json, Path},
     HttpResponse, Responder,
 };
 use ark_core::result::Result;
 use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
-use kubegraph_api::graph::{GraphFilter, NetworkGraphDB};
+use kubegraph_api::{
+    frame::DataFrame,
+    graph::{Graph, GraphData, GraphFilter, NetworkGraphDB},
+};
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO, skip(graph_db))]
@@ -29,4 +32,18 @@ pub async fn get(
             })
             .await,
     ))
+}
+
+#[instrument(level = Level::INFO, skip(graph_db, graph))]
+#[post("/{namespace}")]
+pub async fn post(
+    namespace: Path<String>,
+    graph_db: Data<Box<dyn Send + NetworkGraphDB>>,
+    Json(graph): Json<Graph<GraphData<DataFrame>>>,
+) -> impl Responder {
+    if &namespace.into_inner() != &graph.scope.namespace {
+        return HttpResponse::Ok().json(Result::Ok(()));
+    }
+
+    HttpResponse::Ok().json(Result::from(graph_db.insert(graph.lazy()).await))
 }

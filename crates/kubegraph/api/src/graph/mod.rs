@@ -113,7 +113,7 @@ where
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GraphEdges<T>(pub(crate) T);
 
 impl<T> GraphEdges<T> {

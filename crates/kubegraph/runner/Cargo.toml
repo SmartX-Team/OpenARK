@@ -50,4 +50,5 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
 polars = { workspace = true, optional = true }
+serde = { workspace = true }
 tracing = { workspace = true }

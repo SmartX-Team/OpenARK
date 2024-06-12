@@ -36,13 +36,6 @@ where
         match (graph, static_edges.map(GraphEdges::into_inner)) {
             (
                 GraphData {
-                    edges: LazyFrame::Empty,
-                    nodes: _,
-                },
-                _,
-            )
-            | (
-                GraphData {
                     edges: _,
                     nodes: LazyFrame::Empty,
                 },
@@ -50,6 +43,13 @@ where
             ) => {
                 bail!("cannot execute simulator runner with empty graph")
             }
+            (
+                GraphData {
+                    edges: LazyFrame::Empty,
+                    nodes: _,
+                },
+                _,
+            ) => Ok(()),
 
             #[cfg(feature = "df-polars")]
             (

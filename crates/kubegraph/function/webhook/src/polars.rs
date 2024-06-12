@@ -1,22 +1,18 @@
-use std::ops::{Add, Sub};
-
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use kubegraph_api::{
     function::{spawn::FunctionSpawnContext, webhook::NetworkFunctionWebhookSpec},
-    graph::{Graph, GraphData, GraphEdges, GraphMetadataExt, ScopedNetworkGraphDB},
+    graph::{Graph, GraphData, GraphEdges, GraphMetadataExt},
 };
-use pl::lazy::{
-    dsl,
-    frame::{IntoLazy, LazyFrame},
-};
+use pl::lazy::frame::LazyFrame;
+use serde::Serialize;
 use tracing::{instrument, Level};
 
 #[async_trait]
 impl<DB, M> super::NetworkFunctionWebhook<DB, LazyFrame, M> for NetworkFunctionWebhookSpec
 where
-    DB: ScopedNetworkGraphDB<::kubegraph_api::frame::LazyFrame, M>,
-    M: GraphMetadataExt,
+    DB: Sync,
+    M: GraphMetadataExt + Serialize,
 {
     #[instrument(level = Level::INFO, skip(self, ctx))]
     async fn spawn(&self, ctx: FunctionSpawnContext<'async_trait, DB, LazyFrame, M>) -> Result<()>
@@ -24,22 +20,37 @@ where
         DB: 'async_trait + Send,
         M: 'async_trait + Send,
     {
-        let Self { endpoint } = self;
         let FunctionSpawnContext {
             graph:
                 Graph {
                     connector,
-                    data: GraphData { edges, nodes },
+                    data,
                     metadata: graph_metadata,
                     scope: graph_scope,
                 },
             graph_db,
-            kube: _,
-            metadata: _,
+            kube,
+            metadata,
             static_edges,
-            template: _,
+            template,
         } = ctx;
 
-        todo!()
+        let ctx = FunctionSpawnContext {
+            graph: Graph {
+                connector,
+                data: GraphData::<::kubegraph_api::frame::LazyFrame>::from(data),
+                metadata: graph_metadata,
+                scope: graph_scope,
+            },
+            graph_db,
+            kube,
+            metadata,
+            static_edges: static_edges
+                .map(GraphEdges::into_inner)
+                .map(Into::into)
+                .map(GraphEdges::new),
+            template,
+        };
+        self.spawn(ctx).await
     }
 }

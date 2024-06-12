@@ -17,6 +17,7 @@ use kubegraph_api::{
     runner::NetworkRunnerContext,
 };
 use pl::lazy::{dsl, frame::LazyFrame};
+use serde::Serialize;
 use tracing::{instrument, Level};
 
 #[async_trait]
@@ -95,7 +96,7 @@ fn collect_by_functions<'a, DB, M>(
 ) -> impl Iterator<Item = BoxFuture<'a, Result<()>>>
 where
     DB: Send + ScopedNetworkGraphDB<::kubegraph_api::frame::LazyFrame, M>,
-    M: 'a + Send + Clone + GraphMetadataPinnedExt,
+    M: 'a + Send + Clone + GraphMetadataPinnedExt + Serialize,
 {
     let Graph {
         connector,

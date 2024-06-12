@@ -50,7 +50,10 @@ async fn try_loop_forever(vm: &impl NetworkVirtualMachine) -> Result<()> {
     // Create a http server
     let server = HttpServer::new(move || {
         let app = App::new().app_data(Data::clone(&graph_db));
-        let app = app.service(health).service(crate::routes::network::get);
+        let app = app
+            .service(health)
+            .service(crate::routes::graph::get)
+            .service(crate::routes::graph::post);
         app.wrap(RequestTracing::default())
             .wrap(RequestMetrics::default())
     })

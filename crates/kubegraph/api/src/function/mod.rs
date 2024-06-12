@@ -1,4 +1,5 @@
 pub mod annotation;
+pub mod call;
 #[cfg(feature = "function-fake")]
 pub mod fake;
 pub mod spawn;

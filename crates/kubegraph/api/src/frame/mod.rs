@@ -21,7 +21,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum DataFrame {
     Empty,
     #[cfg(feature = "df-polars")]

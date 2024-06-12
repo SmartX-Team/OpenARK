@@ -28,13 +28,13 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for NetworkSol
     ) -> Result<Self::Output> {
         match graph {
             GraphData {
-                edges: LazyFrame::Empty,
-                nodes: _,
-            }
-            | GraphData {
                 edges: _,
                 nodes: LazyFrame::Empty,
             } => bail!("cannot execute local solver with empty graph"),
+            GraphData {
+                edges: LazyFrame::Empty,
+                nodes: _,
+            } => Ok(graph),
 
             #[cfg(feature = "df-polars")]
             GraphData {

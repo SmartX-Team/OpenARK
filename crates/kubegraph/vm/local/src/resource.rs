@@ -51,6 +51,8 @@ impl NetworkComponent for NetworkResourceDB {
     type Args = NetworkResourceDBArgs;
 
     async fn try_new(args: <Self as NetworkComponent>::Args, _: &FunctionSignal) -> Result<Self> {
+        let NetworkResourceDBArgs {} = args;
+
         Ok(Self {
             inner: Arc::default(),
             kube: Client::try_default()
