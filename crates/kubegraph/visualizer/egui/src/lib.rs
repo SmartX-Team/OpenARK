@@ -1,3 +1,6 @@
+mod node;
+mod widgets;
+
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -7,8 +10,7 @@ use clap::Parser;
 use eframe::{run_native, App, AppCreator, Frame, NativeOptions};
 use egui::{Button, Context, Ui};
 use egui_graphs::{
-    DefaultEdgeShape, DefaultNodeShape, Graph as EguiGraph, GraphView, SettingsInteraction,
-    SettingsStyle,
+    DefaultEdgeShape, Graph as EguiGraph, GraphView, SettingsInteraction, SettingsStyle,
 };
 use kubegraph_api::{
     component::NetworkComponent,
@@ -16,6 +18,7 @@ use kubegraph_api::{
     graph::{Graph, GraphData, GraphEntry, GraphMetadataExt},
     visualizer::NetworkVisualizerEvent,
 };
+use petgraph::{csr::DefaultIx, Directed};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -117,7 +120,7 @@ impl NetworkVisualizer {
 
         let app = NetworkVisualizerApp::new(ctx, self.data.clone());
 
-        let app_name = "kubegraph_visualizer";
+        let app_name = "KubeGraph - Visualizer";
         let native_options = NativeOptions {
             event_loop_builder: Some(Box::new(|event_loop_builder| {
                 event_loop_builder.with_any_thread(true);
@@ -177,7 +180,7 @@ impl NetworkVisualizerApp {
                 .with_edge_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(graph)
+                &mut GraphView::<_, _, _, _, self::node::NodeShape, DefaultEdgeShape>::new(graph)
                     .with_styles(style_settings)
                     .with_interactions(interaction_settings),
             );
@@ -217,7 +220,18 @@ impl NetworkVisualizerContext {
 
 struct NetworkVisualizerData {
     event_channel: mpsc::Sender<NetworkVisualizerEventContext>,
-    graph: Mutex<Option<EguiGraph<GraphEntry, GraphEntry>>>,
+    graph: Mutex<
+        Option<
+            EguiGraph<
+                GraphEntry,
+                GraphEntry,
+                Directed,
+                DefaultIx,
+                self::node::NodeShape,
+                DefaultEdgeShape,
+            >,
+        >,
+    >,
 }
 
 impl NetworkVisualizerData {

@@ -22,7 +22,11 @@ workspace = true
 [features]
 default = ["full"]
 full = ["df-full"]
-persistence = ["egui/persistence", "egui_graphs/egui_persistence"]
+persistence = [
+    "eframe/persistence",
+    "egui/persistence",
+    "egui_graphs/egui_persistence",
+]
 
 # DataFrame
 df-full = ["df-polars"]
@@ -40,6 +44,7 @@ clap = { workspace = true }
 eframe = { workspace = true }
 egui = { workspace = true }
 egui_graphs = { workspace = true }
+petgraph = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["rt", "sync"] }

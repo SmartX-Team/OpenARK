@@ -5,11 +5,11 @@ use ark_core::signal::FunctionSignal;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::{
     runtime::watcher::{watcher, Config, Error, Event},
-    Api, Client, CustomResourceExt, Resource, ResourceExt,
+    Api, CustomResourceExt, Resource, ResourceExt,
 };
 use kubegraph_api::{
     graph::GraphScope,
-    resource::{NetworkResource, NetworkResourceDB},
+    resource::{NetworkResource, NetworkResourceClient, NetworkResourceDB},
     vm::{NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy},
 };
 use serde::de::DeserializeOwned;
@@ -33,7 +33,7 @@ where
         + NetworkResource,
     <K as Resource>::DynamicType: Default,
 {
-    pub(crate) fn spawn<VM>(signal: FunctionSignal, kube: Client, vm: &VM) -> Self
+    pub(crate) fn spawn<VM>(signal: FunctionSignal, vm: &VM) -> Self
     where
         VM: NetworkVirtualMachine,
         <VM as NetworkVirtualMachine>::ResourceDB: NetworkResourceDB<K>,
@@ -42,7 +42,6 @@ where
             _crd: PhantomData,
             inner: ::tokio::spawn(loop_forever::<K>(
                 signal,
-                kube,
                 vm.resource_db().clone(),
                 vm.fallback_policy(),
             )),
@@ -59,8 +58,7 @@ where
 
 async fn loop_forever<K>(
     signal: FunctionSignal,
-    kube: Client,
-    resource_db: impl 'static + NetworkResourceDB<K>,
+    resource_db: impl 'static + NetworkResourceClient + NetworkResourceDB<K>,
     fallback_interval: NetworkVirtualMachineFallbackPolicy,
 ) where
     K: 'static
@@ -76,7 +74,7 @@ async fn loop_forever<K>(
     let name = <K as CustomResourceExt>::crd_name();
 
     loop {
-        if let Err(error) = try_loop_forever::<K>(&kube, &resource_db).await {
+        if let Err(error) = try_loop_forever::<K>(&resource_db).await {
             error!("failed to operate {name} reloader: {error}");
 
             match fallback_interval {
@@ -94,8 +92,7 @@ async fn loop_forever<K>(
 }
 
 async fn try_loop_forever<K>(
-    kube: &Client,
-    resource_db: &(impl 'static + NetworkResourceDB<K>),
+    resource_db: &(impl 'static + NetworkResourceClient + NetworkResourceDB<K>),
 ) -> Result<()>
 where
     K: 'static + Send + Clone + fmt::Debug + DeserializeOwned + Resource + NetworkResource,
@@ -104,6 +101,7 @@ where
     let name = <K as CustomResourceExt>::crd_name();
     info!("Starting {name} reloader...");
 
+    let kube = resource_db.kube();
     let default_namespace = kube.default_namespace().to_string();
     let default_namespace = || default_namespace.clone();
     let handle_event = |e| handle_event(resource_db, default_namespace, e);

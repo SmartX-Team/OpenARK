@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{future::BoxFuture, stream::FuturesUnordered, TryStreamExt};
+use kube::Client;
 use kubegraph_api::{
     connector::NetworkConnectorCrd,
     function::{
@@ -31,6 +32,7 @@ where
             functions,
             graph: GraphData { edges, nodes },
             graph_db,
+            kube,
             problem:
                 VirtualProblem {
                     filter: _,
@@ -49,7 +51,14 @@ where
 
         // Step 3. Disaggregate edges by function
         let all_functions = all_nodes.flat_map(|nodes| {
-            collect_by_functions(&graph_db, &functions, &edges, static_edges.as_ref(), nodes)
+            collect_by_functions(
+                &graph_db,
+                &kube,
+                &functions,
+                &edges,
+                static_edges.as_ref(),
+                nodes,
+            )
         });
 
         // Step 4. Spawn all tasks
@@ -78,13 +87,14 @@ where
 
 fn collect_by_functions<'a, DB, M>(
     graph_db: &'a DB,
+    kube: &'a Client,
     functions: &'a BTreeMap<GraphScope, NetworkFunctionCrd>,
     edges: &'a LazyFrame,
     static_edges: Option<&'a GraphEdges<LazyFrame>>,
     nodes: Graph<LazyFrame, M>,
 ) -> impl Iterator<Item = BoxFuture<'a, Result<()>>>
 where
-    DB: ScopedNetworkGraphDB<::kubegraph_api::frame::LazyFrame, M>,
+    DB: Send + ScopedNetworkGraphDB<::kubegraph_api::frame::LazyFrame, M>,
     M: 'a + Send + Clone + GraphMetadataPinnedExt,
 {
     let Graph {
@@ -107,6 +117,8 @@ where
                     metadata: graph_metadata.clone(),
                     scope: graph_scope.clone(),
                 },
+                graph_db,
+                kube: kube.clone(),
                 metadata: FunctionMetadata {
                     scope: function_scope.clone(),
                 },
@@ -118,14 +130,18 @@ where
                 template: function.spec.template.clone(),
             };
 
-            match function.spec.kind {
+            match &function.spec.kind {
                 NetworkFunctionKind::Annotation(_) => None,
                 #[cfg(feature = "function-fake")]
                 NetworkFunctionKind::Fake(spec) => {
                     use kubegraph_function_fake::NetworkFunctionFake;
-                    Some(spec.spawn(graph_db, ctx))
+                    Some(spec.spawn(ctx))
                 }
-                _ => None,
+                #[cfg(feature = "function-webhook")]
+                NetworkFunctionKind::Webhook(spec) => {
+                    use kubegraph_function_webhook::NetworkFunctionWebhook;
+                    Some(spec.spawn(ctx))
+                }
             }
         })
 }

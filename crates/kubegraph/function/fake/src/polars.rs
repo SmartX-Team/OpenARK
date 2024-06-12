@@ -18,9 +18,10 @@ where
     DB: ScopedNetworkGraphDB<::kubegraph_api::frame::LazyFrame, M>,
     M: GraphMetadataExt,
 {
-    #[instrument(level = Level::INFO, skip(self, graph_db, ctx))]
-    async fn spawn(self, graph_db: &DB, ctx: FunctionSpawnContext<LazyFrame, M>) -> Result<()>
+    #[instrument(level = Level::INFO, skip(self, ctx))]
+    async fn spawn(&self, ctx: FunctionSpawnContext<'async_trait, DB, LazyFrame, M>) -> Result<()>
     where
+        DB: 'async_trait + Send,
         M: 'async_trait + Send,
     {
         let Self {} = self;
@@ -32,6 +33,8 @@ where
                     metadata: graph_metadata,
                     scope: graph_scope,
                 },
+            graph_db,
+            kube: _,
             metadata: _,
             static_edges,
             template: _,

@@ -99,7 +99,8 @@ metadata:
   name: warehouse
   namespace: kubegraph
 spec:
-  fake: {}
+  # fake: {}
+  webhook: {}
   filter: src != sink and src.supply > 0 and src.supply > sink.supply + 1
   script: |
     capacity = min(50, (src.supply - sink.supply) / 2);

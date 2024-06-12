@@ -2,6 +2,8 @@ pub mod annotation;
 #[cfg(feature = "function-fake")]
 pub mod fake;
 pub mod spawn;
+#[cfg(feature = "function-webhook")]
+pub mod webhook;
 
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -44,11 +46,12 @@ impl NetworkResource for NetworkFunctionCrd {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub enum NetworkFunctionKind {
     Annotation(self::annotation::NetworkFunctionAnnotationSpec),
     #[cfg(feature = "function-fake")]
     Fake(self::fake::NetworkFunctionFakeSpec),
+    #[cfg(feature = "function-webhook")]
+    Webhook(self::webhook::NetworkFunctionWebhookSpec),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

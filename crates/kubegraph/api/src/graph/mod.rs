@@ -1219,6 +1219,15 @@ impl GraphEntry {
             .copied()
             .map(::petgraph::graph::NodeIndex::new)
     }
+
+    pub fn name(&self) -> Option<&String> {
+        self.others
+            .get(GraphMetadataStandard::DEFAULT_NAME)
+            .and_then(|value| match value {
+                GraphEntryValue::String(value) => Some(value),
+                _ => None,
+            })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
