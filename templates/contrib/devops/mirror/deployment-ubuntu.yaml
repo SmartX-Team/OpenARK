@@ -46,74 +46,74 @@ data:
     #deb-armhf http://archive.raspbian.org/raspbian stretch main contrib non-free
 
     # Ubuntu Xenial (16.04)
-    # deb           http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial             main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-updates     main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-backports   main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-security    main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      xenial-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      xenial-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      xenial-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
 
     # Ubuntu Bionic (18.04)
-    # deb           http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
-    # deb           http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
-    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic             main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-updates     main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-backports   main restricted universe multiverse
-    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-security    main restricted universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb           http://archive.ubuntu.com/ubuntu      bionic-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-i386      http://archive.ubuntu.com/ubuntu      bionic-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic             main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-updates     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-backports   main main/debian-installer restricted restricted/debian-installer universe multiverse
+    # deb-amd64     http://archive.ubuntu.com/ubuntu      bionic-security    main main/debian-installer restricted restricted/debian-installer universe multiverse
 
     # Ubuntu Focal (20.04)
-    deb           http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      focal              main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-updates      main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-backports    main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-security     main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      focal-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      focal-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      focal-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
 
     # Ubuntu Jammy (22.04)
-    deb           http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy              main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-updates      main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-backports    main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-security     main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      jammy-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      jammy-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      jammy-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
 
     # Ubuntu Noble (24.04)
-    deb           http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
-    deb           http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
-    deb-i386      http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      noble              main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-updates      main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-backports    main restricted universe multiverse
-    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-security     main restricted universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb           http://archive.ubuntu.com/ubuntu      noble-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-i386      http://archive.ubuntu.com/ubuntu      noble-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble              main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-updates      main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-backports    main main/debian-installer restricted restricted/debian-installer universe multiverse
+    deb-amd64     http://archive.ubuntu.com/ubuntu      noble-security     main main/debian-installer restricted restricted/debian-installer universe multiverse
 
     # Ubuntu Installer
     # deb-amd64     http://archive.ubuntu.com/ubuntu xenial main main/debian-installer restricted restricted/debian-installer universe
