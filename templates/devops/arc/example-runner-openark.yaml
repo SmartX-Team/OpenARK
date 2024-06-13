@@ -30,12 +30,23 @@ spec:
                     operator: In
                     values:
                       - Compute
+      dockerdContainerResources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      dockerdWithinRunnerContainer: true
       githubAPICredentialsFrom:
         secretRef:
           name: arc-github-app
+      image: summerwind/actions-runner-dind:ubuntu-22.04
+      imagePullPolicy: Always
       labels:
         - ubuntu-latest
       organization: ulagbulag
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi
 ---
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: HorizontalRunnerAutoscaler
