@@ -57,9 +57,9 @@ if [ "x${ethernet_name}" != 'x' ] && [ "x${wlan_name}" != 'x' ]; then
             sudo sed -i "s/${ethernet_name}/${wlan_name}/g" "${enable_dst}"
             sudo sed -i "s/\(mac-address=\)[0-9a-f:]\+/\1${wlan_mac}/g" "${enable_dst}"
 
-            sudo nmcli connection reload
-            sudo nmcli connection up '10-kiss-enable-master'
-            sudo nmcli connection up "20-kiss-disable-${ethernet_name}"
+            # sudo nmcli connection reload
+            # sudo nmcli connection up '10-kiss-enable-master'
+            # sudo nmcli connection up "20-kiss-disable-${ethernet_name}"
             sudo reboot
         fi
     fi

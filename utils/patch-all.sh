@@ -25,7 +25,9 @@ SSH_KEYFILE_PATH="${SSH_KEYFILE_PATH:-$SSH_KEYFILE_PATH_DEFAULT}"
 ###########################################################
 
 for address in $(kubectl get box -o jsonpath='{.items[*].status.access.primary.address}'); do
-    echo -n "Patching \"${address}\"... "
+    name=$(kubectl get box | grep "${address}" | awk '{print $2}')
+
+    echo -n "Patching \"${name}\"... "
 
     ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${address}" >/dev/null 2>/dev/null
 

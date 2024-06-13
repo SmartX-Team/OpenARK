@@ -78,6 +78,7 @@
         kiss_power_ipmi_username: "{{ lookup('env', 'kiss_power_ipmi_username') }}"
         kiss_power_ipmi_password: "{{ lookup('env', 'kiss_power_ipmi_password') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
+        reset_restart_network_service_name: "{{ 'systemd-networkd' if lookup('env', 'kiss_os_default') in ['flatcar'] else 'NetworkManager' }}"
         upgrade_cluster_setup: "{{ ( lookup('env', 'kiss_ansible_task_name', errors='ignore') | default('') ) == 'upgrade' }}"
         groups:
           - all
