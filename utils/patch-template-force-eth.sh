@@ -40,7 +40,7 @@ if [ "x${wlan_name}" != 'x' ]; then
         sudo sed -i "s/${wlan_name}/${ethernet_name}/g" "${enable_dst}"
         sudo sed -i "s/${wlan_mac}/${ethernet_mac}/g" "${enable_dst}"
         sudo chmod u-w "${enable_dst}"
-    fi
 
-    sudo reboot
+        sudo reboot
+    fi
 fi

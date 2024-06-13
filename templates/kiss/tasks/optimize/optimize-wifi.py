@@ -180,7 +180,7 @@ class ConnectionDatabase:
 
     def update_tc(self) -> None:
         return _run_shell(
-            'tc qdisc replace dev master root fq_codel '
+            'tc qdisc replace dev master root noqueue '
             'limit 102400 interval 1000ms memory_limit 256Mb ecn'
         )
 

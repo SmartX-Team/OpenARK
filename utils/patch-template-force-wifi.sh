@@ -53,7 +53,7 @@ if [ "x${ethernet_name}" != 'x' ] && [ "x${wlan_name}" != 'x' ]; then
 
             sudo sed -i "s/\(enable-\)[0-9a-z]\+/\1master/g" "${enable_dst}"
             sudo sed -i "s/\=ethernet/\=wifi/g" "${enable_dst}"
-            sudo sed -i "s/\(qdisc\.root=\)[_a-z]*/\1fq_codel/g" "${enable_dst}"
+            sudo sed -i "s/\(qdisc\.root=\)[_a-z]*/\1noqueue/g" "${enable_dst}"
             sudo sed -i "s/${ethernet_name}/${wlan_name}/g" "${enable_dst}"
             sudo sed -i "s/\(mac-address=\)[0-9a-f:]\+/\1${wlan_mac}/g" "${enable_dst}"
 

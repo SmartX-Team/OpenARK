@@ -106,7 +106,7 @@
           ethernet_priority_map[ansible_facts[item]['module']]
           if ansible_facts[item]['module'] in ethernet_priority_map
           else (ethernet_priority | length),
-        'qdisc': 'mq' if 'speed' in ansible_facts[item] else 'fq_codel',
+        'qdisc': 'mq' if 'speed' in ansible_facts[item] else 'noqueue',
         'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'type':
