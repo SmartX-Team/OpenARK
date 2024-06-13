@@ -27,6 +27,7 @@ RUN true \
     clang \
     cmake \
     docker-buildx \
+    git-lfs \
     libclang-dev \
     libgtk2.0-dev \
     libhwloc-dev \

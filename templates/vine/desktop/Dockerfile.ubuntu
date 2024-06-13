@@ -150,6 +150,7 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     # Core (Devops, CI/CD)
     git \
+    git-lfs \
     # Core (Container)
     crun \
     nvidia-container-toolkit-base \
