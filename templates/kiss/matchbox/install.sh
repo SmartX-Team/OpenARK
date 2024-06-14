@@ -27,7 +27,7 @@ for dir in ./*; do
 done
 
 echo "- Restarting matchbox ... "
-kubectl --namespace kiss delete pods -l name=matchbox
+kubectl --namespace kiss rollout restart deploy matchbox
 
 # Finished!
 echo "Installed!"
