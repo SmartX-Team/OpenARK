@@ -18,7 +18,7 @@ use tracing::{error, info, instrument, Level};
 
 use crate::{
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphMetadataRaw, GraphScope, NetworkGraphDB},
+    graph::{Graph, GraphData, GraphScope, NetworkGraphDB},
     resource::{NetworkResource, NetworkResourceDB},
     visualizer::NetworkVisualizerExt,
     vm::{NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
@@ -190,11 +190,8 @@ enum NetworkConnectorEvent {
         "jsonPath": ".metadata.generation"
     }"#
 )]
-#[schemars(bound = "M: Default + JsonSchema")]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkConnectorSpec<M = GraphMetadataRaw> {
-    #[serde(default)]
-    pub metadata: M,
+pub struct NetworkConnectorSpec {
     #[serde(flatten)]
     pub kind: NetworkConnectorKind,
 }
@@ -207,7 +204,7 @@ impl NetworkResource for NetworkConnectorCrd {
     }
 }
 
-impl<M> NetworkConnectorSpec<M> {
+impl NetworkConnectorSpec {
     pub fn name(&self) -> String {
         self.kind.name()
     }
@@ -217,7 +214,7 @@ impl<M> NetworkConnectorSpec<M> {
     }
 }
 
-impl<M> PartialEq<NetworkConnectorType> for NetworkConnectorSpec<M> {
+impl PartialEq<NetworkConnectorType> for NetworkConnectorSpec {
     fn eq(&self, other: &NetworkConnectorType) -> bool {
         self.to_ref() == *other
     }

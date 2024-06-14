@@ -725,6 +725,34 @@ impl GraphMetadataExt for GraphMetadataRaw {
     }
 }
 
+impl GraphMetadataRaw {
+    #[cfg(feature = "df-polars")]
+    pub fn from_polars(df: &::pl::frame::DataFrame) -> Self {
+        let mut metadata = Self::default();
+        for column in df.get_columns() {
+            let key = column.name();
+            if column.is_empty() || matches!(column.dtype(), ::pl::datatypes::DataType::Null) {
+                continue;
+            }
+
+            metadata.insert(key.into(), key.into());
+        }
+        metadata
+    }
+
+    fn insert(&mut self, key: String, value: String) {
+        match key.as_str() {
+            GraphMetadataStandard::DEFAULT_INTERVAL_MS => self.interval_ms = value,
+            GraphMetadataStandard::DEFAULT_NAME => self.name = value,
+            GraphMetadataStandard::DEFAULT_SINK => self.sink = value,
+            GraphMetadataStandard::DEFAULT_SRC => self.src = value,
+            _ => {
+                self.extras.insert(key, value);
+            }
+        }
+    }
+}
+
 mod impl_json_schema_for_graph_metadata_raw {
     use std::{borrow::Cow, collections::BTreeMap};
 

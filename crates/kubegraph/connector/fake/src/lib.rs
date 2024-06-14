@@ -11,7 +11,7 @@ use kubegraph_api::{
         NetworkConnectorSpec, NetworkConnectorType,
     },
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphMetadata, GraphScope},
+    graph::{Graph, GraphData, GraphMetadataRaw, GraphScope},
 };
 use tracing::{info, instrument, warn, Level};
 
@@ -40,16 +40,10 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         let items = connectors.into_iter().filter_map(|object| {
             let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
-            let NetworkConnectorSpec { metadata, kind } = object.spec;
-            let metadata = GraphMetadata::Raw(metadata);
+            let NetworkConnectorSpec { kind } = object.spec;
 
             match kind {
-                NetworkConnectorKind::Fake(spec) => Some(NetworkConnectorItem {
-                    cr,
-                    metadata,
-                    scope,
-                    spec,
-                }),
+                NetworkConnectorKind::Fake(spec) => Some(NetworkConnectorItem { cr, scope, spec }),
                 _ => None,
             }
         });
@@ -72,7 +66,6 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 #[derive(Clone, Debug)]
 struct NetworkConnectorItem {
     cr: Arc<NetworkConnectorCrd>,
-    metadata: GraphMetadata,
     scope: GraphScope,
     spec: NetworkConnectorFakeSpec,
 }
@@ -82,7 +75,6 @@ impl NetworkConnectorItem {
     async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>>> {
         let Self {
             cr,
-            metadata,
             scope,
             spec: NetworkConnectorFakeSpec { edges, nodes },
         } = self;
@@ -90,15 +82,24 @@ impl NetworkConnectorItem {
         let GraphScope { namespace, name } = &scope;
         info!("Loading fake connector: {namespace}/{name}");
 
+        let edges = edges.generate(&scope).map_err(|error| {
+            anyhow!("failed to generate fake edges ({namespace}/{name}): {error}")
+        })?;
+        let nodes = nodes.generate(&scope).map_err(|error| {
+            anyhow!("failed to generate fake nodes ({namespace}/{name}): {error}")
+        })?;
+
+        let metadata = nodes
+            .as_ref()
+            .map(|nodes| GraphMetadataRaw::from_polars(&nodes))
+            .unwrap_or_default()
+            .into();
+
         Ok(Graph {
             connector: Some(cr.clone()),
             data: GraphData {
-                edges: edges.generate(&scope).map_err(|error| {
-                    anyhow!("failed to generate fake edges ({namespace}/{name}): {error}")
-                })?,
-                nodes: nodes.generate(&scope).map_err(|error| {
-                    anyhow!("failed to generate fake nodes ({namespace}/{name}): {error}")
-                })?,
+                edges: edges.map(Into::into).unwrap_or_default(),
+                nodes: nodes.map(Into::into).unwrap_or_default(),
             },
             metadata,
             scope,

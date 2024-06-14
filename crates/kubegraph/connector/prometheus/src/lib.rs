@@ -9,11 +9,10 @@ use kubegraph_api::{
         NetworkConnectorSpec, NetworkConnectorType,
     },
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphMetadata, GraphMetadataExt, GraphScope},
+    graph::{Graph, GraphData, GraphMetadata, GraphMetadataRaw, GraphScope},
     query::{NetworkQuery, NetworkQueryMetadata, NetworkQueryMetadataType},
 };
 use polars::{
-    datatypes::DataType,
     error::PolarsError,
     frame::DataFrame,
     lazy::{dsl, frame::LazyFrame as PolarsLazyFrame},
@@ -48,12 +47,11 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         let items = connectors.into_iter().filter_map(|object| {
             let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
-            let NetworkConnectorSpec { metadata, kind } = object.spec;
-            let metadata = GraphMetadata::Raw(metadata);
+            let NetworkConnectorSpec { kind } = object.spec;
 
             match kind {
                 NetworkConnectorKind::Prometheus(spec) => {
-                    match NetworkConnectorItem::try_new(cr, scope, metadata, spec) {
+                    match NetworkConnectorItem::try_new(cr, scope, spec) {
                         Ok(item) => Some(item),
                         Err(error) => {
                             warn!("{error}");
@@ -80,19 +78,17 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
     }
 }
 
-struct NetworkConnectorItem<T, M> {
+struct NetworkConnectorItem<T> {
     client: Client,
     cr: Arc<NetworkConnectorCrd>,
-    metadata: M,
     query: NetworkQuery<T>,
     scope: GraphScope,
 }
 
-impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
+impl NetworkConnectorItem<NetworkQueryMetadata> {
     fn try_new(
         cr: Arc<NetworkConnectorCrd>,
         scope: GraphScope,
-        metadata: M,
         spec: NetworkConnectorPrometheusSpec,
     ) -> Result<Self> {
         #[instrument(level = Level::INFO, skip(spec))]
@@ -106,21 +102,16 @@ impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
         Ok(Self {
             cr,
             client: load_client(&spec)?,
-            metadata,
             query: spec.template,
             scope,
         })
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>, GraphMetadata>>
-    where
-        M: GraphMetadataExt,
-    {
+    async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>, GraphMetadata>> {
         let Self {
             cr,
             client,
-            metadata,
             scope,
             query:
                 NetworkQuery {
@@ -140,7 +131,7 @@ impl<M> NetworkConnectorItem<NetworkQueryMetadata, M> {
         // Collect columns
         let df = collect_polars_columns(vectors, consts)
             .map_err(|error| anyhow!("failed to collect {type} into dataframe: {error}"))?;
-        let metadata = collect_extras(&df, metadata);
+        let metadata = GraphMetadataRaw::from_polars(&df).into();
 
         let graph = Graph {
             connector: Some(cr.clone()),
@@ -209,28 +200,4 @@ fn collect_polars_columns(
     PolarsLazyFrame::default()
         .with_columns(&columns.collect::<Vec<_>>())
         .collect()
-}
-
-fn collect_extras<M>(df: &DataFrame, metadata: M) -> GraphMetadata
-where
-    M: GraphMetadataExt,
-{
-    match metadata.into() {
-        GraphMetadata::Raw(mut metadata) => {
-            let extras = &mut metadata.extras;
-            for column in df.get_columns() {
-                let key = column.name();
-                if column.is_empty()
-                    || matches!(column.dtype(), DataType::Null)
-                    || extras.contains_key(key)
-                {
-                    continue;
-                }
-
-                extras.insert(key.into(), key.into());
-            }
-            GraphMetadata::Raw(metadata)
-        }
-        metadata => metadata,
-    }
 }

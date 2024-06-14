@@ -9,9 +9,10 @@ use kubegraph_api::{
         NetworkConnectorSpec, NetworkConnectorType,
     },
     frame::LazyFrame,
-    graph::{Graph, GraphData, GraphMetadata, GraphScope},
+    graph::{Graph, GraphData, GraphMetadataRaw, GraphScope},
 };
 use polars::{
+    frame::DataFrame,
     io::{csv::read::CsvReadOptions, SerReader},
     lazy::frame::IntoLazy,
 };
@@ -41,16 +42,10 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
         let items = connectors.into_iter().filter_map(|object| {
             let cr = Arc::new(object.clone());
             let scope = GraphScope::from_resource(&object);
-            let NetworkConnectorSpec { metadata, kind } = object.spec;
-            let metadata = GraphMetadata::Raw(metadata);
+            let NetworkConnectorSpec { kind } = object.spec;
 
             match kind {
-                NetworkConnectorKind::Local(spec) => Some(NetworkConnectorItem {
-                    cr,
-                    metadata,
-                    scope,
-                    spec,
-                }),
+                NetworkConnectorKind::Local(spec) => Some(NetworkConnectorItem { cr, scope, spec }),
                 _ => None,
             }
         });
@@ -73,7 +68,6 @@ impl ::kubegraph_api::connector::NetworkConnector for NetworkConnector {
 #[derive(Clone, Debug)]
 struct NetworkConnectorItem {
     cr: Arc<NetworkConnectorCrd>,
-    metadata: GraphMetadata,
     scope: GraphScope,
     spec: NetworkConnectorLocalSpec,
 }
@@ -83,7 +77,6 @@ impl NetworkConnectorItem {
     async fn load_graph_data(self) -> Result<Graph<GraphData<LazyFrame>>> {
         let Self {
             cr,
-            metadata,
             scope,
             spec:
                 NetworkConnectorLocalSpec {
@@ -96,11 +89,16 @@ impl NetworkConnectorItem {
         let GraphScope { namespace, name } = &scope;
         info!("Loading local connector: {namespace}/{name}");
 
+        let edges = load_csv(&base_dir, &key_edges).await?;
+        let nodes = load_csv(&base_dir, &key_nodes).await?;
+
+        let metadata = GraphMetadataRaw::from_polars(&nodes).into();
+
         Ok(Graph {
             connector: Some(cr.clone()),
             data: GraphData {
-                edges: load_csv(&base_dir, &key_edges).await?,
-                nodes: load_csv(&base_dir, &key_nodes).await?,
+                edges: LazyFrame::Polars(edges.lazy()),
+                nodes: LazyFrame::Polars(nodes.lazy()),
             },
             metadata,
             scope,
@@ -109,7 +107,7 @@ impl NetworkConnectorItem {
 }
 
 #[instrument(level = Level::INFO)]
-async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
+async fn load_csv(base_dir: &Path, filename: &str) -> Result<DataFrame> {
     let mut path = base_dir.to_path_buf();
     path.push(filename);
 
@@ -121,7 +119,6 @@ async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
                 |error| anyhow!("failed to load file {path}: {error}", path = path.display(),),
             )?
             .finish()
-            .map(|df| LazyFrame::Polars(df.lazy()))
             .map_err(|error| {
                 anyhow!(
                     "failed to parse file {path}: {error}",
@@ -129,6 +126,6 @@ async fn load_csv(base_dir: &Path, filename: &str) -> Result<LazyFrame> {
                 )
             })
     } else {
-        Ok(LazyFrame::Empty)
+        Ok(DataFrame::default())
     }
 }

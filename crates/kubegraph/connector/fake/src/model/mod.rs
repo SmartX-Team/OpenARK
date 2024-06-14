@@ -9,7 +9,6 @@ use kubegraph_api::{
         model::{ConstantModel, NormalModel},
         NetworkConnectorFakeData, NetworkConnectorFakeDataFrame, NetworkConnectorFakeDataModel,
     },
-    frame::LazyFrame,
     graph::GraphScope,
 };
 use polars::{error::PolarsError, frame::DataFrame, series::Series};
@@ -28,16 +27,14 @@ pub trait DataGenerator<'a> {
 impl<'a> DataGenerator<'a> for Option<NetworkConnectorFakeData> {
     type Args = &'a GraphScope;
     type Error = Error;
-    type Output = LazyFrame;
+    type Output = Option<DataFrame>;
 
     fn generate(
         self,
         scope: <Self as DataGenerator<'a>>::Args,
     ) -> Result<<Self as DataGenerator<'a>>::Output, <Self as DataGenerator<'a>>::Error> {
-        match self {
-            Some(data) => data.generate(scope).map(Into::into),
-            None => Ok(LazyFrame::Empty),
-        }
+        self.map(|data| data.generate(scope).map(Into::into))
+            .transpose()
     }
 }
 
