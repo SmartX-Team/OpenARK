@@ -286,5 +286,9 @@ winit = { version = "0.29", features = [
 ] } # should be synced with eframe
 
 [patch.crates-io]
+# FIXME: Sync with the components
+deltalake = { git = "https://github.com/delta-io/delta-rs", rev = "rust-v0.17.3" }
+deltalake-aws = { git = "https://github.com/delta-io/delta-rs", rev = "rust-v0.17.3" }
+
 # FIXME: Waiting for PR merged: https://github.com/GREsau/schemars/pull/255
 schemars = { git = "https://github.com/ulagbulag/schemars" }
