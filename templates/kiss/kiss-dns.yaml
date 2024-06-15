@@ -61,7 +61,7 @@ spec:
             - kiss-dns
           env:
             - name: BIND_ADDR
-              value: 0.0.0.0:80
+              value: 0.0.0.0:53
             - name: RUST_LOG
               value: INFO
           resources:
@@ -71,3 +71,22 @@ spec:
             limits:
               cpu: 100m
               memory: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns
+  namespace: kiss
+spec:
+  type: ClusterIP
+  selector:
+    name: dns
+  ports:
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
