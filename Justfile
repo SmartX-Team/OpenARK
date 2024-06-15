@@ -88,7 +88,7 @@ oci-push-and-update-dash: oci-push
 
 oci-push-and-update-kiss: oci-push
   # kubectl -n kiss rollout restart deploy assets
-  kubectl -n kiss rollout restart deploy gateway monitor operator
+  kubectl -n kiss rollout restart deploy dns gateway monitor operator
 
 oci-push-and-update-kubegraph: oci-push
   kubectl -n kubegraph rollout restart deploy gateway kubegraph operator
