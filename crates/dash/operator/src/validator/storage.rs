@@ -100,10 +100,10 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn bind_model(
         &self,
-        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageCrd>,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
         model: &ModelCrd,
     ) -> Result<()> {
-        match &storage.target.spec.kind {
+        match &storage.target.kind {
             ModelStorageKindSpec::Database(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_none(storage.source, "Database")?,
@@ -125,7 +125,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::ObjectStorage(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_same(storage.source, "ObjectStorage", |source| {
-                        match &source.spec.kind {
+                        match &source.kind {
                             ModelStorageKindSpec::Database(_) => Err("Database"),
                             ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
                             ModelStorageKindSpec::ObjectStorage(source) => Ok(source),
@@ -183,16 +183,16 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn unbind_model(
         &self,
-        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageCrd>,
+        storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
         model: &ModelCrd,
         deletion_policy: ModelStorageBindingDeletionPolicy,
     ) -> Result<()> {
-        match &storage.target.spec.kind {
+        match &storage.target.kind {
             ModelStorageKindSpec::Database(spec) => {
                 let storage =
                     ModelStorageBindingStorageSpec {
                         source: assert_source_is_same(storage.source, "Database", |source| {
-                            match &source.spec.kind {
+                            match &source.kind {
                                 ModelStorageKindSpec::Database(source) => Ok(source),
                                 ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
                                 ModelStorageKindSpec::ObjectStorage(_) => Err("ObjectStorage"),
@@ -208,7 +208,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::Kubernetes(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_same(storage.source, "Kubernetes", |source| {
-                        match &source.spec.kind {
+                        match &source.kind {
                             ModelStorageKindSpec::Database(_) => Err("Database"),
                             ModelStorageKindSpec::Kubernetes(source) => Ok(source),
                             ModelStorageKindSpec::ObjectStorage(_) => Err("ObjectStorage"),
@@ -223,7 +223,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             ModelStorageKindSpec::ObjectStorage(spec) => {
                 let storage = ModelStorageBindingStorageSpec {
                     source: assert_source_is_same(storage.source, "ObjectStorage", |source| {
-                        match &source.spec.kind {
+                        match &source.kind {
                             ModelStorageKindSpec::Database(_) => Err("Database"),
                             ModelStorageKindSpec::Kubernetes(_) => Err("Kubernetes"),
                             ModelStorageKindSpec::ObjectStorage(source) => Ok(source),

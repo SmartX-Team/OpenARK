@@ -94,4 +94,4 @@ oci-push-and-update-kubegraph: oci-push
   kubectl -n kubegraph rollout restart deploy gateway kubegraph operator
 
 oci-push-and-update-vine: oci-push
-  kubectl -n dash rollout restart deploy bastion gateway operator
+  kubectl -n vine rollout restart deploy bastion gateway operator

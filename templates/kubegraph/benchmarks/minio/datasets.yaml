@@ -1,0 +1,210 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: object-storage-user-0
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+immutable: true
+type: Opaque
+# FIXME: change your own secret!
+data:
+  CONSOLE_ACCESS_KEY: T0JKSXJaUzNPRnpmSEpWZQ==
+  CONSOLE_SECRET_KEY: b3hOVkpibWd4WFpjSGt5NlNrNlF6aTZzUVRxVmRYeEc=
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: object-storage-a
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: owned
+spec:
+  objectStorage:
+    owned:
+      resources:
+        requests:
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: object-storage-b
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: owned
+spec:
+  objectStorage:
+    owned:
+      resources:
+        requests:
+          storage: 1Ti
+      totalNodes: 1
+      totalVolumesPerNode: 4
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: object-storage-b
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  objectStorage:
+    borrowed:
+      endpoint: http://minio.kubegraph-benchmark-storage-b.svc/
+      secretRef:
+        mapAccessKey: CONSOLE_ACCESS_KEY
+        mapSecretKey: CONSOLE_SECRET_KEY
+        name: object-storage-user-0
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorage
+metadata:
+  name: object-storage-a
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  objectStorage:
+    borrowed:
+      endpoint: http://minio.kubegraph-benchmark-storage-a.svc/
+      secretRef:
+        mapAccessKey: CONSOLE_ACCESS_KEY
+        mapSecretKey: CONSOLE_SECRET_KEY
+        name: object-storage-user-0
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelClaim
+metadata:
+  name: dataset-a
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: owned
+spec:
+  allowReplacement: true
+  bindingPolicy: LowestLatency
+  deletionPolicy: Delete
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelClaim
+metadata:
+  name: dataset-b
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: owned
+spec:
+  allowReplacement: true
+  bindingPolicy: LowestLatency
+  deletionPolicy: Delete
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: dataset-b
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: Model
+metadata:
+  name: dataset-a
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  dynamic: {}
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: dataset-b
+  namespace: kubegraph-benchmark-storage-a
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  deletionPolicy: Retain
+  model: dataset-b
+  storage:
+    cloned:
+      source: object-storage-b
+      target: object-storage-a
+      syncPolicy:
+        pull: Always
+        push: Always
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelStorageBinding
+metadata:
+  name: dataset-a
+  namespace: kubegraph-benchmark-storage-b
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+    kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
+spec:
+  deletionPolicy: Retain
+  model: dataset-a
+  storage:
+    cloned:
+      source: object-storage-a
+      target: object-storage-b
+      syncPolicy:
+        pull: Always
+        push: Always

@@ -74,6 +74,13 @@ impl<Storage> ModelStorageBindingStorageKind<Storage> {
         }
     }
 
+    pub fn sync_policy(&self) -> Option<ModelStorageBindingSyncPolicy> {
+        match self {
+            Self::Cloned(spec) => Some(spec.sync_policy),
+            Self::Owned(_) => None,
+        }
+    }
+
     pub fn target(&self) -> &Storage {
         match self {
             Self::Cloned(spec) => &spec.target,
@@ -230,8 +237,22 @@ pub struct ModelStorageBindingStatus {
     pub state: ModelStorageBindingState,
     #[serde(default)]
     pub deletion_policy: ModelStorageBindingDeletionPolicy,
+    #[serde(default)]
     pub model: Option<ModelSpec>,
-    pub storage: Option<ModelStorageBindingStorageKind<ModelStorageSpec>>,
+    #[serde(default)]
+    pub model_name: Option<String>,
+    #[serde(default)]
+    pub storage_source: Option<ModelStorageSpec>,
+    #[serde(default)]
+    pub storage_source_binding_name: Option<String>,
+    #[serde(default)]
+    pub storage_source_name: Option<String>,
+    #[serde(default)]
+    pub storage_sync_policy: Option<ModelStorageBindingSyncPolicy>,
+    #[serde(default)]
+    pub storage_target: Option<ModelStorageSpec>,
+    #[serde(default)]
+    pub storage_target_name: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 

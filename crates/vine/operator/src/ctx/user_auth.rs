@@ -29,14 +29,16 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         ]
     }
 
-    #[instrument(level = Level::INFO, skip_all, fields(name = %data.name_any(), namespace = data.namespace()), err(Display))]
+    #[instrument(level = Level::INFO, skip_all, fields(name = %_data.name_any(), namespace = _data.namespace()), err(Display))]
     async fn reconcile(
-        manager: Arc<Manager<Self>>,
-        data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
+        _manager: Arc<Manager<Self>>,
+        _data: Arc<<Self as ::ark_core_k8s::manager::Ctx>::Data>,
     ) -> Result<Action, Error>
     where
         Self: Sized,
     {
+        // TODO: to be implemented
+
         // If no events were received, check back after a few minutes
         Ok(Action::requeue(
             <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,

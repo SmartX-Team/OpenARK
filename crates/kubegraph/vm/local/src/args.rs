@@ -1,10 +1,7 @@
 use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
-    vm::{
-        NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy,
-        NetworkVirtualMachineRestartPolicy,
-    },
+    vm::{NetworkFallbackPolicy, NetworkVirtualMachine, NetworkVirtualMachineRestartPolicy},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -50,10 +47,10 @@ pub struct NetworkVirtualMachineArgs {
         long,
         env = "KUBEGRAPH_VM_FALLBACK_POLICY",
         value_name = "POLICY",
-        default_value_t = NetworkVirtualMachineFallbackPolicy::default(),
+        default_value_t = NetworkFallbackPolicy::default(),
     )]
     #[serde(default)]
-    pub fallback_policy: NetworkVirtualMachineFallbackPolicy,
+    pub fallback_policy: NetworkFallbackPolicy,
 
     #[arg(
         long,

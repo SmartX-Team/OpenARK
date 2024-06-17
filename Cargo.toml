@@ -11,6 +11,7 @@ members = [
     "crates/dash/collector",
     "crates/dash/collector/api",
     "crates/dash/gateway",
+    "crates/dash/kubegraph",
     "crates/dash/openapi",
     "crates/dash/operator",
     "crates/dash/pipe/api",

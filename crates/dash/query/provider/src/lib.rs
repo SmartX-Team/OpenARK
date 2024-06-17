@@ -187,8 +187,8 @@ async fn load_models<'a>(
                 return None;
             }
 
-            let storage = status.storage?;
-            let storage = match storage.into_target().kind {
+            let storage = status.storage_target?;
+            let storage = match storage.kind {
                 ModelStorageKindSpec::ObjectStorage(spec) => spec,
                 storage => {
                     warn!(

@@ -7,7 +7,7 @@ use ark_core::{env::infer, signal::FunctionSignal};
 use futures::TryFutureExt;
 use kubegraph_api::{
     graph::NetworkGraphDB,
-    vm::{NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy},
+    vm::{NetworkFallbackPolicy, NetworkVirtualMachine},
 };
 use tokio::time::sleep;
 use tracing::{error, info, instrument, warn, Level};
@@ -24,11 +24,11 @@ pub async fn loop_forever(signal: FunctionSignal, vm: impl NetworkVirtualMachine
             error!("failed to operate http server: {error}");
 
             match vm.fallback_policy() {
-                NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
+                NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting http server in {interval:?}...");
                     sleep(interval).await
                 }
-                NetworkVirtualMachineFallbackPolicy::Never => {
+                NetworkFallbackPolicy::Never => {
                     signal.terminate_on_panic();
                     break;
                 }

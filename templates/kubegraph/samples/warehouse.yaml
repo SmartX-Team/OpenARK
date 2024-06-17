@@ -16,10 +16,6 @@ metadata:
   name: warehouse-sample-a
   namespace: kubegraph
 spec:
-  metadata:
-    capacity: capacity
-    payload: payload
-    unit_cost: unit_cost
   fake:
     nodes:
       count: 1
@@ -47,10 +43,6 @@ metadata:
   name: warehouse-sample-b
   namespace: kubegraph
 spec:
-  metadata:
-    capacity: capacity
-    payload: payload
-    unit_cost: unit_cost
   fake:
     nodes:
       count: 1
@@ -79,7 +71,7 @@ metadata:
   namespace: kubegraph
 spec:
   metadata:
-    supply: supply
+    supply: payload
   verbose: true
 ---
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
@@ -99,9 +91,10 @@ metadata:
   name: warehouse
   namespace: kubegraph
 spec:
-  # fake: {}
-  webhook: {}
-  filter: src != sink and src.supply > 0 and src.supply > sink.supply + 1
+  fake: {}
+  # webhook:
+  #   endpoint: http://localhost:8888
+  filter: src != sink and src.payload > 0 and src.payload > sink.payload + 1
   script: |
-    capacity = min(50, (src.supply - sink.supply) / 2);
+    capacity = min(50, max(1, (src.payload - sink.payload) / 10));
     unit_cost = 1;

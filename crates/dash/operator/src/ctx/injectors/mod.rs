@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use futures::TryFutureExt;
 use k8s_openapi::api::core::v1::Namespace;
 use kube::{runtime::controller::Action, Error, ResourceExt};
-use tracing::{info, instrument, warn, Level};
+use tracing::{debug, info, instrument, warn, Level};
 
 use crate::validator::injector::InjectorValidator;
 
@@ -93,7 +93,7 @@ where
                                 info!("created {kind} collector: {name:?}");
                             })
                         } else {
-                            info!("skipped creating {kind} collector: {name:?}: already created");
+                            debug!("skipped creating {kind} collector: {name:?}: already created");
                             Ok(())
                         }
                     }
@@ -118,7 +118,7 @@ where
                                 info!("deleted {kind} collector: {name:?}");
                             })
                         } else {
-                            info!("skipped deleting {kind} collector: {name:?}: not labeled (feature flag is off)");
+                            debug!("skipped deleting {kind} collector: {name:?}: not labeled (feature flag is off)");
                             Ok(())
                         }
                     }

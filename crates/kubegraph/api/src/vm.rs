@@ -103,8 +103,8 @@ where
                     error!("failed to operate kubegraph VM: {error}");
 
                     let interval = match fallback_interval {
-                        NetworkVirtualMachineFallbackPolicy::Interval { interval } => interval,
-                        NetworkVirtualMachineFallbackPolicy::Never => {
+                        NetworkFallbackPolicy::Interval { interval } => interval,
+                        NetworkFallbackPolicy::Never => {
                             signal.terminate_on_panic();
                             break;
                         }
@@ -404,8 +404,8 @@ where
 
     fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer;
 
-    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
-        NetworkVirtualMachineFallbackPolicy::default()
+    fn fallback_policy(&self) -> NetworkFallbackPolicy {
+        NetworkFallbackPolicy::default()
     }
 
     fn restart_policy(&self) -> NetworkVirtualMachineRestartPolicy {
@@ -451,7 +451,7 @@ where
         <T as NetworkVirtualMachine>::visualizer(&**self)
     }
 
-    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
+    fn fallback_policy(&self) -> NetworkFallbackPolicy {
         <T as NetworkVirtualMachine>::fallback_policy(&**self)
     }
 
@@ -468,16 +468,16 @@ where
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
-pub enum NetworkVirtualMachineFallbackPolicy<T = Duration> {
+pub enum NetworkFallbackPolicy<T = Duration> {
     Interval { interval: T },
     Never,
 }
 
-impl NetworkVirtualMachineFallbackPolicy {
+impl NetworkFallbackPolicy {
     pub const DEFAULT_INTERVAL: Duration = NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL;
 }
 
-impl Default for NetworkVirtualMachineFallbackPolicy {
+impl Default for NetworkFallbackPolicy {
     fn default() -> Self {
         Self::Interval {
             interval: Self::DEFAULT_INTERVAL,
@@ -485,7 +485,7 @@ impl Default for NetworkVirtualMachineFallbackPolicy {
     }
 }
 
-impl FromStr for NetworkVirtualMachineFallbackPolicy {
+impl FromStr for NetworkFallbackPolicy {
     type Err = ::duration_string::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -498,13 +498,11 @@ impl FromStr for NetworkVirtualMachineFallbackPolicy {
     }
 }
 
-impl fmt::Display for NetworkVirtualMachineFallbackPolicy {
+impl fmt::Display for NetworkFallbackPolicy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
-                fmt::Debug::fmt(interval, f)
-            }
-            NetworkVirtualMachineFallbackPolicy::Never => "Never".fmt(f),
+            NetworkFallbackPolicy::Interval { interval } => fmt::Debug::fmt(interval, f),
+            NetworkFallbackPolicy::Never => "Never".fmt(f),
         }
     }
 }

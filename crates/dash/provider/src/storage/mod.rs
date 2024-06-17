@@ -10,8 +10,7 @@ use dash_api::model::{
     ModelFieldSpec, ModelSpec,
 };
 use dash_api::model_storage_binding::{
-    ModelStorageBindingStorageKind, ModelStorageBindingStorageSourceSpec,
-    ModelStorageBindingStorageSpec,
+    ModelStorageBindingStatus, ModelStorageBindingStorageSourceSpec, ModelStorageBindingStorageSpec,
 };
 use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
@@ -45,23 +44,32 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
-        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
-            let storage = ModelStorageBindingStorageSpec {
-                source: storage_name.source().and_then(|(name, _)| {
-                    storage.source().map(|(storage, sync_policy)| {
-                        ModelStorageBindingStorageSourceSpec {
-                            name,
-                            storage,
-                            sync_policy,
-                        }
-                    })
-                }),
-                source_binding_name: storage.source_binding_name(),
-                target: storage.target(),
-                target_name: storage_name.target(),
-            };
-            if let Some(value) = self.get_by_storage(storage, &model, ref_name).await? {
-                return Ok(value);
+        for storage in self.get_model_storage_bindings(model_name).await? {
+            if let Some((target, target_name)) = storage
+                .storage_target
+                .as_ref()
+                .zip(storage.storage_target_name.as_deref())
+            {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: storage
+                        .storage_source
+                        .as_ref()
+                        .zip(storage.storage_source_name.as_deref())
+                        .zip(storage.storage_sync_policy)
+                        .map(|((storage, name), sync_policy)| {
+                            ModelStorageBindingStorageSourceSpec {
+                                name,
+                                storage,
+                                sync_policy,
+                            }
+                        }),
+                    source_binding_name: storage.storage_source_binding_name.as_deref(),
+                    target,
+                    target_name,
+                };
+                if let Some(value) = self.get_by_storage(storage, &model, ref_name).await? {
+                    return Ok(value);
+                }
             }
         }
         bail!("no such object: {ref_name:?}")
@@ -71,22 +79,31 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
-        for (storage_name, storage) in self.get_model_storage_bindings(model_name).await? {
-            let storage = ModelStorageBindingStorageSpec {
-                source: storage_name.source().and_then(|(name, _)| {
-                    storage.source().map(|(storage, sync_policy)| {
-                        ModelStorageBindingStorageSourceSpec {
-                            name,
-                            storage,
-                            sync_policy,
-                        }
-                    })
-                }),
-                source_binding_name: storage.source_binding_name(),
-                target: storage.target(),
-                target_name: storage_name.target(),
-            };
-            items.append(&mut self.list_by_storage(storage, &model).await?);
+        for storage in self.get_model_storage_bindings(model_name).await? {
+            if let Some((target, target_name)) = storage
+                .storage_target
+                .as_ref()
+                .zip(storage.storage_target_name.as_deref())
+            {
+                let storage = ModelStorageBindingStorageSpec {
+                    source: storage
+                        .storage_source
+                        .as_ref()
+                        .zip(storage.storage_source_name.as_deref())
+                        .zip(storage.storage_sync_policy)
+                        .map(|((storage, name), sync_policy)| {
+                            ModelStorageBindingStorageSourceSpec {
+                                name,
+                                storage,
+                                sync_policy,
+                            }
+                        }),
+                    source_binding_name: storage.storage_source_binding_name.as_deref(),
+                    target,
+                    target_name,
+                };
+                items.append(&mut self.list_by_storage(storage, &model).await?);
+            }
         }
         Ok(items)
     }
@@ -233,12 +250,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<
-        Vec<(
-            ModelStorageBindingStorageKind<String>,
-            ModelStorageBindingStorageKind<ModelStorageSpec>,
-        )>,
-    > {
+    ) -> Result<Vec<ModelStorageBindingStatus>> {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
             kube: self.kube,

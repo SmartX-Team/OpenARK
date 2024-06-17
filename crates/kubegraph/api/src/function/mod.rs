@@ -2,6 +2,8 @@ pub mod annotation;
 pub mod call;
 #[cfg(feature = "function-fake")]
 pub mod fake;
+#[cfg(feature = "function-entrypoint")]
+pub mod service;
 pub mod spawn;
 #[cfg(feature = "function-webhook")]
 pub mod webhook;

@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubegraph-benchmark
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkProblem
+metadata:
+  name: minio
+  namespace: kubegraph-benchmark
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+spec:
+  metadata:
+    name: bucket
+    supply: value
+  verbose: true
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: minio
+  namespace: kubegraph-benchmark
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+spec:
+  prometheus:
+    url: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+    template:
+      type: Node
+      query: >
+        avg by (namespace, bucket)
+        (bucket_usage_size{namespace=~"^kubegraph-benchmark-storage-[0-9a-z]+$", service="minio"})
+      consts:
+        storageType: s3
+        storageVendor: minio
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkProblem
+metadata:
+  name: minio
+  namespace: kubegraph-benchmark
+  labels:
+    kubegraph.ulagbulag.io/benchmark: "true"
+    kubegraph.ulagbulag.io/benchmark-name: minio
+spec:
+  metadata:
+    name: bucket
+    supply: value
+  verbose: true

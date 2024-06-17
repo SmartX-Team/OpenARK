@@ -9,9 +9,9 @@ use dash_api::{
     model_claim::{ModelClaimCrd, ModelClaimState},
     model_storage_binding::{
         ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingSpec,
-        ModelStorageBindingState, ModelStorageBindingStorageKind,
+        ModelStorageBindingState, ModelStorageBindingStatus, ModelStorageBindingStorageKind,
     },
-    storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageSpec, ModelStorageState},
+    storage::{ModelStorageCrd, ModelStorageKindSpec, ModelStorageState},
     task::{TaskActorSourceConfigMapRefSpec, TaskCrd, TaskState},
 };
 use futures::{stream::FuturesUnordered, TryStreamExt};
@@ -389,12 +389,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<
-        Vec<(
-            ModelStorageBindingStorageKind<String>,
-            ModelStorageBindingStorageKind<ModelStorageSpec>,
-        )>,
-    > {
+    ) -> Result<Vec<ModelStorageBindingStatus>> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
 
         Ok(self
@@ -402,12 +397,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .await?
             .into_iter()
             .filter(|binding| binding.spec.model == model_name)
-            .filter_map(|binding| {
-                let status = binding.status.unwrap();
-                status
-                    .storage
-                    .map(|storage| (binding.spec.storage, storage))
-            })
+            .filter_map(|binding| binding.status)
             .collect())
     }
 
@@ -435,12 +425,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings_by_storage(
         &self,
         storage_name: &str,
-    ) -> Result<
-        Vec<(
-            ModelStorageBindingStorageKind<String>,
-            ModelStorageBindingStorageKind<ModelStorageSpec>,
-        )>,
-    > {
+    ) -> Result<Vec<ModelStorageBindingStatus>> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
 
         Ok(self
@@ -452,12 +437,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                 storage.source().map(|(name, _)| name.as_str()) == Some(storage_name)
                     || storage.target() == storage_name
             })
-            .filter_map(|binding| {
-                let status = binding.status.unwrap();
-                status
-                    .storage
-                    .map(|storage| (binding.spec.storage, storage))
-            })
+            .filter_map(|binding| binding.status)
             .collect())
     }
 

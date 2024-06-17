@@ -10,7 +10,7 @@ use kube::{
 use kubegraph_api::{
     graph::GraphScope,
     resource::{NetworkResource, NetworkResourceClient, NetworkResourceDB},
-    vm::{NetworkVirtualMachine, NetworkVirtualMachineFallbackPolicy},
+    vm::{NetworkFallbackPolicy, NetworkVirtualMachine},
 };
 use serde::de::DeserializeOwned;
 use tokio::{task::JoinHandle, time::sleep};
@@ -59,7 +59,7 @@ where
 async fn loop_forever<K>(
     signal: FunctionSignal,
     resource_db: impl 'static + NetworkResourceClient + NetworkResourceDB<K>,
-    fallback_interval: NetworkVirtualMachineFallbackPolicy,
+    fallback_interval: NetworkFallbackPolicy,
 ) where
     K: 'static
         + Send
@@ -78,11 +78,11 @@ async fn loop_forever<K>(
             error!("failed to operate {name} reloader: {error}");
 
             match fallback_interval {
-                NetworkVirtualMachineFallbackPolicy::Interval { interval } => {
+                NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting {name} reloader in {interval:?}...");
                     sleep(interval).await
                 }
-                NetworkVirtualMachineFallbackPolicy::Never => {
+                NetworkFallbackPolicy::Never => {
                     signal.terminate_on_panic();
                     break;
                 }

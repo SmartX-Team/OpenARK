@@ -15,10 +15,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
-    vm::{
-        NetworkVirtualMachineExt, NetworkVirtualMachineFallbackPolicy,
-        NetworkVirtualMachineRestartPolicy,
-    },
+    vm::{NetworkFallbackPolicy, NetworkVirtualMachineExt, NetworkVirtualMachineRestartPolicy},
 };
 use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{instrument, Level};
@@ -119,7 +116,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
         &self.visualizer
     }
 
-    fn fallback_policy(&self) -> NetworkVirtualMachineFallbackPolicy {
+    fn fallback_policy(&self) -> NetworkFallbackPolicy {
         self.args.fallback_policy
     }
 
@@ -166,7 +163,7 @@ mod tests {
     use kube::api::ObjectMeta;
     use kubegraph_api::{
         connector::{NetworkConnectorCrd, NetworkConnectorKind, NetworkConnectorSpec},
-        graph::{GraphMetadata, GraphMetadataRaw},
+        graph::GraphMetadata,
     };
 
     use super::*;
@@ -223,7 +220,6 @@ mod tests {
                 ..Default::default()
             },
             spec: NetworkConnectorSpec {
-                metadata: GraphMetadataRaw::default(),
                 kind: NetworkConnectorKind::Unknown {},
             },
         };
@@ -358,7 +354,6 @@ mod tests {
                 ..Default::default()
             },
             spec: NetworkConnectorSpec {
-                metadata: GraphMetadataRaw::default(),
                 kind: NetworkConnectorKind::Unknown {},
             },
         };

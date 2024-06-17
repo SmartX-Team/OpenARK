@@ -43,8 +43,8 @@ use kube::{
 use maplit::btreemap;
 use minio::s3::{
     args::{
-        BucketExistsArgs, GetBucketReplicationArgs, MakeBucketArgs, SetBucketReplicationArgs,
-        SetBucketVersioningArgs,
+        BucketExistsArgs, DeleteBucketReplicationArgs, GetBucketReplicationArgs, MakeBucketArgs,
+        SetBucketReplicationArgs, SetBucketVersioningArgs,
     },
     creds::{Credentials, Provider, StaticProvider},
     http::BaseUrl,
@@ -54,7 +54,7 @@ use minio::s3::{
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Method;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use tokio::try_join;
 use tracing::{info, instrument, Level};
 
@@ -648,7 +648,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             Some((source, ModelStorageBindingSyncPolicy { pull, push })) => {
                 let delete = match pull {
                     ModelStorageBindingSyncPolicyPull::Always => {
-                        self.unsync_bucket_pull_always(source, &bucket_name).await?
+                        self.unsync_bucket_pull_always(&bucket_name).await?
                     }
                     ModelStorageBindingSyncPolicyPull::OnCreate => true,
                     ModelStorageBindingSyncPolicyPull::Never => true,
@@ -671,23 +671,41 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
         .map_err(|error: Error| anyhow!("failed to unsync a bucket ({bucket_name}): {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
-    async fn unsync_bucket_pull_always(
-        &self,
-        _source: &ObjectStorageSession,
-        _bucket: &str,
-    ) -> Result<bool> {
-        info!("unsyncing on Pull=Always is not supported");
-        Ok(true)
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn unsync_bucket_pull_always(&self, bucket: &str) -> Result<bool> {
+        let (source_session, bucket) = self.inverted(bucket)?;
+        let source = self.target;
+        source_session
+            .unsync_bucket_push_always(source, bucket)
+            .await
     }
 
-    #[instrument(level = Level::INFO, skip(self, _source), err(Display))]
+    #[instrument(level = Level::INFO, skip(self, source), err(Display))]
     async fn unsync_bucket_push_always(
         &self,
-        _source: &ObjectStorageSession,
-        _bucket: &str,
+        source: &ObjectStorageSession,
+        bucket: &str,
     ) -> Result<bool> {
-        info!("unsyncing on Push=Always is not supported");
+        let bucket_arn = match self
+            .admin()
+            .get_remote_target(source, self.source_binding_name, bucket)
+            .await?
+        {
+            Some(arn) => arn,
+            None => return Ok(true),
+        };
+
+        self.target
+            .client
+            .delete_bucket_replication(&DeleteBucketReplicationArgs {
+                extra_headers: None,
+                extra_query_params: None,
+                region: None,
+                bucket,
+            })
+            .await?;
+
+        self.admin().remove_remote_target(bucket, &bucket_arn).await;
         Ok(true)
     }
 
@@ -1059,16 +1077,53 @@ impl<'storage> MinioAdminClient<'storage> {
             .await
     }
 
-    #[allow(dead_code)]
+    #[instrument(level = Level::INFO, skip(self, target), err(Display))]
+    async fn get_remote_target(
+        &self,
+        target: &ObjectStorageSession,
+        bucket_source: Option<&str>,
+        bucket_target: &str,
+    ) -> Result<Option<String>> {
+        let bucket_source = bucket_source.unwrap_or(bucket_target);
+        let target_creds = target.provider.fetch();
+
+        let targets = self.list_remote_targets(bucket_target).await?;
+        Ok(targets
+            .into_iter()
+            .find(|item| {
+                Some(item.endpoint.as_str()) == target.endpoint.host_str()
+                    && item.credentials.access_key == target_creds.access_key
+                    && item.sourcebucket == bucket_source
+                    && item.targetbucket == bucket_target
+            })
+            .map(|item| item.arn))
+    }
+
     #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn list_remote_targets(&self, bucket_name: &str) -> Result<Vec<Map<String, Value>>> {
+    async fn list_remote_targets(&self, bucket_name: &str) -> Result<Vec<RemoteTarget>> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum RemoteTargetList {
+            Some(Vec<RemoteTarget>),
+            None(()),
+        }
+
         self.execute(
             Method::GET,
             "/admin/v3/list-remote-targets",
             &[("type", "replication"), ("bucket", bucket_name)],
             None,
         )
-        .map(|result| result.and_then(|bytes| ::serde_json::from_slice(&bytes).map_err(Into::into)))
+        .map(|result| {
+            result.and_then(|bytes| {
+                ::serde_json::from_slice(&bytes)
+                    .map(|list| match list {
+                        RemoteTargetList::Some(list) => list,
+                        RemoteTargetList::None(()) => Vec::default(),
+                    })
+                    .map_err(Into::into)
+            })
+        })
         .map_err(|error| {
             anyhow!(
                 "failed to list remote targets ({name}: {origin}): {error}",
@@ -1079,24 +1134,16 @@ impl<'storage> MinioAdminClient<'storage> {
         .await
     }
 
-    #[allow(dead_code)]
-    #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn remove_remote_target(&self, bucket_name: &str, arn: &str) -> Result<()> {
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn remove_remote_target(&self, bucket_name: &str, arn: &str) {
         self.execute(
-            Method::DELETE,
+            Method::PUT,
             "/admin/v3/remove-remote-target",
             &[("arn", arn), ("bucket", bucket_name)],
             None,
         )
-        .map_ok(|_| ())
-        .map_err(|error| {
-            anyhow!(
-                "failed to remove remote target ({name}: {origin}): {error}",
-                name = &self.storage.name,
-                origin = &self.storage.endpoint,
-            )
-        })
         .await
+        .ok();
     }
 
     #[instrument(level = Level::INFO, skip(self, target), err(Display))]
@@ -1332,6 +1379,13 @@ async fn get_or_create_minio_tenant(
         };
         client.api_custom_resource(&spec, None).await?
     };
+    let api_service_monitor = {
+        let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
+        let spec = ModelCustomResourceDefinitionRefSpec {
+            name: "servicemonitors.monitoring.coreos.com/v1".into(),
+        };
+        client.api_custom_resource(&spec, None).await?
+    };
 
     let total_volumes = total_nodes * total_volumes_per_node;
     let parity_level = total_volumes / 4; // >> 2
@@ -1442,6 +1496,20 @@ export MINIO_ROOT_PASSWORD="{password}"
                 "credsSecret": {
                     "name": secret_creds.name_any(),
                 },
+                "env": [
+                    {
+                        "name": "MINIO_PROMETHEUS_AUTH_TYPE",
+                        "value": "public",
+                    },
+                    {
+                        "name": "MINIO_PROMETHEUS_JOB_ID",
+                        "value": format!("{name}-minio-job"),
+                    },
+                    {
+                        "name": "MINIO_PROMETHEUS_URL",
+                        "value": "kube-prometheus-stack-prometheus.monitoring.svc:9090",
+                    },
+                ],
                 "exposeServices": {
                     "console": minio_console_external_service.is_enabled(),
                     "minio": minio_external_service.is_enabled(),
@@ -1499,7 +1567,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                         "volumesPerServer": total_volumes_per_node,
                     },
                 ],
-                "prometheusOperator": true,
+                "prometheusOperator": false,
                 "requestAutoCert": false,
                 "serviceMetadata": {
                     "consoleServiceAnnotations": {
@@ -1517,36 +1585,38 @@ export MINIO_ROOT_PASSWORD="{password}"
     })
     .await?;
 
-    get_or_create(&api_tenant, "servicemonitor", name, || DynamicObject {
-        types: Some(TypeMeta {
-            api_version: "monitoring.coreos.com/v1".into(),
-            kind: "ServiceMonitor".into(),
-        }),
-        metadata: ObjectMeta {
-            labels: Some(labels.clone()),
-            name: Some(name.to_string()),
-            namespace: Some(namespace.to_string()),
-            ..Default::default()
-        },
-        data: json!({
-            "spec": {
-                "endpoints": [
-                    {
-                        "path": "/minio/prometheus/metrics",
-                        "port": "http-minio",
-                        "interval": "5s",
-                    },
-                ],
-                "namespaceSelector": {
-                    "matchNames": [
-                        namespace,
-                    ],
-                },
-                "selector": {
-                    "matchLabels": labels,
-                },
+    get_or_create(&api_service_monitor, "servicemonitor", name, || {
+        DynamicObject {
+            types: Some(TypeMeta {
+                api_version: "monitoring.coreos.com/v1".into(),
+                kind: "ServiceMonitor".into(),
+            }),
+            metadata: ObjectMeta {
+                labels: Some(labels.clone()),
+                name: Some(name.to_string()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
             },
-        }),
+            data: json!({
+                "spec": {
+                    "endpoints": [
+                        {
+                            "path": "/minio/prometheus/metrics",
+                            "port": "http-minio",
+                            "interval": "5s",
+                        },
+                    ],
+                    "namespaceSelector": {
+                        "matchNames": [
+                            namespace,
+                        ],
+                    },
+                    "selector": {
+                        "matchLabels": labels,
+                    },
+                },
+            }),
+        }
     })
     .await?;
 
@@ -1702,6 +1772,22 @@ async fn get_kubernetes_minio_domain(namespace: &str) -> Result<String> {
         "minio.{namespace}.svc.{cluster_domain}",
         cluster_domain = get_cluster_domain().await?,
     ))
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteTarget {
+    arn: String,
+    credentials: RemoteTargetCredentials,
+    endpoint: String,
+    sourcebucket: String,
+    targetbucket: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteTargetCredentials {
+    access_key: String,
 }
 
 struct ModelStorageObjectOwnedReplicationComputeResource(ResourceRequirements);

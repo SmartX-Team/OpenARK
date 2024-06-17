@@ -4,13 +4,8 @@ use anyhow::Result;
 use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
-use dash_api::{
-    model::ModelSpec,
-    model_storage_binding::{
-        ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingState,
-        ModelStorageBindingStatus, ModelStorageBindingStorageKind,
-    },
-    storage::ModelStorageSpec,
+use dash_api::model_storage_binding::{
+    ModelStorageBindingCrd, ModelStorageBindingState, ModelStorageBindingStatus,
 };
 use dash_provider::storage::KubernetesStorageClient;
 use kube::{
@@ -22,7 +17,8 @@ use serde_json::json;
 use tracing::{info, instrument, warn, Level};
 
 use crate::validator::{
-    model::ModelValidator, model_storage_binding::ModelStorageBindingValidator,
+    model::ModelValidator,
+    model_storage_binding::{ModelStorageBindingValidator, UpdateContext},
     storage::ModelStorageValidator,
 };
 
@@ -62,13 +58,24 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 &namespace,
                 &manager.kube,
                 &name,
-                UpdateCtx {
+                UpdateContext {
                     deletion_policy: status
                         .map(|status| status.deletion_policy)
                         .unwrap_or(data.spec.deletion_policy),
-                    model: status.and_then(|status| status.model.as_ref()).cloned(),
-                    storage: status.and_then(|status| status.storage.as_ref()).cloned(),
+                    model: status.and_then(|status| status.model.clone()),
+                    model_name: status.and_then(|status| status.model_name.clone()),
                     state: ModelStorageBindingState::Deleting,
+                    storage_source: status
+                        .and_then(|status| status.storage_source.as_ref())
+                        .cloned(),
+                    storage_source_binding_name: status
+                        .and_then(|status| status.storage_source_binding_name.clone()),
+                    storage_source_name: status
+                        .and_then(|status| status.storage_source_name.clone()),
+                    storage_sync_policy: status.and_then(|status| status.storage_sync_policy),
+                    storage_target: status.and_then(|status| status.storage_target.clone()),
+                    storage_target_name: status
+                        .and_then(|status| status.storage_target_name.clone()),
                 },
             )
             .await;
@@ -102,19 +109,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         {
             ModelStorageBindingState::Pending => {
                 match validator.validate_model_storage_binding(&data.spec).await {
-                    Ok((model, storage)) => {
-                        Self::update_state_or_requeue(
-                            &namespace,
-                            &manager.kube,
-                            &name,
-                            UpdateCtx {
-                                deletion_policy: data.spec.deletion_policy,
-                                model: Some(model),
-                                storage: Some(storage),
-                                state: ModelStorageBindingState::Ready,
-                            },
-                        )
-                        .await
+                    Ok(ctx) => {
+                        Self::update_state_or_requeue(&namespace, &manager.kube, &name, ctx).await
                     }
                     Err(e) => {
                         warn!("failed to validate model storage binding: {name:?}: {e}");
@@ -124,10 +120,21 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     }
                 }
             }
-            ModelStorageBindingState::Ready => {
-                // TODO: implement to finding changes
-                Ok(Action::await_change())
-            }
+            ModelStorageBindingState::Ready => match validator
+                .update(&data.spec, data.status.as_ref().unwrap())
+                .await
+            {
+                Ok(Some(ctx)) => {
+                    Self::update_state_or_requeue(&namespace, &manager.kube, &name, ctx).await
+                }
+                Ok(None) => Ok(Action::await_change()),
+                Err(e) => {
+                    warn!("failed to update model storage binding: {name:?}: {e}");
+                    Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    ))
+                }
+            },
             ModelStorageBindingState::Deleting => match validator.delete(&data.spec).await {
                 Ok(()) => {
                     <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer_or_requeue_namespaced(
@@ -154,7 +161,7 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        ctx: UpdateCtx,
+        ctx: UpdateContext,
     ) -> Result<Action, Error> {
         match Self::update_state(namespace, kube, name, ctx).await {
             Ok(()) => {
@@ -177,12 +184,18 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        UpdateCtx {
+        UpdateContext {
             deletion_policy,
             model,
-            storage,
+            model_name,
             state,
-        }: UpdateCtx,
+            storage_source,
+            storage_source_binding_name,
+            storage_source_name,
+            storage_sync_policy,
+            storage_target,
+            storage_target_name,
+        }: UpdateContext,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -197,7 +210,13 @@ impl Ctx {
                 state,
                 deletion_policy,
                 model,
-                storage,
+                model_name,
+                storage_source,
+                storage_source_binding_name,
+                storage_source_name,
+                storage_sync_policy,
+                storage_target,
+                storage_target_name,
                 last_updated: Utc::now(),
             },
         }));
@@ -205,11 +224,4 @@ impl Ctx {
         api.patch_status(name, &pp, &patch).await?;
         Ok(())
     }
-}
-
-struct UpdateCtx {
-    deletion_policy: ModelStorageBindingDeletionPolicy,
-    model: Option<ModelSpec>,
-    storage: Option<ModelStorageBindingStorageKind<ModelStorageSpec>>,
-    state: ModelStorageBindingState,
 }

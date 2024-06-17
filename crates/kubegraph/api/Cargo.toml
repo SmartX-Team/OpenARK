@@ -22,6 +22,14 @@ workspace = true
 [features]
 default = []
 full = ["connector-full", "df-full", "function-full"]
+function-entrypoint = [
+    "actix-web",
+    "actix-web-opentelemetry",
+    "ark-core/actix-web",
+    "connector-full",
+    "df-full",
+]
+vm-entrypoint = []
 
 # Connectors
 connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
@@ -38,20 +46,19 @@ function-full = ["function-fake", "function-webhook"]
 function-fake = []
 function-webhook = []
 
-# Virtual Machines
-vm-entrypoint = []
-
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["signal"] }
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }
 
+actix-web = { workspace = true, optional = true }
+actix-web-opentelemetry = { workspace = true, optional = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 duration-string = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = ["derive"] }
+kube = { workspace = true, features = ["client", "derive"] }
 num-traits = { workspace = true }
 ordered-float = { workspace = true }
 petgraph = { workspace = true, optional = true }
