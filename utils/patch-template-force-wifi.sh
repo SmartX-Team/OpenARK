@@ -42,14 +42,14 @@ if [ "x${ethernet_name}" != 'x' ] && [ "x${wlan_name}" != 'x' ]; then
 
         disable_master='./20-kiss-disable-master.nmconnection'
         if [ -f "${disable_master}" ]; then
-            if ip a show dev "${wlan_name}" | grep -q 'state DOWN'; then
+            if ip a show dev "${wlan_name}"; then
                 sudo mv "${disable_master}" "${disable_src}"
             fi
         fi
 
         if [ -f "${disable_src}" ]; then
             sudo mv "${disable_src}" "${disable_dst}"
-            sudo sed -i "s/\(disable-\)master/\1${ethernet_name}/g" "${disable_dst}"
+            sudo sed -i "s/\(disable-\)[0-9a-z]\+/\1${ethernet_name}/g" "${disable_dst}"
             sudo sed -i "s/\=wifi/\=ethernet/g" "${disable_dst}"
             sudo sed -i "s/${wlan_name}/${ethernet_name}/g" "${disable_dst}"
             sudo sed -i "s/\(mac-address=\)[0-9a-f:]\+/\1${ethernet_mac}/g" "${disable_dst}"
@@ -62,8 +62,7 @@ if [ "x${ethernet_name}" != 'x' ] && [ "x${wlan_name}" != 'x' ]; then
             sudo sed -i "s/\(qdisc\.root=\)[_a-z]*/\1noqueue/g" "${enable_dst}"
 
             sudo nmcli connection reload &&
-                sudo nmcli connection up '10-kiss-enable-master' &&
-                sudo nmcli connection up "20-kiss-disable-${ethernet_name}"
+                sudo nmcli connection up '10-kiss-enable-master'
             sudo reboot
         fi
     fi
