@@ -333,15 +333,15 @@ cephFileSystems:
           # Optional and highly recommended, 'data0' by default, see https://github.com/rook/rook/blob/master/Documentation/CRDs/Shared-Filesystem/ceph-filesystem-crd.md#pools
           name: data0
       metadataServer:
-        activeCount: 1
+        activeCount: 2
         activeStandby: true
         resources:
           limits:
-            cpu: "2000m"
+            cpu: "4"
             memory: "8Gi" # MDS Cache size + free space (2Gi) + burstable space (~2Gi)
           requests:
-            cpu: "1000m"
-            memory: "4Gi"
+            cpu: "4"
+            memory: "8Gi"
         priorityClassName: system-cluster-critical
         placement:
           nodeAffinity:
