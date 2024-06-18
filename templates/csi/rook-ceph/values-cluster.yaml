@@ -131,12 +131,26 @@ cephClusterSpec:
                   values:
                     - Storage
   resources:
+    mgr:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+    mon:
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+      requests:
+        cpu: "2"
+        memory: "2Gi"
     osd:
       limits:
-        cpu: "2000m"
+        cpu: "2"
         memory: "4Gi"
       requests:
-        cpu: "1000m"
+        cpu: "2"
         memory: "1Gi"
 
   # The option to automatically remove OSDs that are out and are safe to destroy.
