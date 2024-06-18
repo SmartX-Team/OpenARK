@@ -2,6 +2,7 @@ pub mod db;
 pub mod kubernetes;
 pub mod object;
 
+use ark_core_k8s::data::Url;
 use chrono::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -57,6 +58,15 @@ pub enum ModelStorageKindSpec {
 }
 
 impl ModelStorageKindSpec {
+    #[inline]
+    pub fn endpoint(&self, namespace: &str) -> Option<Url> {
+        match self {
+            Self::Database(spec) => spec.endpoint(),
+            Self::Kubernetes(spec) => spec.endpoint(),
+            Self::ObjectStorage(spec) => spec.endpoint(namespace),
+        }
+    }
+
     pub const fn is_unique(&self) -> bool {
         match self {
             Self::Database(_) => false,

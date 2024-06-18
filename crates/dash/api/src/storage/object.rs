@@ -23,6 +23,15 @@ impl Default for ModelStorageObjectSpec {
 }
 
 impl ModelStorageObjectSpec {
+    #[inline]
+    pub(super) fn endpoint(&self, namespace: &str) -> Option<Url> {
+        match self {
+            Self::Borrowed(spec) => spec.endpoint(),
+            Self::Cloned(spec) => spec.endpoint(namespace),
+            Self::Owned(spec) => spec.endpoint(namespace),
+        }
+    }
+
     pub(super) const fn is_unique(&self) -> bool {
         match self {
             Self::Borrowed(_) => false,
@@ -39,6 +48,13 @@ pub struct ModelStorageObjectBorrowedSpec {
     pub reference: ModelStorageObjectRefSpec,
 }
 
+impl ModelStorageObjectBorrowedSpec {
+    #[inline]
+    fn endpoint(&self) -> Option<Url> {
+        self.reference.endpoint()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageObjectClonedSpec {
@@ -47,6 +63,13 @@ pub struct ModelStorageObjectClonedSpec {
 
     #[serde(default, flatten)]
     pub owned: ModelStorageObjectOwnedSpec,
+}
+
+impl ModelStorageObjectClonedSpec {
+    #[inline]
+    fn endpoint(&self, namespace: &str) -> Option<Url> {
+        self.owned.endpoint(namespace)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -87,6 +110,11 @@ impl ModelStorageObjectOwnedSpec {
 
     fn default_storage_class_name() -> String {
         "ceph-block".into()
+    }
+
+    #[inline]
+    fn endpoint(&self, namespace: &str) -> Option<Url> {
+        format!("http://minio.{namespace}.svc").parse().ok()
     }
 }
 
@@ -168,6 +196,13 @@ pub struct ModelStorageObjectRefSpec {
     pub endpoint: Url,
     #[serde(default)]
     pub secret_ref: ModelStorageObjectRefSecretRefSpec,
+}
+
+impl ModelStorageObjectRefSpec {
+    #[inline]
+    fn endpoint(&self) -> Option<Url> {
+        Some(self.endpoint.clone())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

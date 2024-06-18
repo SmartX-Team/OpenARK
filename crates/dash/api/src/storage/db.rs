@@ -15,12 +15,36 @@ impl Default for ModelStorageDatabaseSpec {
     }
 }
 
+impl ModelStorageDatabaseSpec {
+    #[inline]
+    pub(super) fn endpoint(&self) -> Option<Url> {
+        match self {
+            Self::Borrowed(spec) => spec.endpoint(),
+            Self::Owned(spec) => spec.endpoint(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageDatabaseBorrowedSpec {
     pub url: Url,
 }
 
+impl ModelStorageDatabaseBorrowedSpec {
+    #[inline]
+    fn endpoint(&self) -> Option<Url> {
+        Some(self.url.clone())
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStorageDatabaseOwnedSpec {}
+
+impl ModelStorageDatabaseOwnedSpec {
+    #[inline]
+    fn endpoint(&self) -> Option<Url> {
+        None
+    }
+}

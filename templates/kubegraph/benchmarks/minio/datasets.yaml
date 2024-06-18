@@ -179,15 +179,15 @@ metadata:
     kubegraph.ulagbulag.io/benchmark-name: minio
     kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
 spec:
-  deletionPolicy: Retain
+  deletionPolicy: Delete
   model: dataset-b
   storage:
     cloned:
       source: object-storage-b
       target: object-storage-a
       syncPolicy:
-        pull: Always
-        push: Always
+        pull: Never
+        push: Never
 ---
 apiVersion: dash.ulagbulag.io/v1alpha1
 kind: ModelStorageBinding
@@ -199,12 +199,12 @@ metadata:
     kubegraph.ulagbulag.io/benchmark-name: minio
     kubegraph.ulagbulag.io/benchmark-minio-storage-type: cloned
 spec:
-  deletionPolicy: Retain
+  deletionPolicy: Delete
   model: dataset-a
   storage:
     cloned:
       source: object-storage-a
       target: object-storage-b
       syncPolicy:
-        pull: Always
-        push: Always
+        pull: Never
+        push: Never

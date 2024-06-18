@@ -162,6 +162,13 @@ pub struct ModelStorageBindingSyncPolicy {
     pub push: ModelStorageBindingSyncPolicyPush,
 }
 
+impl ModelStorageBindingSyncPolicy {
+    pub fn is_none(&self) -> bool {
+        self.pull == ModelStorageBindingSyncPolicyPull::Never
+            && self.push == ModelStorageBindingSyncPolicyPush::Never
+    }
+}
+
 #[derive(
     Copy,
     Clone,
