@@ -43,3 +43,14 @@ controller:
 
   service:
     type: ClusterIP
+
+  podAnnotations:
+    prometheus.io/port: "10254"
+    prometheus.io/scrape: "true"
+
+  metrics:
+    # if this port is changed, change healthz-port: in extraArgs: accordingly
+    enabled: true
+
+    serviceMonitor:
+      enabled: true
