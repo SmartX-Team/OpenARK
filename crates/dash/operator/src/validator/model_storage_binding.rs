@@ -9,13 +9,15 @@ use dash_api::{
     storage::ModelStorageSpec,
 };
 use kube::{core::ObjectMeta, ResourceExt};
-use tracing::{instrument, Level};
+use tracing::{error, instrument, Level};
 
 use super::{model::ModelValidator, storage::ModelStorageValidator};
 
 pub struct ModelStorageBindingValidator<'namespace, 'kube> {
     pub model: ModelValidator<'namespace, 'kube>,
     pub model_storage: ModelStorageValidator<'namespace, 'kube>,
+    pub namespace: &'namespace str,
+    pub name: &'namespace str,
 }
 
 impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
@@ -76,9 +78,17 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn delete(&self, spec: &ModelStorageBindingSpec) -> Result<()> {
-        let ctx = self.load_context(spec).await?;
+        match self.load_context(spec).await {
+            Ok(ctx) => self.delete_with(ctx, spec).await,
+            Err(error) => {
+                let Self {
+                    namespace, name, ..
+                } = self;
 
-        self.delete_with(ctx, spec).await
+                error!("failed to delete model storage binding gracefully ({namespace}/{name}): {error}");
+                Ok(())
+            }
+        }
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]

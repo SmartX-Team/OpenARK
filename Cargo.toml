@@ -28,7 +28,6 @@ members = [
     "crates/dash/provider/client",
     "crates/dash/query/cli",
     "crates/dash/query/provider",
-    "crates/dash/sidecar/object-storage",
     "crates/kiss/ansible",
     "crates/kiss/api",
     # "crates/kiss/assets",

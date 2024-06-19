@@ -22,18 +22,29 @@ use dash_provider_api::data::Capacity;
 use futures::{stream::FuturesUnordered, FutureExt, TryFutureExt, TryStreamExt};
 use k8s_openapi::{
     api::{
+        apps::v1::{Deployment, DeploymentSpec},
         batch::v1::{Job, JobSpec},
         core::v1::{
-            Affinity, Container, EnvVar, NodeAffinity, NodeSelector, NodeSelectorRequirement,
-            NodeSelectorTerm, PodSpec, PodTemplateSpec, PreferredSchedulingTerm,
-            ResourceRequirements, Secret, Service,
+            Affinity, Capabilities, ConfigMap, Container, ContainerPort, EnvVar, EnvVarSource,
+            ExecAction, HTTPGetAction, Lifecycle, LifecycleHandler, NodeAffinity, NodeSelector,
+            NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector, PodAffinity,
+            PodAffinityTerm, PodSpec, PodTemplateSpec, PreferredSchedulingTerm, Probe,
+            ResourceRequirements, Secret, SecurityContext, Service, ServiceAccount, ServicePort,
+            ServiceSpec, WeightedPodAffinityTerm,
         },
         networking::v1::{
-            HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressRule,
-            IngressServiceBackend, IngressSpec, ServiceBackendPort,
+            HTTPIngressPath, HTTPIngressRuleValue, Ingress, IngressBackend, IngressClass,
+            IngressClassSpec, IngressRule, IngressServiceBackend, IngressSpec, ServiceBackendPort,
+        },
+        rbac::v1::{
+            ClusterRole, ClusterRoleBinding, PolicyRule, Role, RoleBinding, RoleRef, Subject,
         },
     },
-    apimachinery::pkg::api::resource::Quantity,
+    apimachinery::pkg::{
+        api::resource::Quantity,
+        apis::meta::v1::{LabelSelector, LabelSelectorRequirement, OwnerReference},
+        util::intstr::IntOrString,
+    },
 };
 use kube::{
     api::PostParams,
@@ -137,19 +148,24 @@ impl<'model> ObjectStorageSession {
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
+                let _ = Self::create_or_get_storage(kube, namespace).await?;
                 Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
             }
             ModelStorageObjectSpec::Cloned(storage) => {
-                Self::load_storage_provider_by_cloned(kube, namespace, name, storage).await
+                let metadata = Self::create_or_get_storage(kube, namespace).await?;
+                Self::load_storage_provider_by_cloned(kube, namespace, name, &metadata, storage)
+                    .await
             }
             ModelStorageObjectSpec::Owned(storage) => {
-                Self::load_storage_provider_by_owned(kube, namespace, name, storage).await
+                let metadata = Self::create_or_get_storage(kube, namespace).await?;
+                Self::load_storage_provider_by_owned(kube, namespace, name, &metadata, storage)
+                    .await
             }
         }
         .map_err(|error| anyhow!("failed to load object storage provider: {error}"))
     }
 
-    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     async fn load_storage_provider_by_borrowed(
         kube: &Client,
         namespace: &str,
@@ -165,13 +181,15 @@ impl<'model> ObjectStorageSession {
         kube: &Client,
         namespace: &str,
         name: &str,
+        metadata: &ObjectMeta,
         storage: &ModelStorageObjectClonedSpec,
     ) -> Result<Self> {
         let reference =
             Self::load_storage_provider_by_reference(kube, namespace, name, &storage.reference)
                 .await?;
         let owned =
-            Self::load_storage_provider_by_owned(kube, namespace, name, &storage.owned).await?;
+            Self::load_storage_provider_by_owned(kube, namespace, name, metadata, &storage.owned)
+                .await?;
 
         let admin = MinioAdminClient {
             storage: &reference,
@@ -183,18 +201,20 @@ impl<'model> ObjectStorageSession {
         Ok(owned)
     }
 
-    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     async fn load_storage_provider_by_owned(
         kube: &Client,
         namespace: &str,
         name: &str,
+        metadata: &ObjectMeta,
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<Self> {
-        let storage = Self::create_or_get_storage(kube, namespace, storage).await?;
+        let storage =
+            Self::create_or_get_minio_storage(kube, namespace, name, metadata, storage).await?;
         Self::load_storage_provider_by_reference(kube, namespace, name, &storage).await
     }
 
-    #[instrument(level = Level::INFO, skip( kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
     async fn load_storage_provider_by_reference(
         kube: &Client,
         namespace: &str,
@@ -250,18 +270,565 @@ impl<'model> ObjectStorageSession {
         })
     }
 
+    #[must_use]
+    #[instrument(level = Level::INFO, skip(kube), err(Display))]
+    async fn create_or_get_storage(kube: &Client, namespace: &str) -> Result<ObjectMeta> {
+        async fn get_latest_nginx_controller_image() -> Result<String> {
+            Ok("registry.k8s.io/ingress-nginx/controller:v1.10.0".into())
+        }
+
+        let api_service = Api::namespaced(kube.clone(), namespace);
+
+        let tenant_name = get_default_tenant_name();
+        let cluster_role_name = format!("dash:{tenant_name}");
+        let ingress_class_controller = format!("k8s.io/dash/{tenant_name}/{namespace}");
+        let ingress_class_name = format!("dash.{tenant_name}.{namespace}");
+        let ingress_host = format!("{tenant_name}.{namespace}.svc");
+        let service_metrics_name = format!("{tenant_name}-metrics");
+
+        let port_http_name = "http";
+        let port_https_name = "https";
+        let port_metrics_name = "metrics";
+
+        let labels = btreemap! {
+            "app".into() => tenant_name.into(),
+            "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
+        };
+        let metadata = ObjectMeta {
+            name: Some(tenant_name.into()),
+            namespace: Some(namespace.into()),
+            labels: Some(labels.clone()),
+            ..Default::default()
+        };
+
+        let labels_service_metrics = {
+            let mut labels = labels.clone();
+            labels.insert(
+                "dash.ulagbulag.io/modelstorage-service".into(),
+                "metrics".into(),
+            );
+            labels
+        };
+
+        let uid = {
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || ServiceAccount {
+                metadata: metadata.clone(),
+                ..Default::default()
+            };
+            let account = get_or_create(&api, "serviceaccount", tenant_name, data).await?;
+            account
+                .uid()
+                .ok_or_else(|| anyhow!("failed to get serviceaccount uid"))?
+        };
+
+        let metadata = {
+            let mut metadata = metadata;
+            metadata.owner_references = Some(vec![OwnerReference {
+                api_version: "v1".into(),
+                block_owner_deletion: None,
+                controller: None,
+                kind: "ServiceAccount".into(),
+                name: tenant_name.into(),
+                uid,
+            }]);
+            metadata
+        };
+
+        {
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || Role {
+                metadata: metadata.clone(),
+                rules: Some(vec![
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec![
+                            "configmaps".into(),
+                            "endpoints".into(),
+                            "pods".into(),
+                            "secrets".into(),
+                            "services".into(),
+                        ]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec!["namespaces".into()]),
+                        verbs: vec!["get".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec!["events".into()]),
+                        verbs: vec!["create".into(), "patch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["coordination.k8s.io".into()]),
+                        resource_names: Some(vec!["ingress-nginx-leader".into()]),
+                        resources: Some(vec!["leases".into()]),
+                        verbs: vec!["get".into(), "update".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["coordination.k8s.io".into()]),
+                        resources: Some(vec!["leases".into()]),
+                        verbs: vec!["create".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["discovery.k8s.io".into()]),
+                        resources: Some(vec!["endpointslices".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingressclasses".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingresses".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingresses/status".into()]),
+                        verbs: vec!["update".into()],
+                        ..Default::default()
+                    },
+                ]),
+            };
+            get_or_create(&api, "role", tenant_name, data).await?
+        };
+        {
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || RoleBinding {
+                metadata: metadata.clone(),
+                role_ref: RoleRef {
+                    api_group: "rbac.authorization.k8s.io".into(),
+                    kind: "Role".into(),
+                    name: tenant_name.into(),
+                },
+                subjects: Some(vec![Subject {
+                    api_group: Some(String::default()),
+                    kind: "ServiceAccount".into(),
+                    name: tenant_name.into(),
+                    namespace: Some(namespace.into()),
+                }]),
+            };
+            get_or_create(&api, "rolebinding", tenant_name, data).await?
+        };
+        {
+            let api = Api::all(kube.clone());
+            let data = || ClusterRole {
+                aggregation_rule: None,
+                metadata: ObjectMeta {
+                    name: Some(cluster_role_name.clone()),
+                    owner_references: None,
+                    ..metadata.clone()
+                },
+                rules: Some(vec![
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec![
+                            "configmaps".into(),
+                            "endpoints".into(),
+                            "namespaces".into(),
+                            "nodes".into(),
+                            "pods".into(),
+                            "secrets".into(),
+                            "services".into(),
+                        ]),
+                        verbs: vec!["list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec!["nodes".into()]),
+                        verbs: vec!["get".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec!["services".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["".into()]),
+                        resources: Some(vec!["events".into()]),
+                        verbs: vec!["create".into(), "patch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["coordination.k8s.io".into()]),
+                        resources: Some(vec!["leases".into()]),
+                        verbs: vec!["list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["discovery.k8s.io".into()]),
+                        resources: Some(vec!["endpointslices".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingressclasses".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingresses".into()]),
+                        verbs: vec!["get".into(), "list".into(), "watch".into()],
+                        ..Default::default()
+                    },
+                    PolicyRule {
+                        api_groups: Some(vec!["networking.k8s.io".into()]),
+                        resources: Some(vec!["ingresses/status".into()]),
+                        verbs: vec!["update".into()],
+                        ..Default::default()
+                    },
+                ]),
+            };
+            get_or_create(&api, "clusterrole", &cluster_role_name, data).await?
+        };
+        {
+            let api = Api::all(kube.clone());
+            let name = format!("{cluster_role_name}:{namespace}");
+            let data = || ClusterRoleBinding {
+                metadata: ObjectMeta {
+                    name: Some(name.clone()),
+                    ..metadata.clone()
+                },
+                role_ref: RoleRef {
+                    api_group: "rbac.authorization.k8s.io".into(),
+                    kind: "ClusterRole".into(),
+                    name: cluster_role_name,
+                },
+                subjects: Some(vec![Subject {
+                    api_group: Some(String::default()),
+                    kind: "ServiceAccount".into(),
+                    name: tenant_name.into(),
+                    namespace: Some(namespace.into()),
+                }]),
+            };
+            get_or_create(&api, "clusterrolebinding", &name, data).await?
+        };
+        {
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || ConfigMap {
+                metadata: metadata.clone(),
+                immutable: Some(true),
+                binary_data: None,
+                data: Some(btreemap! {
+                    "allow-snippet-annotations".into() => "true".into(),
+                }),
+            };
+            get_or_create(&api, "configmap", tenant_name, data).await?
+        };
+        {
+            let image = get_latest_nginx_controller_image().await?;
+
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || Deployment {
+                metadata: metadata.clone(),
+                spec: Some(DeploymentSpec {
+                    selector: LabelSelector {
+                        match_expressions: None,
+                        match_labels: Some(labels.clone()),
+                    },
+                    template: PodTemplateSpec {
+                        metadata: Some(ObjectMeta {
+                            annotations: Some(btreemap! {
+                                "prometheus.io/port".into() => "10254".into(),
+                                "prometheus.io/scrape".into() => "true".into(),
+                            }),
+                            labels: Some(labels.clone()),
+                            ..Default::default()
+                        }),
+                        spec: Some(PodSpec {
+                            affinity: Some(Affinity {
+                                node_affinity: Some(get_default_node_affinity()),
+                                pod_affinity: Some(get_default_pod_affinity(tenant_name)),
+                                ..Default::default()
+                            }),
+                            containers: vec![Container {
+                                name: "controller".into(),
+                                image: Some(image),
+                                image_pull_policy: Some("Always".into()),
+                                args: Some(vec![
+                                    "/nginx-ingress-controller".into(),
+                                    format!("--publish-service=$(POD_NAMESPACE)/{tenant_name}"),
+                                    "--election-id=ingress-nginx-leader".into(),
+                                    format!("--controller-class={ingress_class_controller}"),
+                                    format!("--ingress-class={ingress_class_name}"),
+                                    format!("--configmap=$(POD_NAMESPACE)/{tenant_name}"),
+                                ]),
+                                env: Some(vec![
+                                    EnvVar {
+                                        name: "POD_NAME".into(),
+                                        value: None,
+                                        value_from: Some(EnvVarSource {
+                                            field_ref: Some(ObjectFieldSelector {
+                                                api_version: Some("v1".into()),
+                                                field_path: "metadata.name".into(),
+                                            }),
+                                            ..Default::default()
+                                        }),
+                                    },
+                                    EnvVar {
+                                        name: "POD_NAMESPACE".into(),
+                                        value: None,
+                                        value_from: Some(EnvVarSource {
+                                            field_ref: Some(ObjectFieldSelector {
+                                                api_version: Some("v1".into()),
+                                                field_path: "metadata.namespace".into(),
+                                            }),
+                                            ..Default::default()
+                                        }),
+                                    },
+                                    EnvVar {
+                                        name: "LD_PRELOAD".into(),
+                                        value: Some("/usr/local/lib/libmimalloc.so".into()),
+                                        value_from: None,
+                                    },
+                                ]),
+                                lifecycle: Some(Lifecycle {
+                                    pre_stop: Some(LifecycleHandler {
+                                        exec: Some(ExecAction {
+                                            command: Some(vec!["/wait-shutdown".into()]),
+                                        }),
+                                        ..Default::default()
+                                    }),
+                                    post_start: None,
+                                }),
+                                liveness_probe: Some(Probe {
+                                    failure_threshold: Some(5),
+                                    http_get: Some(HTTPGetAction {
+                                        path: Some("/healthz".into()),
+                                        port: IntOrString::Int(10254),
+                                        scheme: Some("HTTP".into()),
+                                        ..Default::default()
+                                    }),
+                                    initial_delay_seconds: Some(10),
+                                    period_seconds: Some(10),
+                                    success_threshold: Some(1),
+                                    timeout_seconds: Some(1),
+                                    ..Default::default()
+                                }),
+                                readiness_probe: Some(Probe {
+                                    failure_threshold: Some(3),
+                                    http_get: Some(HTTPGetAction {
+                                        path: Some("/healthz".into()),
+                                        port: IntOrString::Int(10254),
+                                        scheme: Some("HTTP".into()),
+                                        ..Default::default()
+                                    }),
+                                    initial_delay_seconds: Some(10),
+                                    period_seconds: Some(10),
+                                    success_threshold: Some(1),
+                                    timeout_seconds: Some(1),
+                                    ..Default::default()
+                                }),
+                                ports: Some(vec![
+                                    ContainerPort {
+                                        name: Some(port_http_name.into()),
+                                        protocol: Some("TCP".into()),
+                                        container_port: 80,
+                                        ..Default::default()
+                                    },
+                                    ContainerPort {
+                                        name: Some(port_https_name.into()),
+                                        protocol: Some("TCP".into()),
+                                        container_port: 443,
+                                        ..Default::default()
+                                    },
+                                    ContainerPort {
+                                        name: Some(port_metrics_name.into()),
+                                        protocol: Some("TCP".into()),
+                                        container_port: 10254,
+                                        ..Default::default()
+                                    },
+                                ]),
+                                resources: Some(ResourceRequirements {
+                                    limits: Some(btreemap! {
+                                        "cpu".into() => Quantity("2".into()),
+                                        "memory".into() => Quantity("2Gi".into()),
+                                    }),
+                                    ..Default::default()
+                                }),
+                                security_context: Some(SecurityContext {
+                                    allow_privilege_escalation: Some(false),
+                                    capabilities: Some(Capabilities {
+                                        add: Some(vec!["NET_BIND_SERVICE".into()]),
+                                        drop: Some(vec!["ALL".into()]),
+                                    }),
+                                    read_only_root_filesystem: Some(false),
+                                    run_as_non_root: Some(true),
+                                    run_as_user: Some(101),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }],
+                            service_account_name: Some(tenant_name.into()),
+                            ..Default::default()
+                        }),
+                    },
+                    ..Default::default()
+                }),
+                status: None,
+            };
+            get_or_create(&api, "deployment", tenant_name, data).await?
+        };
+        {
+            let api = &api_service;
+            let data = || Service {
+                metadata: metadata.clone(),
+                spec: Some(ServiceSpec {
+                    selector: Some(labels.clone()),
+                    ports: Some(vec![
+                        ServicePort {
+                            name: Some(port_http_name.into()),
+                            port: 80,
+                            ..Default::default()
+                        },
+                        ServicePort {
+                            name: Some(port_https_name.into()),
+                            port: 443,
+                            ..Default::default()
+                        },
+                    ]),
+                    ..Default::default()
+                }),
+                status: None,
+            };
+            get_or_create(api, "service", tenant_name, data).await?
+        };
+        {
+            let api = &api_service;
+            let data = || Service {
+                metadata: ObjectMeta {
+                    labels: Some(labels_service_metrics.clone()),
+                    name: Some(service_metrics_name.clone()),
+                    ..metadata.clone()
+                },
+                spec: Some(ServiceSpec {
+                    selector: Some(labels),
+                    ports: Some(vec![ServicePort {
+                        name: Some(port_metrics_name.into()),
+                        port: 10254,
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                }),
+                status: None,
+            };
+            get_or_create(api, "service", &service_metrics_name, data).await?
+        };
+        {
+            let api = load_api_service_monitor(kube, namespace).await?;
+            let data = || DynamicObject {
+                types: Some(TypeMeta {
+                    api_version: "monitoring.coreos.com/v1".into(),
+                    kind: "ServiceMonitor".into(),
+                }),
+                metadata: metadata.clone(),
+                data: json!({
+                    "spec": {
+                        "endpoints": [
+                            {
+                                "port": "metrics",
+                                "interval": "30s",
+                            },
+                        ],
+                        "namespaceSelector": {
+                            "matchNames": [
+                                namespace,
+                            ],
+                        },
+                        "selector": {
+                            "matchLabels": labels_service_metrics,
+                        },
+                    },
+                }),
+            };
+            get_or_create(&api, "servicemonitor", tenant_name, data).await?
+        };
+        {
+            let api = Api::namespaced(kube.clone(), namespace);
+            let data = || Ingress {
+                metadata: metadata.clone(),
+                spec: Some(IngressSpec {
+                    default_backend: None,
+                    ingress_class_name: Some(ingress_class_name.clone()),
+                    tls: None,
+                    rules: Some(vec![IngressRule {
+                        host: Some(ingress_host),
+                        http: Some(HTTPIngressRuleValue {
+                            paths: vec![HTTPIngressPath {
+                                path: Some("/".into()),
+                                path_type: "Prefix".into(),
+                                backend: IngressBackend {
+                                    resource: None,
+                                    service: Some(IngressServiceBackend {
+                                        name: "minio".into(),
+                                        port: Some(ServiceBackendPort {
+                                            name: Some("http-minio".into()),
+                                            number: None,
+                                        }),
+                                    }),
+                                },
+                            }],
+                        }),
+                    }]),
+                }),
+                status: None,
+            };
+            get_or_create(&api, "ingress", tenant_name, data).await?
+        };
+        {
+            let api = Api::all(kube.clone());
+            let data = || IngressClass {
+                metadata: ObjectMeta {
+                    annotations: Some(btreemap! {
+                        "ingressclass.kubernetes.io/is-default-class".into() => "false".into(),
+                    }),
+                    name: Some(ingress_class_name.clone()),
+                    ..metadata.clone()
+                },
+                spec: Some(IngressClassSpec {
+                    controller: Some(ingress_class_controller),
+                    parameters: None,
+                }),
+            };
+            get_or_create(&api, "ingressclass", &ingress_class_name, data).await?
+        };
+        Ok(metadata)
+    }
+
     #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
-    async fn create_or_get_storage(
+    async fn create_or_get_minio_storage(
         kube: &Client,
         namespace: &str,
+        name: &str,
+        metadata: &ObjectMeta,
         storage: &ModelStorageObjectOwnedSpec,
     ) -> Result<ModelStorageObjectRefSpec> {
         async fn get_latest_minio_image() -> Result<String> {
             Ok("docker.io/minio/minio:RELEASE.2023-09-16T01-01-47Z".into())
         }
 
-        let tenant_name = "object-storage";
+        let tenant_name = get_default_tenant_name();
         let labels = btreemap! {
+            "app".into() => "minio".into(),
+            "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
             "v1.min.io/tenant".into() => tenant_name.into(),
         };
 
@@ -272,49 +839,14 @@ impl<'model> ObjectStorageSession {
             let spec = MinioTenantSpec {
                 image: get_latest_minio_image().await?,
                 labels: &labels,
+                owner_references: metadata.owner_references.as_ref(),
                 pool_name,
                 storage,
             };
             get_or_create_minio_tenant(kube, namespace, name, spec).await?
         };
 
-        {
-            let name = tenant_name;
-            let api_ingress = Api::<Ingress>::namespaced(kube.clone(), namespace);
-            get_or_create_ingress(
-                &api_ingress,
-                namespace,
-                name,
-                Some(&labels),
-                IngressServiceBackend {
-                    name: "minio".into(),
-                    port: Some(ServiceBackendPort {
-                        name: Some("http-minio".into()),
-                        ..Default::default()
-                    }),
-                },
-            )
-            .await?
-        };
-
-        let minio_domain = {
-            let api = Api::<Service>::namespaced(kube.clone(), namespace);
-            match api.get_opt("minio").await?.and_then(|service| {
-                service
-                    .status
-                    .and_then(|status| status.load_balancer)
-                    .and_then(|load_balancer| load_balancer.ingress)
-                    .and_then(|ingresses| {
-                        ingresses
-                            .into_iter()
-                            .filter_map(|ingress| ingress.ip)
-                            .next()
-                    })
-            }) {
-                Some(ip) => ip,
-                None => get_kubernetes_minio_domain(namespace).await?,
-            }
-        };
+        let minio_domain = get_kubernetes_minio_domain(namespace).await?;
 
         Ok(ModelStorageObjectRefSpec {
             endpoint: format!("http://{minio_domain}/").parse()?,
@@ -474,7 +1006,14 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             };
         }
 
+        self.create_bucket_service().await?;
         self.sync_bucket(bucket_name).await
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn create_bucket_service(&self) -> Result<()> {
+        // TODO: to be implemented
+        todo!()
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
@@ -747,7 +1286,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             timestamp = Utc::now().timestamp(),
         );
 
-        get_or_create(&api, "service", &name, || {
+        get_or_create(&api, "job", &name, || {
             let source_bucket = self.source_binding_name.unwrap_or(bucket).to_string();
             let target_bucket = bucket.to_string();
 
@@ -757,9 +1296,10 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             let source_endpoint = source.as_ref().map(|source| source.endpoint.to_string());
             let target_endpoint = self.target.endpoint.to_string();
 
+            let tenant_name = get_default_tenant_name();
             let labels = btreemap! {
-                "dash.ulagbulag.io/modelstorage.name".into() => bucket.into(),
-                "dash.ulagbulag.io/modelstorage.objectstorage.command".into() => command.into(),
+                "dash.ulagbulag.io/modelstorage-name".into() => bucket.into(),
+                "dash.ulagbulag.io/modelstorage-objectstorage-command".into() => command.into(),
             };
 
             Job {
@@ -779,6 +1319,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
                         spec: Some(PodSpec {
                             affinity: Some(Affinity {
                                 node_affinity: Some(get_default_node_affinity()),
+                                pod_affinity: Some(get_default_pod_affinity(tenant_name)),
                                 ..Default::default()
                             }),
                             containers: vec![Container {
@@ -1338,6 +1879,7 @@ async fn get_or_create_ingress(
 struct MinioTenantSpec<'a> {
     image: String,
     labels: &'a BTreeMap<String, String>,
+    owner_references: Option<&'a Vec<OwnerReference>>,
     pool_name: &'a str,
     storage: &'a ModelStorageObjectOwnedSpec,
 }
@@ -1350,6 +1892,7 @@ async fn get_or_create_minio_tenant(
     MinioTenantSpec {
         image,
         labels,
+        owner_references,
         pool_name,
         storage:
             ModelStorageObjectOwnedSpec {
@@ -1372,19 +1915,16 @@ async fn get_or_create_minio_tenant(
     }
 
     let api_secret = Api::<Secret>::namespaced(kube.clone(), namespace);
-    let api_tenant = {
-        let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
-        let spec = ModelCustomResourceDefinitionRefSpec {
-            name: "tenants.minio.min.io/v2".into(),
-        };
-        client.api_custom_resource(&spec, None).await?
+
+    let labels_console = {
+        let mut labels = labels.clone();
+        labels.insert("v1.min.io/service".into(), "console".into());
+        labels
     };
-    let api_service_monitor = {
-        let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
-        let spec = ModelCustomResourceDefinitionRefSpec {
-            name: "servicemonitors.monitoring.coreos.com/v1".into(),
-        };
-        client.api_custom_resource(&spec, None).await?
+    let labels_minio = {
+        let mut labels = labels.clone();
+        labels.insert("v1.min.io/service".into(), "minio".into());
+        labels
     };
 
     let total_volumes = total_nodes * total_volumes_per_node;
@@ -1401,6 +1941,7 @@ async fn get_or_create_minio_tenant(
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
+                owner_references: owner_references.cloned(),
                 ..Default::default()
             },
             immutable: Some(false),
@@ -1428,6 +1969,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
+                owner_references: owner_references.cloned(),
                 ..Default::default()
             },
             immutable: Some(true),
@@ -1447,6 +1989,7 @@ export MINIO_ROOT_PASSWORD="{password}"
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
+                owner_references: owner_references.cloned(),
                 ..Default::default()
             },
             immutable: Some(true),
@@ -1468,133 +2011,144 @@ export MINIO_ROOT_PASSWORD="{password}"
         })
         .collect::<Vec<_>>();
 
-    get_or_create(&api_tenant, "tenant", name, || DynamicObject {
-        types: Some(TypeMeta {
-            api_version: "minio.min.io/v2".into(),
-            kind: "Tenant".into(),
-        }),
-        metadata: ObjectMeta {
-            annotations: Some(
-                [
-                    ("prometheus.io/path", "/minio/prometheus/metrics"),
-                    ("prometheus.io/port", "9000"),
-                    ("prometheus.io/scrape", "true"),
-                ].iter()
+    {
+        let api = load_api_tenant(kube, namespace).await?;
+        let data = || DynamicObject {
+            types: Some(TypeMeta {
+                api_version: "minio.min.io/v2".into(),
+                kind: "Tenant".into(),
+            }),
+            metadata: ObjectMeta {
+                annotations: Some(
+                    [
+                        ("prometheus.io/path", "/minio/prometheus/metrics"),
+                        ("prometheus.io/port", "9000"),
+                        ("prometheus.io/scrape", "true"),
+                    ]
+                    .iter()
                     .map(|(key, value)| (key.to_string(), value.to_string()))
-                    .collect()
-            ),
-            labels: Some(labels.clone()),
-            name: Some(name.to_string()),
-            namespace: Some(namespace.to_string()),
-            ..Default::default()
-        },
-        data: json!({
-            "spec": {
-                "configuration": {
-                    "name": secret_env_configuration.name_any(),
-                },
-                "credsSecret": {
-                    "name": secret_creds.name_any(),
-                },
-                "env": [
-                    {
-                        "name": "MINIO_PROMETHEUS_AUTH_TYPE",
-                        "value": "public",
-                    },
-                    {
-                        "name": "MINIO_PROMETHEUS_JOB_ID",
-                        "value": format!("{name}-minio-job"),
-                    },
-                    {
-                        "name": "MINIO_PROMETHEUS_URL",
-                        "value": "kube-prometheus-stack-prometheus.monitoring.svc:9090",
-                    },
-                ],
-                "exposeServices": {
-                    "console": minio_console_external_service.is_enabled(),
-                    "minio": minio_external_service.is_enabled(),
-                },
-                "image": image,
-                "imagePullPolicy": "Always",
-                "imagePullSecret": {},
-                "mountPath": "/export",
-                "pools": [
-                    {
-                        "affinity": {
-                            "nodeAffinity": get_default_node_affinity(),
-                            "podAntiAffinity": {
-                                "requiredDuringSchedulingIgnoredDuringExecution": [
-                                    {
-                                        "labelSelector": {
-                                            "matchExpressions": [
-                                                {
-                                                    "key": "v1.min.io/tenant",
-                                                    "operator": "In",
-                                                    "values": [
-                                                        name,
-                                                    ],
-                                                },
-                                                {
-                                                    "key": "v1.min.io/pool",
-                                                    "operator": "In",
-                                                    "values": [
-                                                        pool_name,
-                                                    ],
-                                                },
-                                            ],
-                                        },
-                                        "topologyKey": "kubernetes.io/hostname",
-                                    },
-                                ],
-                            },
-                        },
-                        "name": pool_name,
-                        "resources": compute_resources,
-                        "runtimeClassName": runtime_class_name,
-                        "servers": total_nodes,
-                        "volumeClaimTemplate": {
-                            "metadata": {
-                                "labels": labels,
-                            },
-                            "spec": {
-                                "accessModes": [
-                                    "ReadWriteOnce",
-                                ],
-                                "resources": storage_resources,
-                                "storageClassName": storage_class_name,
-                            },
-                        },
-                        "volumesPerServer": total_volumes_per_node,
-                    },
-                ],
-                "prometheusOperator": false,
-                "requestAutoCert": false,
-                "serviceMetadata": {
-                    "consoleServiceAnnotations": {
-                        "metallb.universe.tf/address-pool": minio_console_external_service.address_pool,
-                        "metallb.universe.tf/loadBalancerIPs": minio_console_external_service.ip,
-                    },
-                    "minioServiceAnnotations": {
-                        "metallb.universe.tf/address-pool": minio_external_service.address_pool,
-                        "metallb.universe.tf/loadBalancerIPs": minio_external_service.ip,
-                    },
-                },
-                "users": users,
+                    .collect(),
+                ),
+                labels: Some(labels.clone()),
+                name: Some(name.to_string()),
+                namespace: Some(namespace.to_string()),
+                owner_references: owner_references.cloned(),
+                ..Default::default()
             },
-        }),
-    })
-    .await?;
-
-    get_or_create(&api_service_monitor, "servicemonitor", name, || {
-        DynamicObject {
+            data: json!({
+                "spec": {
+                    "configuration": {
+                        "name": secret_env_configuration.name_any(),
+                    },
+                    "credsSecret": {
+                        "name": secret_creds.name_any(),
+                    },
+                    "env": [
+                        {
+                            "name": "MINIO_PROMETHEUS_AUTH_TYPE",
+                            "value": "public",
+                        },
+                        {
+                            "name": "MINIO_PROMETHEUS_JOB_ID",
+                            "value": format!("{name}-minio-job"),
+                        },
+                        {
+                            "name": "MINIO_PROMETHEUS_URL",
+                            "value": "kube-prometheus-stack-prometheus.monitoring.svc:9090",
+                        },
+                    ],
+                    "exposeServices": {
+                        "console": minio_console_external_service.is_enabled(),
+                        "minio": minio_external_service.is_enabled(),
+                    },
+                    "image": image,
+                    "imagePullPolicy": "Always",
+                    "imagePullSecret": {},
+                    "mountPath": "/export",
+                    "pools": [
+                        {
+                            "affinity": {
+                                "nodeAffinity": get_default_node_affinity(),
+                                "podAffinity": get_default_pod_affinity(name),
+                                "podAntiAffinity": {
+                                    "requiredDuringSchedulingIgnoredDuringExecution": [
+                                        {
+                                            "labelSelector": {
+                                                "matchExpressions": [
+                                                    {
+                                                        "key": "v1.min.io/tenant",
+                                                        "operator": "In",
+                                                        "values": [
+                                                            name,
+                                                        ],
+                                                    },
+                                                    {
+                                                        "key": "v1.min.io/pool",
+                                                        "operator": "In",
+                                                        "values": [
+                                                            pool_name,
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            "topologyKey": "kubernetes.io/hostname",
+                                        },
+                                    ],
+                                },
+                            },
+                            "labels": labels,
+                            "name": pool_name,
+                            "resources": compute_resources,
+                            "runtimeClassName": runtime_class_name,
+                            "servers": total_nodes,
+                            "volumeClaimTemplate": {
+                                "metadata": {
+                                    "labels": labels,
+                                },
+                                "spec": {
+                                    "accessModes": [
+                                        "ReadWriteOnce",
+                                    ],
+                                    "resources": storage_resources,
+                                    "storageClassName": storage_class_name,
+                                },
+                            },
+                            "volumesPerServer": total_volumes_per_node,
+                        },
+                    ],
+                    "prometheusOperator": false,
+                    "requestAutoCert": false,
+                    "serviceMetadata": {
+                        "consoleServiceAnnotations": {
+                            "metallb.universe.tf/address-pool": minio_console_external_service.address_pool,
+                            "metallb.universe.tf/loadBalancerIPs": minio_console_external_service.ip,
+                        },
+                        "consoleServiceLabels": labels_console,
+                        "minioServiceAnnotations": {
+                            "metallb.universe.tf/address-pool": minio_external_service.address_pool,
+                            "metallb.universe.tf/loadBalancerIPs": minio_external_service.ip,
+                        },
+                        "minioServiceLabels": labels_minio,
+                    },
+                    "users": users,
+                },
+            }),
+        };
+        get_or_create(&api, "tenant", name, data).await?
+    };
+    {
+        let api = load_api_service_monitor(kube, namespace).await?;
+        let name = format!("{name}-minio");
+        let data = || DynamicObject {
             types: Some(TypeMeta {
                 api_version: "monitoring.coreos.com/v1".into(),
                 kind: "ServiceMonitor".into(),
             }),
             metadata: ObjectMeta {
                 labels: Some(labels.clone()),
-                name: Some(name.to_string()),
+                name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
+                owner_references: owner_references.cloned(),
                 ..Default::default()
             },
             data: json!({
@@ -1616,9 +2170,9 @@ export MINIO_ROOT_PASSWORD="{password}"
                     },
                 },
             }),
-        }
-    })
-    .await?;
+        };
+        get_or_create(&api, "servicemonitor", &name, data).await?
+    };
 
     Ok(secret_user_0)
 }
@@ -1715,6 +2269,7 @@ fn split_resources(
 fn get_default_node_affinity() -> NodeAffinity {
     NodeAffinity {
         preferred_during_scheduling_ignored_during_execution: Some(vec![
+            // KISS normal control plane nodes should be preferred
             PreferredSchedulingTerm {
                 preference: NodeSelectorTerm {
                     match_expressions: Some(vec![NodeSelectorRequirement {
@@ -1726,6 +2281,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                 },
                 weight: 1,
             },
+            // KISS compute nodes should be preferred
             PreferredSchedulingTerm {
                 preference: NodeSelectorTerm {
                     match_expressions: Some(vec![NodeSelectorRequirement {
@@ -1737,6 +2293,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                 },
                 weight: 2,
             },
+            // KISS gateway nodes should be more preferred
             PreferredSchedulingTerm {
                 preference: NodeSelectorTerm {
                     match_expressions: Some(vec![NodeSelectorRequirement {
@@ -1766,12 +2323,61 @@ fn get_default_node_affinity() -> NodeAffinity {
     }
 }
 
+fn get_default_pod_affinity(tenant_name: &str) -> PodAffinity {
+    PodAffinity {
+        preferred_during_scheduling_ignored_during_execution: Some(vec![WeightedPodAffinityTerm {
+            pod_affinity_term: PodAffinityTerm {
+                label_selector: Some(LabelSelector {
+                    match_expressions: Some(vec![LabelSelectorRequirement {
+                        key: "dash.ulagbulag.io/modelstorage-type".into(),
+                        operator: "In".into(),
+                        values: Some(vec![tenant_name.into()]),
+                    }]),
+                    match_labels: None,
+                }),
+                topology_key: "kubernetes.io/hostname".into(),
+                ..Default::default()
+            },
+            weight: 32,
+        }]),
+        required_during_scheduling_ignored_during_execution: None,
+    }
+}
+
+const fn get_default_tenant_name() -> &'static str {
+    "object-storage"
+}
+
 #[instrument(level = Level::INFO, err(Display))]
 async fn get_kubernetes_minio_domain(namespace: &str) -> Result<String> {
     Ok(format!(
         "minio.{namespace}.svc.{cluster_domain}",
         cluster_domain = get_cluster_domain().await?,
     ))
+}
+
+#[instrument(level = Level::INFO, skip(kube, namespace), err(Display))]
+async fn load_api_service_monitor(kube: &Client, namespace: &str) -> Result<Api<DynamicObject>> {
+    let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
+    let spec = ModelCustomResourceDefinitionRefSpec {
+        name: "servicemonitors.monitoring.coreos.com/v1".into(),
+    };
+    client
+        .api_custom_resource(&spec, None)
+        .await
+        .map_err(Into::into)
+}
+
+#[instrument(level = Level::INFO, skip(kube, namespace), err(Display))]
+async fn load_api_tenant(kube: &Client, namespace: &str) -> Result<Api<DynamicObject>> {
+    let client = super::kubernetes::KubernetesStorageClient { namespace, kube };
+    let spec = ModelCustomResourceDefinitionRefSpec {
+        name: "tenants.minio.min.io/v2".into(),
+    };
+    client
+        .api_custom_resource(&spec, None)
+        .await
+        .map_err(Into::into)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

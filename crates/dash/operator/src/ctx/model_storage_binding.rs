@@ -99,6 +99,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         let validator = ModelStorageBindingValidator {
             model: ModelValidator { kubernetes_storage },
             model_storage: ModelStorageValidator { kubernetes_storage },
+            namespace: &namespace,
+            name: &name,
         };
 
         match data
