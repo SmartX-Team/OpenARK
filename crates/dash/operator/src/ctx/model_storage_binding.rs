@@ -64,6 +64,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         .unwrap_or(data.spec.deletion_policy),
                     model: status.and_then(|status| status.model.clone()),
                     model_name: status.and_then(|status| status.model_name.clone()),
+                    owner_references: None,
                     state: ModelStorageBindingState::Deleting,
                     storage_source: status
                         .and_then(|status| status.storage_source.as_ref())
@@ -72,10 +73,12 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                         .and_then(|status| status.storage_source_binding_name.clone()),
                     storage_source_name: status
                         .and_then(|status| status.storage_source_name.clone()),
+                    storage_source_uid: status.and_then(|status| status.storage_source_uid.clone()),
                     storage_sync_policy: status.and_then(|status| status.storage_sync_policy),
                     storage_target: status.and_then(|status| status.storage_target.clone()),
                     storage_target_name: status
                         .and_then(|status| status.storage_target_name.clone()),
+                    storage_target_uid: status.and_then(|status| status.storage_target_uid.clone()),
                 },
             )
             .await;
@@ -110,7 +113,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .unwrap_or_default()
         {
             ModelStorageBindingState::Pending => {
-                match validator.validate_model_storage_binding(&data.spec).await {
+                match validator.validate_model_storage_binding(&data).await {
                     Ok(ctx) => {
                         Self::update_state_or_requeue(&namespace, &manager.kube, &name, ctx).await
                     }
@@ -122,21 +125,20 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     }
                 }
             }
-            ModelStorageBindingState::Ready => match validator
-                .update(&data.spec, data.status.as_ref().unwrap())
-                .await
-            {
-                Ok(Some(ctx)) => {
-                    Self::update_state_or_requeue(&namespace, &manager.kube, &name, ctx).await
+            ModelStorageBindingState::Ready => {
+                match validator.update(&data, data.status.as_ref().unwrap()).await {
+                    Ok(Some(ctx)) => {
+                        Self::update_state_or_requeue(&namespace, &manager.kube, &name, ctx).await
+                    }
+                    Ok(None) => Ok(Action::await_change()),
+                    Err(e) => {
+                        warn!("failed to update model storage binding: {name:?}: {e}");
+                        Ok(Action::requeue(
+                            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                        ))
+                    }
                 }
-                Ok(None) => Ok(Action::await_change()),
-                Err(e) => {
-                    warn!("failed to update model storage binding: {name:?}: {e}");
-                    Ok(Action::requeue(
-                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
-                    ))
-                }
-            },
+            }
             ModelStorageBindingState::Deleting => match validator.delete(&data.spec).await {
                 Ok(()) => {
                     <Self as ::ark_core_k8s::manager::Ctx>::remove_finalizer_or_requeue_namespaced(
@@ -190,13 +192,16 @@ impl Ctx {
             deletion_policy,
             model,
             model_name,
+            owner_references,
             state,
             storage_source,
             storage_source_binding_name,
             storage_source_name,
+            storage_source_uid,
             storage_sync_policy,
             storage_target,
             storage_target_name,
+            storage_target_uid,
         }: UpdateContext,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
@@ -205,25 +210,37 @@ impl Ctx {
         );
         let crd = <Self as ::ark_core_k8s::manager::Ctx>::Data::api_resource();
 
-        let patch = Patch::Merge(json!({
-            "apiVersion": crd.api_version,
-            "kind": crd.kind,
-            "status": ModelStorageBindingStatus {
-                state,
-                deletion_policy,
-                model,
-                model_name,
-                storage_source,
-                storage_source_binding_name,
-                storage_source_name,
-                storage_sync_policy,
-                storage_target,
-                storage_target_name,
-                last_updated: Utc::now(),
-            },
-        }));
-        let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
-        api.patch_status(name, &pp, &patch).await?;
+        {
+            let patch = Patch::Merge(json!({
+                "apiVersion": crd.api_version,
+                "kind": crd.kind,
+                "status": ModelStorageBindingStatus {
+                    state,
+                    deletion_policy,
+                    model,
+                    model_name,
+                    storage_source,
+                    storage_source_binding_name,
+                    storage_source_name,
+                    storage_source_uid,
+                    storage_sync_policy,
+                    storage_target,
+                    storage_target_name,
+                    storage_target_uid,
+                    last_updated: Utc::now(),
+                },
+            }));
+            let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
+            api.patch_status(name, &pp, &patch).await?;
+        }
+
+        if let Some(owner_references) = owner_references {
+            let patch = Patch::Merge(json!({
+                "ownerReferences": owner_references,
+            }));
+            let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
+            api.patch_metadata(name, &pp, &patch).await?;
+        }
         Ok(())
     }
 }

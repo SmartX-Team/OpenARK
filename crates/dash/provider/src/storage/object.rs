@@ -282,8 +282,8 @@ impl<'model> ObjectStorageSession {
         let tenant_name = get_default_tenant_name();
         let cluster_role_name = format!("dash:{tenant_name}");
         let ingress_class_controller = format!("k8s.io/dash/{tenant_name}/{namespace}");
-        let ingress_class_name = format!("dash.{tenant_name}.{namespace}");
-        let ingress_host = format!("{tenant_name}.{namespace}.svc");
+        let ingress_class_name = get_ingress_class_name(namespace, tenant_name);
+        let ingress_host = get_ingress_host(namespace, tenant_name);
         let service_metrics_name = format!("{tenant_name}-metrics");
 
         let port_http_name = "http";
@@ -326,7 +326,7 @@ impl<'model> ObjectStorageSession {
             let mut metadata = metadata;
             metadata.owner_references = Some(vec![OwnerReference {
                 api_version: "v1".into(),
-                block_owner_deletion: None,
+                block_owner_deletion: Some(true),
                 controller: None,
                 kind: "ServiceAccount".into(),
                 name: tenant_name.into(),
@@ -828,6 +828,7 @@ impl<'model> ObjectStorageSession {
         let tenant_name = get_default_tenant_name();
         let labels = btreemap! {
             "app".into() => "minio".into(),
+            "dash.ulagbulag.io/modelstorage-name".into() => name.into(),
             "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
             "v1.min.io/tenant".into() => tenant_name.into(),
         };
@@ -996,7 +997,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
-    pub async fn create_bucket(&self) -> Result<()> {
+    pub async fn create_bucket(&self, owner_references: Vec<OwnerReference>) -> Result<()> {
         let mut bucket_name = self.get_bucket_name();
         if !self.is_bucket_exists().await? {
             let args = MakeBucketArgs::new(&bucket_name)?;
@@ -1006,14 +1007,97 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             };
         }
 
-        self.create_bucket_service().await?;
-        self.sync_bucket(bucket_name).await
+        self.sync_bucket(bucket_name).await?;
+        self.create_bucket_service(owner_references).await
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn create_bucket_service(&self) -> Result<()> {
-        // TODO: to be implemented
-        todo!()
+    async fn create_bucket_service(&self, owner_references: Vec<OwnerReference>) -> Result<()> {
+        let bucket_name = self.get_bucket_name();
+        let tenant_name = get_default_tenant_name();
+        let name = bucket_name.to_string();
+
+        let service_http_name = "http";
+
+        let labels = btreemap! {
+            "dash.ulagbulag.io/model-name".into() => bucket_name.clone(),
+            "dash.ulagbulag.io/modelstorage-name".into() => self.target.name.clone(),
+            "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
+        };
+        let metadata = ObjectMeta {
+            name: Some(name.clone()),
+            namespace: Some(self.namespace.into()),
+            labels: Some(labels),
+            owner_references: Some(owner_references),
+            ..Default::default()
+        };
+
+        {
+            let api = Api::namespaced(self.kube.clone(), self.namespace);
+            let external_name = self
+                .target
+                .endpoint
+                .host_str()
+                .ok_or_else(|| anyhow!("unknown endpoint host"))?;
+            let data = || Service {
+                metadata: metadata.clone(),
+                spec: Some(ServiceSpec {
+                    type_: Some("ExternalName".into()),
+                    external_name: Some(external_name.into()),
+                    ports: Some(vec![ServicePort {
+                        name: Some(service_http_name.into()),
+                        protocol: Some("TCP".into()),
+                        port: 80,
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                }),
+                status: None,
+            };
+            get_or_create(&api, "service", &name, data).await?
+        };
+        {
+            let api = Api::namespaced(self.kube.clone(), self.namespace);
+            let ingress_class_name = get_ingress_class_name(self.namespace, tenant_name);
+            let ingress_host = get_ingress_host(self.namespace, tenant_name);
+            let data = || Ingress {
+                metadata: ObjectMeta {
+                    annotations: Some(btreemap! {
+                        "nginx.ingress.kubernetes.io/proxy-body-size".into() => "200M".into(),
+                        "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
+                        "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
+                    }),
+                    ..metadata.clone()
+                },
+                spec: Some(IngressSpec {
+                    default_backend: None,
+                    ingress_class_name: Some(ingress_class_name.clone()),
+                    tls: None,
+                    rules: Some(vec![IngressRule {
+                        host: Some(ingress_host),
+                        http: Some(HTTPIngressRuleValue {
+                            paths: vec![HTTPIngressPath {
+                                path: Some(format!("/{bucket_name}/")),
+                                path_type: "Prefix".into(),
+                                backend: IngressBackend {
+                                    resource: None,
+                                    service: Some(IngressServiceBackend {
+                                        name: name.clone(),
+                                        port: Some(ServiceBackendPort {
+                                            name: Some(service_http_name.into()),
+                                            number: None,
+                                        }),
+                                    }),
+                                },
+                            }],
+                        }),
+                    }]),
+                }),
+                status: None,
+            };
+            get_or_create(&api, "ingress", &name, data).await?
+        };
+        Ok(())
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
@@ -1300,6 +1384,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             let labels = btreemap! {
                 "dash.ulagbulag.io/modelstorage-name".into() => bucket.into(),
                 "dash.ulagbulag.io/modelstorage-objectstorage-command".into() => command.into(),
+                "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
             };
 
             Job {
@@ -1829,53 +1914,6 @@ impl<'storage> MinioAdminClient<'storage> {
     }
 }
 
-#[instrument(level = Level::INFO, skip(api, labels, service), err(Display))]
-async fn get_or_create_ingress(
-    api: &Api<Ingress>,
-    namespace: &str,
-    name: &str,
-    labels: Option<&BTreeMap<String, String>>,
-    service: IngressServiceBackend,
-) -> Result<Ingress> {
-    get_or_create(api, "ingress", name, || Ingress {
-        metadata: ObjectMeta {
-            annotations: Some(btreemap! {
-                "cert-manager.io/cluster-issuer".into() => "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                "kubernetes.io/ingress.class".into() => "ingress-nginx-controller.vine.svc.ops.openark".into(),
-                "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
-                "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
-                "nginx.ingress.kubernetes.io/rewrite-target".into() => "/$2".into(),
-                "vine.ulagbulag.io/is-service".into() => "true".into(),
-                "vine.ulagbulag.io/is-service-public".into()=> "true".into(),
-                "vine.ulagbulag.io/is-service-system".into()=> "true".into(),
-                "vine.ulagbulag.io/service-kind".into()=> "S3 Endpoint".into(),
-            }),
-            labels: labels.cloned(),
-            name: Some(name.to_string()),
-            namespace: Some(namespace.to_string()),
-            ..Default::default()
-        },
-        spec: Some(IngressSpec {
-            rules: Some(vec![IngressRule {
-                host: Some("ingress-nginx-controller.vine.svc.ops.openark".into()),
-                http: Some(HTTPIngressRuleValue {
-                    paths: vec![HTTPIngressPath {
-                        path: Some(format!("/data/s3/{namespace}(/|$)(.*)")),
-                        path_type: "Prefix".into(),
-                        backend: IngressBackend {
-                            service: Some(service),
-                            ..Default::default()
-                        },
-                    }],
-                }),
-            }]),
-            ..Default::default()
-        }),
-        ..Default::default()
-    })
-    .await
-}
-
 struct MinioTenantSpec<'a> {
     image: String,
     labels: &'a BTreeMap<String, String>,
@@ -2346,6 +2384,14 @@ fn get_default_pod_affinity(tenant_name: &str) -> PodAffinity {
 
 const fn get_default_tenant_name() -> &'static str {
     "object-storage"
+}
+
+fn get_ingress_host(namespace: &str, tenant_name: &str) -> String {
+    format!("{tenant_name}.{namespace}.svc")
+}
+
+fn get_ingress_class_name(namespace: &str, tenant_name: &str) -> String {
+    format!("dash.{tenant_name}.{namespace}")
 }
 
 #[instrument(level = Level::INFO, err(Display))]

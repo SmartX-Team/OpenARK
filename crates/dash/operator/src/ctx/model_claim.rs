@@ -4,7 +4,7 @@ use anyhow::Result;
 use ark_core_k8s::manager::{Manager, TryDefault};
 use async_trait::async_trait;
 use chrono::Utc;
-use dash_api::model_claim::{ModelClaimCrd, ModelClaimSpec, ModelClaimState, ModelClaimStatus};
+use dash_api::model_claim::{ModelClaimCrd, ModelClaimState, ModelClaimStatus};
 use dash_provider::storage::KubernetesStorageClient;
 use kube::{
     api::{Patch, PatchParams},
@@ -14,7 +14,7 @@ use kube::{
 use serde_json::json;
 use tracing::{info, instrument, warn, Level};
 
-use crate::validator::model_claim::ModelClaimValidator;
+use crate::validator::model_claim::{ModelClaimValidator, UpdateContext};
 
 pub struct Ctx {}
 
@@ -54,14 +54,12 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 .unwrap_or(true)
         {
             let status = data.status.as_ref();
-            return Self::update_fields_or_requeue(
-                &namespace,
-                &manager.kube,
-                &name,
-                status.and_then(|status| status.spec.clone()),
-                ModelClaimState::Deleting,
-            )
-            .await;
+            let ctx = UpdateContext {
+                owner_references: None,
+                spec: status.and_then(|status| status.spec.clone()),
+                state: ModelClaimState::Deleting,
+            };
+            return Self::update_fields_or_requeue(&namespace, &manager.kube, &name, ctx).await;
         } else if !data
             .finalizers()
             .iter()
@@ -92,15 +90,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 .validate_model_claim(<Self as ::ark_core_k8s::manager::Ctx>::NAME, &data)
                 .await
             {
-                Ok(state) => {
-                    Self::update_fields_or_requeue(
-                        &namespace,
-                        &manager.kube,
-                        &name,
-                        Some(data.spec.clone()),
-                        state,
-                    )
-                    .await
+                Ok(ctx) => {
+                    Self::update_fields_or_requeue(&namespace, &manager.kube, &name, ctx).await
                 }
                 Err(e) => {
                     warn!("failed to validate model claim: {name:?}: {e}");
@@ -139,10 +130,10 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        spec: Option<ModelClaimSpec>,
-        state: ModelClaimState,
+        ctx: UpdateContext,
     ) -> Result<Action, Error> {
-        match Self::update_fields(namespace, kube, name, spec, state).await {
+        let state = ctx.state;
+        match Self::update_fields(namespace, kube, name, ctx).await {
             Ok(()) => {
                 info!("model claim is {state}: {namespace}/{name}");
                 Ok(Action::requeue(
@@ -163,8 +154,11 @@ impl Ctx {
         namespace: &str,
         kube: &Client,
         name: &str,
-        spec: Option<ModelClaimSpec>,
-        state: ModelClaimState,
+        UpdateContext {
+            owner_references,
+            spec,
+            state,
+        }: UpdateContext,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -183,6 +177,14 @@ impl Ctx {
         }));
         let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
+
+        if let Some(owner_references) = owner_references {
+            let patch = Patch::Merge(json!({
+                "ownerReferences": owner_references,
+            }));
+            let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
+            api.patch_metadata(name, &pp, &patch).await?;
+        }
         Ok(())
     }
 }

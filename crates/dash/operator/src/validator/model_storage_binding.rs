@@ -1,14 +1,15 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
     model_storage_binding::{
-        ModelStorageBindingDeletionPolicy, ModelStorageBindingSpec, ModelStorageBindingState,
-        ModelStorageBindingStatus, ModelStorageBindingStorageSourceSpec,
+        ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingSpec,
+        ModelStorageBindingState, ModelStorageBindingStatus, ModelStorageBindingStorageSourceSpec,
         ModelStorageBindingStorageSpec, ModelStorageBindingSyncPolicy,
     },
-    storage::ModelStorageSpec,
+    storage::{ModelStorageCrd, ModelStorageSpec},
 };
-use kube::{core::ObjectMeta, ResourceExt};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+use kube::{core::ObjectMeta, Resource, ResourceExt};
 use tracing::{error, instrument, Level};
 
 use super::{model::ModelValidator, storage::ModelStorageValidator};
@@ -24,18 +25,18 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn validate_model_storage_binding(
         &self,
-        spec: &ModelStorageBindingSpec,
+        binding: &ModelStorageBindingCrd,
     ) -> Result<UpdateContext> {
-        let ctx = self.load_context(spec).await?;
+        let ctx = self.load_context(&binding.spec).await?;
 
-        self.validate_model_storage_binding_with(ctx, spec).await
+        self.validate_model_storage_binding_with(ctx, binding).await
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn validate_model_storage_binding_with(
         &self,
         ctx: Context<'_>,
-        spec: &ModelStorageBindingSpec,
+        binding: &ModelStorageBindingCrd,
     ) -> Result<UpdateContext> {
         let Context {
             model,
@@ -43,8 +44,10 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                 State {
                     storage_source,
                     storage_source_binding_name,
+                    storage_source_uid,
                     storage_target,
                     storage_target_name,
+                    storage_target_uid,
                 },
         } = ctx;
 
@@ -55,24 +58,60 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             target_name: storage_target_name,
         };
 
-        self.model_storage.bind_model(storage, &model).await?;
+        self.model_storage
+            .bind_model(binding, storage, &model)
+            .await?;
 
         let model_name = model.name_any();
         let storage_source_name = storage_source.as_ref().map(|spec| spec.name.into());
         let storage_sync_policy = storage_source.as_ref().map(|spec| spec.sync_policy);
-        let storage_target_name = storage_target_name.into();
+        let storage_target_name = storage_target_name.to_string();
+
+        let mut owner_references = vec![
+            OwnerReference {
+                api_version: ModelCrd::api_version(&()).into(),
+                block_owner_deletion: Some(true),
+                controller: None,
+                kind: ModelCrd::kind(&()).into(),
+                name: model_name.clone(),
+                uid: model
+                    .uid()
+                    .ok_or_else(|| anyhow!("failed to get model uid: {model_name}"))?,
+            },
+            OwnerReference {
+                api_version: ModelStorageCrd::api_version(&()).into(),
+                block_owner_deletion: Some(true),
+                controller: None,
+                kind: ModelStorageCrd::kind(&()).into(),
+                name: storage_target_name.clone(),
+                uid: storage_target_uid.clone(),
+            },
+        ];
+        if let Some((name, uid)) = storage_source_name.clone().zip(storage_source_uid.clone()) {
+            owner_references.push(OwnerReference {
+                api_version: ModelStorageCrd::api_version(&()).into(),
+                block_owner_deletion: Some(true),
+                controller: None,
+                kind: ModelStorageCrd::kind(&()).into(),
+                name,
+                uid,
+            })
+        }
 
         Ok(UpdateContext {
-            deletion_policy: spec.deletion_policy,
+            deletion_policy: binding.spec.deletion_policy,
             model: Some(model.spec),
             model_name: Some(model_name),
+            owner_references: Some(owner_references),
             state: ModelStorageBindingState::Ready,
             storage_source: storage_source.map(|spec| spec.storage),
             storage_source_name,
             storage_source_binding_name,
+            storage_source_uid: storage_source_uid,
             storage_sync_policy,
             storage_target: Some(storage_target),
             storage_target_name: Some(storage_target_name),
+            storage_target_uid: Some(storage_target_uid),
         })
     }
 
@@ -99,8 +138,10 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                 State {
                     storage_source,
                     storage_source_binding_name,
+                    storage_source_uid: _,
                     storage_target,
                     storage_target_name,
+                    storage_target_uid: _,
                 },
         } = ctx;
 
@@ -119,10 +160,10 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn update(
         &self,
-        spec: &ModelStorageBindingSpec,
+        binding: &ModelStorageBindingCrd,
         last_status: &ModelStorageBindingStatus,
     ) -> Result<Option<UpdateContext>> {
-        let ctx = self.load_context(spec).await?;
+        let ctx = self.load_context(&binding.spec).await?;
 
         // Assert: model should not be changed
         if last_status.model.as_ref() != Some(&ctx.model.spec) {
@@ -144,8 +185,10 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                     },
                 ),
             storage_source_binding_name: last_status.storage_source_binding_name.clone(),
+            storage_source_uid: last_status.storage_source_uid.clone(),
             storage_target: last_status.storage_target.clone().unwrap(),
             storage_target_name: last_status.storage_target_name.as_deref().unwrap(),
+            storage_target_uid: last_status.storage_target_uid.clone().unwrap_or_default(),
         };
         if state_last == ctx.state {
             return Ok(None);
@@ -165,11 +208,11 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
                 state: state_last,
             };
 
-            self.delete_with(ctx, spec).await?;
+            self.delete_with(ctx, &binding.spec).await?;
         }
 
         // (Re)bind
-        self.validate_model_storage_binding_with(ctx, spec)
+        self.validate_model_storage_binding_with(ctx, binding)
             .await
             .map(Some)
     }
@@ -183,35 +226,49 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             .await?;
 
         let storage_source = match spec.storage.source() {
-            Some((source_name, sync_policy)) => self
+            Some((source_name, _)) => self
                 .model
                 .kubernetes_storage
                 .load_model_storage(source_name)
                 .await
-                .map(|source| {
-                    Some(ModelStorageBindingStorageSourceSpec {
-                        name: source_name,
-                        storage: source.spec,
-                        sync_policy,
-                    })
-                })?,
+                .map(Some)?,
             None => None,
         };
+        let storage_source_uid = storage_source.as_ref().and_then(|cr| cr.uid());
+        let storage_source_spec =
+            spec.storage
+                .source()
+                .zip(storage_source)
+                .map(
+                    |((name, sync_policy), cr)| ModelStorageBindingStorageSourceSpec {
+                        name: name.as_str(),
+                        storage: cr.spec,
+                        sync_policy,
+                    },
+                );
 
-        let storage_target_name = spec.storage.target();
+        let storage_source_binding_name = spec.storage.source_binding_name().map(Into::into);
+
+        let storage_target_name = spec.storage.target().as_str();
         let storage_target = self
             .model
             .kubernetes_storage
             .load_model_storage(storage_target_name)
             .await?;
+        let storage_target_uid = storage_target.uid().ok_or_else(|| {
+            anyhow!("failed to get target model storage uid: {storage_target_name}")
+        })?;
+        let storage_target_spec = storage_target.spec;
 
         Ok(Context {
             model,
             state: State {
-                storage_source,
-                storage_source_binding_name: spec.storage.source_binding_name().map(Into::into),
-                storage_target: storage_target.spec,
-                storage_target_name: storage_target_name.as_str(),
+                storage_source: storage_source_spec,
+                storage_source_binding_name,
+                storage_source_uid,
+                storage_target: storage_target_spec,
+                storage_target_name,
+                storage_target_uid,
             },
         })
     }
@@ -226,19 +283,24 @@ pub(crate) struct UpdateContext {
     pub(crate) deletion_policy: ModelStorageBindingDeletionPolicy,
     pub(crate) model: Option<ModelSpec>,
     pub(crate) model_name: Option<String>,
+    pub(crate) owner_references: Option<Vec<OwnerReference>>,
     pub(crate) state: ModelStorageBindingState,
     pub(crate) storage_source: Option<ModelStorageSpec>,
     pub(crate) storage_source_binding_name: Option<String>,
     pub(crate) storage_source_name: Option<String>,
+    pub(crate) storage_source_uid: Option<String>,
     pub(crate) storage_sync_policy: Option<ModelStorageBindingSyncPolicy>,
     pub(crate) storage_target: Option<ModelStorageSpec>,
     pub(crate) storage_target_name: Option<String>,
+    pub(crate) storage_target_uid: Option<String>,
 }
 
 #[derive(PartialEq)]
 struct State<'a> {
     storage_source: Option<ModelStorageBindingStorageSourceSpec<'a, ModelStorageSpec>>,
     storage_source_binding_name: Option<String>,
+    storage_source_uid: Option<String>,
     storage_target: ModelStorageSpec,
     storage_target_name: &'a str,
+    storage_target_uid: String,
 }

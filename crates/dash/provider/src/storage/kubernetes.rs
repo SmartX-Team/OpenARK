@@ -389,7 +389,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     pub async fn load_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<ModelStorageBindingStatus>> {
+    ) -> Result<Vec<(ObjectMeta, ModelStorageBindingStatus)>> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
 
         Ok(self
@@ -397,7 +397,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             .await?
             .into_iter()
             .filter(|binding| binding.spec.model == model_name)
-            .filter_map(|binding| binding.status)
+            .filter_map(|binding| binding.status.map(|status| (binding.metadata, status)))
             .collect())
     }
 

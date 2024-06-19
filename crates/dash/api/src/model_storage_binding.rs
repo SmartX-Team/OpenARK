@@ -255,11 +255,15 @@ pub struct ModelStorageBindingStatus {
     #[serde(default)]
     pub storage_source_name: Option<String>,
     #[serde(default)]
+    pub storage_source_uid: Option<String>,
+    #[serde(default)]
     pub storage_sync_policy: Option<ModelStorageBindingSyncPolicy>,
     #[serde(default)]
     pub storage_target: Option<ModelStorageSpec>,
     #[serde(default)]
     pub storage_target_name: Option<String>,
+    #[serde(default)]
+    pub storage_target_uid: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 

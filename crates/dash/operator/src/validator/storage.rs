@@ -1,7 +1,9 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use dash_api::{
     model::{ModelCrd, ModelSpec},
-    model_storage_binding::{ModelStorageBindingDeletionPolicy, ModelStorageBindingStorageSpec},
+    model_storage_binding::{
+        ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingStorageSpec,
+    },
     storage::{
         db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
         object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec,
@@ -13,7 +15,8 @@ use dash_provider::storage::{
     ObjectStorageClient,
 };
 use itertools::Itertools;
-use kube::ResourceExt;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+use kube::{Resource, ResourceExt};
 use tracing::{instrument, Level};
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
@@ -100,6 +103,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub(crate) async fn bind_model(
         &self,
+        binding: &ModelStorageBindingCrd,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageSpec>,
         model: &ModelCrd,
     ) -> Result<()> {
@@ -135,7 +139,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
                     target: spec,
                     target_name: storage.target_name,
                 };
-                self.bind_model_to_object(storage, model).await
+                self.bind_model_to_object(binding, storage, model).await
             }
         }
     }
@@ -168,15 +172,32 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     async fn bind_model_to_object(
         &self,
+        binding: &ModelStorageBindingCrd,
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
         model: &ModelCrd,
     ) -> Result<()> {
         let KubernetesStorageClient { kube, namespace } = self.kubernetes_storage;
 
+        let owner_references = {
+            let name = binding.name_any();
+            let uid = binding
+                .uid()
+                .ok_or_else(|| anyhow!("failed to get model storage binding uid: {name}"))?;
+
+            vec![OwnerReference {
+                api_version: ModelStorageBindingCrd::api_version(&()).into(),
+                block_owner_deletion: Some(true),
+                controller: None,
+                kind: ModelStorageBindingCrd::kind(&()).into(),
+                name,
+                uid,
+            }]
+        };
+
         ObjectStorageClient::try_new(kube, namespace, storage)
             .await?
             .get_session(kube, namespace, model)
-            .create_bucket()
+            .create_bucket(owner_references)
             .await
     }
 

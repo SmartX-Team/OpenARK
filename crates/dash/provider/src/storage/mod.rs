@@ -16,6 +16,7 @@ use dash_api::storage::db::ModelStorageDatabaseSpec;
 use dash_api::storage::kubernetes::ModelStorageKubernetesSpec;
 use dash_api::storage::object::ModelStorageObjectSpec;
 use dash_api::storage::{ModelStorageKindSpec, ModelStorageSpec};
+use kube::api::ObjectMeta;
 use kube::ResourceExt;
 use kube::{core::object::HasStatus, Client};
 use serde_json::Value;
@@ -44,7 +45,7 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip(self), err(Display))]
     async fn get(&self, model_name: &str, ref_name: &str) -> Result<Value> {
         let model = self.get_model(model_name).await?;
-        for storage in self.get_model_storage_bindings(model_name).await? {
+        for (_, storage) in self.get_model_storage_bindings(model_name).await? {
             if let Some((target, target_name)) = storage
                 .storage_target
                 .as_ref()
@@ -79,7 +80,7 @@ impl<'namespace, 'kube> Storage for StorageClient<'namespace, 'kube> {
     async fn list(&self, model_name: &str) -> Result<Vec<Value>> {
         let model = self.get_model(model_name).await?;
         let mut items = vec![];
-        for storage in self.get_model_storage_bindings(model_name).await? {
+        for (_, storage) in self.get_model_storage_bindings(model_name).await? {
             if let Some((target, target_name)) = storage
                 .storage_target
                 .as_ref()
@@ -250,7 +251,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
     async fn get_model_storage_bindings(
         &self,
         model_name: &str,
-    ) -> Result<Vec<ModelStorageBindingStatus>> {
+    ) -> Result<Vec<(ObjectMeta, ModelStorageBindingStatus)>> {
         let storage = KubernetesStorageClient {
             namespace: self.namespace,
             kube: self.kube,
