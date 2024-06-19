@@ -1034,8 +1034,11 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
 
         {
             let api = Api::namespaced(self.kube.clone(), self.namespace);
-            let external_name = self
-                .target
+            let session = match self.source {
+                Some((storage, policy)) if policy.is_none() => storage,
+                Some(_) | None => self.target,
+            };
+            let external_name = session
                 .endpoint
                 .host_str()
                 .ok_or_else(|| anyhow!("unknown endpoint host"))?;
