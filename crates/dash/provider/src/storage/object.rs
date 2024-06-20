@@ -1075,7 +1075,8 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             let data = || Ingress {
                 metadata: ObjectMeta {
                     annotations: Some(btreemap! {
-                        "nginx.ingress.kubernetes.io/proxy-body-size".into() => "0".into(), // unlimited
+                        // max single payload size; it can be virtually increased by using multi-part uploading
+                        "nginx.ingress.kubernetes.io/proxy-body-size".into() => "100M".into(),
                         "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
                         "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
                     }),
