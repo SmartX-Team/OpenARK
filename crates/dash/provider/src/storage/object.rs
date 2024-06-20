@@ -13,9 +13,10 @@ use dash_api::{
         ModelStorageBindingSyncPolicyPush,
     },
     storage::object::{
-        ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
-        ModelStorageObjectOwnedReplicationSpec, ModelStorageObjectOwnedSpec,
-        ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
+        get_kubernetes_minio_endpoint, ModelStorageObjectBorrowedSpec,
+        ModelStorageObjectClonedSpec, ModelStorageObjectOwnedReplicationSpec,
+        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec,
+        ModelStorageObjectSpec,
     },
 };
 use dash_provider_api::data::Capacity;
@@ -136,6 +137,15 @@ pub struct ObjectStorageSession {
     pub endpoint: Url,
     pub name: String,
     pub provider: StaticProvider,
+}
+
+impl fmt::Debug for ObjectStorageSession {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ObjectStorageSession")
+            .field("endpoint", &self.endpoint)
+            .field("name", &self.name)
+            .finish()
+    }
 }
 
 impl<'model> ObjectStorageSession {
@@ -847,10 +857,9 @@ impl<'model> ObjectStorageSession {
             get_or_create_minio_tenant(kube, namespace, name, spec).await?
         };
 
-        let minio_domain = get_kubernetes_minio_domain(namespace).await?;
-
         Ok(ModelStorageObjectRefSpec {
-            endpoint: format!("http://{minio_domain}/").parse()?,
+            endpoint: get_kubernetes_minio_endpoint(namespace)
+                .ok_or_else(|| anyhow!("failed to get minio storage endpoint"))?,
             secret_ref: ModelStorageObjectRefSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
@@ -2395,14 +2404,6 @@ fn get_ingress_host(namespace: &str, tenant_name: &str) -> String {
 
 fn get_ingress_class_name(namespace: &str, tenant_name: &str) -> String {
     format!("dash.{tenant_name}.{namespace}")
-}
-
-#[instrument(level = Level::INFO, err(Display))]
-async fn get_kubernetes_minio_domain(namespace: &str) -> Result<String> {
-    Ok(format!(
-        "minio.{namespace}.svc.{cluster_domain}",
-        cluster_domain = get_cluster_domain().await?,
-    ))
 }
 
 #[instrument(level = Level::INFO, skip(kube, namespace), err(Display))]
