@@ -140,6 +140,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     fakeroot \
     make \
+    mold \
+    nasm \
     pkg-config \
     sudo \
     uidmap \
@@ -181,25 +183,14 @@ RUN apt-get update && apt-get install -y \
     # Kubernetes
     kubectl \
     # Language-specific (Assembly)
-    # FIXME: release version lock after amd64 generic package is released: https://packages.ubuntu.com/noble/llvm-dev
-    "$(apt-cache search '^llvm-[0-9]+-dev$' \
-    | awk '{print $1}' \
-    | sort -r \
-    | head -n 1 \
-    )" \
-    nasm \
+    llvm-dev \
     # Language-specific (C/C++)
     build-essential \
-    # FIXME: release version lock after amd64 generic package is released: https://packages.ubuntu.com/noble/clang
-    "$(apt-cache search '^clang-[0-9]+$' \
-    | awk '{print $1}' \
-    | sort -r \
-    | head -n 1 \
-    )" \
     gcc \
     g++ \
+    libclang-dev \
     # Language-specific (Mobile/Android)
-    android-build-tools-installer \
+    #android-build-tools-installer \
     # Language-specific (Java)
     default-jre \
     # Language-specific (Javascript)
@@ -289,6 +280,7 @@ RUN apt-get update && apt-get install -y \
     network-manager \
     picom \
     plank \
+    s3cmd \
     s3fs \
     trash-cli \
     tumbler \
@@ -389,6 +381,9 @@ RUN apt-get update && apt-get install -y \
     rdesktop \
     thunderbird \
     thunderbird-locale-ko \
+    # Networking
+    nmap \
+    traceroute \
     # Office
     chktex \
     latexmk \
@@ -410,6 +405,10 @@ RUN apt-get update && apt-get install -y \
     # Utility
     sqlite3 \
     ssh-askpass \
+    # Virtual Machines
+    qemu-system \
+    virt-manager \
+    virt-viewer \
     # Visual Editors
     android-studio \
     code \
@@ -442,6 +441,24 @@ RUN apt-get update \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
+# Install cutting-edge lutris
+ARG LUTRIS_VERSION_API="https://api.github.com/repos/lutris/lutris/releases/latest"
+RUN apt-get update \
+    # Get the latest version
+    && LUTRIS_DOWNLOAD_URL="$( \
+    curl -s "${LUTRIS_VERSION_API}" \
+    | grep -Po '"browser_download_url" *\: *"\K[0-9a-zA-Z/:._-]+' \
+    )" \
+    # Download
+    && LUTRIS_FILE="/tmp/lutris.deb" \
+    && curl -sSL -o "${LUTRIS_FILE}" "${LUTRIS_DOWNLOAD_URL}" \
+    # Install
+    && apt-get install -y "${LUTRIS_FILE}" \
+    # Cleanup
+    && rm -rf "${LUTRIS_FILE}" \
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install cutting-edge Wine
 ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
 ARG WINE_VERSION_API="https://api.github.com/repos/Kron4ek/Wine-Builds/releases/latest"
@@ -461,7 +478,7 @@ RUN true \
     ;; \
     esac \
     && WINE_VERSION="$( \
-    curl -s https://api.github.com/repos/Kron4ek/Wine-Builds/releases/latest \
+    curl -s "${WINE_VERSION_API}" \
     | grep -Po '"tag_name": +"\K[0-9.]+' \
     )" \
     # Download
