@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-gateway"
+name = "kubegraph-market"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -19,10 +19,6 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "kubegraph"
-path = "./src/main.rs"
-
 [features]
 default = ["full"]
 full = [
@@ -32,7 +28,6 @@ full = [
     "graph-full",
     "solver-full",
     "vm-full",
-    "visualizer-full",
 ]
 
 # Configure Connectors
@@ -78,20 +73,18 @@ solver-ortools = ["kubegraph-vm-local?/solver-ortools"]
 vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
 
-# Configure Visualizers
-visualizer-full = []
-
 [dependencies]
-ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }
-kubegraph-api = { path = "../api", default-features = false, features = [
-    "vm-entrypoint",
-] }
+ark-core = { path = "../../ark/core", features = ["signal"] }
+kubegraph-api = { path = "../api" }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
 actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true }
 futures = { workspace = true }
+opentelemetry = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, middleware, web::Data, App, HttpResponse, HttpServer, Responder};
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::{anyhow, Result};
 use ark_core::{env::infer, signal::FunctionSignal};
@@ -54,8 +54,11 @@ async fn try_loop_forever(vm: &impl NetworkVirtualMachine) -> Result<()> {
             .service(health)
             .service(crate::routes::graph::get)
             .service(crate::routes::graph::post);
-        app.wrap(RequestTracing::default())
-            .wrap(RequestMetrics::default())
+        app.wrap(middleware::NormalizePath::new(
+            middleware::TrailingSlash::Trim,
+        ))
+        .wrap(RequestTracing::default())
+        .wrap(RequestMetrics::default())
     })
     .bind(addr)
     .map_err(|error| anyhow!("failed to bind to {addr}: {error}"))?;

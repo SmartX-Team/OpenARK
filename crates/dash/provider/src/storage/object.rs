@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
 
 use anyhow::{anyhow, bail, Error, Result};
-use ark_core_k8s::{data::Url, domain::get_cluster_domain};
+use ark_core_k8s::data::Url;
 use byte_unit::Byte;
 use bytes::{BufMut, Bytes, BytesMut};
 use chrono::Utc;

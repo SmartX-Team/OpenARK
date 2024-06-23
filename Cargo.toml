@@ -48,11 +48,13 @@ members = [
     "crates/kubegraph/gateway",
     "crates/kubegraph/graph/local",
     "crates/kubegraph/graph/memory",
+    "crates/kubegraph/market",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
     "crates/kubegraph/runner",
     "crates/kubegraph/simulator",
     "crates/kubegraph/solver/ortools",
+    "crates/kubegraph/trader",
     "crates/kubegraph/visualizer/egui",
     "crates/kubegraph/vm/http",
     "crates/kubegraph/vm/lazy",
@@ -109,7 +111,7 @@ byteorder = { version = "1.5" }
 bytes = { version = "1.6" }
 byte-unit = { version = "5.1" }
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5", features = ["derive", "env"] }
+clap = { version = "4.5", features = ["derive", "env", "string"] }
 csv = { version = "1.3" }
 ctrlc = { version = "3.4" }
 deltalake = { version = "0.17", features = [

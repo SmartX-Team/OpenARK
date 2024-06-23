@@ -98,6 +98,7 @@ kubegraph-graph-local = { path = "../../graph/local", optional = true, default-f
 kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }
 kubegraph-runner = { path = "../../runner", default-features = false }
 kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
+kubegraph-trader = { path = "../../trader", default-features = false }
 kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, default-features = false }
 
 anyhow = { workspace = true }

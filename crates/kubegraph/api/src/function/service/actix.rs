@@ -3,6 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 use actix_web::{
     get,
     http::Method,
+    middleware,
     web::{resource, route, Data, Json},
     App, HttpResponse, HttpServer, Resource, Responder,
 };
@@ -74,8 +75,11 @@ where
     let server = HttpServer::new(move || {
         let app = App::new().app_data(Data::clone(&function));
         let app = app.service(health).service(build_route::<F>("/"));
-        app.wrap(RequestTracing::default())
-            .wrap(RequestMetrics::default())
+        app.wrap(middleware::NormalizePath::new(
+            middleware::TrailingSlash::Trim,
+        ))
+        .wrap(RequestTracing::default())
+        .wrap(RequestMetrics::default())
     })
     .bind(addr)
     .map_err(|error| anyhow!("failed to bind to {addr}: {error}"))?;
