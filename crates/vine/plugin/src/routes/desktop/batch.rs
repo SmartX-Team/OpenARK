@@ -11,7 +11,7 @@ use vine_rbac::auth::AuthUserSession;
 use vine_session::{BatchCommandArgs, BatchCommandUsers};
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[post("/batch/user/desktop/exec/broadcast/")]
+#[post("/batch/user/desktop/exec/broadcast")]
 pub async fn post_exec_broadcast(
     request: HttpRequest,
     kube: Data<Client>,

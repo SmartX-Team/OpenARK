@@ -3,7 +3,7 @@ mod routes;
 use std::net::SocketAddr;
 
 use actix_cors::Cors;
-use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, middleware, web::Data, App, HttpResponse, HttpServer, Responder};
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
@@ -59,6 +59,9 @@ async fn main() {
                 .service(crate::routes::model::get_list);
             let app = ::vine_plugin::register(app);
             app.wrap(cors)
+                .wrap(middleware::NormalizePath::new(
+                    middleware::TrailingSlash::Trim,
+                ))
                 .wrap(RequestTracing::default())
                 .wrap(RequestMetrics::default())
         })

@@ -6,7 +6,7 @@ use vine_api::user_session::UserSessionRef;
 use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/user/")]
+#[get("/user")]
 pub async fn get(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref().clone();
     let session = UserSessionRef::from_request(&kube, &request).await;

@@ -11,7 +11,7 @@ use vine_rbac::auth::{AuthUserSession, AuthUserSessionRef};
 use vine_session::SessionExec;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[post("/user/desktop/exec/")]
+#[post("/user/desktop/exec")]
 pub async fn post_exec(
     request: HttpRequest,
     kube: Data<Client>,

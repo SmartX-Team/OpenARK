@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use actix_web::{
-    get, post,
+    get, middleware, post,
     web::{Data, Json, Query},
     App, HttpResponse, HttpServer, Responder,
 };
@@ -175,14 +175,17 @@ async fn main() {
 
         // Start web server
         HttpServer::new(move || {
-            App::new()
-                .app_data(Data::clone(&client))
+            let app = App::new().app_data(Data::clone(&client));
+            let app = app
                 .service(index)
                 .service(health)
                 .service(get_new)
-                .service(post_commission)
-                .wrap(RequestMetrics::default())
-                .wrap(RequestTracing::default())
+                .service(post_commission);
+            app.wrap(middleware::NormalizePath::new(
+                middleware::TrailingSlash::Trim,
+            ))
+            .wrap(RequestMetrics::default())
+            .wrap(RequestTracing::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))

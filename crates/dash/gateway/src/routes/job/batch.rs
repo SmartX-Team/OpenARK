@@ -17,7 +17,7 @@ use vine_api::user_session::UserSessionMetadata;
 use vine_rbac::auth::{AuthUserSession, AuthUserSessionMetadata};
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[post("/batch/job/")]
+#[post("/batch/job")]
 pub async fn post(
     request: HttpRequest,
     kube: Data<Client>,

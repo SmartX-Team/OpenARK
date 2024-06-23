@@ -12,7 +12,7 @@ use kube::Client;
 use tracing::{instrument, Level};
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/model/{name}/")]
+#[get("/model/{name}")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
     let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
@@ -29,7 +29,7 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/model/{name}/task/")]
+#[get("/model/{name}/task")]
 pub async fn get_task_list(
     request: HttpRequest,
     kube: Data<Client>,
@@ -50,7 +50,7 @@ pub async fn get_task_list(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/model/")]
+#[get("/model")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
     let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
@@ -67,7 +67,7 @@ pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responde
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/model/{name}/item/{item}/")]
+#[get("/model/{name}/item/{item}")]
 pub async fn get_item(
     request: HttpRequest,
     kube: Data<Client>,
@@ -88,7 +88,7 @@ pub async fn get_item(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/model/{name}/item/")]
+#[get("/model/{name}/item")]
 pub async fn get_item_list(
     request: HttpRequest,
     kube: Data<Client>,

@@ -15,7 +15,7 @@ use vine_api::user_session::UserSessionRef;
 use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[delete("/task/{task_name}/job/{job_name}/")]
+#[delete("/task/{task_name}/job/{job_name}")]
 pub async fn delete(
     request: HttpRequest,
     kube: Data<Client>,
@@ -34,7 +34,7 @@ pub async fn delete(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/task/{task_name}/job/{job_name}/")]
+#[get("/task/{task_name}/job/{job_name}")]
 pub async fn get(
     request: HttpRequest,
     kube: Data<Client>,
@@ -53,7 +53,7 @@ pub async fn get(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/job/")]
+#[get("/job")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref().clone();
     let session = match UserSessionRef::from_request(&kube, &request).await {
@@ -67,7 +67,7 @@ pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responde
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/task/{task_name}/job/")]
+#[get("/task/{task_name}/job")]
 pub async fn get_list_with_task_name(
     request: HttpRequest,
     kube: Data<Client>,
@@ -85,7 +85,7 @@ pub async fn get_list_with_task_name(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[get("/task/{task_name}/job/{job_name}/logs/")]
+#[get("/task/{task_name}/job/{job_name}/logs")]
 pub async fn get_stream_logs(
     request: HttpRequest,
     kube: Data<Client>,
@@ -109,7 +109,7 @@ pub async fn get_stream_logs(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[post("/task/{task_name}/job/")]
+#[post("/task/{task_name}/job")]
 pub async fn post(
     request: HttpRequest,
     kube: Data<Client>,
@@ -128,7 +128,7 @@ pub async fn post(
 }
 
 #[instrument(level = Level::INFO, skip(request, kube))]
-#[post("/task/{task_name}/job/{job_name}/restart/")]
+#[post("/task/{task_name}/job/{job_name}/restart")]
 pub async fn post_restart(
     request: HttpRequest,
     kube: Data<Client>,

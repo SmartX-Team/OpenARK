@@ -4,7 +4,7 @@ mod routes;
 
 use std::net::SocketAddr;
 
-use actix_web::{get, web::Data, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, middleware, web::Data, App, HttpResponse, HttpServer, Responder};
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::Result;
 use ark_core::{env::infer, tracer};
@@ -37,17 +37,21 @@ async fn main() {
 
         // Start web server
         HttpServer::new(move || {
-            App::new()
+            let app = App::new()
                 .app_data(Data::clone(&client))
-                .app_data(Data::clone(&tera))
+                .app_data(Data::clone(&tera));
+            let app = app
                 .service(health)
                 .service(crate::routes::auth::get)
                 .service(crate::routes::r#box::login::get)
                 .service(crate::routes::install_os::get)
                 .service(crate::routes::reserved::get)
-                .service(crate::routes::welcome::get)
-                .wrap(RequestMetrics::default())
-                .wrap(RequestTracing::default())
+                .service(crate::routes::welcome::get);
+            app.wrap(middleware::NormalizePath::new(
+                middleware::TrailingSlash::Trim,
+            ))
+            .wrap(RequestMetrics::default())
+            .wrap(RequestTracing::default())
         })
         .bind(addr)
         .unwrap_or_else(|e| panic!("failed to bind to {addr}: {e}"))
