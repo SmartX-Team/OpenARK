@@ -624,6 +624,11 @@ until curl --max-time 1 --silent "\${VINE_BASTION_ENTRYPOINT}" 2>/dev/null; do
     sleep 1
 done
 
+# Skip installation if already done
+if [ -f "/tmp/.vine/.login-shell" ]; then
+    exec sleep infinity
+fi
+
 echo "Executing a welcome shell..."
 firefox \
     --first-startup \
