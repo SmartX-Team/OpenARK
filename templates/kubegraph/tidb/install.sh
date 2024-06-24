@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
@@ -13,10 +13,12 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://helm.ngc.nvidia.com/nvidia"
-NAMESPACE_DEFAULT="gpu-nvidia"
+CRD_VERSION_DEFAULT="v1.6.0"
+HELM_CHART_DEFAULT="https://charts.pingcap.org/"
+NAMESPACE_DEFAULT="tidb-operator"
 
 # Set environment variables
+CRD_VERSION="${CRD_VERSION:-$CRD_VERSION_DEFAULT}"
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
@@ -27,19 +29,6 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 echo "- Configuring Helm channel ... "
 
 helm repo add "${NAMESPACE}" "${HELM_CHART}"
-
-###########################################################
-#   Configure Helm Values                                 #
-###########################################################
-
-echo "- Configuring Helm values ... "
-
-TOOLKIT_VERSION="$(
-    helm show values "${NAMESPACE}/gpu-operator" |
-        yq '.toolkit.version' |
-        grep -Po '^v[0-9\.]+'
-)"
-TOOLKIT_OS="ubi8" # should be run over rockylinux
 
 ###########################################################
 #   Checking if Operator is already installed             #
@@ -56,11 +45,14 @@ else
 fi
 
 ###########################################################
-#   Install NodeFeatures                                  #
+#   Install Cluster CRD                                   #
 ###########################################################
 
-kubectl apply \
-    --kustomize "https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default"
+echo "- Installing Cluster CRD ... "
+
+CRD_PATH="https://raw.githubusercontent.com/pingcap/tidb-operator/${CRD_VERSION}/manifests/crd.yaml"
+kubectl create -f "${CRD_PATH}" || true
+kubectl replace -f "${CRD_PATH}" || true
 
 ###########################################################
 #   Install Operator                                      #
@@ -68,12 +60,10 @@ kubectl apply \
 
 echo "- Installing Operator ... "
 
-helm upgrade --install "gpu-operator" \
-    "${NAMESPACE}/gpu-operator" \
+helm upgrade --install "tidb-operator" \
+    "${NAMESPACE}/tidb-operator" \
     --create-namespace \
-    --disable-openapi-validation \
     --namespace "${NAMESPACE}" \
-    --set toolkit.version="${TOOLKIT_VERSION}-${TOOLKIT_OS}" \
     --values "./values-operator.yaml"
 
 # Finished!

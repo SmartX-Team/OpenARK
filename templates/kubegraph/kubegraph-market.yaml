@@ -1,0 +1,212 @@
+---
+apiVersion: pingcap.com/v1alpha1
+kind: TidbCluster
+metadata:
+  name: market
+  namespace: kubegraph
+spec:
+  #######################
+  # Basic Configuration #
+  #######################
+
+  ## Time zone of TiDB cluster Pods
+  timezone: UTC
+
+  ## ConfigUpdateStrategy determines how the configuration change is applied to the cluster.
+  ## Valid values are `InPlace` and `RollingUpdate`
+  ##   UpdateStrategy `InPlace` will update the ConfigMap of configuration in-place and an extra rolling update of the
+  ##   cluster component is needed to reload the configuration change.
+  ##   UpdateStrategy `RollingUpdate` will create a new ConfigMap with the new configuration and rolling update the
+  ##   related components to use the new ConfigMap, that is, the new configuration will be applied automatically.
+  configUpdateStrategy: RollingUpdate
+
+  ## Enable PVC/PV reclaim for orphan PVC/PV left by statefulset scale-in.
+  ## When set to `true`, PVC/PV that are not used by any tidb cluster pods will be deleted automatically.
+  enablePVReclaim: false
+
+  ## Persistent volume reclaim policy applied to the PV consumed by the TiDB cluster, default to `Retain`.
+  ## Note that the reclaim policy Recycle may not be supported by some storage types, e.g. local.
+  ## Ref: https://kubernetes.io/docs/tasks/administer-cluster/change-pv-reclaim-policy/
+  pvReclaimPolicy: Retain
+
+  ##########################
+  # Advanced Configuration #
+  ##########################
+
+  ## Enable mutual TLS connection between TiDB cluster components
+  ## Ref: https://docs.pingcap.com/tidb-in-kubernetes/stable/enable-tls-between-components/
+  tlsCluster:
+    enabled: false
+
+  ## specify resource requirements for discovery deployment
+  discovery:
+    affinity:
+      nodeAffinity:
+        # KISS normal control plane nodes should be preferred
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                  operator: DoesNotExist
+          # KISS compute nodes should be preferred
+          - weight: 2
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - Compute
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/kiss
+                  operator: In
+                  values:
+                    - ControlPlane
+                    - Compute
+
+  ## if true, this tidb cluster is paused and will not be synced by the controller
+  paused: false
+
+  ## SchedulerName of TiDB cluster pods.
+  ## If specified, the pods will be scheduled by the specified scheduler.
+  ## Can be overwritten by component settings.
+  # schedulerName: default-scheduler
+
+  ## Affinity for pod scheduling, will be overwritten by each cluster component's specific affinity setting
+  ## Can refer to PD/TiDB/TiKV affinity settings, and ensure only cluster-scope general settings here
+  ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity:
+    nodeAffinity:
+      # KISS normal control plane nodes should be preferred
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+        # KISS compute nodes should be preferred
+        - weight: 2
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+        # KISS gateway nodes should be more preferred
+        - weight: 4
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Gateway
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+                  - Compute
+                  - Gateway
+
+  ## If set to `true`, `--advertise-status-addr` will be appended to the startup parameters of TiKV
+  enableDynamicConfiguration: true
+
+  ## Set update strategy of StatefulSet, can be overwritten by the setting of each component.
+  ## defaults to RollingUpdate
+  ## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
+  statefulSetUpdateStrategy: RollingUpdate
+
+  ## The identifier of the Pod will be `$(podName).$(serviceName).$(namespace).svc.$(clusterDomain)` when `clusterDomain` is set.
+  ## Set this in the case where a TiDB cluster is deployed across multiple Kubernetes clusters. default to empty.
+  # clusterDomain: ops.openark
+
+  ###########################
+  # TiDB Cluster Components #
+  ###########################
+
+  pd:
+    ##########################
+    # Basic PD Configuration #
+    ##########################
+
+    ## pd-server configuration
+    ## Ref: https://docs.pingcap.com/tidb/stable/pd-configuration-file
+    config: {}
+
+    ## The desired replicas
+    replicas: 3
+
+    ## describes the compute resource requirements and limits.
+    ## Ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    requests:
+      storage: 10Gi
+
+    #############################
+    # Advanced PD Configuration #
+    #############################
+
+    ## when TLS cluster feature is enabled, TiDB Operator will automatically mount the cluster client certificates if mountClusterClientSecret is set to true
+    ## Defaults to false
+    ## Ref: https://docs.pingcap.com/tidb-in-kubernetes/stable/configure-a-tidb-cluster#mountclusterclientsecret
+    mountClusterClientSecret: true
+
+    ## The storageClassName of the persistent volume for PD data storage.
+    # storageClassName: ""
+
+  tidb:
+    ############################
+    # Basic TiDB Configuration #
+    ############################
+
+    ## tidb-server Configuration
+    ## Ref: https://docs.pingcap.com/tidb/stable/tidb-configuration-file
+    config: {}
+
+    ## The desired replicas
+    replicas: 3
+
+    ###############################
+    # Advanced TiDB Configuration #
+    ###############################
+
+    ## The storageClassName of the persistent volume for TiDB data storage.
+    # storageClassName: ""
+
+  tikv:
+    ############################
+    # Basic TiKV Configuration #
+    ############################
+
+    ## tikv-server configuration
+    ## Ref: https://docs.pingcap.com/tidb/stable/tikv-configuration-file
+    config: {}
+
+    ## The desired replicas
+    replicas: 3
+
+    ## describes the compute resource requirements and limits.
+    ## Ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    requests:
+      storage: 100Gi
+
+    ###############################
+    # Advanced TiKV Configuration #
+    ###############################
+
+    ## when TLS cluster feature is enabled, TiDB Operator will automatically mount the cluster client certificates if mountClusterClientSecret is set to true
+    ## Defaults to false
+    ## Ref: https://docs.pingcap.com/tidb-in-kubernetes/stable/configure-a-tidb-cluster#mountclusterclientsecret
+    mountClusterClientSecret: false
+
+    ## The storageClassName of the persistent volume for TiKV data storage.
+    # storageClassName: ""
+
+    ## run TiKV container in privileged mode
+    ## Processes in privileged containers are essentially equivalent to root on the host
+    ## NOT RECOMMENDED in production environment
+    ## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#privileged
+    privileged: false

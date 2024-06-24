@@ -1,5 +1,7 @@
 mod actix;
 mod agent;
+mod db;
+mod histogram;
 mod routes;
 
 use anyhow::anyhow;

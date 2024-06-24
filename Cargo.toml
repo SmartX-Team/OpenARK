@@ -266,6 +266,7 @@ sled = { version = "0.34" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
 thiserror = { version = "1.0" }
+tikv-client = { version = "0.3", features = ["prometheus"] }
 tokio = { version = "1.37", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
 tonic = { version = "0.11", features = [

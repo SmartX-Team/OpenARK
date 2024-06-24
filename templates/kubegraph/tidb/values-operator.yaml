@@ -1,0 +1,48 @@
+---
+# clusterScoped is whether tidb-operator should manage kubernetes cluster wide tidb clusters
+# Also see rbac.create, controllerManager.serviceAccount, scheduler.create and controllerManager.clusterPermissions.
+clusterScoped: true
+
+# timezone is the default system timzone
+timezone: UTC
+
+controllerManager:
+  create: true
+
+  # clusterPermissions are some cluster scoped permissions that will be used even if `clusterScoped: false`.
+  # the default value of these fields is `true`. if you want them to be `false`, you MUST set them to `false` explicitly.
+  clusterPermissions:
+    nodes: true
+    persistentvolumes: true
+    storageclasses: true
+
+  ## affinity defines pod scheduling rules,affinity default settings is empty.
+  ## please read the affinity document before set your scheduling rule:
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity:
+    nodeAffinity:
+      # KISS ephemeral control plane nodes should be excluded
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+
+scheduler:
+  create: false
+
+# When AdvancedStatefulSet feature is enabled, you must install
+# AdvancedStatefulSet controller.
+# Note that AdvancedStatefulSet CRD must be installed manually via the following
+# command:
+#   kubectl apply -f manifests/advanced-statefulset-crd.v1.yaml
+advancedStatefulset:
+  create: false
+
+admissionWebhook:
+  create: false

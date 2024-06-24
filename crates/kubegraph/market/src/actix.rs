@@ -39,12 +39,19 @@ async fn try_loop_forever(agent: &Agent) -> Result<()> {
         let app = App::new().app_data(Data::clone(&agent));
         let app = app
             .service(health)
-            .service(crate::routes::problem::list)
-            .service(crate::routes::problem::get)
-            .service(crate::routes::problem::post)
-            .service(crate::routes::solver::list)
-            .service(crate::routes::solver::get)
-            .service(crate::routes::solver::post);
+            .service(crate::routes::product::list)
+            .service(crate::routes::product::list_price)
+            .service(crate::routes::product::get)
+            .service(crate::routes::product::put)
+            .service(crate::routes::product::delete)
+            .service(crate::routes::r#pub::list)
+            .service(crate::routes::r#pub::get)
+            .service(crate::routes::r#pub::put)
+            .service(crate::routes::r#pub::delete)
+            .service(crate::routes::sub::list)
+            .service(crate::routes::sub::get)
+            .service(crate::routes::sub::put)
+            .service(crate::routes::sub::delete);
         app.wrap(middleware::NormalizePath::new(
             middleware::TrailingSlash::Trim,
         ))

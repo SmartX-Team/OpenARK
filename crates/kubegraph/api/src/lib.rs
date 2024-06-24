@@ -7,13 +7,13 @@ pub mod dependency;
 pub mod frame;
 pub mod function;
 pub mod graph;
+pub mod market;
 pub mod ops;
 pub mod problem;
 pub mod query;
 pub mod resource;
 pub mod runner;
 pub mod solver;
-pub mod trader;
 pub mod visualizer;
 pub mod vm;
 
