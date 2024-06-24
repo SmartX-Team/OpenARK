@@ -501,6 +501,13 @@ ARG DEEPSTREAM_VERSION_MINOR="4"
 ARG DEEPSTREAM_VERSION_PATCH="0"
 ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN apt-get update && apt-get install -y \
+    # CUDA
+    cuda-toolkit-11-8 \
+    # NVIDIA Nsights
+    # FIXME: Release hard-coded versions
+    nsight-compute-2022.3.0 \
+    nsight-systems-2022.4.2 \
+    # DeepStream dependencies
     libjansson4 \
     # libyaml-cpp-dev \
     # Version-specific packages
