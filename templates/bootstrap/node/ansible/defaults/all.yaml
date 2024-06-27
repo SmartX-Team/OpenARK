@@ -149,7 +149,7 @@ all:
           - 1.0.0.1
 
         # Enable nodelocal dns cache
-        enable_nodelocaldns: true
+        enable_nodelocaldns: false
 
         # Enable k8s_external plugin for CoreDNS
         enable_coredns_k8s_external: false
@@ -300,7 +300,6 @@ all:
         kubelet_make_iptables_util_chains: true
         kubelet_feature_gates:
           - RotateKubeletServerCertificate=true
-          - SeccompDefault=true
         kubelet_seccomp_default: true
         kubelet_systemd_hardening: false
         # In case you have multiple interfaces in your
