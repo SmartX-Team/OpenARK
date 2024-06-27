@@ -141,6 +141,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     curl \
     fakeroot \
+    libtool \
     make \
     mold \
     nasm \
@@ -169,6 +170,9 @@ RUN apt-get update && apt-get install -y \
     libc6-dev \
     libdevmapper-dev \
     netavark \
+    # Core (Container/Podman/crun)
+    libcap-dev \
+    libyajl-dev \
     # Core (Filesystem)
     btrfs-progs \
     fuse-overlayfs \
@@ -459,18 +463,32 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cutting-edge podman
+ARG CRUN_REPO="https://github.com/containers/crun.git"
+ARG CRUN_VERSION="1.15"
 ARG PODMAN_REPO="https://github.com/containers/podman.git"
+ARG PODMAN_VERSION="5.1"
 RUN apt-get update \
-    # Download
+    # crun
+    ## Download
+    && CRUN_TMP="/opt/crun" \
+    && git clone "${CRUN_REPO}" "${CRUN_TMP}" -b "${CRUN_VERSION}" \
+    && cd "${CRUN_TMP}" \
+    ## Build
+    && ./autogen.sh \
+    && ./configure --enable-shared --prefix=/usr \
+    && make \
+    && make install \
+    # podman
+    ## Download
     && PODMAN_TMP="/opt/podman" \
-    && git clone "${PODMAN_REPO}" "${PODMAN_TMP}" \
+    && git clone "${PODMAN_REPO}" "${PODMAN_TMP}" -b "v${PODMAN_VERSION}" \
     && cd "${PODMAN_TMP}" \
-    # Build
+    ## Build
     && make BUILDTAGS='cni seccomp selinux systemd' PREFIX=/usr \
     && make install PREFIX=/usr \
     # Cleanup
     && cd - \
-    && rm -rf "${PODMAN_TMP}" \
+    && rm -rf "${CRUN_TMP}" "${PODMAN_TMP}" \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
