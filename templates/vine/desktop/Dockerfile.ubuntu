@@ -467,7 +467,7 @@ ARG CRUN_REPO="https://github.com/containers/crun.git"
 ARG CRUN_VERSION="1.15"
 ARG PODMAN_REPO="https://github.com/containers/podman.git"
 ARG PODMAN_VERSION="5.1"
-RUN apt-get update \
+RUN apt-mark hold crun podman \
     # crun
     ## Download
     && CRUN_TMP="/opt/crun" \
@@ -513,7 +513,7 @@ RUN apt-get update \
 # Install cutting-edge Wine
 ARG WINE_REPO="https://github.com/Kron4ek/Wine-Builds/releases/download"
 ARG WINE_VERSION_API="https://api.github.com/repos/Kron4ek/Wine-Builds/releases/latest"
-RUN true \
+RUN apt-mark hold wine \
     # Get the latest version
     ## ARCH
     && case "$(uname -m)" in \
