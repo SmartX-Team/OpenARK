@@ -149,7 +149,7 @@ all:
           - 1.0.0.1
 
         # Enable nodelocal dns cache
-        enable_nodelocaldns: false
+        enable_nodelocaldns: true
 
         # Enable k8s_external plugin for CoreDNS
         enable_coredns_k8s_external: false
