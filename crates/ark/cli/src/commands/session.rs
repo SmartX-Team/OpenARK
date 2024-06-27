@@ -94,7 +94,7 @@ impl BatchArgs {
         command.push(shell.join(" "));
 
         let num_boxes = ::vine_session::BatchCommandArgs {
-            command: &command,
+            command,
             users: match user_pattern.as_ref() {
                 Some(re) => ::vine_session::BatchCommandUsers::Pattern(re),
                 None => ::vine_session::BatchCommandUsers::All,

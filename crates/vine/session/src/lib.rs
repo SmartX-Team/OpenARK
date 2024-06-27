@@ -6,7 +6,7 @@ use ark_core::env;
 use chrono::Utc;
 use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt};
 use k8s_openapi::{
     api::core::v1::{Namespace, Node, Pod},
     serde_json::Value,
@@ -18,6 +18,7 @@ use kube::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
+use tokio::spawn;
 use tracing::{info, instrument, Level};
 use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
@@ -71,7 +72,7 @@ where
 impl<C, U> BatchCommandArgs<C, U> {
     pub async fn exec(&self, kube: &Client) -> Result<usize>
     where
-        C: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        C: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <C as IntoIterator>::Item: Sync + Into<String>,
         U: AsRef<str>,
     {
@@ -516,7 +517,7 @@ pub trait SessionExec {
 
     async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
     where
-        I: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>;
 }
 
@@ -563,7 +564,7 @@ impl<'a> SessionExec for SessionRef<'a> {
     #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
     async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
     where
-        I: Send + Sync + Clone + fmt::Debug + IntoIterator,
+        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>,
     {
         use futures::{stream::FuturesUnordered, TryStreamExt};
@@ -594,24 +595,28 @@ impl<'a> SessionExec for SessionRef<'a> {
                 .unwrap_or_default()
         });
 
-        pods.into_iter()
-            .map(|pod| {
-                let api = api.clone();
-                let ap = AttachParams {
-                    container: Some("desktop-environment".into()),
-                    stdin: false,
-                    stdout: true,
-                    stderr: true,
-                    tty: false,
-                    ..Default::default()
-                };
-                let command = command.clone();
-                async move { api.exec(&pod.name_any(), command, &ap).await }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await
-            .map_err(Into::into)
+        pods.map(|pod| {
+            let api = api.clone();
+            let ap = AttachParams {
+                container: Some("desktop-environment".into()),
+                stdin: false,
+                stdout: true,
+                stderr: true,
+                tty: false,
+                ..Default::default()
+            };
+            let command = command.clone();
+            spawn(async move { api.exec(&pod.name_any(), command, &ap).await })
+        })
+        .collect::<FuturesUnordered<_>>()
+        .map(|handle| {
+            handle
+                .map_err(|error| ::kube::Error::Service(error.into()))
+                .and_then(std::convert::identity)
+        })
+        .try_collect()
+        .await
+        .map_err(Into::into)
     }
 }
 
