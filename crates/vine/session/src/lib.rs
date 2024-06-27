@@ -107,32 +107,36 @@ impl<C, U> BatchCommandArgs<C, U> {
         };
 
         let sessions_filtered = users.filter(sessions_all)?;
+        let num_sessions = sessions_filtered.len();
 
-        let sessions_exec = sessions_filtered
-            .iter()
-            .map(|session| async move { session.exec(kube.clone(), command.clone()).await });
+        let sessions_exec = sessions_filtered.into_iter().map(|session| {
+            let kube = kube.clone();
+            let command = command.clone();
+            spawn(async move { session.exec(kube, command).await })
+        });
 
-        ::futures::stream::iter(sessions_exec)
+        sessions_exec
             .collect::<FuturesUnordered<_>>()
-            .await
             .then(|result| async move {
-                match result {
+                match result
+                    .map_err(Error::from)
+                    .and_then(|result| result.map_err(Error::from))
+                {
                     Ok(processes) => {
                         if *wait {
-                            ::futures::stream::iter(processes.into_iter().map(
-                                |process| async move {
+                            processes
+                                .into_iter()
+                                .map(|process| async move {
                                     match process.join().await {
                                         Ok(()) => (),
                                         Err(error) => {
                                             error!("failed to execute: {error}");
                                         }
                                     }
-                                },
-                            ))
-                            .collect::<FuturesUnordered<_>>()
-                            .await
-                            .collect::<()>()
-                            .await;
+                                })
+                                .collect::<FuturesUnordered<_>>()
+                                .collect::<()>()
+                                .await;
                         }
                     }
                     Err(error) => {
@@ -142,7 +146,7 @@ impl<C, U> BatchCommandArgs<C, U> {
             })
             .collect::<()>()
             .await;
-        Ok(sessions_filtered.len())
+        Ok(num_sessions)
     }
 }
 
@@ -567,7 +571,7 @@ impl<'a> SessionExec for SessionRef<'a> {
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>,
     {
-        use futures::TryStreamExt;
+        use futures::{StreamExt, TryStreamExt};
         use k8s_openapi::api::core::v1::PodCondition;
         use kube::api::AttachParams;
 
@@ -595,36 +599,30 @@ impl<'a> SessionExec for SessionRef<'a> {
                 .unwrap_or_default()
         });
 
-        let tasks: Vec<_> = pods
-            .map(|pod| {
-                let api = api.clone();
-                let ap = AttachParams {
-                    container: Some("desktop-environment".into()),
-                    stdin: false,
-                    stdout: true,
-                    stderr: true,
-                    tty: false,
-                    ..Default::default()
-                };
-                let command = command.clone();
-                spawn(async move {
-                    yield_now().await;
-                    api.exec(&pod.name_any(), command, &ap).await
-                })
+        pods.map(|pod| {
+            let api = api.clone();
+            let ap = AttachParams {
+                container: Some("desktop-environment".into()),
+                stdin: false,
+                stdout: true,
+                stderr: true,
+                tty: false,
+                ..Default::default()
+            };
+            let command = command.clone();
+            spawn(async move {
+                yield_now().await;
+                api.exec(&pod.name_any(), command, &ap).await
             })
-            .collect();
-
-        tasks
-            .into_iter()
-            .map(|handle| async move {
-                handle
-                    .await
-                    .map_err(Error::from)
-                    .and_then(|result| result.map_err(Error::from))
-            })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await
+        })
+        .collect::<FuturesUnordered<_>>()
+        .map(|handle| {
+            handle
+                .map_err(Error::from)
+                .and_then(|result| result.map_err(Error::from))
+        })
+        .try_collect()
+        .await
     }
 }
 
