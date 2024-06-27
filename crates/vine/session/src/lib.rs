@@ -6,7 +6,7 @@ use ark_core::env;
 use chrono::Utc;
 use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
-use futures::{StreamExt, TryFutureExt};
+use futures::{stream::FuturesUnordered, TryFutureExt};
 use k8s_openapi::{
     api::core::v1::{Namespace, Node, Pod},
     serde_json::Value,
@@ -18,7 +18,7 @@ use kube::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
-use tokio::spawn;
+use tokio::{spawn, task::yield_now};
 use tracing::{info, instrument, Level};
 use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
@@ -567,7 +567,7 @@ impl<'a> SessionExec for SessionRef<'a> {
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>,
     {
-        use futures::{stream::FuturesUnordered, TryStreamExt};
+        use futures::TryStreamExt;
         use k8s_openapi::api::core::v1::PodCondition;
         use kube::api::AttachParams;
 
@@ -595,28 +595,36 @@ impl<'a> SessionExec for SessionRef<'a> {
                 .unwrap_or_default()
         });
 
-        pods.map(|pod| {
-            let api = api.clone();
-            let ap = AttachParams {
-                container: Some("desktop-environment".into()),
-                stdin: false,
-                stdout: true,
-                stderr: true,
-                tty: false,
-                ..Default::default()
-            };
-            let command = command.clone();
-            spawn(async move { api.exec(&pod.name_any(), command, &ap).await })
-        })
-        .collect::<FuturesUnordered<_>>()
-        .map(|handle| {
-            handle
-                .map_err(|error| ::kube::Error::Service(error.into()))
-                .and_then(std::convert::identity)
-        })
-        .try_collect()
-        .await
-        .map_err(Into::into)
+        let tasks: Vec<_> = pods
+            .map(|pod| {
+                let api = api.clone();
+                let ap = AttachParams {
+                    container: Some("desktop-environment".into()),
+                    stdin: false,
+                    stdout: true,
+                    stderr: true,
+                    tty: false,
+                    ..Default::default()
+                };
+                let command = command.clone();
+                spawn(async move {
+                    yield_now().await;
+                    api.exec(&pod.name_any(), command, &ap).await
+                })
+            })
+            .collect();
+
+        tasks
+            .into_iter()
+            .map(|handle| async move {
+                handle
+                    .await
+                    .map_err(Error::from)
+                    .and_then(|result| result.map_err(Error::from))
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await
     }
 }
 
