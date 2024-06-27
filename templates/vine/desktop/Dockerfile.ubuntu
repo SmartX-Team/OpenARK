@@ -98,6 +98,8 @@ ARG INIT_JOURNALCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-syste
 ARG INIT_SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 RUN apt-get update && apt-get install -y \
     curl \
+    libseccomp-dev \
+    libsystemd-dev \
     procps \
     python3 \
     systemd \
@@ -154,11 +156,21 @@ RUN apt-get update && apt-get install -y \
     git \
     git-lfs \
     # Core (Container)
+    containernetworking-plugins \
     crun \
     nvidia-container-toolkit-base \
     podman-docker \
     slirp4netns \
+    # Core (Container/Podman)
+    aardvark-dns \
+    duperemove \
+    libassuan-dev \
+    libbtrfs-dev \
+    libc6-dev \
+    libdevmapper-dev \
+    netavark \
     # Core (Filesystem)
+    btrfs-progs \
     fuse-overlayfs \
     # Core (H/W)
     fancontrol \
@@ -171,6 +183,7 @@ RUN apt-get update && apt-get install -y \
     gpg \
     iptables \
     iputils-ping \
+    libgpgme-dev \
     openssh-client \
     openssh-server \
     # Core (Package Manager)
@@ -189,6 +202,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libclang-dev \
+    # Language-specific (Go)
+    go-md2man \
+    golang-go \
     # Language-specific (Mobile/Android)
     #android-build-tools-installer \
     # Language-specific (Java)
@@ -205,6 +221,7 @@ RUN apt-get update && apt-get install -y \
     libudev-dev \
     # Library (Networking)
     libprotobuf-dev \
+    libprotobuf-c-dev \
     libprotoc-dev \
     libssl-dev \
     # Linkers
@@ -438,6 +455,22 @@ RUN apt-get update \
     # Cleanup
     && cd - \
     && rm -rf "${ANANICY_TMP}" \
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cutting-edge podman
+ARG PODMAN_REPO="https://github.com/containers/podman.git"
+RUN apt-get update \
+    # Download
+    && PODMAN_TMP="/opt/podman" \
+    && git clone "${PODMAN_REPO}" "${PODMAN_TMP}" \
+    && cd "${PODMAN_TMP}" \
+    # Build
+    && make BUILDTAGS='cni seccomp selinux systemd' PREFIX=/usr \
+    && make install PREFIX=/usr \
+    # Cleanup
+    && cd - \
+    && rm -rf "${PODMAN_TMP}" \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
