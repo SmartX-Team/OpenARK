@@ -10,16 +10,6 @@
 - import_playbook: ./add-node-as-bgp-peer.yaml
 - import_playbook: ./add-node-role.yaml
 
-- hosts: kube_control_plane
-  tasks:
-    - name: Update Resource Limits - kube-apiserver
-      shell: >
-        cat /etc/kubernetes/manifests/kube-apiserver.yaml
-        | grep -Po '^ +memory:' >/dev/null 2>/dev/null
-        || sed -i
-        's/^\( \+\)  \(cpu\:.\+\)$/\1  \2\n\1  memory: 256Mi\n\1limits:\n\1  cpu: "4"\n\1  memory: 4Gi/g'
-        /etc/kubernetes/manifests/kube-apiserver.yaml
-
 - hosts: target
   tasks:
     - when:

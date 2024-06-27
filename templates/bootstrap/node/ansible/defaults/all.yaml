@@ -203,6 +203,7 @@ all:
         # MetalLB deployment
         metallb_enabled: true
         metallb_speaker_enabled: false
+        metallb_namespace: metallb-system
         metallb_config:
           address_pools:
             dev:
