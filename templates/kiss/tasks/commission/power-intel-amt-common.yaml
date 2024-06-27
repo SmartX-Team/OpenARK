@@ -16,7 +16,7 @@
 
 - name: Download ctr command
   when: intel_amt_is_ready
-  include: common-ctr.yaml
+  include_tasks: common-ctr.yaml
 
 - name: Pull Intel AMT docker image
   when: intel_amt_is_ready

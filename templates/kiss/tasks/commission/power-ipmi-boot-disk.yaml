@@ -1,6 +1,6 @@
 ---
 - name: Provision Power Planes - IPMI Common
-  include: power-ipmi-common.yaml
+  include_tasks: power-ipmi-common.yaml
 
 - name: Change boot order to Disk-first for next boot
   when: ipmi.stat.exists

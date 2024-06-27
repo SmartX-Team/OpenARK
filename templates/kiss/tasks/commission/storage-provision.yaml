@@ -1,4 +1,4 @@
 ---
 - name: Install Flatcar Container Linux on top
   when: kiss_os_default == 'flatcar'
-  include: storage-provision-os-flatcar.yaml
+  include_tasks: storage-provision-os-flatcar.yaml

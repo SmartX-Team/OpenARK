@@ -1,6 +1,6 @@
 ---
 - name: Provision NICs
-  include: network-adaptor.yaml
+  include_tasks: network-adaptor.yaml
 
 - name: Provision Ethernet Interfaces
-  include: network-ethernet.yaml
+  include_tasks: network-ethernet.yaml

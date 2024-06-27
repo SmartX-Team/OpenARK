@@ -6,4 +6,4 @@
         assert_kiss_node_is_running: false
         update_state_when_kiss_node_is_running: true
 
-    - include: ./reboot-node.yaml
+    - include_tasks: ./reboot-node.yaml

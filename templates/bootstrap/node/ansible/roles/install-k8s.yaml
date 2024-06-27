@@ -7,7 +7,7 @@
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ../tasks/load-node.yaml
+      include_tasks: ../tasks/load-node.yaml
 
 - name: Save hosts to nodes
   hosts: kiss_ephemeral_node
@@ -23,7 +23,7 @@
 - name: Calico | Add BGP peers
   hosts: kube_control_plane
   tasks:
-    - include: ../tasks/bgp-add-calico.yaml
+    - include_tasks: ../tasks/bgp-add-calico.yaml
 
 - name: Label Nodes | KISS Control Planes
   hosts: kiss_ephemeral_node

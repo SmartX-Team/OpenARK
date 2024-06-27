@@ -36,7 +36,7 @@
         and item[1].sectors != '0'
         and item[1].scheduler_mode != ''
         and not (device.name.startswith(item[0]) and kiss_os_exists)
-      include: storage-cleanup-device-physical.yaml
+      include_tasks: storage-cleanup-device-physical.yaml
 
     - name: Update facts
       setup:

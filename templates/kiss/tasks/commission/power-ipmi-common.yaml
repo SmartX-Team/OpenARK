@@ -6,7 +6,7 @@
 
 - name: Download ctr command
   when: ipmi.stat.exists
-  include: common-ctr.yaml
+  include_tasks: common-ctr.yaml
 
 - name: Pull IPMI docker image
   when: ipmi.stat.exists

@@ -107,7 +107,7 @@
     - kiss_os_exists
     - kiss_os_dirty
     - not kiss_storage_exists
-  include: boot-pxe.yaml
+  include_tasks: boot-pxe.yaml
 
 - name: Reboot the boxes before re-installing OS (The task will be restarted)
   when:
@@ -143,24 +143,24 @@
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists or kiss_os_dirty
     - not kiss_storage_exists
-  include: storage-cleanup.yaml
+  include_tasks: storage-cleanup.yaml
 
 - name: Provision disks
-  include: storage-provision.yaml
+  include_tasks: storage-provision.yaml
 
 - name: Update boot order to Disk-first
   when:
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
     - kiss_os_hot_install
-  include: boot-disk.yaml
+  include_tasks: boot-disk.yaml
 
 - name: Update boot order to PxE-first
   when:
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
     - not kiss_os_hot_install
-  include: boot-pxe.yaml
+  include_tasks: boot-pxe.yaml
 
 - name: Reboot the boxes after installing OS (The task will be restarted)
   when:

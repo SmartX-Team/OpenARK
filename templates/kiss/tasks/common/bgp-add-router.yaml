@@ -3,4 +3,4 @@
   hosts: global_rr
   gather_facts: false
   tasks:
-    - include: ./bgp-add-router-zebos.yaml
+    - include_tasks: ./bgp-add-router-zebos.yaml

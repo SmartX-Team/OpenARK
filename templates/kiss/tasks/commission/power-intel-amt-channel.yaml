@@ -1,6 +1,6 @@
 ---
 - name: Provision Power Planes - Intel AMT Common
-  include: power-intel-amt-common.yaml
+  include_tasks: power-intel-amt-common.yaml
 #
 # - name: Get Intel AMT IP Address
 #   when: intel_amt.stat.exists

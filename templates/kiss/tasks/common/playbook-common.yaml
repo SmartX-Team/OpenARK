@@ -17,21 +17,21 @@
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ./add-node.yaml
+      include_tasks: ./add-node.yaml
 
     - name: Add etcd nodes
       loop: "{{ lookup('env', 'kiss_cluster_etcd_nodes') | split(' ') }}"
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ./add-node.yaml
+      include_tasks: ./add-node.yaml
 
     - name: Add worker nodes
       loop: "{{ lookup('env', 'kiss_cluster_worker_nodes', errors='ignore') | default('') | split(' ') }}"
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ./add-node.yaml
+      include_tasks: ./add-node.yaml
 
     - name: Add target node
       add_host:

@@ -1,6 +1,6 @@
 ---
 - name: Provision Power Planes - IPMI Common
-  include: power-ipmi-common.yaml
+  include_tasks: power-ipmi-common.yaml
 
 - name: Get IPMI IP Address
   when: ipmi.stat.exists

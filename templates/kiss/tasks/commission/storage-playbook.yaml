@@ -1,4 +1,4 @@
 ---
 - hosts: target
   tasks:
-    - include: storage.yaml
+    - include_tasks: storage.yaml

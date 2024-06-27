@@ -7,7 +7,7 @@
       loop_control:
         loop_var: node_packed
       when: node_packed | length
-      include: ../tasks/load-node.yaml
+      include_tasks: ../tasks/load-node.yaml
 
 - name: Save hosts to nodes
   hosts: kiss_ephemeral_node

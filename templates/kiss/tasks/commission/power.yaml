@@ -1,6 +1,6 @@
 ---
 - name: Provision Power Planes - Intel AMT
-  include: power-intel-amt.yaml
+  include_tasks: power-intel-amt.yaml
 
 - name: Provision Power Planes - IPMI
-  include: power-ipmi.yaml
+  include_tasks: power-ipmi.yaml

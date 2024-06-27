@@ -1,9 +1,9 @@
 ---
 - name: Cleanup all devices
-  include: storage-cleanup-device.yaml
+  include_tasks: storage-cleanup-device.yaml
 
 - name: Cleanup all CSI plugins
-  include: storage-cleanup-csi.yaml
+  include_tasks: storage-cleanup-csi.yaml
 
 - name: Cleanup all kubernetes data
-  include: storage-cleanup-kubernetes.yaml
+  include_tasks: storage-cleanup-kubernetes.yaml

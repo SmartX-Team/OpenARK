@@ -1,4 +1,4 @@
 ---
 - hosts: target
   tasks:
-    - include: network.yaml
+    - include_tasks: network.yaml

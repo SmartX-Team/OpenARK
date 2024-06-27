@@ -7,5 +7,5 @@
       aarch64: Arm
       x86_64: x64
 
-- include: network-adaptor-mellanox-firmware.yaml
-# - include: network-adaptor-mellanox-driver.yaml
+- include_tasks: network-adaptor-mellanox-firmware.yaml
+# - include_tasks: network-adaptor-mellanox-driver.yaml

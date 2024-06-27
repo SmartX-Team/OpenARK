@@ -1,5 +1,5 @@
 ---
 - name: Provision Power Planes - Intel AMT Boot
-  include: power-intel-amt-boot-disk.yaml
+  include_tasks: power-intel-amt-boot-disk.yaml
 - name: Provision Power Planes - Intel AMT Channel
-  include: power-intel-amt-channel.yaml
+  include_tasks: power-intel-amt-channel.yaml

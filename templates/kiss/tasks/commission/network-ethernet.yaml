@@ -26,14 +26,14 @@
   loop: "{{ ethernet_modules | flatten(levels=1) }}"
   loop_control:
     loop_var: modules
-  include: network-ethernet-map-module.yaml
+  include_tasks: network-ethernet-map-module.yaml
 
 - name: Calculate ethernet map | priority
   loop: "{{ ethernet_priority | flatten(levels=1) }}"
   loop_control:
     index_var: priority
     loop_var: modules
-  include: network-ethernet-map-priority.yaml
+  include_tasks: network-ethernet-map-priority.yaml
 
 - name: Define default interfaces list
   set_fact:
@@ -182,14 +182,14 @@
     - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
-  include: network-ethernet-conf-network-manager.yaml
+  include_tasks: network-ethernet-conf-network-manager.yaml
 
 - name: Configure network interfaces | systemd-networkd
   when:
     - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'systemd-networkd'
-  include: network-ethernet-conf-systemd-networkd.yaml
+  include_tasks: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Ping from primary interface to the gateway
   when:
@@ -274,4 +274,4 @@
     - interfaces | length > 0
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
-  include: network-ethernet-conf-network-manager-post.yaml
+  include_tasks: network-ethernet-conf-network-manager-post.yaml

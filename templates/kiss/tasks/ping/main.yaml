@@ -6,4 +6,4 @@
         assert_kiss_node_is_running: true
         update_state_when_kiss_node_is_running: false
 
-    - include: ../ping-node.yaml
+    - include_tasks: ../ping-node.yaml
