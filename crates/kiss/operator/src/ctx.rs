@@ -5,7 +5,7 @@ use ark_core_k8s::manager::Manager;
 use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use kiss_ansible::{AnsibleClient, AnsibleJob};
+use kiss_ansible::{AnsibleClient, AnsibleJob, AnsibleResourceType};
 use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxState, BoxStatus};
 use kube::{
     api::{Patch, PatchParams},
@@ -168,6 +168,16 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                             new_group,
                             new_state: Some(new_state),
                             is_critical: false,
+                            resource_type: match old_state {
+                                BoxState::New
+                                | BoxState::Commissioning
+                                | BoxState::Ready
+                                | BoxState::Joining => AnsibleResourceType::Normal,
+                                BoxState::Running
+                                | BoxState::GroupChanged
+                                | BoxState::Failed
+                                | BoxState::Disconnected => AnsibleResourceType::Minimal,
+                            },
                             use_workers: false,
                         },
                     )

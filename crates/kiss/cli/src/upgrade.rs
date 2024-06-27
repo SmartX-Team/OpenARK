@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::{Parser, ValueEnum};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use kiss_ansible::{cluster::ClusterState, AnsibleClient, AnsibleJob};
+use kiss_ansible::{cluster::ClusterState, AnsibleClient, AnsibleJob, AnsibleResourceType};
 use kiss_api::r#box::BoxCrd;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -117,6 +117,7 @@ fn create_job<'a>(target_box: &'a BoxCrd) -> AnsibleJob {
         new_group: None,
         new_state: None,
         is_critical: true,
+        resource_type: AnsibleResourceType::Normal,
         use_workers: false,
     }
 }

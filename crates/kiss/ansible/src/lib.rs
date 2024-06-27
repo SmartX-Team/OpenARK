@@ -478,7 +478,7 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                         ]),
-                        resources: Some(Self::default_resources()),
+                        resources: Some(job.resource_type.into()),
                         volume_mounts: Some(vec![
                             VolumeMount {
                                 name: "ansible".into(),
@@ -607,28 +607,6 @@ impl AnsibleClient {
         info!("spawned a job: {name}");
         Ok(true)
     }
-
-    pub fn default_resources() -> ResourceRequirements {
-        ResourceRequirements {
-            claims: None,
-            requests: Some(
-                vec![
-                    ("cpu".into(), Quantity("1".into())),
-                    ("memory".into(), Quantity("20Mi".into())),
-                ]
-                .into_iter()
-                .collect(),
-            ),
-            limits: Some(
-                vec![
-                    ("cpu".into(), Quantity("1".into())),
-                    ("memory".into(), Quantity("2Gi".into())),
-                ]
-                .into_iter()
-                .collect(),
-            ),
-        }
-    }
 }
 
 pub struct AnsibleJob<'a> {
@@ -638,5 +616,58 @@ pub struct AnsibleJob<'a> {
     pub new_group: Option<&'a BoxGroupSpec>,
     pub new_state: Option<BoxState>,
     pub is_critical: bool,
+    pub resource_type: AnsibleResourceType,
     pub use_workers: bool,
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub enum AnsibleResourceType {
+    Minimal,
+    #[default]
+    Normal,
+}
+
+impl From<AnsibleResourceType> for ResourceRequirements {
+    fn from(value: AnsibleResourceType) -> Self {
+        match value {
+            AnsibleResourceType::Minimal => Self {
+                claims: None,
+                requests: Some(
+                    vec![
+                        ("cpu".into(), Quantity("50m".into())),
+                        ("memory".into(), Quantity("20Mi".into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                limits: Some(
+                    vec![
+                        ("cpu".into(), Quantity("100m".into())),
+                        ("memory".into(), Quantity("500Mi".into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            },
+            AnsibleResourceType::Normal => Self {
+                claims: None,
+                requests: Some(
+                    vec![
+                        ("cpu".into(), Quantity("1".into())),
+                        ("memory".into(), Quantity("20Mi".into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                limits: Some(
+                    vec![
+                        ("cpu".into(), Quantity("1".into())),
+                        ("memory".into(), Quantity("2Gi".into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            },
+        }
+    }
 }

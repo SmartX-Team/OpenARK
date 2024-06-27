@@ -6,7 +6,7 @@ use k8s_openapi::{
     },
     Resource,
 };
-use kiss_ansible::AnsibleClient;
+use kiss_ansible::AnsibleResourceType;
 use kube::{
     api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
     core::ObjectMeta,
@@ -206,7 +206,7 @@ impl Handler {
                                     ..Default::default()
                                 },
                             ]),
-                            resources: Some(AnsibleClient::default_resources()),
+                            resources: Some(AnsibleResourceType::Normal.into()),
                             ..Default::default()
                         }],
                         ..Default::default()
