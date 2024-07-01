@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-dependency-solver"
+name = "kubegraph-market-solver-api"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -21,26 +21,17 @@ workspace = true
 
 [features]
 default = ["full"]
-full = ["df-full", "function-full"]
+full = ["df-full"]
 
-# DataFrame
+# Configure DataFrame
 df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars"]
 
-# Configure Functions
-function-full = ["function-fake", "function-webhook"]
-function-fake = ["kubegraph-api/function-fake"]
-function-webhook = ["kubegraph-api/function-webhook"]
-
 [dependencies]
-kubegraph-api = { path = "../../api", default-features = false }
-kubegraph-dependency-graph = { path = "../graph" }
-kubegraph-vm-lazy = { path = "../../vm/lazy", default-features = false }
+kubegraph-api = { path = "../../../api", default-features = false, features = [
+    "function-webhook",
+] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-regex = { workspace = true }
-tracing = { workspace = true }
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true }

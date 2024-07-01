@@ -174,7 +174,7 @@ impl Database {
         let col_cost = entity::price::Column::Cost;
         let dsl = entity::price::Entity::find()
             .select_only()
-            .columns([col_direction, col_cost])
+            .columns([col_id, col_direction, col_cost])
             .order_by_asc(col_id)
             .limit(limit);
         let dsl = match start {
@@ -188,13 +188,13 @@ impl Database {
             .map(|values| {
                 values
                     .into_iter()
-                    .map(|(direction, cost)| PriceItem {
+                    .map(|(id, direction, cost)| PriceItem {
+                        id,
                         direction: entity::price::Direction::into(direction),
                         cost,
                     })
                     .collect()
             })
-            .map(PriceHistogram)
             .map_err(Into::into)
     }
 }
@@ -357,7 +357,7 @@ impl Database {
     }
 }
 
-#[derive(Clone, Debug, Parser, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseArgs {

@@ -10,7 +10,7 @@ where
     Self: NetworkComponent,
     <Self as NetworkComponent>::Args: Parser,
 {
-    #[instrument(level = Level::INFO)]
+    #[instrument(level = Level::INFO, skip(signal))]
     async fn try_default(signal: &FunctionSignal) -> Result<Self>
     where
         Self: Sized,

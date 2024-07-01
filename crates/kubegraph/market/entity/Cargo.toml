@@ -20,7 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false }
 
 anyhow = { workspace = true }
 chrono = { workspace = true }

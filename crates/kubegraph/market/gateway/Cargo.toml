@@ -75,7 +75,7 @@ vm-local = ["kubegraph-vm-local"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
-kubegraph-api = { path = "../../api" }
+kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-market-entity = { path = "../entity" }
 kubegraph-market-migration = { path = "../migration" }
 kubegraph-vm-local = { path = "../../vm/local", optional = true, default-features = false }
