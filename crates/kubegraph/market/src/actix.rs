@@ -7,7 +7,7 @@ use ark_core::env::infer;
 use futures::TryFutureExt;
 use tracing::{error, info, instrument, Level};
 
-use crate::agent::Agent;
+use crate::db::Database;
 
 #[instrument(level = Level::INFO)]
 #[get("/_health")]
@@ -15,28 +15,28 @@ async fn health() -> impl Responder {
     HttpResponse::Ok().json("healthy")
 }
 
-pub async fn loop_forever(agent: Agent) {
-    match try_loop_forever(&agent).await {
-        Ok(()) => agent.signal.terminate(),
+pub async fn loop_forever(db: Database) {
+    match try_loop_forever(&db).await {
+        Ok(()) => db.signal.terminate(),
         Err(error) => {
             error!("failed to operate http server: {error}");
-            agent.signal.terminate_on_panic()
+            db.signal.terminate_on_panic()
         }
     }
 }
 
-async fn try_loop_forever(agent: &Agent) -> Result<()> {
+async fn try_loop_forever(db: &Database) -> Result<()> {
     info!("Starting http server...");
 
     // Initialize pipe
     let addr =
         infer::<_, SocketAddr>("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:80".parse().unwrap());
 
-    let agent = Data::new(agent.clone());
+    let db = Data::new(db.clone());
 
     // Create a http server
     let server = HttpServer::new(move || {
-        let app = App::new().app_data(Data::clone(&agent));
+        let app = App::new().app_data(Data::clone(&db));
         let app = app
             .service(health)
             .service(crate::routes::product::list)

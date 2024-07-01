@@ -1,3 +1,4 @@
+pub mod price;
 pub mod product;
 pub mod r#pub;
 pub mod sub;
@@ -11,10 +12,10 @@ pub trait BaseModel
 where
     Self: Serialize + DeserializeOwned,
 {
-    const KEY: &'static str;
-
     type Id: Copy + fmt::Debug + fmt::Display + Eq + Ord + Hash + Serialize + DeserializeOwned;
+
     type Cost: Copy + fmt::Debug + Eq + Ord + Serialize + DeserializeOwned;
+
     type Count: Copy + fmt::Debug + Eq + Ord;
 }
 
@@ -30,7 +31,7 @@ pub struct Page {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<Uuid>,
     #[serde(default = "Page::default_limit")]
-    pub limit: u32,
+    pub limit: u64,
 }
 
 impl Default for Page {
@@ -43,7 +44,7 @@ impl Default for Page {
 }
 
 impl Page {
-    const fn default_limit() -> u32 {
+    const fn default_limit() -> u64 {
         20
     }
 }

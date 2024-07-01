@@ -7,46 +7,46 @@ use ark_core::result::Result;
 use kubegraph_api::market::{product::ProductSpec, sub::SubSpec, BaseModel, Page};
 use tracing::{instrument, Level};
 
-use crate::agent::Agent;
+use crate::db::Database;
 
-#[instrument(level = Level::INFO, skip(agent))]
+#[instrument(level = Level::INFO, skip(db))]
 #[get("/prod/{prod_id}/sub")]
 pub async fn list(
-    agent: Data<Agent>,
+    db: Data<Database>,
     path: Path<<ProductSpec as BaseModel>::Id>,
     page: Query<Page>,
 ) -> impl Responder {
     let prod_id = path.into_inner();
-    HttpResponse::Ok().json(Result::from(agent.list_sub(prod_id, page.0).await))
+    HttpResponse::Ok().json(Result::from(db.list_sub_ids(prod_id, page.0).await))
 }
 
-#[instrument(level = Level::INFO, skip(agent))]
+#[instrument(level = Level::INFO, skip(db))]
 #[get("/prod/{prod_id}/sub/{sub_id}")]
 pub async fn get(
-    agent: Data<Agent>,
+    db: Data<Database>,
     path: Path<(<ProductSpec as BaseModel>::Id, <SubSpec as BaseModel>::Id)>,
 ) -> impl Responder {
-    let (prod_id, sub_id) = path.into_inner();
-    HttpResponse::Ok().json(Result::from(agent.get_sub(prod_id, sub_id).await))
+    let (_prod_id, sub_id) = path.into_inner();
+    HttpResponse::Ok().json(Result::from(db.get_sub(sub_id).await))
 }
 
-#[instrument(level = Level::INFO, skip(agent))]
+#[instrument(level = Level::INFO, skip(db, spec))]
 #[put("/prod/{prod_id}/sub")]
 pub async fn put(
-    agent: Data<Agent>,
+    db: Data<Database>,
     path: Path<<ProductSpec as BaseModel>::Id>,
     spec: Json<SubSpec>,
 ) -> impl Responder {
     let prod_id = path.into_inner();
-    HttpResponse::Ok().json(Result::from(agent.put_sub(prod_id, spec.0).await))
+    HttpResponse::Ok().json(Result::from(db.insert_sub(prod_id, spec.0).await))
 }
 
-#[instrument(level = Level::INFO, skip(agent))]
+#[instrument(level = Level::INFO, skip(db))]
 #[delete("/prod/{prod_id}/sub/{sub_id}")]
 pub async fn delete(
-    agent: Data<Agent>,
+    db: Data<Database>,
     path: Path<(<ProductSpec as BaseModel>::Id, <SubSpec as BaseModel>::Id)>,
 ) -> impl Responder {
-    let (prod_id, sub_id) = path.into_inner();
-    HttpResponse::Ok().json(Result::from(agent.delete_sub(prod_id, sub_id).await))
+    let (_prod_id, sub_id) = path.into_inner();
+    HttpResponse::Ok().json(Result::from(db.remove_sub(sub_id).await))
 }

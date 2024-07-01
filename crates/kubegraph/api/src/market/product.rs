@@ -36,8 +36,6 @@ where
     Pub: super::BaseModel,
     Sub: super::BaseModel,
 {
-    const KEY: &'static str = "price";
-
     type Id = <ProductSpec as super::BaseModel>::Id;
     type Cost = <ProductSpec as super::BaseModel>::Cost;
     type Count = <ProductSpec as super::BaseModel>::Count;
@@ -49,9 +47,7 @@ pub struct ProductSpec {
 }
 
 impl super::BaseModel for ProductSpec {
-    const KEY: &'static str = "prod";
-
     type Id = Uuid;
-    type Cost = u64;
+    type Cost = i64;
     type Count = u64;
 }

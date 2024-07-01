@@ -11,8 +11,6 @@ pub struct SubSpec {
 }
 
 impl super::BaseModel for SubSpec {
-    const KEY: &'static str = "pub";
-
     type Id = <ProductSpec as super::BaseModel>::Id;
     type Cost = <ProductSpec as super::BaseModel>::Cost;
     type Count = <ProductSpec as super::BaseModel>::Count;

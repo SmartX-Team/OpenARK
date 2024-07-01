@@ -49,6 +49,8 @@ members = [
     "crates/kubegraph/graph/local",
     "crates/kubegraph/graph/memory",
     "crates/kubegraph/market",
+    "crates/kubegraph/market/entity",
+    "crates/kubegraph/market/migration",
     "crates/kubegraph/operator",
     "crates/kubegraph/parser",
     "crates/kubegraph/runner",
@@ -246,15 +248,25 @@ schemars = { version = "0.8", features = [
     "preserve_order",
     "uuid1",
 ] }
-sea-orm = { version = "0.12", features = [
+sea-orm = { version = "0.12", default-features = false, features = [
     "macros",
     "runtime-tokio-rustls",
     "sqlx-postgres",
+    "sqlx-sqlite",
     "with-chrono",
     "with-json",
     "with-time",
     "with-uuid",
 ] }
+sea-orm-migration = { version = "0.12", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+    "sqlx-sqlite",
+    "with-chrono",
+    "with-json",
+    "with-time",
+    "with-uuid",
+] } # should be synced with sea-orm
 semver = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = { version = "0.11" }
@@ -266,7 +278,6 @@ sled = { version = "0.34" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
 thiserror = { version = "1.0" }
-tikv-client = { version = "0.3", features = ["prometheus"] }
 tokio = { version = "1.37", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
 tonic = { version = "0.11", features = [

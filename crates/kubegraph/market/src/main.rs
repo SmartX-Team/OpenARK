@@ -1,12 +1,14 @@
+extern crate kubegraph_market_entity as entity;
+extern crate kubegraph_market_migration as migration;
+
 mod actix;
-mod agent;
 mod db;
-mod histogram;
 mod routes;
 
 use anyhow::anyhow;
 use ark_core::signal::FunctionSignal;
 use kubegraph_api::component::NetworkComponentExt;
+use tokio::{spawn, task::JoinHandle};
 use tracing::{error, info};
 
 #[::tokio::main]
@@ -21,17 +23,17 @@ async fn main() {
     }
 
     info!("Booting...");
-    let agent = match <self::agent::Agent as NetworkComponentExt>::try_default(&signal).await {
-        Ok(agent) => agent,
+    let db = match <self::db::Database as NetworkComponentExt>::try_default(&signal).await {
+        Ok(db) => db,
         Err(error) => {
             signal
-                .panic(anyhow!("failed to init kubegraph market agent: {error}"))
+                .panic(anyhow!("failed to init kubegraph market db: {error}"))
                 .await
         }
     };
 
-    info!("Registering market agent workers...");
-    let handlers = agent.spawn_workers();
+    info!("Registering market db workers...");
+    let handlers = spawn_workers(&db);
 
     info!("Ready");
     signal.wait_to_terminate().await;
@@ -41,9 +43,13 @@ async fn main() {
         handler.abort();
     }
 
-    if let Err(error) = agent.close().await {
+    if let Err(error) = db.close().await {
         error!("{error}");
     };
 
     signal.exit().await
+}
+
+fn spawn_workers(db: &self::db::Database) -> Vec<JoinHandle<()>> {
+    vec![spawn(crate::actix::loop_forever(db.clone()))]
 }

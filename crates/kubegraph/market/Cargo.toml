@@ -76,6 +76,8 @@ vm-local = ["kubegraph-vm-local"]
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../api" }
+kubegraph-market-entity = { path = "./entity" }
+kubegraph-market-migration = { path = "./migration" }
 kubegraph-vm-local = { path = "../vm/local", optional = true, default-features = false }
 
 actix-web = { workspace = true }
@@ -86,9 +88,8 @@ clap = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
 opentelemetry = { workspace = true }
+sea-orm = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-tikv-client = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 uuid = { workspace = true }
