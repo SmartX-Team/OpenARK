@@ -51,6 +51,7 @@ members = [
     "crates/kubegraph/market/client",
     "crates/kubegraph/market/entity",
     "crates/kubegraph/market/function",
+    "crates/kubegraph/market/function/blackhole",
     "crates/kubegraph/market/gateway",
     "crates/kubegraph/market/migration",
     "crates/kubegraph/market/solver",
@@ -70,7 +71,7 @@ members = [
     "crates/straw/provider",
     "crates/straw/provider/oci",
     "crates/straw/provider/python",
-    "crates/straw/provider/python/standalone", # exclude(alpine)
+    "crates/straw/provider/python/standalone",    # exclude(alpine)
     "crates/vine/api",
     "crates/vine/bastion",
     "crates/vine/operator",

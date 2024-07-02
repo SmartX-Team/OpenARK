@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-trader"
+name = "kubegraph-market-function-blackhole"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -20,7 +20,10 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kubegraph-api = { path = "../api", default-features = false }
+ark-core = { path = "../../../../ark/core", features = ["signal"] }
+kubegraph-api = { path = "../../../api", default-features = false, features = [
+    "df-full",
+] }
 
 actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }

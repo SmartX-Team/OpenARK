@@ -89,7 +89,6 @@ chrono = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
-opentelemetry = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
