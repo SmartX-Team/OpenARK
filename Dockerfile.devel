@@ -28,6 +28,7 @@ RUN true \
     cmake \
     docker-buildx \
     git-lfs \
+    jq \
     libclang-dev \
     libgtk2.0-dev \
     libhwloc-dev \
@@ -43,6 +44,7 @@ RUN true \
     python3-full \
     s3fs \
     xauth \
+    yq \
     # GStreamer
     libges-1.0-dev \
     libgstreamer1.0-dev \
