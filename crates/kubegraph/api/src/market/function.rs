@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::trade::TradeTemplate;
+use super::transaction::TransactionTemplate;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketFunctionContext {
-    pub template: TradeTemplate,
+    pub template: TransactionTemplate,
 }

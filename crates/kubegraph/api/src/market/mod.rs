@@ -3,7 +3,7 @@ pub mod price;
 pub mod product;
 pub mod r#pub;
 pub mod sub;
-pub mod trade;
+pub mod transaction;
 
 use std::{fmt, hash::Hash};
 
@@ -20,13 +20,6 @@ where
     type Cost: Copy + fmt::Debug + Eq + Ord + Serialize + DeserializeOwned;
 
     type Count: Copy + fmt::Debug + Eq + Ord;
-}
-
-pub trait BaseModelItem
-where
-    Self: BaseModel,
-{
-    fn cost(&self) -> <Self as BaseModel>::Cost;
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

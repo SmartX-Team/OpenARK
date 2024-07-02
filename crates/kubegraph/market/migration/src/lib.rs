@@ -1,5 +1,6 @@
 mod m20240701_000001_create_table_products;
 mod m20240701_000002_create_table_prices;
+mod m20240702_000001_create_table_transactions;
 
 use async_trait::async_trait;
 
@@ -13,6 +14,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(self::m20240701_000001_create_table_products::Migration),
             Box::new(self::m20240701_000002_create_table_prices::Migration),
+            Box::new(self::m20240702_000001_create_table_transactions::Migration),
         ]
     }
 }

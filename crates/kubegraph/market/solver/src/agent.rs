@@ -6,13 +6,17 @@ use async_trait::async_trait;
 use clap::Parser;
 use futures::TryStreamExt;
 use kubegraph_api::{
-    component::NetworkComponent, market::price::PriceHistogram, vm::NetworkFallbackPolicy,
+    component::NetworkComponent,
+    market::{
+        price::PriceHistogram, product::ProductSpec, transaction::TransactionTemplate, BaseModel,
+    },
+    vm::NetworkFallbackPolicy,
 };
 use kubegraph_market_client::{MarketClient, MarketClientArgs};
 use kubegraph_market_solver_api::MarketSolver as _;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn, Level};
 
 #[derive(Clone)]
 pub struct MarketAgent {
@@ -71,6 +75,7 @@ impl MarketAgent {
             let instant = Instant::now();
             let product_ids: Vec<_> = self.client.list_product_ids().try_collect().await?;
 
+            let mut num_templates = 0;
             for prod_id in product_ids {
                 let product = match self.client.get_product(prod_id).await? {
                     Some(product) => product,
@@ -86,8 +91,13 @@ impl MarketAgent {
                 let templates = self.solver.solve(&product, histogram).await?;
 
                 for template in templates {
-                    self.client.trade(prod_id, &template).await?
+                    self.trade(prod_id, template).await?;
+                    num_templates += 1;
                 }
+            }
+
+            if num_templates > 0 {
+                info!("Created {num_templates} transactions");
             }
 
             let elapsed = instant.elapsed();
@@ -98,6 +108,17 @@ impl MarketAgent {
             }
         }
         Ok(())
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn trade(
+        &self,
+        prod_id: <ProductSpec as BaseModel>::Id,
+        template: TransactionTemplate,
+    ) -> Result<()> {
+        self.client.trade(prod_id, &template).await.map(|txn_id| {
+            info!("Transaction ID: {txn_id}");
+        })
     }
 }
 

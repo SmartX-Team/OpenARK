@@ -42,16 +42,23 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(self::Prices::Direction)
                             .small_integer() // enum Direction -> i16
+                            .check(
+                                Expr::col(self::Prices::Direction)
+                                    .gte(0) // unsigned
+                                    .and(Expr::col(self::Prices::Direction).lt(2)),
+                            ) // len(Direction) -> 2
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(self::Prices::Cost)
                             .big_integer() // i64
+                            .check(Expr::col(self::Prices::Cost).gte(0)) // unsigned
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(self::Prices::Count)
                             .big_integer() // i64
+                            .check(Expr::col(self::Prices::Count).gte(0)) // unsigned
                             .not_null(),
                     )
                     .col(

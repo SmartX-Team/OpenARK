@@ -4,7 +4,9 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use ark_core::result::Result;
-use kubegraph_api::market::{product::ProductSpec, trade::TradeTemplate, BaseModel, Page};
+use kubegraph_api::market::{
+    product::ProductSpec, transaction::TransactionTemplate, BaseModel, Page,
+};
 use tracing::{instrument, Level};
 
 use crate::db::Database;
@@ -38,7 +40,7 @@ pub async fn get(db: Data<Database>, path: Path<<ProductSpec as BaseModel>::Id>)
 pub async fn post_trade(
     db: Data<Database>,
     path: Path<<ProductSpec as BaseModel>::Id>,
-    template: Json<TradeTemplate>,
+    template: Json<TransactionTemplate>,
 ) -> impl Responder {
     let _prod_id = path.into_inner();
     HttpResponse::Ok().json(Result::from(db.trade(template.0).await))

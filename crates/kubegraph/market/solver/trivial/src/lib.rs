@@ -4,7 +4,7 @@ use itertools::Itertools;
 use kubegraph_api::market::{
     price::{Direction, PriceHistogram, PriceItem},
     product::ProductSpec,
-    trade::TradeTemplate,
+    transaction::TransactionTemplate,
     BaseModel,
 };
 use tracing::{instrument, Level};
@@ -19,17 +19,17 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
         &self,
         _product: &ProductSpec,
         histogram: PriceHistogram,
-    ) -> Result<Vec<TradeTemplate>> {
+    ) -> Result<Vec<TransactionTemplate>> {
         let mut pubs = histogram
             .iter()
             .filter(|item| matches!(item.direction, Direction::Pub))
-            .filter(|item| item.cost >= 0)
+            .filter(|item| item.cost >= 0 && item.count > 0)
             .copied()
             .sorted_by_key(|item| (item.cost, item.timestamp));
         let mut subs = histogram
             .iter()
             .filter(|item| matches!(item.direction, Direction::Sub))
-            .filter(|item| item.cost >= 0)
+            .filter(|item| item.cost >= 0 && item.count > 0)
             .copied()
             .sorted_by_key(|item| (-item.cost, item.timestamp));
 
@@ -75,13 +75,15 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
                 }
             }
 
+            let cost = *sub_cost;
             let count = (*pub_count).min(*sub_count).max(1);
             withdraw(&mut pubs, &mut r#pub, count);
             withdraw(&mut subs, &mut sub, count);
 
-            let template = TradeTemplate {
+            let template = TransactionTemplate {
                 r#pub: pub_id,
                 sub: sub_id,
+                cost,
                 count,
             };
             transactions.push(template);

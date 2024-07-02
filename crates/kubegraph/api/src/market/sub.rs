@@ -17,9 +17,3 @@ impl super::BaseModel for SubSpec {
     type Cost = <ProductSpec as super::BaseModel>::Cost;
     type Count = <ProductSpec as super::BaseModel>::Count;
 }
-
-impl super::BaseModelItem for SubSpec {
-    fn cost(&self) -> <Self as super::BaseModel>::Cost {
-        self.cost
-    }
-}

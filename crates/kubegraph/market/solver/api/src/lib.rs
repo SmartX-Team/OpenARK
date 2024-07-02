@@ -1,6 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use kubegraph_api::market::{price::PriceHistogram, product::ProductSpec, trade::TradeTemplate};
+use kubegraph_api::market::{
+    price::PriceHistogram, product::ProductSpec, transaction::TransactionTemplate,
+};
 
 #[async_trait]
 pub trait MarketSolver {
@@ -8,5 +10,5 @@ pub trait MarketSolver {
         &self,
         product: &ProductSpec,
         histogram: PriceHistogram,
-    ) -> Result<Vec<TradeTemplate>>;
+    ) -> Result<Vec<TransactionTemplate>>;
 }

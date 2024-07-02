@@ -13,7 +13,7 @@ use kubegraph_api::{
         product::ProductSpec,
         r#pub::PubSpec,
         sub::SubSpec,
-        trade::TradeTemplate,
+        transaction::{TransactionSpec, TransactionTemplate},
         BaseModel, Page,
     },
 };
@@ -128,8 +128,8 @@ impl MarketClient {
     pub async fn trade(
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
-        template: &TradeTemplate,
-    ) -> Result<()> {
+        template: &TransactionTemplate,
+    ) -> Result<<TransactionSpec as BaseModel>::Id> {
         let request = Request {
             method: Method::POST,
             rel_url: &format!("prod/{prod_id}/trade"),
