@@ -301,7 +301,7 @@ impl Database {
 
                     let withdraw = |price: entity::price::Model| async move {
                         if price.count == count {
-                            let model = entity::price::ActiveModel::from_id(pub_id);
+                            let model = entity::price::ActiveModel::from_id(price.id);
                             let dsl = entity::price::Entity::delete(model);
 
                             dsl.exec(txn)
