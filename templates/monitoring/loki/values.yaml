@@ -35,6 +35,29 @@ ingester:
                 {{- include "loki.ingesterSelectorLabels" . | nindent 12 }}
             topologyKey: failure-domain.beta.kubernetes.io/zone
 
+  persistence:
+    # -- Enable creating PVCs which is required when using boltdb-shipper
+    enabled: true
+    # -- Use emptyDir with ramdisk for storage. **Please note that all data in ingester will be lost on pod restart**
+    inMemory: false
+    # -- List of the ingester PVCs
+    # @notationType -- list
+    claims:
+      - name: data
+        size: 10Gi
+        #   -- Storage class to be used.
+        #   If defined, storageClassName: <storageClass>.
+        #   If set to "-", storageClassName: "", which disables dynamic provisioning.
+        #   If empty or set to null, no storageClassName spec is
+        #   set, choosing the default provisioner (gp2 on AWS, standard on GKE, AWS, and OpenStack).
+        storageClass: ceph-block
+      # - name: wal
+      #   size: 150Gi
+    # -- Enable StatefulSetAutoDeletePVC feature
+    enableStatefulSetAutoDeletePVC: false
+    whenDeleted: Retain
+    whenScaled: Retain
+
 # Configuration for the distributor
 distributor:
   # -- Number of replicas for the distributor
@@ -106,6 +129,20 @@ querier:
               matchLabels:
                 {{- include "loki.querierSelectorLabels" . | nindent 12 }}
             topologyKey: failure-domain.beta.kubernetes.io/zone
+
+  persistence:
+    # -- Enable creating PVCs for the querier cache
+    enabled: true
+    # -- Size of persistent disk
+    size: 10Gi
+    # -- Storage class to be used.
+    # If defined, storageClassName: <storageClass>.
+    # If set to "-", storageClassName: "", which disables dynamic provisioning.
+    # If empty or set to null, no storageClassName spec is
+    # set, choosing the default provisioner (gp2 on AWS, standard on GKE, AWS, and OpenStack).
+    storageClass: ceph-block
+    # -- Annotations for querier PVCs
+    annotations: {}
 
 # Configuration for the query-frontend
 queryFrontend:
