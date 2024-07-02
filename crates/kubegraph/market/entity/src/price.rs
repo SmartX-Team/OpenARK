@@ -9,6 +9,7 @@ use serde_json::Value;
 
 type Id = <ProductSpec as BaseModel>::Id;
 type Cost = <ProductSpec as BaseModel>::Cost;
+type Count = <ProductSpec as BaseModel>::Count;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "prices")]
@@ -20,6 +21,7 @@ pub struct Model {
     pub created_at: NaiveDateTime,
     pub direction: Direction,
     pub cost: Cost,
+    pub count: Count,
     pub spec: Value,
 }
 
@@ -59,12 +61,17 @@ impl TryFrom<Model> for PubSpec {
             created_at: _,
             direction: _,
             cost,
+            count,
             spec,
         } = value;
 
-        let endpoint = ::serde_json::from_value(spec)?;
+        let function = ::serde_json::from_value(spec)?;
 
-        Ok(Self { cost, endpoint })
+        Ok(Self {
+            cost,
+            count,
+            function,
+        })
     }
 }
 
@@ -78,12 +85,17 @@ impl TryFrom<Model> for SubSpec {
             created_at: _,
             direction: _,
             cost,
+            count,
             spec,
         } = value;
 
-        let endpoint = ::serde_json::from_value(spec)?;
+        let function = ::serde_json::from_value(spec)?;
 
-        Ok(Self { cost, endpoint })
+        Ok(Self {
+            cost,
+            count,
+            function,
+        })
     }
 }
 
@@ -95,14 +107,19 @@ impl ActiveModel {
             created_at: ActiveValue::NotSet,
             direction: ActiveValue::NotSet,
             cost: ActiveValue::NotSet,
+            count: ActiveValue::NotSet,
             spec: ActiveValue::NotSet,
         }
     }
 
     pub fn from_pub_spec(spec: PubSpec, prod_id: Option<Id>, pub_id: Id) -> Result<Self> {
-        let PubSpec { cost, endpoint } = spec;
+        let PubSpec {
+            count,
+            cost,
+            function,
+        } = spec;
 
-        let spec = ::serde_json::to_value(endpoint)?;
+        let spec = ::serde_json::to_value(function)?;
 
         Ok(Self {
             id: ActiveValue::Set(pub_id),
@@ -113,14 +130,19 @@ impl ActiveModel {
             created_at: ActiveValue::NotSet,
             direction: ActiveValue::Set(Direction::Pub),
             cost: ActiveValue::Set(cost),
+            count: ActiveValue::Set(count),
             spec: ActiveValue::Set(spec),
         })
     }
 
     pub fn from_sub_spec(spec: SubSpec, prod_id: Option<Id>, sub_id: Id) -> Result<Self> {
-        let SubSpec { cost, endpoint } = spec;
+        let SubSpec {
+            cost,
+            count,
+            function,
+        } = spec;
 
-        let spec = ::serde_json::to_value(endpoint)?;
+        let spec = ::serde_json::to_value(function)?;
 
         Ok(Self {
             id: ActiveValue::Set(sub_id),
@@ -131,6 +153,7 @@ impl ActiveModel {
             created_at: ActiveValue::NotSet,
             direction: ActiveValue::Set(Direction::Sub),
             cost: ActiveValue::Set(cost),
+            count: ActiveValue::Set(count),
             spec: ActiveValue::Set(spec),
         })
     }

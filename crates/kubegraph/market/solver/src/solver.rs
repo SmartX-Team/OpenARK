@@ -11,8 +11,8 @@ use tracing::{instrument, Level};
 
 #[derive(Clone)]
 pub enum MarketSolver {
-    #[cfg(feature = "market-solver-greedy")]
-    Greedy(::kubegraph_market_solver_greedy::MarketSolver),
+    #[cfg(feature = "market-solver-trivial")]
+    Trivial(::kubegraph_market_solver_trivial::MarketSolver),
 }
 
 #[async_trait]
@@ -23,13 +23,13 @@ impl NetworkComponent for MarketSolver {
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,
     ) -> Result<Self> {
-        let MarketSolverArgs { solver, greedy } = args;
+        let MarketSolverArgs { solver, trivial } = args;
 
         match solver {
-            MarketSolverType::Greedy => {
-                ::kubegraph_market_solver_greedy::MarketSolver::try_new(greedy, signal)
+            MarketSolverType::Trivial => {
+                ::kubegraph_market_solver_trivial::MarketSolver::try_new(trivial, signal)
                     .await
-                    .map(Self::Greedy)
+                    .map(Self::Trivial)
             }
         }
     }
@@ -44,8 +44,8 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
         histogram: PriceHistogram,
     ) -> Result<Vec<TradeTemplate>> {
         match self {
-            #[cfg(feature = "market-solver-greedy")]
-            Self::Greedy(solver) => solver.solve(product, histogram).await,
+            #[cfg(feature = "market-solver-trivial")]
+            Self::Trivial(solver) => solver.solve(product, histogram).await,
         }
     }
 }
@@ -64,10 +64,10 @@ pub struct MarketSolverArgs {
     #[serde(default)]
     pub solver: MarketSolverType,
 
-    #[cfg(feature = "market-solver-greedy")]
+    #[cfg(feature = "market-solver-trivial")]
     #[command(flatten)]
     #[serde(default)]
-    pub greedy: <::kubegraph_market_solver_greedy::MarketSolver as NetworkComponent>::Args,
+    pub trivial: <::kubegraph_market_solver_trivial::MarketSolver as NetworkComponent>::Args,
 }
 
 #[derive(
@@ -87,7 +87,7 @@ pub struct MarketSolverArgs {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 pub enum MarketSolverType {
-    #[cfg(feature = "market-solver-greedy")]
+    #[cfg(feature = "market-solver-trivial")]
     #[default]
-    Greedy,
+    Trivial,
 }

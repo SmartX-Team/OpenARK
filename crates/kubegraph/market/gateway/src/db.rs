@@ -1,25 +1,37 @@
+use std::convert::identity;
+
 use anyhow::{anyhow, Result};
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
+use chrono::NaiveDateTime;
 use clap::Parser;
+use futures::TryFutureExt;
 use kubegraph_api::{
     component::NetworkComponent,
     market::{
+        function::MarketFunctionContext,
         price::{PriceHistogram, PriceItem},
         product::ProductSpec,
         r#pub::PubSpec,
         sub::SubSpec,
+        trade::{TradeError, TradeTemplate},
         BaseModel, Page,
     },
 };
+use kubegraph_market_function::{MarketFunction, MarketFunctionClient, MarketFunctionClientArgs};
 use kubegraph_market_migration::MigratorTrait;
-use sea_orm::{ColumnTrait, DeleteResult, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ActiveValue, ColumnTrait, DbErr, DeleteResult, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect, TransactionError, TransactionTrait,
+};
 use serde::{Deserialize, Serialize};
-use tracing::{instrument, Level};
+use tokio::try_join;
+use tracing::{error, instrument, Level};
 
 #[derive(Clone)]
 pub struct Database {
     connection: ::sea_orm::DatabaseConnection,
+    function: MarketFunctionClient,
     pub(crate) signal: FunctionSignal,
 }
 
@@ -32,7 +44,10 @@ impl NetworkComponent for Database {
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,
     ) -> Result<Self> {
-        let DatabaseArgs { db_endpoint } = args;
+        let DatabaseArgs {
+            db_endpoint,
+            function,
+        } = args;
 
         let opt = ::sea_orm::ConnectOptions::new(db_endpoint);
         let connection = ::sea_orm::Database::connect(opt)
@@ -46,6 +61,7 @@ impl NetworkComponent for Database {
 
         Ok(Self {
             connection,
+            function: MarketFunctionClient::try_new(function, signal).await?,
             signal: signal.clone(),
         })
     }
@@ -170,11 +186,14 @@ impl Database {
         let Page { start, limit } = page;
 
         let col_id = entity::price::Column::Id;
+        let col_timestamp = entity::price::Column::CreatedAt;
         let col_direction = entity::price::Column::Direction;
         let col_cost = entity::price::Column::Cost;
+        let col_count = entity::price::Column::Count;
         let dsl = entity::price::Entity::find()
             .select_only()
-            .columns([col_id, col_direction, col_cost])
+            .columns([col_id, col_timestamp, col_direction, col_cost, col_count])
+            .filter(col_cost.gt(0))
             .order_by_asc(col_id)
             .limit(limit);
         let dsl = match start {
@@ -188,21 +207,154 @@ impl Database {
             .map(|values| {
                 values
                     .into_iter()
-                    .map(|(id, direction, cost)| PriceItem {
+                    .map(|(id, timestamp, direction, cost, count)| PriceItem {
                         id,
+                        timestamp: NaiveDateTime::and_utc(&timestamp),
                         direction: entity::price::Direction::into(direction),
                         cost,
+                        count,
                     })
                     .collect()
             })
             .map_err(Into::into)
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
+    pub async fn trade(&self, template: TradeTemplate) -> Result<(), TradeError> {
+        let TradeTemplate {
+            r#pub,
+            sub,
+            count: _,
+        } = self.trade_on_db(template).await?;
+
+        let ctx = MarketFunctionContext { template };
+
+        let task_pub = self
+            .function
+            .spawn(ctx.clone(), r#pub)
+            .map_err(TradeError::FunctionFailedPub);
+        let task_sub = self
+            .function
+            .spawn(ctx, sub)
+            .map_err(TradeError::FunctionFailedSub);
+
+        try_join!(task_pub, task_sub).map(|((), ())| ())
+    }
+
+    #[instrument(level = Level::INFO, skip(self))]
+    async fn trade_on_db(
+        &self,
+        template: TradeTemplate,
+    ) -> Result<TradeTemplate<PubSpec, SubSpec>, TradeError> {
+        self.connection
+            .transaction::<_, _, DbErr>(|txn| {
+                Box::pin(async move {
+                    let TradeTemplate {
+                        r#pub: pub_id,
+                        sub: sub_id,
+                        count,
+                    } = template;
+
+                    if count <= 0 {
+                        return Ok(Err(TradeError::EmptyCount));
+                    }
+
+                    let r#pub = match entity::price::Entity::find_by_id(pub_id).one(txn).await? {
+                        Some(item) => {
+                            if item.direction != entity::price::Direction::Pub
+                                || item.count >= count
+                            {
+                                item
+                            } else {
+                                return Ok(Err(TradeError::OutOfPub));
+                            }
+                        }
+                        None => return Ok(Err(TradeError::OutOfPub)),
+                    };
+                    let sub = match entity::price::Entity::find_by_id(sub_id).one(txn).await? {
+                        Some(item) => {
+                            if item.direction != entity::price::Direction::Sub
+                                || item.count >= count
+                            {
+                                item
+                            } else {
+                                return Ok(Err(TradeError::OutOfSub));
+                            }
+                        }
+                        None => return Ok(Err(TradeError::OutOfSub)),
+                    };
+
+                    let pub_spec = match r#pub.clone().try_into() {
+                        Ok(spec) => spec,
+                        Err(error) => {
+                            error!("{error}");
+                            return Ok(Err(TradeError::OutOfPub));
+                        }
+                    };
+                    let sub_spec = match sub.clone().try_into() {
+                        Ok(spec) => spec,
+                        Err(error) => {
+                            error!("{error}");
+                            return Ok(Err(TradeError::OutOfPub));
+                        }
+                    };
+
+                    let withdraw = |price: entity::price::Model| async move {
+                        if price.count == count {
+                            let model = entity::price::ActiveModel::from_id(pub_id);
+                            let dsl = entity::price::Entity::delete(model);
+
+                            dsl.exec(txn)
+                                .await
+                                .map(|DeleteResult { rows_affected: _ }| ())
+                        } else {
+                            let col_id = entity::price::Column::Id;
+                            let model = entity::price::ActiveModel {
+                                id: ActiveValue::Unchanged(price.id),
+                                product_id: ActiveValue::Unchanged(price.product_id),
+                                created_at: ActiveValue::Unchanged(price.created_at),
+                                direction: ActiveValue::Unchanged(price.direction),
+                                cost: ActiveValue::Unchanged(price.cost),
+                                count: ActiveValue::Set(price.count - count),
+                                spec: ActiveValue::Unchanged(price.spec),
+                            };
+                            let dsl =
+                                entity::price::Entity::update(model).filter(col_id.eq(price.id));
+
+                            dsl.exec(txn).await.map(|_| ())
+                        }
+                    };
+
+                    withdraw(r#pub).await?;
+                    withdraw(sub).await?;
+
+                    Ok(Ok(TradeTemplate {
+                        r#pub: pub_spec,
+                        sub: sub_spec,
+                        count,
+                    }))
+                })
+            })
+            .await
+            .map_err(|error| match error {
+                TransactionError::Connection(error) => {
+                    error!("failed to connect to DB while trading: {error}");
+                    TradeError::TransactionFailed
+                }
+                TransactionError::Transaction(error) => {
+                    error!("failed to execute transaction on DB while trading: {error}");
+                    TradeError::TransactionFailed
+                }
+            })
+            .and_then(identity)
     }
 }
 
 impl Database {
     #[instrument(level = Level::INFO, skip(self))]
     pub async fn get_pub(&self, pub_id: <PubSpec as BaseModel>::Id) -> Result<Option<PubSpec>> {
-        let dsl = entity::price::Entity::find_by_id(pub_id);
+        let filter = self::filter::default_price(entity::price::Direction::Pub);
+        let dsl = entity::price::Entity::find_by_id(pub_id).filter(filter);
 
         dsl.one(&self.connection)
             .await
@@ -218,18 +370,16 @@ impl Database {
     ) -> Result<Vec<<PubSpec as BaseModel>::Id>> {
         let Page { start, limit } = page;
 
-        let col_direction = entity::price::Column::Direction;
-        let filter_direction = col_direction.eq(entity::price::Direction::Pub);
-
         let col_id = entity::price::Column::Id;
+        let filter = self::filter::default_price(entity::price::Direction::Pub);
         let dsl = entity::price::Entity::find()
             .select_only()
             .column(col_id)
             .order_by_asc(col_id)
             .limit(limit);
         let dsl = match start {
-            Some(start) => dsl.filter(col_id.gt(start).and(filter_direction)),
-            None => dsl,
+            Some(start) => dsl.filter(col_id.gt(start).and(filter)),
+            None => dsl.filter(filter),
         };
 
         dsl.into_tuple()
@@ -271,7 +421,8 @@ impl Database {
     #[instrument(level = Level::INFO, skip(self))]
     pub async fn remove_pub(&self, pub_id: <PubSpec as BaseModel>::Id) -> Result<()> {
         let model = entity::price::ActiveModel::from_id(pub_id);
-        let dsl = entity::price::Entity::delete(model);
+        let filter = self::filter::default_price(entity::price::Direction::Pub);
+        let dsl = entity::price::Entity::delete(model).filter(filter);
 
         let DeleteResult { rows_affected: _ } = dsl.exec(&self.connection).await?;
         Ok(())
@@ -281,7 +432,8 @@ impl Database {
 impl Database {
     #[instrument(level = Level::INFO, skip(self))]
     pub async fn get_sub(&self, sub_id: <SubSpec as BaseModel>::Id) -> Result<Option<SubSpec>> {
-        let dsl = entity::price::Entity::find_by_id(sub_id);
+        let filter = self::filter::default_price(entity::price::Direction::Sub);
+        let dsl = entity::price::Entity::find_by_id(sub_id).filter(filter);
 
         dsl.one(&self.connection)
             .await
@@ -297,18 +449,16 @@ impl Database {
     ) -> Result<Vec<<SubSpec as BaseModel>::Id>> {
         let Page { start, limit } = page;
 
-        let col_direction = entity::price::Column::Direction;
-        let filter_direction = col_direction.eq(entity::price::Direction::Sub);
-
         let col_id = entity::price::Column::Id;
+        let filter = self::filter::default_price(entity::price::Direction::Sub);
         let dsl = entity::price::Entity::find()
             .select_only()
             .column(col_id)
             .order_by_asc(col_id)
             .limit(limit);
         let dsl = match start {
-            Some(start) => dsl.filter(col_id.gt(start).and(filter_direction)),
-            None => dsl,
+            Some(start) => dsl.filter(col_id.gt(start).and(filter)),
+            None => dsl.filter(filter),
         };
 
         dsl.into_tuple()
@@ -350,7 +500,8 @@ impl Database {
     #[instrument(level = Level::INFO, skip(self))]
     pub async fn remove_sub(&self, sub_id: <SubSpec as BaseModel>::Id) -> Result<()> {
         let model = entity::price::ActiveModel::from_id(sub_id);
-        let dsl = entity::price::Entity::delete(model);
+        let filter = self::filter::default_price(entity::price::Direction::Sub);
+        let dsl = entity::price::Entity::delete(model).filter(filter);
 
         let DeleteResult { rows_affected: _ } = dsl.exec(&self.connection).await?;
         Ok(())
@@ -368,10 +519,24 @@ pub struct DatabaseArgs {
         default_value_t = DatabaseArgs::default_db_endpoint(),
     )]
     pub db_endpoint: String,
+
+    #[command(flatten)]
+    pub function: MarketFunctionClientArgs,
 }
 
 impl DatabaseArgs {
     fn default_db_endpoint() -> String {
         "sqlite::memory:".into()
+    }
+}
+
+mod filter {
+    use migration::SimpleExpr;
+    use sea_orm::ColumnTrait;
+
+    pub(crate) fn default_price(direction: entity::price::Direction) -> SimpleExpr {
+        let col_direction = entity::price::Column::Direction;
+        let col_cost = entity::price::Column::Cost;
+        col_direction.eq(direction).and(col_cost.gt(0))
     }
 }

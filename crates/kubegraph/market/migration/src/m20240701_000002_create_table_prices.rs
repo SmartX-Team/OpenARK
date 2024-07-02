@@ -50,6 +50,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
+                        ColumnDef::new(self::Prices::Count)
+                            .big_integer() // i64
+                            .not_null(),
+                    )
+                    .col(
                         ColumnDef::new(self::Prices::Spec)
                             .json() // JSON Value
                             .not_null(),
@@ -74,5 +79,6 @@ pub(super) enum Prices {
     CreatedAt,
     Direction,
     Cost,
+    Count,
     Spec,
 }

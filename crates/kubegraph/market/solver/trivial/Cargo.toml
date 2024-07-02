@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-market-solver-api"
+name = "kubegraph-market-solver-trivial"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -25,11 +25,13 @@ full = ["df-full"]
 
 # Configure DataFrame
 df-full = ["df-polars"]
-df-polars = ["kubegraph-api/df-polars"]
+df-polars = ["kubegraph-api/df-polars", "kubegraph-market-solver-api/df-polars"]
 
 [dependencies]
 kubegraph-api = { path = "../../../api", default-features = false }
+kubegraph-market-solver-api = { path = "../api", default-features = false }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-reqwest = { workspace = true }
+itertools = { workspace = true }
+tracing = { workspace = true }

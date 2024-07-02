@@ -4,6 +4,7 @@ use uuid::Uuid;
 use crate::problem::ProblemSpec;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProductSpec {
     pub problem: ProblemSpec,
 }
@@ -11,5 +12,5 @@ pub struct ProductSpec {
 impl super::BaseModel for ProductSpec {
     type Id = Uuid;
     type Cost = i64;
-    type Count = u64;
+    type Count = i64;
 }

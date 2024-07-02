@@ -28,21 +28,19 @@ df-full = ["df-polars"]
 df-polars = [
     "kubegraph-api/df-polars",
     "kubegraph-market-solver-api/df-polars",
-    "kubegraph-market-solver-greedy/df-polars",
+    "kubegraph-market-solver-trivial/df-polars",
 ]
 
 # Configure Market Solvers
-market-solver-full = ["market-solver-greedy"]
-market-solver-greedy = ["kubegraph-market-solver-greedy"]
+market-solver-full = ["market-solver-trivial"]
+market-solver-trivial = ["kubegraph-market-solver-trivial"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
-kubegraph-api = { path = "../../api", default-features = false, features = [
-    "function-webhook",
-] }
+kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-market-client = { path = "../client", default-features = false }
 kubegraph-market-solver-api = { path = "./api", default-features = false }
-kubegraph-market-solver-greedy = { path = "./greedy", optional = true, default-features = false }
+kubegraph-market-solver-trivial = { path = "./trivial", optional = true, default-features = false }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

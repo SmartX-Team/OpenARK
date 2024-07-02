@@ -1,3 +1,4 @@
+pub mod function;
 pub mod price;
 pub mod product;
 pub mod r#pub;
@@ -30,6 +31,7 @@ where
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "T: Default + Serialize + DeserializeOwned + Num")]
+#[serde(rename_all = "camelCase")]
 pub struct Page<T = u64> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<Uuid>,

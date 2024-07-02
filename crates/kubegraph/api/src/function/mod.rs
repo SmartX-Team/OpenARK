@@ -5,7 +5,6 @@ pub mod fake;
 #[cfg(feature = "function-entrypoint")]
 pub mod service;
 pub mod spawn;
-#[cfg(feature = "function-webhook")]
 pub mod webhook;
 
 use kube::CustomResource;

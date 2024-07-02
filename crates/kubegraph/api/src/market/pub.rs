@@ -1,5 +1,6 @@
-use ark_core_k8s::data::Url;
 use serde::{Deserialize, Serialize};
+
+use crate::function::webhook::NetworkFunctionWebhookSpec;
 
 use super::product::ProductSpec;
 
@@ -7,7 +8,8 @@ use super::product::ProductSpec;
 #[serde(rename_all = "camelCase")]
 pub struct PubSpec {
     pub cost: <Self as super::BaseModel>::Cost,
-    pub endpoint: Url,
+    pub count: <Self as super::BaseModel>::Count,
+    pub function: NetworkFunctionWebhookSpec,
 }
 
 impl super::BaseModel for PubSpec {

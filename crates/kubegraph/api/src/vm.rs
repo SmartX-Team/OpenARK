@@ -111,7 +111,8 @@ where
                     };
 
                     warn!("restarting VM in {interval:?}...");
-                    sleep(interval).await
+                    sleep(interval).await;
+                    info!("Restarted VM");
                 }
             }
         }

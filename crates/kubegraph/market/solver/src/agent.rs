@@ -5,16 +5,19 @@ use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
 use clap::Parser;
 use futures::TryStreamExt;
-use kubegraph_api::{component::NetworkComponent, market::price::PriceHistogram};
+use kubegraph_api::{
+    component::NetworkComponent, market::price::PriceHistogram, vm::NetworkFallbackPolicy,
+};
 use kubegraph_market_client::{MarketClient, MarketClientArgs};
 use kubegraph_market_solver_api::MarketSolver as _;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 #[derive(Clone)]
 pub struct MarketAgent {
     client: MarketClient,
+    fallback_policy: NetworkFallbackPolicy,
     signal: FunctionSignal,
     solver: crate::solver::MarketSolver,
 }
@@ -27,10 +30,15 @@ impl NetworkComponent for MarketAgent {
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,
     ) -> Result<Self> {
-        let MarketAgentArgs { client, solver } = args;
+        let MarketAgentArgs {
+            client,
+            fallback_policy,
+            solver,
+        } = args;
 
         Ok(Self {
             client: MarketClient::try_new(client, signal).await?,
+            fallback_policy,
             signal: signal.clone(),
             solver: crate::solver::MarketSolver::try_new(solver, signal).await?,
         })
@@ -39,20 +47,27 @@ impl NetworkComponent for MarketAgent {
 
 impl MarketAgent {
     pub async fn loop_forever(self) {
-        match self.try_loop_forever().await {
-            Ok(()) => {
-                warn!("completed kubegraph solver");
-                self.signal.terminate()
-            }
-            Err(error) => {
+        loop {
+            if let Err(error) = self.try_loop_forever().await {
                 error!("failed to operate kubegraph solver: {error}");
-                self.signal.terminate_on_panic()
+
+                match self.fallback_policy {
+                    NetworkFallbackPolicy::Interval { interval } => {
+                        warn!("restarting kubegraph solver in {interval:?}...");
+                        sleep(interval).await;
+                        info!("Restarted kubegraph solver");
+                    }
+                    NetworkFallbackPolicy::Never => {
+                        self.signal.terminate_on_panic();
+                        break;
+                    }
+                }
             }
         }
     }
 
     async fn try_loop_forever(&self) -> Result<()> {
-        loop {
+        while !self.signal.is_terminating() {
             let instant = Instant::now();
             let product_ids: Vec<_> = self.client.list_product_ids().try_collect().await?;
 
@@ -71,8 +86,7 @@ impl MarketAgent {
                 let templates = self.solver.solve(&product, histogram).await?;
 
                 for template in templates {
-                    let state = self.client.trade(prod_id, &template).await?;
-                    dbg!(state);
+                    self.client.trade(prod_id, &template).await?
                 }
             }
 
@@ -83,6 +97,7 @@ impl MarketAgent {
                 sleep(remaining).await
             }
         }
+        Ok(())
     }
 }
 
@@ -92,6 +107,15 @@ impl MarketAgent {
 pub struct MarketAgentArgs {
     #[command(flatten)]
     pub client: MarketClientArgs,
+
+    #[arg(
+        long,
+        env = "KUBEGRAPH_MARKET_SOLVER_FALLBACK_POLICY",
+        value_name = "POLICY",
+        default_value_t = NetworkFallbackPolicy::default(),
+    )]
+    #[serde(default)]
+    pub fallback_policy: NetworkFallbackPolicy,
 
     #[command(flatten)]
     pub solver: crate::solver::MarketSolverArgs,

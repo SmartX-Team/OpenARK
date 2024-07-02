@@ -26,7 +26,8 @@ pub async fn loop_forever(signal: FunctionSignal, vm: impl NetworkVirtualMachine
             match vm.fallback_policy() {
                 NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting http server in {interval:?}...");
-                    sleep(interval).await
+                    sleep(interval).await;
+                    info!("Restarted http server");
                 }
                 NetworkFallbackPolicy::Never => {
                     signal.terminate_on_panic();

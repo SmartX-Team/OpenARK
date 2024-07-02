@@ -54,6 +54,7 @@ actix-web = { workspace = true, optional = true }
 actix-web-opentelemetry = { workspace = true, optional = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 duration-string = { workspace = true }
 futures = { workspace = true }
@@ -66,6 +67,7 @@ polars = { workspace = true, optional = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 uuid = { workspace = true }

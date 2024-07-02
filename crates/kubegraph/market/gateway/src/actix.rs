@@ -42,6 +42,7 @@ async fn try_loop_forever(db: &Database) -> Result<()> {
             .service(crate::routes::product::list)
             .service(crate::routes::product::list_price)
             .service(crate::routes::product::get)
+            .service(crate::routes::product::post_trade)
             .service(crate::routes::product::put)
             .service(crate::routes::product::delete)
             .service(crate::routes::r#pub::list)

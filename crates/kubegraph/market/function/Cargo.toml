@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-market-solver-greedy"
+name = "kubegraph-market-function"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -19,20 +19,14 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["full"]
-full = ["df-full"]
-
-# Configure DataFrame
-df-full = ["df-polars"]
-df-polars = ["kubegraph-api/df-polars", "kubegraph-market-solver-api/df-polars"]
-
 [dependencies]
-kubegraph-api = { path = "../../../api", default-features = false, features = [
-    "function-webhook",
-] }
-kubegraph-market-solver-api = { path = "../api", default-features = false }
+ark-core = { path = "../../../ark/core", features = ["signal"] }
+kubegraph-api = { path = "../../api", default-features = false }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }

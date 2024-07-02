@@ -80,7 +80,8 @@ async fn loop_forever<K>(
             match fallback_interval {
                 NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting {name} reloader in {interval:?}...");
-                    sleep(interval).await
+                    sleep(interval).await;
+                    info!("Restarted {name} reloader");
                 }
                 NetworkFallbackPolicy::Never => {
                     signal.terminate_on_panic();

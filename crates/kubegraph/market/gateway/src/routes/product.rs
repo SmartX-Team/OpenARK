@@ -1,10 +1,10 @@
 use actix_web::{
-    delete, get, put,
+    delete, get, post, put,
     web::{Data, Json, Path, Query},
     HttpResponse, Responder,
 };
 use ark_core::result::Result;
-use kubegraph_api::market::{product::ProductSpec, BaseModel, Page};
+use kubegraph_api::market::{product::ProductSpec, trade::TradeTemplate, BaseModel, Page};
 use tracing::{instrument, Level};
 
 use crate::db::Database;
@@ -31,6 +31,17 @@ pub async fn list_price(
 pub async fn get(db: Data<Database>, path: Path<<ProductSpec as BaseModel>::Id>) -> impl Responder {
     let prod_id = path.into_inner();
     HttpResponse::Ok().json(Result::from(db.get_product(prod_id).await))
+}
+
+#[instrument(level = Level::INFO, skip(db))]
+#[post("/prod/{prod_id}/trade")]
+pub async fn post_trade(
+    db: Data<Database>,
+    path: Path<<ProductSpec as BaseModel>::Id>,
+    template: Json<TradeTemplate>,
+) -> impl Responder {
+    let _prod_id = path.into_inner();
+    HttpResponse::Ok().json(Result::from(db.trade(template.0).await))
 }
 
 #[instrument(level = Level::INFO, skip(db, spec))]

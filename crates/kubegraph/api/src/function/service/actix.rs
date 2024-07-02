@@ -47,7 +47,8 @@ where
             match function.fallback_policy() {
                 NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting http server in {interval:?}...");
-                    sleep(interval).await
+                    sleep(interval).await;
+                    info!("Restarted http server");
                 }
                 NetworkFallbackPolicy::Never => {
                     signal.terminate_on_panic();
