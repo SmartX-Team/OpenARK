@@ -7,7 +7,7 @@ ARG DESKTOP_DIST="ubuntu"
 ARG DESKTOP_VERSION="latest"
 
 # Be ready for serving
-FROM "quay.io/ulagbulag/openark-vine-desktop:${DESKTOP_DIST}-${DESKTOP_VERSION}" as server
+FROM registry.ark.svc.ops.openark/ulagbulag/openark-vine-desktop:ubuntu-24.04-v21 as server
 
 # Server Configuration
 CMD [ "/opt/openark/entrypoint.sh" ]
@@ -20,7 +20,7 @@ WORKDIR /
 # Install Development Environment Dependencies
 RUN true \
     # Remove podman
-    && apt-get purge -y podman \
+    && apt-get purge --allow-change-held-packages -y podman \
     && apt-get autoremove -y \
     && apt-get update && apt-get install -y \
     build-essential \
