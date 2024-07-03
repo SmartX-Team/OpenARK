@@ -84,14 +84,28 @@ oci-push-devel: (oci-build-devel "--push")
 oci-push-full: (oci-build-full "--push")
 
 oci-push-and-update-dash: oci-push
-  kubectl -n dash rollout restart deploy gateway operator
+  kubectl -n dash rollout restart deploy \
+    gateway \
+    operator
 
 oci-push-and-update-kiss: oci-push
   # kubectl -n kiss rollout restart deploy assets
-  kubectl -n kiss rollout restart deploy dns gateway monitor operator
+  kubectl -n kiss rollout restart deploy \
+    dns \
+    gateway \
+    monitor \
+    operator
 
 oci-push-and-update-kubegraph: oci-push
-  kubectl -n kubegraph rollout restart deploy gateway kubegraph market operator
+  kubectl -n kubegraph rollout restart deploy \
+    gateway \
+    kubegraph \
+    market-gateway \
+    market-solver \
+    operator
 
 oci-push-and-update-vine: oci-push
-  kubectl -n vine rollout restart deploy bastion gateway operator
+  kubectl -n vine rollout restart deploy \
+    bastion \
+    gateway \
+    operator
