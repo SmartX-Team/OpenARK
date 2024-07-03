@@ -375,6 +375,8 @@ RUN apt-get update && apt-get install -y \
     steam \
     wine \
     $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
+    # GUI Framework (Qt)
+    qtbase5-dev \
     # GStreamer
     gstreamer1.0-alsa \
     gstreamer1.0-gl \
