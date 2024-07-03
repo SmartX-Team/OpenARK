@@ -130,7 +130,7 @@ spec:
               containerPort: 22
             - name: http
               protocol: TCP
-              containerPort: 80
+              containerPort: 8080
           securityContext:
             capabilities:
               add:
@@ -181,7 +181,7 @@ spec:
     - name: http
       port: 8080
       protocol: TCP
-      targetPort: 80
+      targetPort: 8080
   type: LoadBalancer
 ---
 apiVersion: v1
