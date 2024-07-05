@@ -31,7 +31,7 @@ dash-query-cli = { path = "../../dash/query/cli" }
 kiss-cli = { path = "../../kiss/cli" }
 vine-api = { path = "../../vine/api" }
 vine-rbac = { path = "../../vine/rbac" }
-vine-session = { path = "../../vine/session", features = ["batch"] }
+vine-session = { path = "../../vine/session", features = ["batch", "shell"] }
 
 anyhow = { workspace = true }
 clap = { workspace = true }

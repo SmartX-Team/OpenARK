@@ -23,6 +23,7 @@ workspace = true
 default = []
 batch = ["exec", "regex"]
 exec = ["async-trait", "kube/ws"]
+shell = ["batch", "ratatui"]
 
 [dependencies]
 ark-api = { path = "../../ark/api" }
@@ -39,6 +40,7 @@ chrono = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
+ratatui = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

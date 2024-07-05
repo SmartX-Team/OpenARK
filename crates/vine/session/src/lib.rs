@@ -1,3 +1,10 @@
+#[cfg(feature = "batch")]
+pub mod batch;
+#[cfg(feature = "exec")]
+pub mod exec;
+#[cfg(feature = "shell")]
+pub mod shell;
+
 use std::{collections::BTreeMap, fmt, fs, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Error, Result};
@@ -6,7 +13,7 @@ use ark_core::env;
 use chrono::Utc;
 use dash_provider::client::job::TaskActorJobClient;
 use dash_provider_api::SessionContextMetadata;
-use futures::{stream::FuturesUnordered, TryFutureExt};
+use futures::TryFutureExt;
 use k8s_openapi::{
     api::core::v1::{Namespace, Node, Pod},
     serde_json::Value,
@@ -18,136 +25,11 @@ use kube::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
-use tokio::{spawn, task::yield_now};
 use tracing::{info, instrument, Level};
 use vine_api::{user::UserCrd, user_box_quota::UserBoxQuotaSpec, user_role::UserRoleSpec};
 
 pub(crate) mod consts {
     pub const NAME: &str = "vine-session";
-}
-
-#[cfg(feature = "batch")]
-pub struct BatchCommandArgs<C, U> {
-    pub command: C,
-    pub users: BatchCommandUsers<U>,
-    pub wait: bool,
-}
-
-#[cfg(feature = "batch")]
-pub enum BatchCommandUsers<U> {
-    All,
-    List(Vec<U>),
-    Pattern(U),
-}
-
-#[cfg(feature = "batch")]
-impl<U> BatchCommandUsers<U>
-where
-    U: AsRef<str>,
-{
-    fn filter(
-        &self,
-        sessions_all: impl Iterator<Item = SessionRef<'static>>,
-    ) -> Result<Vec<SessionRef<'static>>> {
-        use anyhow::anyhow;
-
-        match self {
-            Self::All => Ok(sessions_all.collect()),
-            Self::List(items) => Ok(sessions_all
-                .filter(|session| items.iter().any(|item| item.as_ref() == session.user_name))
-                .collect()),
-            Self::Pattern(re) => {
-                let re = ::regex::Regex::new(re.as_ref())
-                    .map_err(|error| anyhow!("failed to parse box regex pattern: {error}"))?;
-
-                Ok(sessions_all
-                    .filter(|session| re.is_match(&session.user_name))
-                    .collect())
-            }
-        }
-    }
-}
-
-#[cfg(feature = "batch")]
-impl<C, U> BatchCommandArgs<C, U> {
-    pub async fn exec(&self, kube: &Client) -> Result<usize>
-    where
-        C: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
-        <C as IntoIterator>::Item: Sync + Into<String>,
-        U: AsRef<str>,
-    {
-        use anyhow::anyhow;
-        use futures::{stream::FuturesUnordered, StreamExt};
-        use tracing::{debug, error, warn};
-
-        let Self {
-            command,
-            users,
-            wait,
-        } = self;
-
-        let sessions_all = {
-            let api = Api::<Node>::all(kube.clone());
-            let lp = ListParams::default();
-            api.list_metadata(&lp)
-                .await
-                .map(|list| {
-                    list.items
-                        .into_iter()
-                        .filter_map(|item| match item.get_session_ref() {
-                            Ok(session) => Some(session.into_owned()),
-                            Err(error) => {
-                                let name = item.name_any();
-                                debug!("failed to get session {name}: {error}");
-                                None
-                            }
-                        })
-                })
-                .map_err(|error| anyhow!("failed to list nodes: {error}"))?
-        };
-
-        let sessions_filtered = users.filter(sessions_all)?;
-        let num_sessions = sessions_filtered.len();
-
-        let sessions_exec = sessions_filtered.into_iter().map(|session| {
-            let kube = kube.clone();
-            let command = command.clone();
-            spawn(async move { session.exec(kube, command).await })
-        });
-
-        sessions_exec
-            .collect::<FuturesUnordered<_>>()
-            .then(|result| async move {
-                match result
-                    .map_err(Error::from)
-                    .and_then(|result| result.map_err(Error::from))
-                {
-                    Ok(processes) => {
-                        if *wait {
-                            processes
-                                .into_iter()
-                                .map(|process| async move {
-                                    match process.join().await {
-                                        Ok(()) => (),
-                                        Err(error) => {
-                                            error!("failed to execute: {error}");
-                                        }
-                                    }
-                                })
-                                .collect::<FuturesUnordered<_>>()
-                                .collect::<()>()
-                                .await;
-                        }
-                    }
-                    Err(error) => {
-                        warn!("failed to command: {error}");
-                    }
-                }
-            })
-            .collect::<()>()
-            .await;
-        Ok(num_sessions)
-    }
 }
 
 pub struct SessionManager {
@@ -506,126 +388,6 @@ impl SessionManager {
     }
 }
 
-#[cfg(feature = "exec")]
-#[::async_trait::async_trait]
-pub trait SessionExec {
-    async fn list(kube: Client) -> Result<Vec<Self>>
-    where
-        Self: Sized;
-
-    async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
-    where
-        Self: Sized,
-        Item: Send + Sync + AsRef<str>,
-        [Item]: fmt::Debug;
-
-    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
-    where
-        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
-        <I as IntoIterator>::Item: Sync + Into<String>;
-}
-
-#[cfg(feature = "exec")]
-#[::async_trait::async_trait]
-impl<'a> SessionExec for SessionRef<'a> {
-    #[instrument(level = Level::INFO, skip(kube), err(Display))]
-    async fn list(kube: Client) -> Result<Vec<Self>> {
-        let api = Api::<UserCrd>::all(kube);
-        let lp = ListParams {
-            label_selector: Some(format!(
-                "{key}=true",
-                key = ::ark_api::consts::LABEL_BIND_STATUS,
-            )),
-            ..Default::default()
-        };
-
-        api.list(&lp)
-            .await
-            .map(collect_user_sessions)
-            .map_err(Into::into)
-    }
-
-    #[instrument(level = Level::INFO, skip(kube), err(Display))]
-    async fn load<Item>(kube: Client, user_names: &[Item]) -> Result<Vec<Self>>
-    where
-        Item: Send + Sync + AsRef<str>,
-        [Item]: fmt::Debug,
-    {
-        use futures::{stream::FuturesUnordered, TryStreamExt};
-
-        let api = Api::<UserCrd>::all(kube);
-
-        user_names
-            .iter()
-            .map(|user_name| api.get(user_name.as_ref()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await
-            .map(|users: Vec<_>| collect_user_sessions(users))
-            .map_err(Into::into)
-    }
-
-    #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
-    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<::kube::api::AttachedProcess>>
-    where
-        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
-        <I as IntoIterator>::Item: Sync + Into<String>,
-    {
-        use futures::{StreamExt, TryStreamExt};
-        use k8s_openapi::api::core::v1::PodCondition;
-        use kube::api::AttachParams;
-
-        let api = Api::<Pod>::namespaced(kube, &self.namespace);
-        let lp = ListParams {
-            label_selector: Some("name=desktop".into()),
-            ..Default::default()
-        };
-        let pods = api.list(&lp).await?.into_iter().filter(|pod| {
-            fn check_condition(conditions: &[PodCondition], type_: &str) -> bool {
-                conditions
-                    .iter()
-                    .find(|condition| condition.type_ == type_)
-                    .map(|condition| condition.status == "True")
-                    .unwrap_or_default()
-            }
-
-            pod.status
-                .as_ref()
-                .and_then(|status| status.conditions.as_ref())
-                .map(|conditions| {
-                    check_condition(conditions, "PodScheduled") // Running
-                        && !check_condition(conditions, "DisruptionTarget") // not Terminating
-                })
-                .unwrap_or_default()
-        });
-
-        pods.map(|pod| {
-            let api = api.clone();
-            let ap = AttachParams {
-                container: Some("desktop-environment".into()),
-                stdin: false,
-                stdout: true,
-                stderr: true,
-                tty: false,
-                ..Default::default()
-            };
-            let command = command.clone();
-            spawn(async move {
-                yield_now().await;
-                api.exec(&pod.name_any(), command, &ap).await
-            })
-        })
-        .collect::<FuturesUnordered<_>>()
-        .map(|handle| {
-            handle
-                .map_err(Error::from)
-                .and_then(|result| result.map_err(Error::from))
-        })
-        .try_collect()
-        .await
-    }
-}
-
 pub type SessionContext<'a> = ::dash_provider_api::SessionContext<&'a SessionContextSpec<'a>>;
 
 #[derive(Clone, Debug, Serialize)]
@@ -710,19 +472,4 @@ pub enum AllocationState<'a> {
     AllocatedByOtherNode { node_name: &'a str },
     AllocatedByOtherUser { user_name: &'a str },
     NotAllocated,
-}
-
-#[cfg(feature = "exec")]
-fn collect_user_sessions<I>(users: I) -> Vec<SessionRef<'static>>
-where
-    I: IntoIterator<Item = UserCrd>,
-{
-    users
-        .into_iter()
-        .filter_map(|user| {
-            user.get_session_ref()
-                .map(|session| session.into_owned())
-                .ok()
-        })
-        .collect()
 }

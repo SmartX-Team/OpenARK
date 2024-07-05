@@ -9,6 +9,7 @@ pub(crate) enum Command {
     Batch(BatchArgs),
     Login(LoginArgs),
     Logout(LogoutArgs),
+    Shell(ShellArgs),
 }
 
 impl Command {
@@ -51,6 +52,10 @@ impl Command {
                 .await
                 .map_err(|error| anyhow!("failed to logout: {error}"))
                 .and_then(validate_session_response),
+            Self::Shell(command) => command
+                .run(kube)
+                .await
+                .map_err(|error| anyhow!("failed to execute shell: {error}")),
         }
     }
 }
@@ -76,28 +81,16 @@ impl BatchArgs {
         let Self {
             detach,
             shell,
-            terminal,
             user_pattern,
+            terminal,
         } = self;
 
-        let mut command = vec![];
-
-        if terminal {
-            command.push("xfce4-terminal".into());
-            command.push("--disable-server".into());
-            command.push("-x".into());
-        }
-
-        command.push("/usr/bin/env".into());
-        command.push("sh".into());
-        command.push("-c".into());
-        command.push(shell.join(" "));
-
-        let num_boxes = ::vine_session::BatchCommandArgs {
-            command,
+        let num_boxes = ::vine_session::batch::BatchCommandArgs {
+            command: shell,
+            terminal,
             users: match user_pattern.as_ref() {
-                Some(re) => ::vine_session::BatchCommandUsers::Pattern(re),
-                None => ::vine_session::BatchCommandUsers::All,
+                Some(re) => ::vine_session::batch::BatchCommandUsers::Pattern(re),
+                None => ::vine_session::batch::BatchCommandUsers::All,
             },
             wait: !detach,
         }
@@ -152,5 +145,38 @@ impl LogoutArgs {
         } = &self;
 
         ::vine_rbac::logout::execute(&kube, box_name, user_name).await
+    }
+}
+
+#[derive(Clone, Debug, Parser)]
+pub(crate) struct ShellArgs {
+    #[arg(long, env = "VINE_SESSION_SHELL", value_name = "COMMAND", default_value = ShellArgs::default_shell())]
+    shell: String,
+
+    #[arg(short, long, env = "VINE_SESSION_USER", value_name = "PATTERN")]
+    user_pattern: Option<String>,
+}
+
+impl ShellArgs {
+    const fn default_shell() -> &'static str {
+        "zsh"
+    }
+
+    #[instrument(level = Level::INFO, skip_all, err(Display))]
+    pub(crate) async fn run(self, kube: Client) -> Result<()> {
+        let Self {
+            shell,
+            user_pattern,
+        } = self;
+
+        ::vine_session::shell::BatchShellArgs {
+            command: shell,
+            users: match user_pattern.as_ref() {
+                Some(re) => ::vine_session::batch::BatchCommandUsers::Pattern(re),
+                None => ::vine_session::batch::BatchCommandUsers::All,
+            },
+        }
+        .exec(&kube)
+        .await
     }
 }

@@ -26,6 +26,8 @@ pub struct UserSessionMetadata {
 pub struct UserSessionCommandBatch<Command = UserSessionCommand, UserNames = Vec<String>> {
     pub command: Command,
     #[serde(default)]
+    pub terminal: bool,
+    #[serde(default)]
     pub user_names: Option<UserNames>,
     #[serde(default)]
     pub wait: bool,

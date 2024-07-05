@@ -8,7 +8,7 @@ use kube::Client;
 use tracing::{instrument, Level};
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
 use vine_rbac::auth::AuthUserSession;
-use vine_session::{BatchCommandArgs, BatchCommandUsers};
+use vine_session::batch::{BatchCommandArgs, BatchCommandUsers};
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/batch/user/desktop/exec/broadcast")]
@@ -17,6 +17,7 @@ pub async fn post_exec_broadcast(
     kube: Data<Client>,
     Json(UserSessionCommandBatch {
         command,
+        terminal,
         user_names,
         wait,
     }): Json<UserSessionCommandBatch>,
@@ -31,6 +32,7 @@ pub async fn post_exec_broadcast(
 
     let args = BatchCommandArgs {
         command,
+        terminal,
         users: match user_names {
             Some(user_names) => BatchCommandUsers::List(user_names),
             None => BatchCommandUsers::All,
