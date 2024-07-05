@@ -403,11 +403,13 @@ spec:
           emptyDir: {}
         - name: runtime-dbus
 {% if spec.boxQuota.desktop.host.dbus %}
+          emptyDir: null
           hostPath:
             path: /run/dbus
             type: Directory
 {% else %}
           emptyDir: {}
+          hostPath: null
 {% endif %}
         - name: runtime-user
           hostPath:
