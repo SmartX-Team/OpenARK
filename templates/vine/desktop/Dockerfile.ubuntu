@@ -442,6 +442,8 @@ RUN apt-get update && apt-get install -y \
     && cp -r /etc/ssh /etc/.ssh \
     # DBus Configuration
     && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
+    ## blueman-applet
+    && sed -i 's/^\( *\)d \= ErrorDialog(/\1raise result\n\0/g' /usr/lib/python3/dist-packages/blueman/plugins/applet/Networking.py \
     # Link default system-wide font config
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
