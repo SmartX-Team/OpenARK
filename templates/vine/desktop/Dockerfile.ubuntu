@@ -331,6 +331,7 @@ RUN apt-get update && apt-get install -y \
     pipewire-media-session- \
     pipewire-pulse \
     pulseaudio-module-bluetooth- \
+    pulseaudio-utils \
     wireplumber \
     # Core (DBus)
     dbus-user-session \
