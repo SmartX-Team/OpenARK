@@ -25,7 +25,12 @@ pub trait SessionExec {
         Item: Send + Sync + AsRef<str>,
         [Item]: fmt::Debug;
 
-    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<AttachedProcess>>
+    async fn exec<I>(
+        &self,
+        kube: Client,
+        ap: AttachParams,
+        command: I,
+    ) -> Result<Vec<AttachedProcess>>
     where
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>;
@@ -68,8 +73,13 @@ impl<'a> SessionExec for SessionRef<'a> {
             .map_err(Into::into)
     }
 
-    #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
-    async fn exec<I>(&self, kube: Client, command: I) -> Result<Vec<AttachedProcess>>
+    #[instrument(level = Level::INFO, skip(kube, ap, command), err(Display))]
+    async fn exec<I>(
+        &self,
+        kube: Client,
+        ap: AttachParams,
+        command: I,
+    ) -> Result<Vec<AttachedProcess>>
     where
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>,
@@ -102,11 +112,7 @@ impl<'a> SessionExec for SessionRef<'a> {
             let api = api.clone();
             let ap = AttachParams {
                 container: Some("desktop-environment".into()),
-                stdin: false,
-                stdout: true,
-                stderr: true,
-                tty: false,
-                ..Default::default()
+                ..ap
             };
             let command = command.clone();
             spawn(async move {

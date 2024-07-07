@@ -23,7 +23,7 @@ workspace = true
 default = []
 batch = ["exec", "regex"]
 exec = ["async-trait", "kube/ws"]
-shell = ["batch", "ratatui"]
+shell = ["avt", "batch", "ratatui"]
 
 [dependencies]
 ark-api = { path = "../../ark/api" }
@@ -36,6 +36,7 @@ vine-storage = { path = "../storage" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
+avt = { workspace = true, optional = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 k8s-openapi = { workspace = true }

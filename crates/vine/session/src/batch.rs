@@ -4,7 +4,10 @@ use anyhow::{anyhow, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
 use futures::{stream::FuturesUnordered, StreamExt};
 use k8s_openapi::api::core::v1::Node;
-use kube::{api::ListParams, Api, Client, ResourceExt};
+use kube::{
+    api::{AttachParams, ListParams},
+    Api, Client, ResourceExt,
+};
 use regex::Regex;
 use tokio::spawn;
 use tracing::{debug, error, instrument, warn, Level};
@@ -51,8 +54,15 @@ impl<C, U> BatchCommandArgs<C, U> {
 
         let sessions_exec = sessions_filtered.into_iter().map(|session| {
             let kube = kube.clone();
+            let ap = AttachParams {
+                stdin: false,
+                stdout: true,
+                stderr: true,
+                tty: false,
+                ..Default::default()
+            };
             let command = command.clone();
-            spawn(async move { session.exec(kube, command).await })
+            spawn(async move { session.exec(kube, ap, command).await })
         });
 
         sessions_exec
