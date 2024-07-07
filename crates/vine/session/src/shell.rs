@@ -2,10 +2,10 @@ use std::{fmt, io::stdout, mem::swap, time::Duration};
 
 use anyhow::{Error, Result};
 use avt::Vt;
-use futures::{channel::mpsc, stream::FuturesUnordered, Future, SinkExt, StreamExt};
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Status;
+use chrono::Utc;
+use futures::{channel::mpsc, stream::FuturesUnordered, SinkExt, StreamExt};
 use kube::{
-    api::{AttachParams, AttachedProcess, TerminalSize},
+    api::{AttachParams, TerminalSize},
     Client,
 };
 use ratatui::{
@@ -25,13 +25,13 @@ use tokio::{
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     select,
     task::yield_now,
-    time::sleep,
+    time::{sleep, Instant},
 };
-use tracing::error;
+use tracing::{error, info};
 
 use crate::{
     batch::{collect_user_sessions, BatchCommandUsers},
-    exec::SessionExec,
+    exec::{Process, SessionExec},
 };
 
 pub struct BatchShellArgs<C, U> {
@@ -50,7 +50,12 @@ impl<C, U> BatchShellArgs<C, U> {
         let sessions_all = collect_user_sessions(kube).await?;
         let sessions_filtered = users.filter(sessions_all)?;
 
-        let sessions = sessions_filtered
+        if sessions_filtered.is_empty() {
+            info!("no such sessions");
+            return Ok(());
+        }
+
+        let processes = sessions_filtered
             .into_iter()
             .map(|session| {
                 let kube = kube.clone();
@@ -73,32 +78,74 @@ impl<C, U> BatchShellArgs<C, U> {
             .into_iter()
             .flatten();
 
-        let app = App::new(sessions)?;
+        let app = App::new(processes)?;
         app.try_loop_forever().await
     }
 }
 
 struct App {
+    is_closed: bool,
+    session_selected: usize,
     sessions: Vec<Session>,
+    timer_alive: Timer,
+}
+
+struct Timer {
+    instant: Instant,
+    interval: Duration,
+    is_triggered: bool,
+}
+
+impl Timer {
+    fn new(interval: Duration) -> Self {
+        Self {
+            instant: Instant::now(),
+            interval,
+            is_triggered: false,
+        }
+    }
+
+    fn trigger(&mut self) {
+        self.is_triggered = true
+    }
+
+    fn tick(&mut self) -> bool {
+        if self.is_triggered || self.instant.elapsed() >= self.interval {
+            self.instant = Instant::now();
+            self.is_triggered = false;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl App {
-    fn new(processes: impl Iterator<Item = AttachedProcess>) -> Result<Self> {
+    fn new(processes: impl Iterator<Item = Process>) -> Result<Self> {
         Ok(Self {
+            is_closed: false,
+            session_selected: 0,
             sessions: processes
-                .filter_map(|mut process| {
-                    Some(Session {
-                        channel_status: Box::new(process.take_status()?),
-                        channel_stdin: Box::new(process.stdin()?),
-                        channel_stdout: Box::new(process.stdout()?),
-                        channel_terminal_size: process.terminal_size()?,
-                        events: Vec::default(),
-                        process,
-                        state: SessionState::Running,
-                        vt: None,
-                    })
-                })
+                .filter_map(
+                    |Process {
+                         mut ap,
+                         name,
+                         namespace,
+                     }| {
+                        Some(Session {
+                            channel_stdin: Box::new(ap.stdin()?),
+                            channel_stdout: Box::new(ap.stdout()?),
+                            channel_terminal_size: ap.terminal_size()?,
+                            events: Vec::default(),
+                            name,
+                            namespace,
+                            state: SessionState::Running,
+                            vt: None,
+                        })
+                    },
+                )
                 .collect(),
+            timer_alive: Timer::new(Duration::from_secs(1)),
         })
     }
 
@@ -122,13 +169,19 @@ impl App {
     }
 
     async fn handle_events(&mut self) -> Result<Option<AppState>> {
+        // handle keyboard events
         let mut inputs = String::default();
         while event::poll(std::time::Duration::from_millis(0))? {
             if let Event::Key(key) = event::read()? {
-                if key.kind == event::KeyEventKind::Press && key.code == KeyCode::Char('~') {
+                // terminate on completion
+                if self.is_closed
+                    && key.kind == event::KeyEventKind::Press
+                    && key.code == KeyCode::Char('q')
+                {
                     return Ok(Some(AppState::Completed));
                 }
 
+                // record all key inputs
                 if matches!(key.kind, event::KeyEventKind::Press) {
                     match key.code {
                         KeyCode::Backspace => inputs.push('\r'),
@@ -164,53 +217,28 @@ impl App {
             }
         }
 
-        for session in &mut self.sessions {
-            if !session.events.is_empty() {
-                let mut events = Vec::default();
-                swap(&mut session.events, &mut events);
+        // handle pre-timers
+        if self.timer_alive.tick() && inputs.is_empty() {
+            inputs.push('\x00');
+        }
 
-                for event in events {
-                    match event {
-                        SessionEvent::UpdateSize { width, height } => {
-                            session
-                                .channel_terminal_size
-                                .send(TerminalSize { width, height })
-                                .await?;
-                        }
-                    }
-                }
-            }
+        // handle sessions
+        self.sessions
+            .iter_mut()
+            .filter(|session| !session.is_closed())
+            .map(|session| session.update(&inputs))
+            .collect::<FuturesUnordered<_>>()
+            .collect::<()>()
+            .await;
 
-            if let Some(SessionTerminal {
-                area: _,
-                buf,
-                len,
-                vt,
-            }) = session.vt.as_mut()
-            {
-                loop {
-                    select! {
-                        result = session.channel_stdout.read(&mut buf[*len..]) => match result {
-                            Ok(0) => break,
-                            Ok(n) => *len += n,
-                            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => continue,
-                            Err(e) => return Err(e.into()),
-                        },
-                        () = sleep(Duration::from_millis(10)) => break,
-                    }
-                }
-                if *len > 0 {
-                    let buf = &buf[..*len];
-                    if let Some(text) = ::std::str::from_utf8(buf).ok() {
-                        vt.feed_str(text);
-                        *len = 0;
-                    }
-                }
-            }
+        // handle post-timers
+        if !inputs.is_empty() {
+            self.timer_alive.trigger()
+        }
 
-            if !inputs.is_empty() {
-                session.channel_stdin.write_all(inputs.as_bytes()).await?;
-            }
+        // handle channels
+        if !self.is_closed && self.sessions.iter().all(|session| session.is_closed()) {
+            self.is_closed = true;
         }
         Ok(None)
     }
@@ -235,23 +263,18 @@ impl Widget for &mut App {
             Constraint::Min(0),
             Constraint::Length(1),
         ]);
-        let [header_area, gauge_area, footer_area] = layout.areas(area);
-
-        let layout = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]);
-        let [body_area, input_area] = layout.areas(gauge_area);
+        let [header_area, body_area, footer_area] = layout.areas(area);
 
         self.render_header(header_area, buf);
         self.render_footer(footer_area, buf);
-
         self.render_body(body_area, buf);
-        self.render_input(input_area, buf);
     }
 }
 
 impl App {
     fn render_header(&self, area: Rect, buf: &mut Buffer) {
         const CUSTOM_LABEL_COLOR: Color = tailwind::SLATE.c200;
-        Paragraph::new("Ratatui Gauge Example")
+        Paragraph::new("OpenARK VINE Interactive Terminal")
             .bold()
             .alignment(Alignment::Center)
             .fg(CUSTOM_LABEL_COLOR)
@@ -260,7 +283,14 @@ impl App {
 
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         const CUSTOM_LABEL_COLOR: Color = tailwind::SLATE.c200;
-        Paragraph::new("Press ENTER to start")
+
+        let text = if self.is_closed {
+            "Press \"q\" to exit"
+        } else {
+            "Press Any key to batch commands"
+        };
+
+        Paragraph::new(text)
             .alignment(Alignment::Center)
             .fg(CUSTOM_LABEL_COLOR)
             .bold()
@@ -294,10 +324,10 @@ impl App {
             }
         }
 
-        let mut selected_session = 0;
+        let session_selected = self.session_selected;
         let text = match self
             .sessions
-            .get(selected_session)
+            .get(session_selected)
             .and_then(|session| session.vt.as_ref())
         {
             // Some(SessionTerminal { vt, .. }) => vt.dump(),
@@ -307,20 +337,10 @@ impl App {
                 .map(|line| line.text())
                 .collect::<Vec<_>>()
                 .join("\n"),
-            None => format!("no such session: {selected_session}"),
+            None => format!("no such session: {session_selected}"),
         };
 
-        const CUSTOM_LABEL_COLOR: Color = tailwind::SLATE.c200;
         Paragraph::new(text).render(area, buf)
-    }
-
-    fn render_input(&self, area: Rect, buf: &mut Buffer) {
-        const CUSTOM_LABEL_COLOR: Color = tailwind::SLATE.c200;
-        Paragraph::new("Press ENTER to start")
-            .alignment(Alignment::Center)
-            .fg(CUSTOM_LABEL_COLOR)
-            .bold()
-            .render(area, buf)
     }
 }
 
@@ -329,14 +349,123 @@ enum AppState {
 }
 
 struct Session {
-    channel_status: Box<dyn Future<Output = Option<Status>>>,
     channel_stdin: Box<dyn AsyncWrite + Unpin>,
     channel_stdout: Box<dyn AsyncRead + Unpin>,
     channel_terminal_size: mpsc::Sender<TerminalSize>,
     events: Vec<SessionEvent>,
-    process: AttachedProcess,
+    name: String,
+    namespace: Option<String>,
     state: SessionState,
     vt: Option<SessionTerminal>,
+}
+
+impl Session {
+    const fn is_closed(&self) -> bool {
+        matches!(&self.state, SessionState::Completed | SessionState::Error)
+    }
+
+    fn name(&self) -> &str {
+        self.namespace
+            .as_ref()
+            .map(|namespace| namespace.as_str())
+            .unwrap_or_else(|| self.name.as_str())
+    }
+
+    async fn update(&mut self, inputs: &str) {
+        match self.try_update(inputs).await {
+            Ok(()) => (),
+            Err(error) => self.complete_on_error(error),
+        }
+    }
+
+    async fn try_update(&mut self, inputs: &str) -> Result<()> {
+        // handle incoming events
+        if !self.events.is_empty() {
+            let mut events = Vec::default();
+            swap(&mut self.events, &mut events);
+
+            for event in events {
+                match event {
+                    SessionEvent::UpdateSize { width, height } => {
+                        self.channel_terminal_size
+                            .send(TerminalSize { width, height })
+                            .await?;
+                    }
+                }
+            }
+        }
+
+        // handle stdout
+        if let Some(SessionTerminal {
+            area: _,
+            buf,
+            len,
+            vt,
+        }) = self.vt.as_mut()
+        {
+            loop {
+                select! {
+                    result = self.channel_stdout.read(&mut buf[*len..]) => match result {
+                        Ok(0) => break,
+                        Ok(n) => *len += n,
+                    Err(ref e) if e.kind() == io::ErrorKind::BrokenPipe =>
+                    {
+                        self.complete();
+                        return Ok(())
+                    },
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => continue,
+                        Err(e) => return Err(e.into()),
+                    },
+                    () = sleep(Duration::from_millis(10)) => break,
+                }
+            }
+            if *len > 0 {
+                let buf = &buf[..*len];
+                if let Some(text) = ::std::str::from_utf8(buf).ok() {
+                    vt.feed_str(text);
+                    *len = 0;
+                }
+            }
+        }
+
+        // handle stdin
+        if !inputs.is_empty() {
+            match self.channel_stdin.write_all(inputs.as_bytes()).await {
+                Ok(()) => (),
+                Err(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                    self.complete();
+                    return Ok(());
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(())
+    }
+
+    fn complete(&mut self) {
+        let name = self.name().to_string();
+        let timestamp = Utc::now().to_rfc3339();
+
+        self.state = SessionState::Completed;
+        if let Some(SessionTerminal { vt, .. }) = &mut self.vt {
+            vt.feed_str(&format!(
+                "\n<Session {name:?} closed on Completed at {timestamp}>"
+            ));
+        }
+    }
+
+    fn complete_on_error(&mut self, error: Error) {
+        let name = self.name().to_string();
+        let timestamp = Utc::now().to_rfc3339();
+
+        self.state = SessionState::Error;
+        if let Some(SessionTerminal { vt, .. }) = &mut self.vt {
+            vt.feed_str(&format!(
+                "\n<Session {name:?} closed on Error at {timestamp}>"
+            ));
+            vt.feed_str(&error.to_string());
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -352,7 +481,7 @@ struct SessionTerminal {
 }
 
 impl SessionTerminal {
-    pub fn new(area: Rect) -> Self {
+    fn new(area: Rect) -> Self {
         let cols = area.width as usize;
         let rows = area.height as usize;
 
@@ -368,5 +497,5 @@ impl SessionTerminal {
 enum SessionState {
     Running,
     Completed,
-    Error(Error),
+    Error,
 }

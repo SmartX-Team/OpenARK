@@ -52,7 +52,7 @@ impl<C, U> BatchCommandArgs<C, U> {
         let sessions_filtered = users.filter(sessions_all)?;
         let num_sessions = sessions_filtered.len();
 
-        let sessions_exec = sessions_filtered.into_iter().map(|session| {
+        let processes = sessions_filtered.into_iter().map(|session| {
             let kube = kube.clone();
             let ap = AttachParams {
                 stdin: false,
@@ -65,7 +65,7 @@ impl<C, U> BatchCommandArgs<C, U> {
             spawn(async move { session.exec(kube, ap, command).await })
         });
 
-        sessions_exec
+        processes
             .collect::<FuturesUnordered<_>>()
             .then(|result| async move {
                 match result

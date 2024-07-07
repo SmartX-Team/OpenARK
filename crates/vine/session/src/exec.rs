@@ -25,12 +25,7 @@ pub trait SessionExec {
         Item: Send + Sync + AsRef<str>,
         [Item]: fmt::Debug;
 
-    async fn exec<I>(
-        &self,
-        kube: Client,
-        ap: AttachParams,
-        command: I,
-    ) -> Result<Vec<AttachedProcess>>
+    async fn exec<I>(&self, kube: Client, ap: AttachParams, command: I) -> Result<Vec<Process>>
     where
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>;
@@ -74,12 +69,7 @@ impl<'a> SessionExec for SessionRef<'a> {
     }
 
     #[instrument(level = Level::INFO, skip(kube, ap, command), err(Display))]
-    async fn exec<I>(
-        &self,
-        kube: Client,
-        ap: AttachParams,
-        command: I,
-    ) -> Result<Vec<AttachedProcess>>
+    async fn exec<I>(&self, kube: Client, ap: AttachParams, command: I) -> Result<Vec<Process>>
     where
         I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
         <I as IntoIterator>::Item: Sync + Into<String>,
@@ -119,16 +109,39 @@ impl<'a> SessionExec for SessionRef<'a> {
                 yield_now().await;
 
                 let name = pod.name_any();
-                api.exec(&name, command, &ap).await.map_err(|error| {
-                    let namespace = pod.namespace().unwrap_or(name);
-                    anyhow!("failed to execute to {namespace}: {error}")
-                })
+                let namespace = pod.namespace();
+                match api.exec(&name, command, &ap).await {
+                    Ok(ap) => Ok(Process {
+                        ap,
+                        name,
+                        namespace,
+                    }),
+                    Err(error) => {
+                        let namespace = namespace.unwrap_or_else(|| name.clone());
+                        Err(anyhow!("failed to execute to {namespace}: {error}"))
+                    }
+                }
             })
         })
         .collect::<FuturesUnordered<_>>()
         .map(|handle| handle.map_err(Error::from).and_then(identity))
         .try_collect()
         .await
+    }
+}
+
+pub struct Process {
+    pub ap: AttachedProcess,
+    pub name: String,
+    pub namespace: Option<String>,
+}
+
+impl Process {
+    pub async fn join(self) -> Result<()> {
+        self.ap.join().await.map_err(|error| {
+            let namespace = self.namespace.unwrap_or(self.name);
+            anyhow!("failed to execute to {namespace}: {error}")
+        })
     }
 }
 
