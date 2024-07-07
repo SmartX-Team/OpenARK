@@ -25,7 +25,7 @@ use tokio::{
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     select,
     task::yield_now,
-    time::{sleep, Instant},
+    time::sleep,
 };
 use tracing::{error, info};
 
@@ -87,37 +87,6 @@ struct App {
     is_closed: bool,
     session_selected: usize,
     sessions: Vec<Session>,
-    timer_alive: Timer,
-}
-
-struct Timer {
-    instant: Instant,
-    interval: Duration,
-    is_triggered: bool,
-}
-
-impl Timer {
-    fn new(interval: Duration) -> Self {
-        Self {
-            instant: Instant::now(),
-            interval,
-            is_triggered: false,
-        }
-    }
-
-    fn trigger(&mut self) {
-        self.is_triggered = true
-    }
-
-    fn tick(&mut self) -> bool {
-        if self.is_triggered || self.instant.elapsed() >= self.interval {
-            self.instant = Instant::now();
-            self.is_triggered = false;
-            true
-        } else {
-            false
-        }
-    }
 }
 
 impl App {
@@ -145,7 +114,6 @@ impl App {
                     },
                 )
                 .collect(),
-            timer_alive: Timer::new(Duration::from_secs(1)),
         })
     }
 
@@ -217,11 +185,6 @@ impl App {
             }
         }
 
-        // handle pre-timers
-        if self.timer_alive.tick() && inputs.is_empty() {
-            inputs.push('\x00');
-        }
-
         // handle sessions
         self.sessions
             .iter_mut()
@@ -230,11 +193,6 @@ impl App {
             .collect::<FuturesUnordered<_>>()
             .collect::<()>()
             .await;
-
-        // handle post-timers
-        if !inputs.is_empty() {
-            self.timer_alive.trigger()
-        }
 
         // handle channels
         if !self.is_closed && self.sessions.iter().all(|session| session.is_closed()) {
