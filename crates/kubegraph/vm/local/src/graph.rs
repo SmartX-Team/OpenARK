@@ -86,7 +86,7 @@ pub enum NetworkGraphDB {
 impl NetworkComponent for NetworkGraphDB {
     type Args = NetworkGraphDBArgs;
 
-    #[instrument(level = Level::INFO)]
+    #[instrument(level = Level::INFO, skip(signal))]
     async fn try_new(
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,

@@ -1,6 +1,9 @@
 use anyhow::{Error, Result};
 use chrono::NaiveDateTime;
-use kubegraph_api::market::{product::ProductSpec, r#pub::PubSpec, sub::SubSpec, BaseModel};
+use kubegraph_api::{
+    function::webhook::NetworkFunctionWebhookSpec,
+    market::{product::ProductSpec, r#pub::PubSpec, sub::SubSpec, BaseModel},
+};
 use sea_orm::{
     ActiveModelBehavior, ActiveValue, DeriveActiveEnum, DeriveEntityModel, DerivePrimaryKey,
     DeriveRelation, EntityTrait, EnumIter, PrimaryKeyTrait,
@@ -119,7 +122,7 @@ impl ActiveModel {
             function,
         } = spec;
 
-        let spec = ::serde_json::to_value(function)?;
+        let spec = to_spec(function)?;
 
         Ok(Self {
             id: ActiveValue::Set(pub_id),
@@ -142,7 +145,7 @@ impl ActiveModel {
             function,
         } = spec;
 
-        let spec = ::serde_json::to_value(function)?;
+        let spec = to_spec(function)?;
 
         Ok(Self {
             id: ActiveValue::Set(sub_id),
@@ -157,6 +160,10 @@ impl ActiveModel {
             spec: ActiveValue::Set(spec),
         })
     }
+}
+
+pub fn to_spec(function: NetworkFunctionWebhookSpec) -> Result<Value> {
+    ::serde_json::to_value(function).map_err(Into::into)
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

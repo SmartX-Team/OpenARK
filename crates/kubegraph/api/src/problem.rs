@@ -1,4 +1,4 @@
-use kube::CustomResource;
+use kube::{CustomResource, CustomResourceExt};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -85,6 +85,17 @@ where
 
 impl NetworkResource for NetworkProblemCrd {
     type Filter = ();
+
+    fn description(&self) -> String {
+        <Self as NetworkResource>::type_name().into()
+    }
+
+    fn type_name() -> &'static str
+    where
+        Self: Sized,
+    {
+        <Self as CustomResourceExt>::crd_name()
+    }
 }
 
 impl<M> ProblemSpec<M> {

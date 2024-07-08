@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use kube::CustomResource;
+use kube::{CustomResource, CustomResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Instant};
@@ -201,6 +201,13 @@ impl NetworkResource for NetworkConnectorCrd {
 
     fn description(&self) -> String {
         self.spec.name()
+    }
+
+    fn type_name() -> &'static str
+    where
+        Self: Sized,
+    {
+        <Self as CustomResourceExt>::crd_name()
     }
 }
 

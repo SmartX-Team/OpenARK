@@ -14,6 +14,7 @@ pub mod query;
 pub mod resource;
 pub mod runner;
 pub mod solver;
+pub mod trader;
 pub mod visualizer;
 pub mod vm;
 

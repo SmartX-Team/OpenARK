@@ -31,6 +31,7 @@ full = [
     "function-full",
     "graph-full",
     "solver-full",
+    "trader-full",
     "vm-full",
     "visualizer-full",
 ]
@@ -73,6 +74,10 @@ graph-memory = ["kubegraph-vm-local?/graph-memory"]
 # Configure Solvers
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-vm-local?/solver-ortools"]
+
+# Configure Traders
+trader-full = ["trader-default"]
+trader-default = ["kubegraph-vm-local?/trader-default"]
 
 # Configure Virtual Machines
 vm-full = ["vm-local"]

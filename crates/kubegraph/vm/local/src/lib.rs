@@ -5,6 +5,7 @@ mod reloader;
 mod resource;
 mod runner;
 mod solver;
+mod trader;
 mod visualizer;
 
 use std::sync::Arc;
@@ -29,6 +30,7 @@ pub struct NetworkVirtualMachine {
     resource_worker: Arc<Mutex<Option<self::resource::NetworkResourceWorker>>>,
     runner: self::runner::NetworkRunner,
     solver: self::solver::NetworkSolver,
+    trader: self::trader::NetworkTrader,
     visualizer: self::visualizer::NetworkVisualizer,
     vm_runner: Arc<Mutex<Option<NetworkVirtualMachineRunner>>>,
 }
@@ -37,7 +39,7 @@ pub struct NetworkVirtualMachine {
 impl NetworkComponent for NetworkVirtualMachine {
     type Args = self::args::NetworkArgs;
 
-    #[instrument(level = Level::INFO)]
+    #[instrument(level = Level::INFO, skip(args, signal))]
     async fn try_new(
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,
@@ -49,6 +51,7 @@ impl NetworkComponent for NetworkVirtualMachine {
             resource_db,
             runner,
             solver,
+            trader,
             visualizer,
             vm,
         } = args;
@@ -64,6 +67,7 @@ impl NetworkComponent for NetworkVirtualMachine {
             resource_worker: Arc::new(Mutex::new(None)),
             runner: self::runner::NetworkRunner::try_new(runner, signal).await?,
             solver: self::solver::NetworkSolver::try_new(solver, signal).await?,
+            trader: self::trader::NetworkTrader::try_new(trader, signal).await?,
             visualizer: self::visualizer::NetworkVisualizer::try_new(visualizer, signal).await?,
             vm_runner: Arc::new(Mutex::new(None)),
         };
@@ -88,6 +92,7 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
     type GraphDB = self::graph::NetworkGraphDB;
     type Runner = self::runner::NetworkRunner;
     type Solver = self::solver::NetworkSolver;
+    type Trader = self::trader::NetworkTrader;
     type Visualizer = self::visualizer::NetworkVisualizer;
 
     fn dependency_solver(
@@ -110,6 +115,10 @@ impl ::kubegraph_api::vm::NetworkVirtualMachine for NetworkVirtualMachine {
 
     fn solver(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Solver {
         &self.solver
+    }
+
+    fn trader(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Trader {
+        &self.trader
     }
 
     fn visualizer(&self) -> &<Self as ::kubegraph_api::vm::NetworkVirtualMachine>::Visualizer {

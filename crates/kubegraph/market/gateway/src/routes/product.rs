@@ -35,6 +35,12 @@ pub async fn get(db: Data<Database>, path: Path<<ProductSpec as BaseModel>::Id>)
     HttpResponse::Ok().json(Result::from(db.get_product(prod_id).await))
 }
 
+#[instrument(level = Level::INFO, skip(db, spec))]
+#[post("/prod")]
+pub async fn post(db: Data<Database>, spec: Json<ProductSpec>) -> impl Responder {
+    HttpResponse::Ok().json(Result::from(db.find_product(spec.0).await))
+}
+
 #[instrument(level = Level::INFO, skip(db))]
 #[post("/prod/{prod_id}/trade")]
 pub async fn post_trade(

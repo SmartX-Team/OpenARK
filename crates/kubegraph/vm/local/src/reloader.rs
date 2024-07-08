@@ -99,8 +99,8 @@ where
     K: 'static + Send + Clone + fmt::Debug + DeserializeOwned + Resource + NetworkResource,
     <K as Resource>::DynamicType: Default,
 {
-    let name = <K as CustomResourceExt>::crd_name();
-    info!("Starting {name} reloader...");
+    let desc = <K as NetworkResource>::type_name();
+    info!("Starting {desc} reloader...");
 
     let kube = resource_db.kube();
     let default_namespace = kube.default_namespace().to_string();

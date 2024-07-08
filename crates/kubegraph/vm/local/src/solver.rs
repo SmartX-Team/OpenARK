@@ -82,7 +82,7 @@ pub enum NetworkSolver {
 impl NetworkComponent for NetworkSolver {
     type Args = NetworkSolverArgs;
 
-    #[instrument(level = Level::INFO)]
+    #[instrument(level = Level::INFO, skip(signal))]
     async fn try_new(
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,

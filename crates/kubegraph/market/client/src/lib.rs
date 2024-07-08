@@ -18,6 +18,7 @@ use kubegraph_api::{
     },
 };
 use reqwest::Method;
+use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::{instrument, Level};
 
@@ -54,6 +55,17 @@ impl MarketClient {
         self.execute(request).await
     }
 
+    #[instrument(level = Level::INFO, skip(self, spec))]
+    pub async fn find_product(&self, spec: &ProductSpec) -> Result<<ProductSpec as BaseModel>::Id> {
+        let request = Request {
+            method: Method::POST,
+            rel_url: "prod",
+            page: None,
+            payload: Some(spec),
+        };
+        self.execute(request).await
+    }
+
     pub fn list_product_ids(
         &self,
     ) -> impl '_ + Stream<Item = Result<<ProductSpec as BaseModel>::Id>> {
@@ -76,7 +88,7 @@ impl MarketClient {
         self.execute(request).await
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self, spec))]
     pub async fn insert_product(&self, spec: &ProductSpec) -> Result<()> {
         let request = Request {
             method: Method::PUT,
@@ -180,7 +192,7 @@ impl MarketClient {
         self.execute(request).await
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self, spec))]
     pub async fn insert_pub(
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
@@ -251,7 +263,7 @@ impl MarketClient {
         self.execute(request).await
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self, spec))]
     pub async fn insert_sub(
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
@@ -333,7 +345,7 @@ struct Request<'a, T> {
     payload: Option<&'a T>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "camelCase")]
 pub struct MarketClientArgs {
@@ -346,6 +358,14 @@ pub struct MarketClientArgs {
     )]
     #[serde(default = "MarketClientArgs::default_endpoint")]
     pub endpoint: Url,
+}
+
+impl Default for MarketClientArgs {
+    fn default() -> Self {
+        Self {
+            endpoint: Self::default_endpoint(),
+        }
+    }
 }
 
 impl MarketClientArgs {

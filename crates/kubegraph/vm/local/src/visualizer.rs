@@ -82,7 +82,7 @@ pub enum NetworkVisualizer {
 impl NetworkComponent for NetworkVisualizer {
     type Args = NetworkVisualizerArgs;
 
-    #[instrument(level = Level::INFO)]
+    #[instrument(level = Level::INFO, skip(signal))]
     async fn try_new(
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,

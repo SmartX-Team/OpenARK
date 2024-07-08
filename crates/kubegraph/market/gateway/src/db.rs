@@ -39,7 +39,7 @@ pub struct Database {
 impl NetworkComponent for Database {
     type Args = DatabaseArgs;
 
-    #[instrument(level = Level::INFO, skip(args, signal))]
+    #[instrument(level = Level::INFO, skip(signal))]
     async fn try_new(
         args: <Self as NetworkComponent>::Args,
         signal: &FunctionSignal,
@@ -110,6 +110,51 @@ impl Database {
             .all(&self.connection)
             .await
             .map_err(Into::into)
+    }
+
+    #[instrument(level = Level::INFO, skip(self, spec))]
+    pub async fn find_product(&self, spec: ProductSpec) -> Result<<ProductSpec as BaseModel>::Id> {
+        self.connection
+            .transaction::<_, _, DbErr>(|txn| {
+                Box::pin(async move {
+                    let col_id = entity::product::Column::Id;
+                    let col_spec = entity::product::Column::Spec;
+
+                    let spec = match entity::product::to_spec(spec) {
+                        Ok(spec) => spec,
+                        Err(error) => return Ok(Err(error.into())),
+                    };
+                    match entity::product::Entity::find()
+                        .select_only()
+                        .column(col_id)
+                        .filter(col_spec.eq(spec.clone()))
+                        .into_tuple()
+                        .one(txn)
+                        .await?
+                    {
+                        Some(item) => Ok(Ok(item)),
+                        None => {
+                            let prod_id = <ProductSpec as BaseModel>::Id::new_v4();
+                            let model =
+                                entity::product::ActiveModel::from_spec_native(spec, prod_id);
+                            let dsl = entity::product::Entity::insert(model);
+
+                            dsl.exec_without_returning(txn).await?;
+                            Ok(Ok(prod_id))
+                        }
+                    }
+                })
+            })
+            .await
+            .map_err(|error| match error {
+                ::sea_orm::TransactionError::Connection(error) => {
+                    anyhow!("failed to connect to DB while finding a product: {error}")
+                }
+                ::sea_orm::TransactionError::Transaction(error) => {
+                    anyhow!("failed to execute transaction on DB while finding a product: {error}")
+                }
+            })
+            .and_then(identity)
     }
 
     #[instrument(level = Level::INFO, skip(self, spec))]

@@ -36,6 +36,7 @@ use crate::{
     resource::{NetworkResourceClient, NetworkResourceCollectionDB, NetworkResourceDB},
     runner::{NetworkRunner, NetworkRunnerContext},
     solver::NetworkSolver,
+    trader::{NetworkTrader, NetworkTraderContext},
     visualizer::{NetworkVisualizer, NetworkVisualizerExt},
 };
 
@@ -133,19 +134,22 @@ where
                     NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
                 }
                 self::sealed::NetworkVirtualMachineState::Ready
-                | self::sealed::NetworkVirtualMachineState::Empty => match self.restart_policy() {
-                    NetworkVirtualMachineRestartPolicy::Always => {
-                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                | self::sealed::NetworkVirtualMachineState::Empty
+                | self::sealed::NetworkVirtualMachineState::Trading => {
+                    match self.restart_policy() {
+                        NetworkVirtualMachineRestartPolicy::Always => {
+                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL
+                        }
+                        NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
+                        NetworkVirtualMachineRestartPolicy::Manually => {
+                            self.visualizer().wait_to_next().await?;
+                            continue;
+                        }
+                        NetworkVirtualMachineRestartPolicy::Never => {
+                            NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
+                        }
                     }
-                    NetworkVirtualMachineRestartPolicy::Interval { interval } => interval,
-                    NetworkVirtualMachineRestartPolicy::Manually => {
-                        self.visualizer().wait_to_next().await?;
-                        continue;
-                    }
-                    NetworkVirtualMachineRestartPolicy::Never => {
-                        NetworkVirtualMachineRestartPolicy::DEFAULT_INTERVAL_INIT
-                    }
-                },
+                }
                 self::sealed::NetworkVirtualMachineState::Completed => {
                     match self.restart_policy() {
                         NetworkVirtualMachineRestartPolicy::Always => {
@@ -188,13 +192,20 @@ where
             .await
     }
 
-    #[instrument(level = Level::INFO, skip(self))]
+    #[instrument(level = Level::INFO, skip(self, state))]
     async fn step_with_custom_problem(
         &self,
         state: self::sealed::NetworkVirtualMachineState,
         problem: VirtualProblem,
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
-        // Step 1. Pull & Convert graphs
+        // Step 1. Check whether the problem is locked
+        let scope = &problem.scope;
+        if self.trader().is_locked(&problem).await? {
+            info!("The problem is locked by the market: {scope}");
+            return Ok(self::sealed::NetworkVirtualMachineState::Trading);
+        }
+
+        // Step 2. Pull & Convert graphs
         let NetworkDependencyPipeline {
             connectors,
             functions,
@@ -222,10 +233,23 @@ where
             None => return Ok(self::sealed::NetworkVirtualMachineState::Empty),
         };
 
-        // Step 2. Solve edge flows
+        // Step 3. Solve edge flows
         let data = self.solver().solve(data, &problem.spec).await?;
 
-        // Step 3. Apply edges to real-world (or simulator)
+        // Step 4. Register to the market if no feasible functions are found
+        if matches!(&data.edges, LazyFrame::Empty) {
+            info!("Registering the problem to the market: {scope}");
+            let ctx = NetworkTraderContext {
+                functions,
+                graph: data,
+                problem,
+                static_edges,
+            };
+            self.trader().register(ctx).await?;
+            return Ok(self::sealed::NetworkVirtualMachineState::Trading);
+        }
+
+        // Step 5. Apply edges to real-world (or simulator)
         let runner_ctx = NetworkRunnerContext {
             connectors,
             functions,
@@ -240,7 +264,7 @@ where
         };
         self.runner().execute(runner_ctx).await?;
 
-        // Step 4. Visualize the outputs
+        // Step 6. Visualize the outputs
         let graph = Graph {
             connector,
             data,
@@ -368,6 +392,7 @@ mod sealed {
         Pending,
         Ready,
         Empty,
+        Trading,
         #[default]
         Completed,
     }
@@ -385,12 +410,17 @@ where
     Self: Send + Sync,
 {
     type DependencySolver: NetworkComponent + NetworkDependencySolver;
-    type ResourceDB: 'static + Send + Clone + NetworkComponent + NetworkResourceCollectionDB;
+    type ResourceDB: 'static
+        + Send
+        + Clone
+        + NetworkComponent
+        + NetworkResourceCollectionDB<LazyFrame>;
     type GraphDB: 'static + Send + Clone + NetworkComponent + NetworkGraphDB;
     type Runner: NetworkComponent
         + for<'a> NetworkRunner<<Self as NetworkVirtualMachine>::GraphDB, LazyFrame>;
     type Solver: NetworkComponent
         + NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
+    type Trader: NetworkComponent + NetworkTrader<LazyFrame>;
     type Visualizer: NetworkComponent + NetworkVisualizer;
 
     fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver;
@@ -402,6 +432,8 @@ where
     fn runner(&self) -> &<Self as NetworkVirtualMachine>::Runner;
 
     fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver;
+
+    fn trader(&self) -> &<Self as NetworkVirtualMachine>::Trader;
 
     fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer;
 
@@ -426,6 +458,7 @@ where
     type ResourceDB = <T as NetworkVirtualMachine>::ResourceDB;
     type Runner = <T as NetworkVirtualMachine>::Runner;
     type Solver = <T as NetworkVirtualMachine>::Solver;
+    type Trader = <T as NetworkVirtualMachine>::Trader;
     type Visualizer = <T as NetworkVirtualMachine>::Visualizer;
 
     fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver {
@@ -446,6 +479,10 @@ where
 
     fn solver(&self) -> &<Self as NetworkVirtualMachine>::Solver {
         <T as NetworkVirtualMachine>::solver(&**self)
+    }
+
+    fn trader(&self) -> &<Self as NetworkVirtualMachine>::Trader {
+        <T as NetworkVirtualMachine>::trader(&**self)
     }
 
     fn visualizer(&self) -> &<Self as NetworkVirtualMachine>::Visualizer {

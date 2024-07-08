@@ -19,13 +19,24 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-kubegraph-api = { path = "../api", default-features = false }
+[features]
+default = ["full"]
+full = ["df-full"]
 
-actix-web = { workspace = true }
-actix-web-opentelemetry = { workspace = true }
+# DataFrame
+df-full = ["df-polars"]
+df-polars = ["kubegraph-api/df-polars", "kubegraph-market-client/df-polars"]
+
+[dependencies]
+ark-core = { path = "../../ark/core", features = ["signal"] }
+kubegraph-api = { path = "../api", default-features = false }
+kubegraph-market-client = { path = "../market/client", default-features = false }
+
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-futures = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
+uuid = { workspace = true }

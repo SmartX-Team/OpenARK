@@ -7,7 +7,7 @@ pub mod service;
 pub mod spawn;
 pub mod webhook;
 
-use kube::CustomResource;
+use kube::{CustomResource, CustomResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +44,17 @@ pub struct NetworkFunctionSpec {
 
 impl NetworkResource for NetworkFunctionCrd {
     type Filter = ();
+
+    fn description(&self) -> String {
+        <Self as NetworkResource>::type_name().into()
+    }
+
+    fn type_name() -> &'static str
+    where
+        Self: Sized,
+    {
+        <Self as CustomResourceExt>::crd_name()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

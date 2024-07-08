@@ -27,6 +27,7 @@ full = [
     "function-full",
     "graph-full",
     "solver-full",
+    "trader-full",
     "visualizer-full",
 ]
 
@@ -58,6 +59,7 @@ df-polars = [
     "kubegraph-dependency-solver/df-polars",
     "kubegraph-runner/df-polars",
     "kubegraph-solver-ortools?/df-polars",
+    "kubegraph-trader/df-polars",
     "kubegraph-visualizer-egui?/df-polars",
 ]
 
@@ -83,12 +85,17 @@ graph-memory = ["kubegraph-graph-memory"]
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-solver-ortools"]
 
+# Configure Traders
+trader-full = ["trader-default"]
+trader-default = ["kubegraph-trader"]
+
 # Configure Visualizers
 visualizer-auto = ["visualizer-egui"]
 visualizer-full = ["visualizer-egui"]
 visualizer-egui = ["kubegraph-visualizer-egui"]
 
 [dependencies]
+ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
@@ -98,11 +105,10 @@ kubegraph-graph-local = { path = "../../graph/local", optional = true, default-f
 kubegraph-graph-memory = { path = "../../graph/memory", optional = true, default-features = false }
 kubegraph-runner = { path = "../../runner", default-features = false }
 kubegraph-solver-ortools = { path = "../../solver/ortools", optional = true, default-features = false }
-kubegraph-trader = { path = "../../trader", default-features = false }
+kubegraph-trader = { path = "../../trader", optional = true, default-features = false }
 kubegraph-visualizer-egui = { path = "../../visualizer/egui", optional = true, default-features = false }
 
 anyhow = { workspace = true }
-ark-core = { path = "../../../ark/core", features = ["signal"] }
 async-trait = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }

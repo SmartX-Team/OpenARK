@@ -32,6 +32,10 @@ pub struct NetworkArgs {
 
     #[command(flatten)]
     #[serde(default)]
+    pub trader: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Trader as NetworkComponent>::Args,
+
+    #[command(flatten)]
+    #[serde(default)]
     pub visualizer: <<crate::NetworkVirtualMachine as NetworkVirtualMachine>::Visualizer as NetworkComponent>::Args,
 
     #[command(flatten)]

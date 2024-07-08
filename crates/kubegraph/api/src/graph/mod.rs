@@ -1,7 +1,7 @@
 #[cfg(feature = "df-polars")]
 pub mod polars;
 
-use std::{collections::BTreeMap, mem::swap, sync::Arc};
+use std::{collections::BTreeMap, fmt, mem::swap, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -1173,6 +1173,13 @@ impl GraphFilter {
 pub struct GraphScope {
     pub namespace: String,
     pub name: String,
+}
+
+impl fmt::Display for GraphScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { namespace, name } = self;
+        write!(f, "{namespace}/{name}")
+    }
 }
 
 impl GraphScope {
