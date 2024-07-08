@@ -8,7 +8,7 @@ use kube::Client;
 use tracing::{instrument, Level};
 use vine_api::user_session::{UserSessionCommand, UserSessionRef};
 use vine_rbac::auth::{AuthUserSession, AuthUserSessionRef};
-use vine_session::SessionExec;
+use vine_session::exec::SessionExecExt;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/user/desktop/exec")]
@@ -26,6 +26,6 @@ pub async fn post_exec(
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
-    let result = session.exec(kube, command).await.map(|_| ());
+    let result = session.exec_without_tty(kube, command).await.map(|_| ());
     HttpResponse::from(Result::from(result))
 }

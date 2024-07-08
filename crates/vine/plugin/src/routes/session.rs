@@ -5,7 +5,7 @@ use kube::Client;
 use tracing::{instrument, Level};
 use vine_api::user_session::UserSessionMetadata;
 use vine_rbac::auth::AuthUserSession;
-use vine_session::SessionExec;
+use vine_session::exec::SessionExec;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/batch/user/session")]

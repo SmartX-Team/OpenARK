@@ -14,6 +14,41 @@ use tracing::{instrument, Level};
 use vine_api::user::UserCrd;
 
 #[async_trait]
+pub trait SessionExecExt
+where
+    Self: fmt::Debug + SessionExec,
+{
+    #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
+    async fn exec_with_tty<I>(&self, kube: Client, command: I) -> Result<Vec<Process>>
+    where
+        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
+        <I as IntoIterator>::Item: Sync + Into<String>,
+    {
+        let ap = AttachParams::interactive_tty();
+        <Self as SessionExec>::exec(self, kube, ap, command).await
+    }
+
+    #[instrument(level = Level::INFO, skip(kube, command), err(Display))]
+    async fn exec_without_tty<I>(&self, kube: Client, command: I) -> Result<Vec<Process>>
+    where
+        I: 'static + Send + Sync + Clone + fmt::Debug + IntoIterator,
+        <I as IntoIterator>::Item: Sync + Into<String>,
+    {
+        let ap = AttachParams {
+            stdin: false,
+            stdout: true,
+            stderr: true,
+            tty: false,
+            ..Default::default()
+        };
+        <Self as SessionExec>::exec(self, kube, ap, command).await
+    }
+}
+
+#[async_trait]
+impl<T> SessionExecExt for T where Self: fmt::Debug + SessionExec {}
+
+#[async_trait]
 pub trait SessionExec {
     async fn list(kube: Client) -> Result<Vec<Self>>
     where

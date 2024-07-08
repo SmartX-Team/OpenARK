@@ -4,10 +4,7 @@ use anyhow::{Error, Result};
 use avt::Vt;
 use chrono::Utc;
 use futures::{channel::mpsc, stream::FuturesUnordered, SinkExt, StreamExt};
-use kube::{
-    api::{AttachParams, TerminalSize},
-    Client,
-};
+use kube::{api::TerminalSize, Client};
 use ratatui::{
     backend::CrosstermBackend,
     buffer::Buffer,
@@ -31,7 +28,7 @@ use tracing::{error, info};
 
 use crate::{
     batch::{collect_user_sessions, BatchCommandUsers},
-    exec::{Process, SessionExec},
+    exec::{Process, SessionExecExt},
 };
 
 pub struct BatchShellArgs<C, U> {
@@ -59,9 +56,8 @@ impl<C, U> BatchShellArgs<C, U> {
             .into_iter()
             .map(|session| {
                 let kube = kube.clone();
-                let ap = AttachParams::interactive_tty();
                 let command = [command.clone()];
-                async move { session.exec(kube, ap, command).await }
+                async move { session.exec_with_tty(kube, command).await }
             })
             .collect::<FuturesUnordered<_>>()
             .filter_map(|result| async move {
