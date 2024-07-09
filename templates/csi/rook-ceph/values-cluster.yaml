@@ -352,10 +352,10 @@ cephFileSystems:
         resources:
           limits:
             cpu: "4"
-            memory: "8Gi" # MDS Cache size + free space (2Gi) + burstable space (~2Gi)
+            memory: "12Gi" # MDS Cache size + free space (2Gi) + burstable space (~2Gi)
           requests:
             cpu: "4"
-            memory: "8Gi"
+            memory: "12Gi"
         priorityClassName: system-cluster-critical
         placement:
           nodeAffinity:
