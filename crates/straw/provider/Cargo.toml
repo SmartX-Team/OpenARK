@@ -25,19 +25,28 @@ default = ["oci", "python"]
 oci = ["straw-provider-oci"]
 python = ["straw-provider-python"]
 
+# TLS
+openssl-tls = [
+    "kube/openssl-tls",
+    "straw-api/openssl-tls",
+    "straw-provider-oci/openssl-tls",
+    "straw-provider-python/openssl-tls",
+]
+rustls-tls = [
+    "kube/rustls-tls",
+    "straw-api/rustls-tls",
+    "straw-provider-oci/rustls-tls",
+    "straw-provider-python/rustls-tls",
+]
+
 [dependencies]
+straw-api = { path = "../api", features = ["plugin"] }
 straw-provider-oci = { path = "./oci", optional = true, features = ["plugin"] }
 straw-provider-python = { path = "./python", optional = true, features = [
     "plugin",
 ] }
-straw-api = { path = "../api", features = ["plugin"] }
 
 anyhow = { workspace = true }
 futures = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 tracing = { workspace = true }

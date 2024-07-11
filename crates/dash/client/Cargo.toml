@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["reqwest/native-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 ark-api = { path = "../../ark/api" }

@@ -20,13 +20,33 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["default-tls"]
 
 # --- FOR TESTING ONLY ---
 unsafe-mock = [
     "vine-rbac/unsafe-mock",
 ] # set the "DASH_UNSAFE_MOCK_USERNAME" env to your own username
 
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "actix-web/openssl",
+    "ark-core/openssl-tls",
+    "dash-provider/openssl-tls",
+    "dash-provider-client/openssl-tls",
+    "kube/openssl-tls",
+    "vine-plugin/openssl-tls",
+    "vine-rbac/openssl-tls",
+]
+rustls-tls = [
+    "actix-web/rustls",
+    "ark-core/rustls-tls",
+    "dash-provider/rustls-tls",
+    "dash-provider-client/rustls-tls",
+    "kube/rustls-tls",
+    "vine-plugin/rustls-tls",
+    "vine-rbac/rustls-tls",
+]
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web"] }
@@ -45,12 +65,7 @@ actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 opentelemetry = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

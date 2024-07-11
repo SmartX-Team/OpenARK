@@ -19,6 +19,18 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "kiss-ansible/openssl-tls",
+    "kube/openssl-tls",
+    "octocrab/opentls",
+]
+rustls-tls = ["kiss-ansible/rustls-tls", "kube/rustls-tls", "octocrab/rustls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 kiss-ansible = { path = "../ansible" }
@@ -26,12 +38,7 @@ kiss-api = { path = "../api" }
 
 anyhow = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 maplit = { workspace = true }
 octocrab = { workspace = true }
 semver = { workspace = true }

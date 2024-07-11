@@ -25,6 +25,10 @@ batch = ["exec", "regex"]
 exec = ["async-trait", "kube/ws"]
 shell = ["avt", "batch", "ratatui"]
 
+# TLS
+openssl-tls = ["dash-provider/openssl-tls"]
+rustls-tls = ["dash-provider/rustls-tls"]
+
 [dependencies]
 ark-api = { path = "../../ark/api" }
 ark-core = { path = "../../ark/core" }

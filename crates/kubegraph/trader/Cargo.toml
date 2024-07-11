@@ -27,6 +27,13 @@ full = ["df-full"]
 df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars", "kubegraph-market-client/df-polars"]
 
+# TLS
+openssl-tls = [
+    "kubegraph-api/openssl-tls",
+    "kubegraph-market-client/openssl-tls",
+]
+rustls-tls = ["kubegraph-api/rustls-tls", "kubegraph-market-client/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../api", default-features = false }

@@ -22,6 +22,9 @@ workspace = true
 [features]
 default = []
 
+openssl-tls = ["dash-provider?/openssl-tls", "kube/openssl-tls"]
+rustls-tls = ["dash-provider?/rustls-tls", "kube/rustls-tls"]
+
 [dependencies]
 dash-api = { path = "../../api" }
 dash-provider = { path = "..", optional = true }
@@ -33,12 +36,7 @@ bytes = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

@@ -20,7 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["full"]
+default = ["default-tls", "full"]
 full = [
     "connector-full",
     "df-full",
@@ -77,6 +77,27 @@ trader-default = ["kubegraph-vm-local?/trader-default"]
 # Configure Virtual Machines
 vm-full = ["vm-local"]
 vm-local = ["kubegraph-vm-local"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "actix-web/openssl",
+    "kubegraph-api/openssl-tls",
+    "kubegraph-market-entity/rustls-tls",
+    "kubegraph-market-function/rustls-tls",
+    "kubegraph-market-migration/rustls-tls",
+    "kubegraph-vm-local?/openssl-tls",
+    "sea-orm/runtime-tokio-native-tls",
+]
+rustls-tls = [
+    "actix-web/rustls",
+    "kubegraph-api/rustls-tls",
+    "kubegraph-market-entity/rustls-tls",
+    "kubegraph-market-function/rustls-tls",
+    "kubegraph-market-migration/rustls-tls",
+    "kubegraph-vm-local?/rustls-tls",
+    "sea-orm/runtime-tokio-rustls",
+]
 
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }

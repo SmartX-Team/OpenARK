@@ -19,6 +19,14 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = ["actix-web/openssl", "reqwest/native-tls"]
+rustls-tls = ["actix-web/rustls", "reqwest/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 kiss-api = { path = "../api" }

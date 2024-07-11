@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["kube/openssl-tls"]
+rustls-tls = ["kube/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 kiss-api = { path = "../api" }
@@ -28,12 +35,7 @@ inflector = { workspace = true }
 ipnet = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 schemars = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }

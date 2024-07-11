@@ -19,6 +19,14 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = ["actix-web/openssl", "kubegraph-api/openssl-tls"]
+rustls-tls = ["actix-web/rustls", "kubegraph-api/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../../api", default-features = false, features = [

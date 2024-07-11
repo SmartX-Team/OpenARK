@@ -33,6 +33,10 @@ otlp-all = ["logs", "metrics", "trace"]
 actix-web = ["dep:actix-web"]
 signal = ["ctrlc", "tokio"]
 
+# TLS
+openssl-tls = ["actix-web?/openssl"]
+rustls-tls = ["actix-web?/rustls"]
+
 [dependencies]
 actix-web = { workspace = true, optional = true, default-features = false }
 anyhow = { workspace = true }

@@ -23,6 +23,24 @@ workspace = true
 default = []
 i-want-to-cleanup-all-before-running-for-my-testing = []
 
+# TLS
+openssl-tls = [
+    "actix-web/openssl",
+    "ark-core-k8s/openssl-tls",
+    "kube/openssl-tls",
+    "minio/native-tls",
+    "reqwest/native-tls",
+    "sea-orm/runtime-tokio-native-tls",
+]
+rustls-tls = [
+    "actix-web/rustls",
+    "ark-core-k8s/rustls-tls",
+    "kube/rustls-tls",
+    "minio/rustls-tls",
+    "reqwest/rustls-tls",
+    "sea-orm/runtime-tokio-rustls",
+]
+
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["data", "domain"] }
 dash-api = { path = "../api" }
@@ -40,18 +58,13 @@ futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 maplit = { workspace = true }
 mime = { workspace = true }
 minio = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
-reqwest = { workspace = true } # depends on minio
+reqwest = { workspace = true }                                      # depends on minio
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

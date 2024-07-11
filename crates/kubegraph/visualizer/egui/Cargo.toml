@@ -32,6 +32,10 @@ persistence = [
 df-full = ["df-polars"]
 df-polars = ["kubegraph-api/df-polars"]
 
+# TLS
+openssl-tls = ["kubegraph-api/openssl-tls"]
+rustls-tls = ["kubegraph-api/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", default-features = false, features = [

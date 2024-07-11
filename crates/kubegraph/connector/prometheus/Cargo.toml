@@ -28,6 +28,10 @@ connector-full = ["connector-fake", "connector-local"]
 connector-fake = ["kubegraph-api/connector-fake"]
 connector-local = ["kubegraph-api/connector-local"]
 
+# TLS
+openssl-tls = ["kubegraph-api/openssl-tls", "prometheus-http-query/native-tls"]
+rustls-tls = ["kubegraph-api/rustls-tls", "prometheus-http-query/rustls-tls"]
+
 [dependencies]
 kubegraph-api = { path = "../../api", default-features = false, features = [
     "connector-prometheus",

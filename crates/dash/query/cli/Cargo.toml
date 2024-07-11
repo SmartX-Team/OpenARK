@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["dash-query-provider/openssl-tls"]
+rustls-tls = ["dash-query-provider/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../../ark/core" }
 dash-query-provider = { path = "../provider" }

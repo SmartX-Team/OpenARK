@@ -19,6 +19,14 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = ["actix-web/openssl", "kube/openssl-tls", "vine-rbac/openssl-tls"]
+rustls-tls = ["actix-web/rustls", "kube/rustls-tls", "vine-rbac/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 vine-api = { path = "../api" }
@@ -29,12 +37,7 @@ actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 opentelemetry = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

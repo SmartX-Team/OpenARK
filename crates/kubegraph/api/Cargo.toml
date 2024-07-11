@@ -46,6 +46,10 @@ function-full = ["function-fake", "function-webhook"]
 function-fake = []
 function-webhook = []
 
+# TLS
+openssl-tls = ["actix-web?/openssl"]
+rustls-tls = ["actix-web?/rustls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["signal"] }
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["data"] }

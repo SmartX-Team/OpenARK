@@ -19,6 +19,26 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "ark-core-k8s/openssl-tls",
+    "dash-provider/openssl-tls",
+    "kube/openssl-tls",
+    "straw-api/openssl-tls",
+    "straw-provider/openssl-tls",
+]
+rustls-tls = [
+    "ark-core-k8s/rustls-tls",
+    "dash-provider/rustls-tls",
+    "kube/rustls-tls",
+    "straw-api/rustls-tls",
+    "straw-provider/rustls-tls",
+]
+
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["manager"] }
 dash-api = { path = "../api" }
@@ -34,12 +54,7 @@ futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 regex = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

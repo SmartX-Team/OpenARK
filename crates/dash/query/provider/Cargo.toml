@@ -19,6 +19,21 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = [
+    "dash-pipe-provider/openssl-tls",
+    "dash-provider/openssl-tls",
+    "kube/openssl-tls",
+]
+rustls-tls = [
+    "dash-pipe-provider/rustls-tls",
+    "dash-provider/rustls-tls",
+    "kube/rustls-tls",
+]
+
 [dependencies]
 dash-api = { path = "../../api" }
 dash-pipe-api = { path = "../../pipe/api" }
@@ -31,12 +46,7 @@ derivative = { workspace = true }
 futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

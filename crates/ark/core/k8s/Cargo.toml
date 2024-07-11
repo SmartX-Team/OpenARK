@@ -38,6 +38,10 @@ manager = [
 ]
 name = ["anyhow", "k8s-openapi", "kube", "sha2", "tracing"]
 
+# TLS
+openssl-tls = ["kube?/openssl-tls"]
+rustls-tls = ["kube?/rustls-tls"]
+
 [dependencies]
 ark-core = { path = ".." }
 
@@ -50,7 +54,6 @@ k8s-openapi = { workspace = true, optional = true }
 kube = { workspace = true, optional = true, features = [
     "client",
     "runtime",
-    "rustls-tls",
     "ws",
 ] }
 opentelemetry = { workspace = true, optional = true }

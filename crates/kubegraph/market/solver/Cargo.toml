@@ -35,6 +35,20 @@ df-polars = [
 market-solver-full = ["market-solver-trivial"]
 market-solver-trivial = ["kubegraph-market-solver-trivial"]
 
+# TLS
+openssl-tls = [
+    "kubegraph-api/openssl-tls",
+    "kubegraph-market-client/openssl-tls",
+    "kubegraph-market-solver-api/openssl-tls",
+    "kubegraph-market-solver-trivial?/openssl-tls",
+]
+rustls-tls = [
+    "kubegraph-api/rustls-tls",
+    "kubegraph-market-client/rustls-tls",
+    "kubegraph-market-solver-api/rustls-tls",
+    "kubegraph-market-solver-trivial?/rustls-tls",
+]
+
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", default-features = false }

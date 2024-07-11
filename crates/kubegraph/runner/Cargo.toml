@@ -40,6 +40,18 @@ function-webhook = [
     "kubegraph-function-webhook",
 ]
 
+# TLS
+openssl-tls = [
+    "kubegraph-api/openssl-tls",
+    "kubegraph-function-fake?/openssl-tls",
+    "kubegraph-function-webhook?/openssl-tls",
+]
+rustls-tls = [
+    "kubegraph-api/rustls-tls",
+    "kubegraph-function-fake?/rustls-tls",
+    "kubegraph-function-webhook?/rustls-tls",
+]
+
 [dependencies]
 kubegraph-api = { path = "../api", default-features = false }
 kubegraph-function-fake = { path = "../function/fake", optional = true, default-features = false }

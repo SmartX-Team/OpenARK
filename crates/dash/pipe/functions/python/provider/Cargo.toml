@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["dash-pipe-provider/openssl-tls"]
+rustls-tls = ["dash-pipe-provider/rustls-tls"]
+
 [dependencies]
 dash-pipe-provider = { path = "../../../provider", features = ["pyo3"] }
 

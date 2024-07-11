@@ -23,6 +23,20 @@ workspace = true
 name = "straw-python"
 path = "./src/main.rs"
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "dash-pipe-provider/openssl-tls",
+    "straw-provider-python/openssl-tls",
+]
+rustls-tls = [
+    "dash-pipe-provider/rustls-tls",
+    "straw-provider-python/rustls-tls",
+]
+
 [dependencies]
 ark-core-k8s = { path = "../../../../ark/core/k8s", features = ["data"] }
 dash-pipe-provider = { path = "../../../../dash/pipe/provider", features = [

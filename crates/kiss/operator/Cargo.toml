@@ -19,6 +19,22 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "ark-core-k8s/openssl-tls",
+    "kiss-ansible/openssl-tls",
+    "kube/openssl-tls",
+]
+rustls-tls = [
+    "ark-core-k8s/rustls-tls",
+    "kiss-ansible/rustls-tls",
+    "kube/rustls-tls",
+]
+
 [dependencies]
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["manager"] }
 kiss-ansible = { path = "../ansible" }
@@ -28,12 +44,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 k8s-openapi = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

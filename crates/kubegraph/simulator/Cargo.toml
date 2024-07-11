@@ -20,12 +20,17 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["full"]
+default = ["default-tls", "full"]
 full = ["solver-full"]
 
 # Configure Solvers
 solver-full = ["solver-ortools"]
 solver-ortools = ["kubegraph-vm-local/solver-ortools"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = ["kubegraph-api/openssl-tls", "kubegraph-vm-local/openssl-tls"]
+rustls-tls = ["kubegraph-api/rustls-tls", "kubegraph-vm-local/rustls-tls"]
 
 [dependencies]
 kubegraph-api = { path = "../api", default-features = false, features = [

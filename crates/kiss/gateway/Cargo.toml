@@ -19,6 +19,14 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = ["actix-web/openssl", "kube/openssl-tls"]
+rustls-tls = ["actix-web/rustls", "kube/rustls-tls"]
+
 [dependencies]
 ark-core = { path = "../../ark/core" }
 kiss-api = { path = "../api" }
@@ -27,12 +35,7 @@ actix-web = { workspace = true }
 actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 opentelemetry = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

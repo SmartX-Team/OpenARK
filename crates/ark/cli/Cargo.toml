@@ -23,6 +23,26 @@ workspace = true
 name = "ark"
 path = "./src/main.rs"
 
+[features]
+default = ["default-tls"]
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "dash-query-cli/openssl-tls",
+    "kiss-cli/rustls-tls",
+    "kube/openssl-tls",
+    "vine-rbac/openssl-tls",
+    "vine-session/openssl-tls",
+]
+rustls-tls = [
+    "dash-query-cli/rustls-tls",
+    "kiss-cli/rustls-tls",
+    "kube/rustls-tls",
+    "vine-rbac/rustls-tls",
+    "vine-session/rustls-tls",
+]
+
 [dependencies]
 ark-core = { path = "../core" }
 ark-core-k8s = { path = "../core/k8s", features = ["data"] }
@@ -37,12 +57,7 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
 itertools = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 procfs = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

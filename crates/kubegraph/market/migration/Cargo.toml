@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["sea-orm-migration/runtime-tokio-native-tls"]
+rustls-tls = ["sea-orm-migration/runtime-tokio-rustls"]
+
 [dependencies]
 async-trait = { workspace = true }
 sea-orm-migration = { workspace = true }

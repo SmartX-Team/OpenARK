@@ -51,9 +51,18 @@ exporter-storage = [
     "opentelemetry-proto/with-schemars",
 ]
 
+# TLS
+openssl-tls = [
+    "dash-collector-api?/openssl-tls",
+    "dash-pipe-provider/openssl-tls",
+]
+rustls-tls = ["dash-collector-api?/rustls-tls", "dash-pipe-provider/rustls-tls"]
+
 [dependencies]
-ark-core = { path = "../../ark/core", features = ["signal"] }
-ark-core-k8s = { path = "../../ark/core/k8s", optional = true, features = [
+ark-core = { path = "../../ark/core", default-features = false, features = [
+    "signal",
+] }
+ark-core-k8s = { path = "../../ark/core/k8s", optional = true, default-features = false, features = [
     "data",
 ] }
 dash-collector-api = { path = "./api", optional = true }

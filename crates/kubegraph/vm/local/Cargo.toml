@@ -94,6 +94,34 @@ visualizer-auto = ["visualizer-egui"]
 visualizer-full = ["visualizer-egui"]
 visualizer-egui = ["kubegraph-visualizer-egui"]
 
+# TLS
+openssl-tls = [
+    "kube/openssl-tls",
+    "kubegraph-api/openssl-tls",
+    "kubegraph-connector-fake?/openssl-tls",
+    "kubegraph-connector-local?/openssl-tls",
+    "kubegraph-connector-prometheus?/openssl-tls",
+    "kubegraph-graph-local?/openssl-tls",
+    "kubegraph-graph-memory?/openssl-tls",
+    "kubegraph-runner/openssl-tls",
+    "kubegraph-solver-ortools?/openssl-tls",
+    "kubegraph-trader?/openssl-tls",
+    "kubegraph-visualizer-egui?/openssl-tls",
+]
+rustls-tls = [
+    "kube/rustls-tls",
+    "kubegraph-api/rustls-tls",
+    "kubegraph-connector-fake?/rustls-tls",
+    "kubegraph-connector-local?/rustls-tls",
+    "kubegraph-connector-prometheus?/rustls-tls",
+    "kubegraph-graph-local?/rustls-tls",
+    "kubegraph-graph-memory?/rustls-tls",
+    "kubegraph-runner/rustls-tls",
+    "kubegraph-solver-ortools?/rustls-tls",
+    "kubegraph-trader?/rustls-tls",
+    "kubegraph-visualizer-egui?/rustls-tls",
+]
+
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", default-features = false }
@@ -112,12 +140,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync", "time"] }

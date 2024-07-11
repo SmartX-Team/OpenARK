@@ -24,7 +24,7 @@ name = "kubegraph"
 path = "./src/main.rs"
 
 [features]
-default = ["full"]
+default = ["default-tls", "full"]
 full = [
     "connector-full",
     "df-full",
@@ -85,6 +85,21 @@ vm-local = ["kubegraph-vm-local"]
 
 # Configure Visualizers
 visualizer-full = []
+
+# TLS
+default-tls = ["rustls-tls"]
+openssl-tls = [
+    "actix-web/openssl",
+    "ark-core/openssl-tls",
+    "kubegraph-api/openssl-tls",
+    "kubegraph-vm-local?/openssl-tls",
+]
+rustls-tls = [
+    "actix-web/rustls",
+    "ark-core/rustls-tls",
+    "kubegraph-api/rustls-tls",
+    "kubegraph-vm-local?/rustls-tls",
+]
 
 [dependencies]
 ark-core = { path = "../../ark/core", features = ["actix-web", "signal"] }

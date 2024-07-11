@@ -19,9 +19,26 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = [
+    "actix-web/openssl",
+    "ark-core/openssl-tls",
+    "dash-pipe-provider/openssl-tls",
+]
+rustls-tls = [
+    "actix-web/rustls",
+    "ark-core/rustls-tls",
+    "dash-pipe-provider/rustls-tls",
+]
+
 [dependencies]
 ark-core = { path = "../../../ark/core", features = ["actix-web"] }
-dash-pipe-provider = { path = "../../pipe/provider" }
+dash-pipe-provider = { path = "../../pipe/provider", default-features = false, features = [
+    "full",
+] }
 
 actix-cors = { workspace = true }
 actix-web = { workspace = true }

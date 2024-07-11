@@ -19,6 +19,13 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
+# TLS
+openssl-tls = ["kiss-ansible/openssl-tls", "kube/openssl-tls"]
+rustls-tls = ["kiss-ansible/rustls-tls", "kube/rustls-tls"]
+
 [dependencies]
 kiss-ansible = { path = "../../kiss/ansible" }
 kiss-api = { path = "../../kiss/api" }
@@ -26,12 +33,7 @@ kiss-api = { path = "../../kiss/api" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
-kube = { workspace = true, features = [
-    "client",
-    "runtime",
-    "rustls-tls",
-    "ws",
-] }
+kube = { workspace = true, features = ["client", "runtime", "ws"] }
 serde = { workspace = true, features = ["derive"] }
 strum = { workspace = true }
 tracing = { workspace = true }
