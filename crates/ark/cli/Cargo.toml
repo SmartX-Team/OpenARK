@@ -30,7 +30,7 @@ default = ["default-tls"]
 default-tls = ["rustls-tls"]
 openssl-tls = [
     "dash-query-cli/openssl-tls",
-    "kiss-cli/rustls-tls",
+    "kiss-cli/openssl-tls",
     "kube/openssl-tls",
     "vine-rbac/openssl-tls",
     "vine-session/openssl-tls",

@@ -43,8 +43,8 @@ s3 = ["chrono", "minio"]
 arrow = ["dep:arrow", "async-stream"]
 
 # TLS
-openssl-tls = ["minio?/native-tls"]
-rustls-tls = ["minio?/rustls-tls"]
+openssl-tls = ["deltalake?/s3-native-tls", "minio?/native-tls"]
+rustls-tls = ["async-nats?/ring", "deltalake?/s3", "minio?/rustls-tls"]
 
 [dependencies]
 ark-core = { path = "../../../ark/core", default-features = false, features = [

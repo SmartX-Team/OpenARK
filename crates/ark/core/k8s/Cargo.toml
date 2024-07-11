@@ -40,7 +40,7 @@ name = ["anyhow", "k8s-openapi", "kube", "sha2", "tracing"]
 
 # TLS
 openssl-tls = ["kube?/openssl-tls"]
-rustls-tls = ["kube?/rustls-tls"]
+rustls-tls = ["async-nats?/ring", "kube?/rustls-tls"]
 
 [dependencies]
 ark-core = { path = ".." }

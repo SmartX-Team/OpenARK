@@ -107,7 +107,9 @@ actix-web-opentelemetry = { version = "0.18", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 arrow = { version = "51" } # should be synced with deltalake and lancedb
 argon2 = { version = "0.5" }
-async-nats = { version = "0.35" }
+async-nats = { version = "0.35", default-features = false, features = [
+    "server_2_10",
+] }
 async-recursion = { version = "1.1" }
 async-stream = { version = "0.3" }
 async-trait = { version = "0.1" }
@@ -124,7 +126,6 @@ deltalake = { version = "0.17", features = [
     "datafusion",
     "datafusion-ext",
     "json",
-    "s3",
 ] }
 derivative = { version = "2.2" }
 dirs = { version = "5.0" }
