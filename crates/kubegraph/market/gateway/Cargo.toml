@@ -83,9 +83,9 @@ default-tls = ["rustls-tls"]
 openssl-tls = [
     "actix-web/openssl",
     "kubegraph-api/openssl-tls",
-    "kubegraph-market-entity/rustls-tls",
-    "kubegraph-market-function/rustls-tls",
-    "kubegraph-market-migration/rustls-tls",
+    "kubegraph-market-entity/openssl-tls",
+    "kubegraph-market-function/openssl-tls",
+    "kubegraph-market-migration/openssl-tls",
     "kubegraph-vm-local?/openssl-tls",
     "sea-orm/runtime-tokio-native-tls",
 ]

@@ -27,11 +27,13 @@ default-tls = ["rustls-tls"]
 openssl-tls = [
     "ark-core-k8s/openssl-tls",
     "hickory-server/dns-over-openssl",
+    "hickory-server/dnssec-openssl",
     "kube/openssl-tls",
 ]
 rustls-tls = [
     "ark-core-k8s/rustls-tls",
     "hickory-server/dns-over-https-rustls",
+    "hickory-server/dnssec-ring",
     "kube/rustls-tls",
 ]
 

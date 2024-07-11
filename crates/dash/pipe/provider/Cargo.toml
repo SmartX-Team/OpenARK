@@ -30,7 +30,7 @@ messengers = [
     # "ros2",  # exclude(alpine)
 ]
 kafka = ["dep:rdkafka"]
-nats = ["dep:async-nats"]
+nats = ["ark-core-k8s/async-nats", "dep:async-nats"]
 ros2 = ["dep:r2r"]
 
 # storage
@@ -43,7 +43,10 @@ s3 = ["chrono", "minio"]
 arrow = ["dep:arrow", "async-stream"]
 
 # TLS
-openssl-tls = ["deltalake?/s3-native-tls", "minio?/native-tls"]
+openssl-tls = [
+    "deltalake?/s3-native-tls", # FIXME: it depends on `ring`!
+    "minio?/native-tls",
+]
 rustls-tls = ["async-nats?/ring", "deltalake?/s3", "minio?/rustls-tls"]
 
 [dependencies]
@@ -51,7 +54,6 @@ ark-core = { path = "../../../ark/core", default-features = false, features = [
     "signal",
 ] }
 ark-core-k8s = { path = "../../../ark/core/k8s", default-features = false, features = [
-    "async-nats",
     "data",
 ] }
 dash-api = { path = "../../api", optional = true }

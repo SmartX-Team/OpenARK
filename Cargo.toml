@@ -146,7 +146,6 @@ gethostname = { version = "0.4" }
 glob = { version = "0.3" }
 hickory-server = { version = "*", default-features = false, features = [
     "backtrace",
-    "dnssec-ring",
 ] }
 home = { version = "0.5" }
 http-cache-reqwest = { version = "0.14", features = ["manager-cacache"] }
