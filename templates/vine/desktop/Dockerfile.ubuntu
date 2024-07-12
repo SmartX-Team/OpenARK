@@ -378,6 +378,7 @@ RUN apt-get update && apt-get install -y \
     wine \
     $( if test "X$(uname -m)" = 'Xx86_64'; then echo 'wine32 wine64'; fi ) \
     # GUI Framework (Qt)
+    libqt5printsupport5 \
     qtbase5-dev \
     # GStreamer
     gstreamer1.0-alsa \
