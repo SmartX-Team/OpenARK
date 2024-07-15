@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
@@ -13,7 +13,7 @@ set -x
 ###########################################################
 
 # Configure default environment variables
-HELM_CHART_DEFAULT="https://charts.dexidp.io"
+HELM_CHART_DEFAULT="https://charts.bitnami.com/bitnami"
 NAMESPACE_DEFAULT="vine"
 
 # Set environment variables
@@ -24,12 +24,10 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "x${DOMAIN_NAME}" == "x" ]; then
-    echo 'Skipping installation: "DOMAIN_NAME" not set'
-    exit 0
-fi
-
-PUBLIC_DOMAIN_NAME="${PUBLIC_DOMAIN_NAME:-"http://${DOMAIN_NAME}"}"
+export DOMAIN_NAME="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq -r '.data.domain_name'
+)"
 
 ###########################################################
 #   Configure Helm Channel                                #
@@ -37,7 +35,7 @@ PUBLIC_DOMAIN_NAME="${PUBLIC_DOMAIN_NAME:-"http://${DOMAIN_NAME}"}"
 
 echo "- Configuring Helm channel ... "
 
-helm repo add "${NAMESPACE}-dex" "${HELM_CHART}"
+helm repo add "${NAMESPACE}-keycloak" "${HELM_CHART}"
 
 ###########################################################
 #   Install Dex                                           #
@@ -45,28 +43,22 @@ helm repo add "${NAMESPACE}-dex" "${HELM_CHART}"
 
 echo "- Installing Operator ... "
 
-helm upgrade --install "dex" \
-    "${NAMESPACE}-dex/dex" \
+helm upgrade --install "keycloak" \
+    "${NAMESPACE}-keycloak/keycloak" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
-    --set config.connectors[0].config.redirectURI="${PUBLIC_DOMAIN_NAME}/dex/callback" \
-    --set config.issuer="${PUBLIC_DOMAIN_NAME}/dex/" \
-    --set config.staticClients[0].redirectURIs[0]="http://${DOMAIN_NAME}/oauth2/callback" \
-    --set image.repository="quay.io/ulagbulag/openark-vine-dex" \
-    --set image.pullPolicy="Always" \
-    --set image.tag="latest" \
     --set ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
-    --set ingress.annotations."kubernetes\.io/ingress\.class"="${DOMAIN_NAME}" \
-    --set ingress.hosts[0].host="${DOMAIN_NAME}" \
+    --set ingress.hostname="auth.${DOMAIN_NAME}" \
+    --set ingress.ingressClassName="${DOMAIN_NAME}" \
     --values "./values.yaml"
 
 ###########################################################
-#   Install Operator                                      #
+#   Install Stunnel                                       #
 ###########################################################
 
-echo "- Installing OAuth2 Proxy ... "
+echo "- Installing Stunnel ... "
 
-kubectl apply -f "oauth2-proxy.yaml"
+kubectl apply -f "stunnel.yaml"
 
 # Finished!
 echo "Installed!"

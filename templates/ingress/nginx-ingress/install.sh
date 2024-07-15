@@ -55,6 +55,7 @@ helm upgrade --install "${NAMESPACE}-${DOMAIN_NAME/./-}-ingress-nginx" \
     --set controller.ingressClass="${DOMAIN_NAME}" \
     --set controller.ingressClassResource.name="${DOMAIN_NAME}" \
     --set controller.ingressClassResource.controllerValue="k8s.io/ingress-nginx/${DOMAIN_NAME}" \
+    --set controller.proxySetHeaders.X-Forwarded-Auth="auth.${DOMAIN_NAME}" \
     --set controller.service.loadBalancerIP="${LOADBALANCER_IP}" \
     --values "./values.yaml"
 

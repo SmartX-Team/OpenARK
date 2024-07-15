@@ -67,8 +67,8 @@ grafana:
     ## Annotations for Grafana Ingress
     ##
     annotations:
-      nginx.ingress.kubernetes.io/auth-url: http://$host/oauth2/auth
-      nginx.ingress.kubernetes.io/auth-signin: http://$host/oauth2/start?rd=$escaped_request_uri
+      nginx.ingress.kubernetes.io/auth-url: https://$http_x_forwarded_auth/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://$http_x_forwarded_auth/oauth2/start?rd=$http_x_forwarded_proto://$http_x_forwarded_host$escaped_request_uri
       nginx.ingress.kubernetes.io/cors-allow-origin: "*"
       nginx.ingress.kubernetes.io/enable-cors: "true"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"

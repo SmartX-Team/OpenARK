@@ -34,6 +34,10 @@ controller:
                   - ControlPlane
                   - Gateway
 
+  # -- Will add custom headers before sending traffic to backends according to https://github.com/kubernetes/ingress-nginx/tree/main/docs/examples/customization/custom-headers
+  proxySetHeaders:
+    X-Forwarded-Auth: auth.example.com
+
   ## This section refers to the creation of the IngressClass resource
   ## IngressClass resources are supported since k8s >= 1.18 and required since k8s >= 1.19
   ingressClassResource:
