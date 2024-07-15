@@ -77,7 +77,7 @@ spec:
         - name: login-shell
           command:
             - /opt/scripts/entrypoint-desktop.sh
-          image: quay.io/ulagbulag/openark-vine-desktop:latest-rockylinux8
+          image: quay.io/ulagbulag/openark-vine-desktop:ubuntu-24.04-v11
           imagePullPolicy: Always
           env:
             - name: DISPLAY
