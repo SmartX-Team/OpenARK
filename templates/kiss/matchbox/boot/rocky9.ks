@@ -558,7 +558,7 @@ trap "echo 'Terminated.'; exit" EXIT
 
 # Configure environment variables
 export DISPLAY=:0
-export VINE_BASTION_ENTRYPOINT="http://ingress-nginx-controller.vine.svc.ops.openark/bastion"
+export VINE_BASTION_ENTRYPOINT="http://bastion.vine.svc.ops.openark"
 
 echo "Wait until graphic drivers are ready ..."
 ## NVIDIA
