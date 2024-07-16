@@ -73,22 +73,5 @@ RUN true \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
-ADD ./requirements.txt /requirements.txt
-RUN apt-get update && apt-get install -y \
-    # Install core dependencies
-    curl \
-    # Include target-dependent packages
-    && sed -i 's/^\( *\)\(.*\# *include *( *[_0-9a-z-]\+ *)\)$/\1# \2/g' /requirements.txt \
-    && sed -i "s/^\( *\)\# *\(.*\# *include *( *$(uname -m) *)\)$/\1\2/g" /requirements.txt \
-    # Install python dependencies
-    && python3 -m pip install --break-system-packages --no-cache-dir nvidia-pyindex \
-    && python3 -m pip install --break-system-packages --no-cache-dir --requirement /requirements.txt \
-    # Cleanup
-    && find /usr -type d -name '*__pycache__' -prune -exec rm -rf {} \; \
-    && rm /requirements.txt \
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
-
 # Load scripts
 ADD ./templates/devel/scripts /opt/openark
