@@ -6,7 +6,7 @@
 ARG ALPINE_VERSION="latest"
 
 # Be ready for serving
-FROM docker.io/alpine:${ALPINE_VERSION} as server
+FROM docker.io/alpine:${ALPINE_VERSION} AS server
 
 # Server Configuration
 WORKDIR /usr/sbin

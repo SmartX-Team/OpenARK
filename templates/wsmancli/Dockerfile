@@ -6,7 +6,7 @@
 ARG ROCKYLINUX_VERSION="latest"
 
 # Be ready for serving
-FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} as server
+FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} AS server
 
 # Configure enviroment variables
 ENV TEMPLATES_HOME="/usr/local/share/wsmancli/templates"

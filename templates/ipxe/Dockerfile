@@ -8,7 +8,7 @@ ARG DEBIAN_VERSION="latest"
 ARG IPXE_VERSION="9f17d1116d27696ec76c48c5c77df34cba521380"
 
 # Be ready for serving
-FROM docker.io/alpine:${ALPINE_VERSION} as server
+FROM docker.io/alpine:${ALPINE_VERSION} AS server
 
 # Server Configuration
 WORKDIR /ipxe
@@ -16,7 +16,7 @@ ENTRYPOINT [ "/bin/sh" ]
 CMD [ "-c", "cp /ipxe/* /var/lib/tftpboot/" ]
 
 # Be ready for building
-FROM docker.io/debian:${DEBIAN_VERSION} as builder
+FROM docker.io/debian:${DEBIAN_VERSION} AS builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \

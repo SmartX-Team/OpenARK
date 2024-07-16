@@ -14,7 +14,7 @@ ARG USER_SUDO="true"
 ARG USER_UID="2000"
 
 # Be ready for serving
-FROM "${DEBIAN_IMAGE}:${DEBIAN_IMAGE_VERSION}" as server
+FROM "${DEBIAN_IMAGE}:${DEBIAN_IMAGE_VERSION}" AS server
 
 # Load user-specific environment variables
 ARG USER_GID

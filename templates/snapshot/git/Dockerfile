@@ -6,7 +6,7 @@
 ARG K8S_VERSION="latest"
 
 # Be ready for serving
-FROM docker.io/alpine/k8s:${K8S_VERSION} as server
+FROM docker.io/alpine/k8s:${K8S_VERSION} AS server
 
 # Server Configuration
 WORKDIR /src

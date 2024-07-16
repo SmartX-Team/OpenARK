@@ -6,7 +6,7 @@
 ARG DEX_VERSION="latest"
 
 # Be ready for serving
-FROM "ghcr.io/dexidp/dex:${DEX_VERSION}" as server
+FROM "ghcr.io/dexidp/dex:${DEX_VERSION}" AS server
 
 # Set environment variables
 ENV DEX_FRONTEND_DIR=/srv/dex/web

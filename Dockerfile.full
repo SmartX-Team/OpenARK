@@ -10,7 +10,7 @@ ARG PYTHON_VERSION="3"
 ARG ROS_DISTRO="humble"
 
 # Be ready for serving
-FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" as server
+FROM "nvcr.io/nvidia/pytorch:${PYTORCH_RELEASE}-py${PYTHON_VERSION}" AS server
 
 # Package Manager Configuration
 ARG DEBIAN_FRONTEND='noninteractive'
@@ -58,7 +58,7 @@ RUN true \
     && rm -rf /var/lib/apt/lists/*
 
 # Be ready for building
-FROM server as builder
+FROM server AS builder
 
 # Install dependencies
 ENV CARGO_HOME="/opt/cargo"
