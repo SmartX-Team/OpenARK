@@ -5,7 +5,7 @@ use actix_web::{
 };
 use ark_core::result::Result;
 use kube::Client;
-use tracing::{instrument, Level};
+use tracing::{instrument, warn, Level};
 use vine_api::user_session::{UserSessionCommand, UserSessionRef};
 use vine_rbac::auth::{AuthUserSession, AuthUserSessionRef};
 use vine_session::exec::SessionExecExt;
@@ -23,7 +23,10 @@ pub async fn post_exec(
         .and_then(|session| session.try_into_ark_session())
     {
         Ok(session) => session,
-        Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
+        Err(error) => {
+            warn!("{error}");
+            return HttpResponse::from(Result::<()>::Err(error.to_string()));
+        }
     };
 
     let result = session.exec_without_tty(kube, command).await.map(|_| ());

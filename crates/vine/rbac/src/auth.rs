@@ -135,21 +135,26 @@ impl AuthUserSession for UserSessionMetadata {
         let user_name = get_user_name_with_timestamp(request, now)
             .map_err(|error| anyhow!("failed to get user name: {error}"))?;
 
-        let role = get_user_role(client, &user_name, now)
-            .await
-            .map_err(|error| anyhow!("failed to get user role: {error}"))?;
+        match execute_with_timestamp(client, &user_name, now).await? {
+            UserAuthResponse::Accept {
+                box_name,
+                user,
+                user_name,
+                ..
+            } => {
+                let role = get_user_role(client, &user_name, now)
+                    .await
+                    .map_err(|error| anyhow!("failed to get user role: {error}"))?;
 
-        execute_with_timestamp(client, &user_name, now)
-            .await
-            .and_then(|response| match response {
-                UserAuthResponse::Accept { box_name, user, .. } => Ok(Self {
+                Ok(Self {
                     box_name,
                     role,
                     user,
                     user_name,
-                }),
-                UserAuthResponse::Error(error) => bail!("failed to auth user: {error}"),
-            })
+                })
+            }
+            UserAuthResponse::Error(error) => bail!("failed to auth user: {error}"),
+        }
     }
 }
 
@@ -436,6 +441,7 @@ async fn execute_with_timestamp(
         box_name,
         box_quota_bindings,
         user: user.spec,
+        user_name,
     })
 }
 

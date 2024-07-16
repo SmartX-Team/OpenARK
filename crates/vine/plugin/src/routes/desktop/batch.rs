@@ -5,7 +5,7 @@ use actix_web::{
 };
 use ark_core::result::Result;
 use kube::Client;
-use tracing::{instrument, Level};
+use tracing::{instrument, warn, Level};
 use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
 use vine_rbac::auth::AuthUserSession;
 use vine_session::batch::{BatchCommandArgs, BatchCommandUsers};
@@ -27,6 +27,7 @@ pub async fn post_exec_broadcast(
         .await
         .and_then(|metadata| metadata.assert_admin())
     {
+        warn!("{error}");
         return HttpResponse::from(Result::<()>::Err(error.to_string()));
     };
 

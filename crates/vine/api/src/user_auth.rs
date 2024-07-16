@@ -116,6 +116,7 @@ pub enum UserAuthResponse {
         box_name: Option<String>,
         box_quota_bindings: Vec<UserBoxQuotaBindingSpec<UserBoxQuotaSpec>>,
         user: UserSpec,
+        user_name: String,
     },
     Error(UserAuthError),
 }

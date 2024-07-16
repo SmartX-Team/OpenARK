@@ -2,7 +2,7 @@ use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
 use ark_api::SessionRef;
 use ark_core::result::Result;
 use kube::Client;
-use tracing::{instrument, Level};
+use tracing::{instrument, warn, Level};
 use vine_api::user_session::UserSessionMetadata;
 use vine_rbac::auth::AuthUserSession;
 use vine_session::exec::SessionExec;
@@ -15,6 +15,7 @@ pub async fn list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
         .await
         .and_then(|metadata| metadata.assert_admin())
     {
+        warn!("{error}");
         return HttpResponse::from(Result::<()>::Err(error.to_string()));
     };
 
