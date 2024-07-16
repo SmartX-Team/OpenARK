@@ -21,6 +21,7 @@ impl Command {
                     box_quota: _,
                     user:
                         UserSpec {
+                            alias: _,
                             name,
                             contact: _,
                             detail: _,

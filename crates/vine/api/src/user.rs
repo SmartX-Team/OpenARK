@@ -49,14 +49,22 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserSpec {
+    #[serde(default)]
+    pub alias: Option<String>,
     pub name: String,
+    #[serde(default)]
     pub contact: UserContact,
+    #[serde(default)]
     pub detail: BTreeMap<String, String>,
 }
 
 impl UserCrd {
+    pub fn perferred_name(&self) -> String {
+        self.spec.alias.clone().unwrap_or_else(|| self.name_any())
+    }
+
     pub fn user_namespace(&self) -> String {
-        Self::user_namespace_with(&self.name_any())
+        Self::user_namespace_with(&self.perferred_name())
     }
 
     pub fn user_namespace_with(user_name: &str) -> String {

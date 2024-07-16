@@ -332,6 +332,7 @@ async fn execute_with_timestamp(
             return Ok(UserAuthError::UserNotRegistered.into());
         }
     };
+    let user_name = user.perferred_name();
 
     // get available boxes
     let boxes = {

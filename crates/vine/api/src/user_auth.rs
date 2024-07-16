@@ -57,7 +57,7 @@ pub struct UserAuthOAuth2Common {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct UserAuthPayload {
     /// User primary id
-    #[serde(default)]
+    #[serde(default, alias = "sub")]
     id: Option<String>,
     /// User e-mail address
     email: String,
@@ -77,8 +77,8 @@ impl UserAuthPayload {
         fn encode(s: &str) -> String {
             s.to_lowercase()
                 // common special words
-                .replace('.', "-d-")
                 .replace('-', "-s-")
+                .replace('.', "-d-")
                 .replace('@', "-at-")
                 // other special words
                 .replace('_', "-u-")
@@ -101,8 +101,9 @@ impl UserAuthPayload {
             }
         };
 
-        id().or_else(email)
-            .or_else(name)
+        name()
+            .or_else(email)
+            .or_else(id)
             .ok_or_else(|| anyhow!("failed to parse primary key: {:?}", self))
     }
 }

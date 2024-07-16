@@ -44,6 +44,7 @@ where
             }
         }
     };
+    let user_name = user.perferred_name();
 
     // check the box state
     {
@@ -58,7 +59,7 @@ where
     let node = {
         let api = Api::<Node>::all(client.clone());
         match api.get_opt(box_name).await? {
-            Some(node) => match assert_allocable(&node, box_name, user_name, now) {
+            Some(node) => match assert_allocable(&node, box_name, &user_name, now) {
                 Some(error) => return Ok(error),
                 None => node,
             },
@@ -169,7 +170,7 @@ where
     match box_quota {
         // Login Successed!
         Some(box_quota) => {
-            let namespace = UserCrd::user_namespace_with(user_name);
+            let namespace = UserCrd::user_namespace_with(&user_name);
             let session_manager =
                 SessionManager::try_new(namespace.clone(), client.clone()).await?;
 
