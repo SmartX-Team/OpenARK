@@ -384,9 +384,6 @@ ingress:
   annotations:
     # cert-manager.io/cluster-issuer: ""
     # nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: 200M
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     vine.ulagbulag.io/is-service: "true"
     vine.ulagbulag.io/is-service-public: "false"
     vine.ulagbulag.io/is-service-system: "true"

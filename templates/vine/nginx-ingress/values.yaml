@@ -31,6 +31,12 @@ controller:
                   - ControlPlane
                   - Gateway
 
+  # -- Global configuration passed to the ConfigMap consumed by the controller. Values may contain Helm templates.
+  # Ref.: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/
+  config:
+    proxy-buffer-size: 16K
+    proxy-buffers-number: "4"
+
   ## This section refers to the creation of the IngressClass resource
   ## IngressClass resources are supported since k8s >= 1.18 and required since k8s >= 1.19
   ingressClassResource:
