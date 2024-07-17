@@ -2,7 +2,7 @@ use std::{fmt, marker::PhantomData};
 
 use anyhow::Result;
 use ark_core::signal::FunctionSignal;
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::TryStreamExt;
 use kube::{
     runtime::watcher::{watcher, Config, Error, Event},
     Api, CustomResourceExt, Resource, ResourceExt,
@@ -124,16 +124,11 @@ where
     K: ResourceExt + NetworkResource,
 {
     match event {
-        Event::Applied(object) => handle_apply(resource_db, default_namespace, object).await,
-        Event::Deleted(object) => handle_delete(resource_db, default_namespace, object).await,
-        Event::Restarted(objects) => {
-            objects
-                .into_iter()
-                .map(|object| handle_apply(resource_db, default_namespace, object))
-                .collect::<FuturesUnordered<_>>()
-                .try_collect()
-                .await
+        Event::Apply(object) | Event::InitApply(object) => {
+            handle_apply(resource_db, default_namespace, object).await
         }
+        Event::Delete(object) => handle_delete(resource_db, default_namespace, object).await,
+        Event::Init | Event::InitDone => Ok(()),
     }
 }
 

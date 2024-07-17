@@ -66,16 +66,9 @@ async fn handle_event(
     event: Event<BoxCrd>,
 ) -> Result<(), Error> {
     match event {
-        Event::Applied(object) => handle_apply(ctx, handler, object).await,
-        Event::Deleted(object) => handle_delete(ctx, handler, object).await,
-        Event::Restarted(objects) => {
-            objects
-                .into_iter()
-                .map(|object| handle_apply(ctx, handler, object))
-                .collect::<FuturesUnordered<_>>()
-                .try_collect()
-                .await
-        }
+        Event::Apply(object) | Event::InitApply(object) => handle_apply(ctx, handler, object).await,
+        Event::Delete(object) => handle_delete(ctx, handler, object).await,
+        Event::Init | Event::InitDone => Ok(()),
     }
 }
 
