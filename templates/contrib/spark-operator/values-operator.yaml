@@ -1,0 +1,66 @@
+---
+uiService:
+  # -- Enable UI service creation for Spark application
+  enable: true
+
+# -- Ingress URL format.
+# Requires the UI service to be enabled by setting `uiService.enable` to true.
+ingressUrlFormat: ""
+
+webhook:
+  # -- Enable webhook server
+  enable: true
+
+metrics:
+  # -- Enable prometheus metric scraping
+  enable: true
+
+# affinity -- Affinity for pod assignment
+affinity:
+  nodeAffinity:
+    # KISS normal control plane nodes should be preferred
+    preferredDuringSchedulingIgnoredDuringExecution:
+      # KISS normal control plane nodes should be preferred
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+              operator: DoesNotExist
+      # KISS compute nodes should be more preferred
+      - weight: 2
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Compute
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - ControlPlane
+                - Compute
+
+# resources -- Pod resource requests and limits
+# Note, that each job submission will spawn a JVM within the Spark Operator Pod using "/usr/local/openjdk-11/bin/java -Xmx128m".
+# Kubernetes may kill these Java processes at will to enforce resource limits. When that happens, you will see the following error:
+# 'failed to run spark-submit for SparkApplication [...]: signal: killed' - when this happens, you may want to increase memory limits.
+resources:
+  limits:
+    cpu: 100m
+    memory: 300Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+batchScheduler:
+  # -- Enable batch scheduler for spark jobs scheduling. If enabled, users can specify batch scheduler name in spark application
+  enable: true
+
+resourceQuotaEnforcement:
+  # -- Whether to enable the ResourceQuota enforcement for SparkApplication resources.
+  # Requires the webhook to be enabled by setting `webhook.enable` to true.
+  # Ref: https://github.com/kubeflow/spark-operator/blob/master/docs/user-guide.md#enabling-resource-quota-enforcement.
+  enable: true
