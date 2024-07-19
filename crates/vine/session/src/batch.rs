@@ -3,6 +3,7 @@ use std::fmt;
 use anyhow::{anyhow, Error, Result};
 use ark_api::{NamespaceAny, SessionRef};
 use futures::{stream::FuturesUnordered, StreamExt};
+use itertools::Itertools;
 use k8s_openapi::api::core::v1::Node;
 use kube::{api::ListParams, Api, Client, ResourceExt};
 use regex::Regex;
@@ -42,7 +43,7 @@ impl<C, U> BatchCommandArgs<C, U> {
             command.push("/usr/bin/env".into());
             command.push("sh".into());
             command.push("-c".into());
-            command.extend(command_args.clone().into_iter().map(Into::into));
+            command.push(command_args.clone().into_iter().map(Into::into).join(" "));
         }
 
         let sessions_all = collect_user_sessions(kube).await?;

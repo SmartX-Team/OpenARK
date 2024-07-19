@@ -21,7 +21,7 @@ workspace = true
 
 [features]
 default = []
-batch = ["exec", "regex"]
+batch = ["exec", "itertools", "regex"]
 exec = ["async-trait", "kube/ws"]
 shell = ["avt", "batch", "ratatui"]
 
@@ -43,6 +43,7 @@ async-trait = { workspace = true, optional = true }
 avt = { workspace = true, optional = true }
 chrono = { workspace = true }
 futures = { workspace = true }
+itertools = { workspace = true, optional = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true }
 ratatui = { workspace = true, optional = true }
