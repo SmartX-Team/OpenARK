@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-windows-11
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: ceph-block
+  volumeMode: Block
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: test-windows-11
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/size: small
+        kubevirt.io/domain: test-windows-11
+    spec:
+      domain:
+        clock:
+          timer:
+            hpet:
+              present: false
+            hyperv: {}
+            pit:
+              tickPolicy: delay
+            rtc:
+              tickPolicy: catchup
+          utc: {}
+        cpu:
+          cores: 8
+        devices:
+          disks:
+            - name: disk-a
+              bootOrder: 1
+              disk:
+                bus: virtio
+            - name: cdrom-iso
+              bootOrder: 2
+              cdrom: # FIXED
+                bus: scsi # FIXED
+            - name: cdrom-virtio
+              cdrom:
+                bus: sata
+          interfaces:
+            - name: default
+              model: e1000
+              masquerade: {}
+          tpm: {}
+        features:
+          acpi: {}
+          apic: {}
+          hyperv:
+            relaxed: {}
+            spinlocks:
+              spinlocks: 8191
+            vapic: {}
+          smm: {}
+        firmware:
+          bootloader:
+            efi:
+              secureBoot: true
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 16Gi
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+        - name: cdrom-iso
+          persistentVolumeClaim:
+            claimName: vm-cdrom-windows-11
+        - name: cdrom-virtio
+          containerDisk:
+            image: quay.io/kubevirt/virtio-container-disk:v1.3.0
+        - name: disk-a
+          persistentVolumeClaim:
+            claimName: test-windows-11
