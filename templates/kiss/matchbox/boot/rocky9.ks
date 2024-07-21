@@ -781,6 +781,6 @@ fi
 ## VFIO
 sudo grubby --update-kernel=ALL --args='amd_iommu=pt'
 sudo grubby --update-kernel=ALL --args='intel_iommu=pt'
-sudo dracut --force
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
 %end  # SCRIPT_END
