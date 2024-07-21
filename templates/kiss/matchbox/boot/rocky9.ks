@@ -783,4 +783,7 @@ sudo grubby --update-kernel=ALL --args='amd_iommu=pt'
 sudo grubby --update-kernel=ALL --args='intel_iommu=pt'
 sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
+# VFIO
+echo 'vfio-pci' > /etc/modules-load.d/vfio-pci.conf 
+
 %end  # SCRIPT_END
