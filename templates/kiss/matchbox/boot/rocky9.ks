@@ -777,4 +777,10 @@ if which dkms >/dev/null 2>/dev/null; then
     dkms autoinstall -k "${SRC_KERNEL_VERSION}"
 fi
 
+# Kernel Command-line
+## VFIO
+sudo grubby --update-kernel=ALL --args='amd_iommu=pt'
+sudo grubby --update-kernel=ALL --args='intel_iommu=pt'
+sudo dracut --force
+
 %end  # SCRIPT_END

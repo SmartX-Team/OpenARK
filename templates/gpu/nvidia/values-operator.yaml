@@ -7,6 +7,9 @@ cdi:
   enabled: false
   default: false
 
+sandboxWorkloads:
+  enabled: true
+
 # standalone dcgm hostengine
 dcgm:
   # disabled by default to use embedded nv-hostengine by exporter
@@ -146,7 +149,7 @@ platform:
   openshift: false
 
 sandboxDevicePlugin:
-  enabled: false
+  enabled: true
 
 toolkit:
   enabled: true

@@ -64,6 +64,11 @@ echo "- Installing Operator CR ... "
 kubectl apply \
     -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-cr.yaml"
 
+kubectl patch kubevirt -n kubevirt kubevirt --type='json' \
+    -p='[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": "DisableMDEVConfiguration" }]'
+kubectl patch kubevirt -n kubevirt kubevirt --type='json' \
+    -p='[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": "GPU" }]'
+
 ###########################################################
 #   Install CDI Operator                                  #
 ###########################################################

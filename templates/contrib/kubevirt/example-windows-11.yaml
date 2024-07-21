@@ -1,29 +1,50 @@
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: vm
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: test-windows-11
+  name: windows-11
+  namespace: vm
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Ti
+      storage: 200Gi
   storageClassName: ceph-block
   volumeMode: Block
 ---
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
-  name: test-windows-11
+  name: windows-11
+  namespace: vm
 spec:
-  running: false
+  running: true
   template:
     metadata:
       labels:
         kubevirt.io/size: small
-        kubevirt.io/domain: test-windows-11
+        kubevirt.io/domain: windows-11
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+              - matchExpressions:
+                  - key: nvidia.com/gpu.product
+                    operator: In
+                    values:
+                      - NVIDIA-A10
       domain:
         clock:
           timer:
@@ -50,10 +71,16 @@ spec:
             - name: cdrom-virtio
               cdrom:
                 bus: sata
+          # gpus:
+          #   - name: gpu-1
+          #     deviceName: nvidia.com/GA102GL_A10
           interfaces:
             - name: default
-              model: e1000
+              model: virtio
               masquerade: {}
+              ports:
+                - name: rdp
+                  port: 3389
           tpm: {}
         features:
           acpi: {}
@@ -80,10 +107,25 @@ spec:
       volumes:
         - name: cdrom-iso
           persistentVolumeClaim:
-            claimName: vm-cdrom-windows-11
+            claimName: cdrom-windows-11
         - name: cdrom-virtio
           containerDisk:
             image: quay.io/kubevirt/virtio-container-disk:v1.3.0
         - name: disk-a
           persistentVolumeClaim:
-            claimName: test-windows-11
+            claimName: windows-11
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: windows-11
+  namespace: vm
+spec:
+  type: ClusterIP
+  selector:
+    vm.kubevirt.io/name: windows-11
+  ports:
+    - name: rdp
+      port: 3389
+      protocol: TCP
+      targetPort: 3389
