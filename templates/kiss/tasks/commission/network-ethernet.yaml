@@ -37,10 +37,12 @@
 
 - name: Define default interfaces list
   set_fact:
+    all_bonds: []
     all_interfaces: []
+    all_interfaces_indexed: []
     interfaces: []
 
-- name: Collect network inteface informations
+- name: Collect network interface informations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
@@ -56,18 +58,21 @@
         'macaddress': ansible_facts[item].macaddress,
         'module': ansible_facts[item]['module'],
         'mtu': kiss_network_interface_mtu_size,
+        'pciid': ansible_facts[item].pciid,
         'priority':
-          ethernet_priority_map[ansible_facts[item]['module']]
+          (1 + ethernet_priority_map[ansible_facts[item]['module']])
           if ansible_facts[item]['module'] in ethernet_priority_map
-          else (ethernet_priority | length),
+          else 0,
+        'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
+        'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'type':
           ethernet_modules_map[ansible_facts[item]['module']]
           if ansible_facts[item]['module'] in ethernet_modules_map
           else 'ethernet',
-        'uuid': 9999999999999999999999 | random | to_uuid,
+        'uuid': item | to_uuid,
       }] }}
 
-- name: Collect running network inteface informations
+- name: Collect running network interface informations
   loop: "{{ ansible_interfaces }}"
   # filter the physical devices that has connected to the specific network as ethernet
   when: >
@@ -103,9 +108,9 @@
         'mtu': kiss_network_interface_mtu_size,
         'pciid': ansible_facts[item].pciid,
         'priority':
-          ethernet_priority_map[ansible_facts[item]['module']]
+          (1 + ethernet_priority_map[ansible_facts[item]['module']])
           if ansible_facts[item]['module'] in ethernet_priority_map
-          else (ethernet_priority | length),
+          else 0,
         'qdisc': 'mq' if 'speed' in ansible_facts[item] else 'noqueue',
         'speed': ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
         'speed_neg': -ansible_facts[item].speed if 'speed' in ansible_facts[item] else 0,
@@ -113,37 +118,109 @@
           ethernet_modules_map[ansible_facts[item]['module']]
           if ansible_facts[item]['module'] in ethernet_modules_map
           else 'ethernet',
-        'uuid': 9999999999999999999999 | random | to_uuid,
+        'uuid': item | to_uuid,
+      }] }}
+
+- name: Collect network bond informations
+  loop: "{{ ansible_interfaces }}"
+  # filter the physical devices that has connected to the specific network as ethernet
+  when: >
+    item in ansible_facts
+    and (
+      item == ansible_facts.default_ipv4.interface
+      or 'ipv4' in ansible_facts[item]
+      and 'netmask' in ansible_facts[item].ipv4
+      and ansible_facts[item].ipv4.netmask == kiss_network_ipv4_subnet_mask
+      and 'network' in ansible_facts[item].ipv4
+      and ansible_facts[item].ipv4.network == kiss_network_ipv4_subnet_address
+    )
+    and ansible_facts[item].active
+    and 'macaddress' in ansible_facts[item]
+    and 'type' in ansible_facts[item]
+    and ansible_facts[item].type == 'bonding'
+  set_fact:
+    all_bonds: >
+      {{ all_bonds + [{
+        'name': item,
+        'address_ipv4':
+          ansible_facts.default_ipv4.address
+          if item == ansible_facts.default_ipv4.interface
+          else ansible_facts[item].ipv4.address,
+        'address_ipv4_netmask': kiss_network_ipv4_subnet_mask_prefix,
+        'address_ipv4_gateway': ansible_default_ipv4.gateway,
+        'dns': [
+          kiss_network_nameserver_incluster_ipv4,
+        ],
+        'macaddress': ansible_facts[item].macaddress,
+        'mtu': kiss_network_interface_mtu_size,
+        'uuid': item | to_uuid,
       }] }}
 
 - name: Sort by speed, module, and PCI ID
   set_fact:
+    all_interfaces: "{{ all_interfaces | sort(attribute='priority,speed_neg,pciid') }}"
     interfaces: "{{ interfaces | sort(attribute='priority,speed_neg,pciid') }}"
 
-- name: Show about the intefaces
+- name: Create order ids | interfaces
+  with_indexed_items: "{{ all_interfaces }}"
+  set_fact:
+    all_interfaces_indexed: >
+      {{ all_interfaces_indexed + [(
+        item.1 | combine({
+          'id': item.0,
+        })
+      )] }}
+
+- name: Show about the interfaces
+  debug:
+    var: all_interfaces_indexed
+
+- name: Show about the running interfaces
   debug:
     var: interfaces
 
-- name: Select the fastest interface as Primary
-  when: interfaces | length > 0
-  set_fact:
-    interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
-    interface_primary_is_current: "{{ interfaces[0].name == 'master' }}"
-    interface_primary_name: "{{ interfaces[0].name }}"
-    interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
+- name: Show about the bonds
+  debug:
+    var: all_bonds
 
-- name: Update the primary interface's name
-  when: interfaces | length > 0
+- name: Select the bond interface as Primary
+  when:
+    - all_bonds | length > 0
+    - all_interfaces | length > 0
+  set_fact:
+    interface_primary: >
+      {{
+        all_bonds[0] | combine({
+          'name': 'master',
+          'uuid': 'master' | to_uuid,
+        })
+      }}
+    interface_primary_address_ipv4: "{{ all_bonds[0].address_ipv4 }}"
+    interface_primary_is_current: "{{ all_bonds[0].name == 'master' }}"
+    interface_primary_name: "{{ all_bonds[0].name }}"
+    interface_primary_speed_mbps: "{{ all_interfaces[0].speed }}"
+
+- name: Select the fastest interface as Primary
+  when:
+    - all_bonds | length == 0
+    - interfaces | length > 0
+    - interface_primary_name is not defined
   set_fact:
     interface_primary: >
       {{
         interfaces[0] | combine({
           'name': 'master',
+          'uuid': 'master' | to_uuid,
         })
       }}
+    interface_primary_address_ipv4: "{{ interfaces[0].address_ipv4 }}"
+    interface_primary_is_current: "{{ interfaces[0].name == 'master' }}"
+    interface_primary_name: "{{ interfaces[0].name }}"
+    interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
 - name: Collect physical MAC Address
   when:
+    - all_bonds | length == 0
     - interfaces | length > 0
     - interface_primary is defined
     - not interface_primary_is_current
@@ -157,6 +234,7 @@
 
 - name: Update the primary interface's mac address
   when:
+    - all_bonds | length == 0
     - interfaces | length > 0
     - interface_primary is defined
     - not interface_primary_is_current
@@ -165,35 +243,41 @@
   set_fact:
     interface_primary: >
       {{
-        interfaces[0] | combine({
+        interface_primary | combine({
           'macaddress': interface_primary_mac_address.stdout,
         })
       }}
 
-- name: Show about the primary inteface
+- name: Regard a primary interface as bond
   when:
+    - all_bonds | length == 0
     - interfaces | length > 0
     - interface_primary is defined
+  set_fact:
+    all_bonds: "{{ [ interface_primary ] }}"
+
+- name: Show about the primary interface
+  when: interface_primary is defined
   debug:
     var: interface_primary
 
 - name: Configure network interfaces | NetworkManager
   when:
-    - interfaces | length > 0
+    - interface_primary is defined
     - not interface_primary_is_current
     - kiss_network_service == 'NetworkManager'
   include_tasks: network-ethernet-conf-network-manager.yaml
 
 - name: Configure network interfaces | systemd-networkd
   when:
-    - interfaces | length > 0
+    - interface_primary is defined
     - not interface_primary_is_current
     - kiss_network_service == 'systemd-networkd'
   include_tasks: network-ethernet-conf-systemd-networkd.yaml
 
 - name: Ping from primary interface to the gateway
   when:
-    - interfaces | length > 0
+    - interface_primary is defined
     - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   command: >
@@ -207,7 +291,7 @@
 
 - name: Update SSH access IP
   when:
-    - interfaces | length > 0
+    - interface_primary is defined
     - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   set_fact:
@@ -215,48 +299,52 @@
 
 - name: Unmanage interface networks from DHCP - Local DNS Server
   when:
-    - interfaces | length > 0
+    - all_bonds | length == 0
+    - interface_primary is defined
     - not interface_primary_is_current
   command: >
     ip route del {{ kiss_network_nameserver_incluster_ipv4 }}
-    dev {{ item.name }}
+    dev {{ interface_primary.name }}
     proto dhcp
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Subnet Gateway
   when:
-    - interfaces | length > 0
+    - all_bonds | length == 0
+    - interface_primary is defined
     - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
   command: >
     ip route del {{ item.address_ipv4_gateway }}
-    dev {{ item.name }}
+    dev {{ interface_primary.name }}
     proto dhcp
   ignore_errors: true
 
 - name: Unmanage interface networks from DHCP - Default Gateway
   when:
-    - interfaces | length > 0
+    - all_bonds | length == 0
+    - interface_primary is defined
     - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
   command: >
     ip route del default
     via {{ item.address_ipv4_gateway }}
-    dev {{ item.name }}
+    dev {{ interface_primary.name }}
     proto dhcp
   ignore_errors: true
 
-- name: Modify MTU - {{ item.mtu }} Bytes
+- name: Modify MTU - {{ interface_primary.mtu }} Bytes
   when:
-    - interfaces | length > 0
+    - all_bonds | length == 0
+    - interface_primary is defined
     - not interface_primary_is_current
   with_items: "{{ [interface_primary] }}"
-  command: ip link set {{ item.name }} mtu {{ item.mtu }}
+  command: ip link set {{ interface_primary.name }} mtu {{ interface_primary.mtu }}
   ignore_errors: true
 
 - name: Wait for primary interface to be linked up
   when:
-    - interfaces | length > 0
+    - interface_primary is defined
     - not interface_primary_is_current
     - interface_primary_address_ipv4 is defined
   command: >
@@ -268,10 +356,3 @@
   until: result.rc == 0
   delay: 30
   retries: 10
-
-- name: Configure network interfaces now | NetworkManager
-  when:
-    - interfaces | length > 0
-    - not interface_primary_is_current
-    - kiss_network_service == 'NetworkManager'
-  include_tasks: network-ethernet-conf-network-manager-post.yaml

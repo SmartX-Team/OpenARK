@@ -32,7 +32,7 @@
 - name: Disable all other interfaces | systemd-networkd
   when:
     - kiss_allow_pruning_network_interfaces | default(False)
-    - item.name != interfaces[0].name
+    - item.name != interfaces_primary.name
   with_items: "{{ all_interfaces }}"
   template:
     src: ./template_systemd-networkd_20-disable.network.j2

@@ -1,8 +1,0 @@
----
-- name: Disable all other interfaces now | NetworkManager
-  when:
-    - kiss_allow_pruning_network_interfaces | default(False)
-    - item.name != interfaces[0].name
-  with_items: "{{ all_interfaces }}"
-  command: nmcli connection up 20-kiss-disable-{{ item.name }}
-  failed_when: false

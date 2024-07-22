@@ -2,6 +2,12 @@
 - name: Provision Power Planes - Intel AMT Common
   include_tasks: power-intel-amt-common.yaml
 
+- name: Cleanup old container | Intel AMT
+  when: intel_amt_is_ready
+  shell: /bin/ctr container rm "kiss-wsmancli"
+  ignore_errors: true
+  no_log: true
+
 - name: Change boot order to Disk-first
   when: intel_amt_is_ready
   shell: >

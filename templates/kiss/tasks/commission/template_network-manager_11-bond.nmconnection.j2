@@ -1,0 +1,32 @@
+[connection]
+id=11-kiss-bond-{{ item.name }}
+uuid={{ item.uuid }}
+type=bond
+interface-name={{ item.name }}
+
+autoconnect=true
+autoconnect-priority=0
+
+[ethernet]
+
+[bond]
+downdelay=0
+miimon=100
+mode=active-backup
+primary={{ all_interfaces[0].name }}
+primary_reselect=better
+updelay=0
+
+[ipv4]
+address1={{ item.address_ipv4 }}/{{ item.address_ipv4_netmask }},{{ item.address_ipv4_gateway }}
+dns={{ item.dns | join(';') }};
+dns-search=
+method=manual
+route-metric=10
+
+[ipv6]
+addr-gen-mode=eui64
+dns-search=
+method=disabled
+
+[proxy]

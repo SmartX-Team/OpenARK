@@ -1,4 +1,5 @@
 ---
+# NOTE: KEEP LEGACY SINCE 2024-07-22
 - name: List all network configurations | link | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   find:
@@ -7,6 +8,7 @@
     pattern: "70-kiss-*.rules"
   register: results
 
+# NOTE: KEEP LEGACY SINCE 2024-07-22
 - name: Remove all network configurations | link | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
   file:
@@ -31,28 +33,21 @@
     force: true
   with_items: "{{ results.files }}"
 
-- name: Enable primary interfaces | link
+- name: Enable interfaces | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ [interface_primary] }}"
-  template:
-    src: ./template_network-manager_70-enable.rules.j2
-    dest: /etc/udev/rules.d/70-kiss-net-setup-link-{{ item.name }}.rules
-
-- name: Enable primary interfaces | network | NetworkManager
-  when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ [interface_primary] }}"
+  with_items: "{{ all_interfaces_indexed }}"
   template:
     src: ./template_network-manager_10-enable.nmconnection.j2
     dest: /etc/NetworkManager/system-connections/10-kiss-enable-{{ item.name }}.nmconnection
 
-- name: Disable all other interfaces | NetworkManager
+- name: Bond interfaces | NetworkManager
   when:
+    - all_interfaces | length > 0
     - kiss_allow_pruning_network_interfaces | default(False)
-    - item.name != interfaces[0].name
-  with_items: "{{ all_interfaces }}"
+  with_items: "{{ all_bonds }}"
   template:
-    src: ./template_network-manager_20-disable.nmconnection.j2
-    dest: /etc/NetworkManager/system-connections/20-kiss-disable-{{ item.name }}.nmconnection
+    src: ./template_network-manager_11-bond.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/11-kiss-bond-{{ item.name }}.nmconnection
 
 - name: List all network configurations | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
@@ -74,7 +69,14 @@
   when: kiss_allow_pruning_network_interfaces | default(False)
   command: nmcli connection reload
 
-- name: Enable primary interfaces now | NetworkManager
+- name: Enable bonds now | NetworkManager
+  when:
+    - all_interfaces | length > 0
+    - kiss_allow_pruning_network_interfaces | default(False)
+  with_items: "{{ all_bonds }}"
+  command: nmcli connection up 11-kiss-bond-{{ item.name }}
+
+- name: Enable interfaces now | NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
-  with_items: "{{ [interface_primary] }}"
+  with_items: "{{ all_interfaces_indexed }}"
   command: nmcli connection up 10-kiss-enable-{{ item.name }}
