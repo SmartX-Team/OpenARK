@@ -15,7 +15,7 @@ pub enum ImagePullPolicy {
     Never,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EmailAddress(pub ::email_address::EmailAddress);
 
@@ -32,18 +32,6 @@ impl ops::Deref for EmailAddress {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl PartialOrd for EmailAddress {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(<Self as Ord>::cmp(self, other))
-    }
-}
-
-impl Ord for EmailAddress {
-    fn cmp(&self, other: &Self) -> Ordering {
-        <str as Ord>::cmp(self.0.as_str(), other.0.as_str())
     }
 }
 

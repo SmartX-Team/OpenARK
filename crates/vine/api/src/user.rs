@@ -6,9 +6,7 @@ use kube::{CustomResource, ResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource,
-)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
     group = "vine.ulagbulag.io",
     version = "v1alpha1",
@@ -79,9 +77,7 @@ pub struct UserStatus {
     pub last_updated: DateTime<Utc>,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Clone, Debug, Default, PartialEq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserContact {
     #[serde(default)]
