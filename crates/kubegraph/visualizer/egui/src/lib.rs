@@ -170,7 +170,7 @@ impl NetworkVisualizerApp {
 
     async fn update_graph(&mut self, ui: &mut Ui) {
         if let Some(graph) = self.data.graph.lock().await.as_mut() {
-            let interaction_settings = &SettingsInteraction::new()
+            let settings_interaction = &SettingsInteraction::new()
                 .with_dragging_enabled(true)
                 .with_node_clicking_enabled(true)
                 .with_node_selection_enabled(true)
@@ -178,11 +178,11 @@ impl NetworkVisualizerApp {
                 .with_edge_clicking_enabled(true)
                 .with_edge_selection_enabled(true)
                 .with_edge_selection_multi_enabled(true);
-            let style_settings = &SettingsStyle::new().with_labels_always(true);
+            let settings_style = &SettingsStyle::new().with_labels_always(true);
             ui.add(
                 &mut GraphView::<_, _, _, _, self::node::NodeShape, DefaultEdgeShape>::new(graph)
-                    .with_styles(style_settings)
-                    .with_interactions(interaction_settings),
+                    .with_styles(settings_style)
+                    .with_interactions(settings_interaction),
             );
         }
     }

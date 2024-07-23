@@ -78,10 +78,13 @@ fn init_once_opentelemetry(export: bool) {
     where
         S: Subscriber + for<'span> LookupSpan<'span>,
     {
+        use opentelemetry::trace::TracerProvider;
+
         otlp::new_pipeline()
             .tracing()
             .with_exporter(init_otlp_pipeline())
             .install_batch(Runtime)
+            .map(|provider| provider.tracer("ark-tracer"))
             .map(::tracing_opentelemetry::OpenTelemetryLayer::new)
             .expect("failed to init a tracer")
     }

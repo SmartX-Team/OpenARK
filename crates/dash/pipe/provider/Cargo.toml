@@ -35,7 +35,7 @@ ros2 = ["dep:r2r"]
 
 # storage
 storage = ["deltalake", "s3"]
-deltalake = ["arrow", "dash-api", "dep:deltalake", "inflector", "map-macro"]
+deltalake = ["arrow", "dash-api", "dep:deltalake", "inflector"]
 lancedb = ["arrow", "dep:lancedb", "object_store/aws"]
 s3 = ["chrono", "minio"]
 
@@ -74,7 +74,6 @@ gethostname = { workspace = true }
 inflector = { workspace = true, optional = true }
 kube = { workspace = true }
 lancedb = { workspace = true, optional = true }
-map-macro = { workspace = true, optional = true }
 minio = { workspace = true, optional = true }
 object_store = { workspace = true, optional = true }
 opentelemetry = { workspace = true }

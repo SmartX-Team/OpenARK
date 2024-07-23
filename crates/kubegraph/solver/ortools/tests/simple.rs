@@ -183,7 +183,9 @@ fn min_cost_flow() {
     let edges_flow =
         Series::from_iter((0..edges_capacity.len()).map(|edge| output.flow(edge as ArcIndex)))
             .with_name("flow");
-    let edges_cost = (edges_flow.clone() * edges_unit_cost).with_name("cost");
+    let edges_cost = (edges_flow.clone() * edges_unit_cost)
+        .expect("failed to get edges cost")
+        .with_name("cost");
 
     let mut optimized_edges = edges.clone();
     optimized_edges

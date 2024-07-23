@@ -158,11 +158,10 @@ impl LazyFrame {
             #[cfg(feature = "df-polars")]
             Self::Polars(nodes) => Ok(Self::Polars(
                 select_polars_edge_side(&nodes, metadata.name(), metadata.src())
-                    .cross_join(select_polars_edge_side(
-                        &nodes,
-                        metadata.name(),
-                        metadata.sink(),
-                    ))
+                    .cross_join(
+                        select_polars_edge_side(&nodes, metadata.name(), metadata.sink()),
+                        None,
+                    )
                     .with_column(
                         dsl::lit(ProblemSpec::<M>::MAX_CAPACITY).alias(metadata.capacity()),
                     ),
