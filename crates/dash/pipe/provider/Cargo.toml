@@ -64,7 +64,7 @@ arrow = { workspace = true, optional = true, features = ["json"] }
 async-nats = { workspace = true, optional = true }
 async-stream = { workspace = true, optional = true }
 async-trait = { workspace = true }
-bytes = { workspace = true }
+bytes = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, optional = true }
 clap = { workspace = true }
 deltalake = { workspace = true, optional = true }

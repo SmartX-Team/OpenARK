@@ -449,6 +449,7 @@ where
         }
     }
 
+    #[cfg(feature = "nats")]
     pub(crate) fn with_reply_inbox(mut self, inbox: String) -> Self {
         if !inbox.is_empty() {
             self.reply = Some(PipeReply {
