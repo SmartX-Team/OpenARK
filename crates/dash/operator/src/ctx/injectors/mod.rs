@@ -30,6 +30,7 @@ macro_rules! define_injector {
 }
 
 define_injector![
+    kafka as "kafka",
     nats as "nats",
     otlp as "dash-observability",
 ];
