@@ -779,8 +779,9 @@ fi
 
 # Kernel Command-line
 ## VFIO
-sudo grubby --update-kernel=ALL --args='amd_iommu=pt'
-sudo grubby --update-kernel=ALL --args='intel_iommu=pt'
+sudo grubby --update-kernel=ALL --args='amd_iommu=on'
+sudo grubby --update-kernel=ALL --args='intel_iommu=on'
+sudo grubby --update-kernel=ALL --args='iommu=pt'
 sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # VFIO
