@@ -56,6 +56,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 &name,
                 status.and_then(|status| status.kind.clone()),
                 ModelStorageState::Deleting,
+                None,
             )
             .await;
         } else if !data
@@ -86,13 +87,14 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         {
             ModelStorageState::Pending => {
                 match validator.validate_model_storage(&name, &data.spec).await {
-                    Ok(()) => {
+                    Ok(total_quota) => {
                         Self::update_state_or_requeue(
                             &namespace,
                             &manager.kube,
                             &name,
                             Some(data.spec.kind.clone()),
                             ModelStorageState::Ready,
+                            total_quota,
                         )
                         .await
                     }
@@ -136,8 +138,9 @@ impl Ctx {
         name: &str,
         kind: Option<ModelStorageKindSpec>,
         state: ModelStorageState,
+        total_quota: Option<u128>,
     ) -> Result<Action, Error> {
-        match Self::update_state(namespace, kube, name, kind, state).await {
+        match Self::update_state(namespace, kube, name, kind, state, total_quota).await {
             Ok(()) => {
                 info!("model storage is ready: {namespace}/{name}");
                 Ok(Action::requeue(
@@ -160,6 +163,7 @@ impl Ctx {
         name: &str,
         kind: Option<ModelStorageKindSpec>,
         state: ModelStorageState,
+        total_quota: Option<u128>,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
             kube.clone(),
@@ -174,6 +178,7 @@ impl Ctx {
                 state,
                 kind,
                 last_updated: Utc::now(),
+                total_quota,
             },
         }));
         let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);

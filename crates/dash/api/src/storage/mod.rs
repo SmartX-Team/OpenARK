@@ -112,6 +112,8 @@ pub struct ModelStorageStatus {
     pub state: ModelStorageState,
     pub kind: Option<ModelStorageKindSpec>,
     pub last_updated: DateTime<Utc>,
+    #[serde(default)]
+    pub total_quota: Option<u128>,
 }
 
 #[derive(

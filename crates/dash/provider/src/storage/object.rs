@@ -112,6 +112,10 @@ impl ObjectStorageClient {
         })
     }
 
+    pub const fn target(&self) -> &ObjectStorageSession {
+        &self.target
+    }
+
     pub fn get_session<'model>(
         &self,
         kube: &'model Client,
@@ -2332,6 +2336,18 @@ fn get_default_node_affinity() -> NodeAffinity {
                 },
                 weight: 1,
             },
+            // KISS normal control plane nodes should be preferred
+            PreferredSchedulingTerm {
+                preference: NodeSelectorTerm {
+                    match_expressions: Some(vec![NodeSelectorRequirement {
+                        key: "node-role.kubernetes.io/kiss".into(),
+                        operator: "In".into(),
+                        values: Some(vec!["ControlPlane".into()]),
+                    }]),
+                    match_fields: None,
+                },
+                weight: 2,
+            },
             // KISS compute nodes should be preferred
             PreferredSchedulingTerm {
                 preference: NodeSelectorTerm {
@@ -2342,7 +2358,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                     }]),
                     match_fields: None,
                 },
-                weight: 2,
+                weight: 4,
             },
             // KISS gateway nodes should be more preferred
             PreferredSchedulingTerm {
@@ -2354,7 +2370,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                     }]),
                     match_fields: None,
                 },
-                weight: 4,
+                weight: 8,
             },
         ]),
         required_during_scheduling_ignored_during_execution: Some(NodeSelector {
@@ -2365,6 +2381,7 @@ fn get_default_node_affinity() -> NodeAffinity {
                     values: Some(vec![
                         "Compute".into(),
                         "ControlPlane".into(),
+                        "Desktop".into(),
                         "Gateway".into(),
                     ]),
                 }]),

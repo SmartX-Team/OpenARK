@@ -14,6 +14,7 @@ use dash_provider::storage::{
     assert_source_is_none, assert_source_is_same, DatabaseStorageClient, KubernetesStorageClient,
     ObjectStorageClient,
 };
+use futures::TryFutureExt;
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 use kube::{Resource, ResourceExt};
@@ -25,7 +26,11 @@ pub struct ModelStorageValidator<'namespace, 'kube> {
 
 impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     #[instrument(level = Level::INFO, skip_all, err(Display))]
-    pub async fn validate_model_storage(&self, name: &str, spec: &ModelStorageSpec) -> Result<()> {
+    pub async fn validate_model_storage(
+        &self,
+        name: &str,
+        spec: &ModelStorageSpec,
+    ) -> Result<Option<u128>> {
         if spec.kind.is_unique() {
             self.validate_model_storage_conflict(name, spec.kind.to_kind())
                 .await?;
@@ -67,16 +72,16 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     async fn validate_model_storage_database(
         &self,
         storage: &ModelStorageDatabaseSpec,
-    ) -> Result<()> {
-        DatabaseStorageClient::try_new(storage).await.map(|_| ())
+    ) -> Result<Option<u128>> {
+        DatabaseStorageClient::try_new(storage).await.map(|_| None)
     }
 
     fn validate_model_storage_kubernetes(
         &self,
         storage: &ModelStorageKubernetesSpec,
-    ) -> Result<()> {
+    ) -> Result<Option<u128>> {
         let ModelStorageKubernetesSpec {} = storage;
-        Ok(())
+        Ok(None)
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
@@ -84,7 +89,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         &self,
         name: &str,
         storage: &ModelStorageObjectSpec,
-    ) -> Result<()> {
+    ) -> Result<Option<u128>> {
         let storage = ModelStorageBindingStorageSpec {
             source: None,
             source_binding_name: None,
@@ -96,8 +101,14 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             self.kubernetes_storage.namespace,
             storage,
         )
+        .and_then(|client| async move {
+            client
+                .target()
+                .get_capacity_global()
+                .await
+                .map(|capacity| Some(capacity.capacity.as_u128()))
+        })
         .await
-        .map(|_| ())
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
