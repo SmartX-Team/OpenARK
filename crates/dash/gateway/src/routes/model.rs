@@ -10,13 +10,15 @@ use dash_provider::{
 };
 use kube::Client;
 use tracing::{instrument, Level};
+use vine_api::user_session::UserSession;
+use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/model/{name}")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -36,8 +38,8 @@ pub async fn get_task_list(
     name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -53,8 +55,8 @@ pub async fn get_task_list(
 #[get("/model")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -74,8 +76,8 @@ pub async fn get_item(
     name: Path<(Name, String)>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -95,8 +97,8 @@ pub async fn get_item_list(
     name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 

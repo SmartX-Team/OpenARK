@@ -44,7 +44,7 @@ where
             }
         }
     };
-    let user_name = user.perferred_name();
+    let user_name = user.preferred_name();
 
     // check the box state
     {

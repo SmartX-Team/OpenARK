@@ -57,12 +57,12 @@ pub struct UserSpec {
 }
 
 impl UserCrd {
-    pub fn perferred_name(&self) -> String {
+    pub fn preferred_name(&self) -> String {
         self.spec.alias.clone().unwrap_or_else(|| self.name_any())
     }
 
     pub fn user_namespace(&self) -> String {
-        Self::user_namespace_with(&self.perferred_name())
+        Self::user_namespace_with(&self.preferred_name())
     }
 
     pub fn user_namespace_with(user_name: &str) -> String {

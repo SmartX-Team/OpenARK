@@ -11,7 +11,7 @@ use dash_provider_client::DashProviderClient;
 use kube::Client;
 use serde_json::Value;
 use tracing::{instrument, Level};
-use vine_api::user_session::UserSessionRef;
+use vine_api::user_session::UserSession;
 use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
@@ -23,7 +23,7 @@ pub async fn delete(
 ) -> impl Responder {
     let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -42,7 +42,7 @@ pub async fn get(
 ) -> impl Responder {
     let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -56,7 +56,7 @@ pub async fn get(
 #[get("/job")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -74,7 +74,7 @@ pub async fn get_list_with_task_name(
     task_name: Path<Name>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -93,7 +93,7 @@ pub async fn get_stream_logs(
 ) -> impl Responder {
     let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -117,7 +117,7 @@ pub async fn post(
     value: Json<BTreeMap<String, Value>>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
@@ -136,7 +136,7 @@ pub async fn post_restart(
 ) -> impl Responder {
     let (task_name, job_name) = path.into_inner();
     let kube = kube.as_ref().clone();
-    let session = match UserSessionRef::from_request(&kube, &request).await {
+    let session = match UserSession::from_request(&kube, &request).await {
         Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };

@@ -1,29 +1,29 @@
 use std::collections::BTreeMap;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use ark_api::SessionRef;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Node;
 use kube::{api::ListParams, Api, Client, ResourceExt};
-use tracing::{info, instrument, warn, Level};
+use tracing::{instrument, warn, Level};
 use vine_api::{
     user::UserCrd,
-    user_auth::{UserAuthError, UserAuthResponse},
+    user_auth::UserAuthError,
     user_box_binding::{UserBoxBindingCrd, UserBoxBindingSpec},
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::{UserBoxQuotaBindingCrd, UserBoxQuotaBindingSpec},
     user_role::UserRoleSpec,
-    user_session::{UserSessionMetadata, UserSessionRef},
+    user_session::UserSession,
 };
 
 #[async_trait(?Send)]
 pub trait AuthUserSession {
-    fn assert_admin(&self) -> Result<()> {
+    fn assert_admin(&self) -> Result<(), UserAuthError> {
         if self.role().is_admin {
             Ok(())
         } else {
-            bail!("user it not an admin")
+            Err(UserAuthError::UserNotAdmin)
         }
     }
 
@@ -34,13 +34,12 @@ pub trait AuthUserSession {
     async fn from_request(
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
-    ) -> Result<Self>
+    ) -> Result<Self, UserAuthError>
     where
         Self: Sized,
     {
         // get current time
         let now = Utc::now();
-
         Self::from_request_with_timestamp(client, request, now).await
     }
 
@@ -49,76 +48,17 @@ pub trait AuthUserSession {
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
         now: DateTime<Utc>,
-    ) -> Result<Self>
+    ) -> Result<Self, UserAuthError>
+    where
+        Self: Sized;
+
+    async fn namespaced(self, namespace: Option<String>) -> Result<Self>
     where
         Self: Sized;
 }
 
-pub trait AuthUserSessionRef {
-    fn try_into_ark_session(self) -> Result<SessionRef<'static>>;
-}
-
 #[async_trait(?Send)]
-impl AuthUserSession for UserSessionRef {
-    fn role(&self) -> &UserRoleSpec {
-        self.metadata.role()
-    }
-
-    #[cfg(feature = "actix")]
-    #[instrument(level = Level::INFO, skip(client, request), err(Display))]
-    async fn from_request_with_timestamp(
-        client: &::kube::Client,
-        request: &::actix_web::HttpRequest,
-        now: DateTime<Utc>,
-    ) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let metadata =
-            UserSessionMetadata::from_request_with_timestamp(client, request, now).await?;
-
-        get_user_namespace_with(client, request, &metadata.user_name, metadata.role, now)
-            .await
-            .map(|namespace| Self {
-                metadata,
-                namespace,
-            })
-            .map_err(|error| anyhow!("failed to get user namespace: {error}"))
-    }
-}
-
-impl AuthUserSessionRef for UserSessionRef {
-    fn try_into_ark_session(self) -> Result<SessionRef<'static>> {
-        let Self {
-            metadata:
-                UserSessionMetadata {
-                    box_name,
-                    role: _,
-                    user: _,
-                    user_name,
-                },
-            namespace,
-        } = self;
-
-        Ok(SessionRef {
-            namespace: namespace.into(),
-            node_name: match box_name {
-                Some(box_name) => box_name.into(),
-                None => bail!("session is not binded: {user_name}"),
-            },
-            timestamp: None,
-            user_name: user_name.into(),
-        })
-    }
-}
-
-#[async_trait(?Send)]
-pub trait AuthUserSessionMetadata {
-    async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef>;
-}
-
-#[async_trait(?Send)]
-impl AuthUserSession for UserSessionMetadata {
+impl AuthUserSession for UserSession {
     fn role(&self) -> &UserRoleSpec {
         &self.role
     }
@@ -129,86 +69,210 @@ impl AuthUserSession for UserSessionMetadata {
         client: &::kube::Client,
         request: &::actix_web::HttpRequest,
         now: DateTime<Utc>,
-    ) -> Result<Self>
+    ) -> Result<Self, UserAuthError>
     where
         Self: Sized,
     {
-        let user_name = get_user_name_with_timestamp(request, now)
-            .map_err(|error| anyhow!("failed to get user name: {error}"))?;
+        use std::sync::Arc;
 
-        match execute_with_timestamp(client, &user_name, now).await? {
-            UserAuthResponse::Accept {
+        use tracing::info;
+
+        let token = get_user_token(request)?;
+        let user_name = get_user_name_with_timestamp_impl(&token, now)?;
+
+        let api = Api::<UserCrd>::all(client.clone());
+        let user = api.get(&user_name).await.map_err(|e| {
+            warn!("[{now}] failed to find the user: {e}");
+            UserAuthError::UserNotRegistered
+        })?;
+        let user_name = user.preferred_name();
+
+        let role = get_user_role(client, &user, now).await?;
+        let namespace = get_user_namespace(request, &user, role, now)?;
+
+        let config = ::kube::Config {
+            auth_info: ::kube::config::AuthInfo {
+                token: Some(token.to_string().into()),
+                ..Default::default()
+            },
+            default_namespace: namespace.clone(),
+            ..::kube::Config::incluster().map_err(|_| UserAuthError::NamespaceNotAllowed)?
+        };
+        let client = Client::try_from(config).map_err(|_| UserAuthError::NamespaceNotAllowed)?;
+
+        // get available boxes
+        let boxes = {
+            let api = Api::<Node>::all(client.clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await
+                .map(|list| {
+                    list.items
+                        .into_iter()
+                        .filter(|item| {
+                            item.status
+                                .as_ref()
+                                .and_then(|status| status.conditions.as_ref())
+                                .and_then(|conditions| conditions.last())
+                                .map(|condition| condition.status == "True")
+                                .unwrap_or_default()
+                        })
+                        .map(|item| (item.name_any(), item.spec.unwrap()))
+                        .collect::<BTreeMap<_, _>>()
+                })
+                .unwrap_or_default()
+        };
+
+        let box_bindings = {
+            let api = Api::<UserBoxBindingCrd>::all(client.clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await
+                .map(|list| {
+                    list.items
+                        .into_iter()
+                        .filter(|item| item.spec.user == user_name)
+                        .filter(|item| {
+                            item.spec
+                                .expired_timestamp
+                                .as_ref()
+                                .map(|timestamp| timestamp < &now)
+                                .unwrap_or(true)
+                        })
+                        .filter_map(|item| {
+                            Some(UserBoxBindingSpec {
+                                user: item.spec.user,
+                                r#box: boxes.get(&item.spec.r#box)?.clone(),
+                                autologin: item.spec.autologin,
+                                expired_timestamp: item.spec.expired_timestamp,
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        };
+
+        // get available quotas
+        let quotas = {
+            let api = Api::<UserBoxQuotaCrd>::all(client.clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await
+                .map(|list| {
+                    list.items
+                        .into_iter()
+                        .map(|item| (item.name_any(), item.spec))
+                        .collect::<BTreeMap<_, _>>()
+                })
+                .unwrap_or_default()
+        };
+
+        let box_quota_bindings = {
+            let api = Api::<UserBoxQuotaBindingCrd>::all(client.clone());
+            let lp = ListParams::default();
+            api.list(&lp)
+                .await
+                .map(|list| {
+                    list.items
+                        .into_iter()
+                        .filter(|item| item.spec.user == user_name)
+                        .filter(|item| {
+                            item.spec
+                                .expired_timestamp
+                                .as_ref()
+                                .map(|timestamp| timestamp < &now)
+                                .unwrap_or(true)
+                        })
+                        .filter_map(|item| {
+                            Some(UserBoxQuotaBindingSpec {
+                                user: item.spec.user,
+                                quota: quotas.get(&item.spec.quota)?.clone(),
+                                expired_timestamp: item.spec.expired_timestamp,
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        };
+
+        // get current box info
+        let labels = user.labels();
+        let box_name = if labels
+            .get(::ark_api::consts::LABEL_BIND_STATUS)
+            .map(AsRef::as_ref)
+            == Some("true")
+        {
+            labels.get(::ark_api::consts::LABEL_BIND_NODE).cloned()
+        } else {
+            None
+        };
+
+        // Login Successed!
+        info!("[{now}] auth accepted: {user_name:?}");
+
+        Ok(Self {
+            box_bindings: Arc::new(box_bindings),
+            box_name,
+            box_quota_bindings: Arc::new(box_quota_bindings),
+            kube: Some(client),
+            namespace,
+            role,
+            user: Arc::new(user),
+            user_name,
+        })
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn namespaced(self, namespace: Option<String>) -> Result<Self> {
+        let Self {
+            box_bindings,
+            box_name,
+            box_quota_bindings,
+            kube,
+            namespace: _,
+            role,
+            user,
+            user_name,
+        } = self;
+
+        check_user_namespace(namespace, &user, role)
+            .map(|namespace| Self {
+                box_bindings,
                 box_name,
+                box_quota_bindings,
+                kube,
+                namespace,
+                role,
                 user,
                 user_name,
-                ..
-            } => {
-                let role = get_user_role(client, &user_name, now)
-                    .await
-                    .map_err(|error| anyhow!("failed to get user role: {error}"))?;
-
-                Ok(Self {
-                    box_name,
-                    role,
-                    user,
-                    user_name,
-                })
-            }
-            UserAuthResponse::Error(error) => bail!("failed to auth user: {error}"),
-        }
-    }
-}
-
-#[async_trait(?Send)]
-impl AuthUserSessionMetadata for UserSessionMetadata {
-    #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn namespaced(&self, namespace: Option<String>) -> Result<UserSessionRef> {
-        check_user_namespace(namespace, &self.user_name, self.role)
-            .map(|namespace| UserSessionRef {
-                metadata: self.clone(),
-                namespace,
             })
             .map_err(|error| anyhow!("failed to get user namespace: {error}"))
     }
 }
 
-#[cfg(feature = "actix")]
-#[derive(Clone)]
-pub struct UserClient {
-    pub kube: ::kube::Client,
-    pub name: String,
-    pub role: UserRoleSpec,
+pub trait AuthUserSessionRef {
+    fn try_into_ark_session(self) -> Result<SessionRef<'static>, UserAuthError>;
 }
 
-#[cfg(feature = "actix")]
-#[instrument(level = Level::INFO, skip(client, request), err(Display))]
-pub async fn get_user_client(
-    client: &::kube::Client,
-    request: &::actix_web::HttpRequest,
-) -> Result<UserClient, UserAuthError> {
-    // get current time
-    let now = Utc::now();
+impl AuthUserSessionRef for UserSession {
+    fn try_into_ark_session(self) -> Result<SessionRef<'static>, UserAuthError> {
+        let Self {
+            box_name,
+            namespace,
+            user_name,
+            ..
+        } = self;
 
-    let token = get_user_token(request)?;
-    let user_name = get_user_name_with_timestamp_impl(&token, now)?;
-    let role = get_user_role(client, &user_name, now).await?;
-    let namespace = get_user_namespace_with(client, request, &user_name, role, now).await?;
-
-    let config = ::kube::Config {
-        auth_info: ::kube::config::AuthInfo {
-            token: Some(token.to_string().into()),
-            ..Default::default()
-        },
-        default_namespace: namespace,
-        ..::kube::Config::incluster().map_err(|_| UserAuthError::NamespaceNotAllowed)?
-    };
-    let client = Client::try_from(config).map_err(|_| UserAuthError::NamespaceNotAllowed)?;
-
-    Ok(UserClient {
-        kube: client,
-        name: user_name,
-        role,
-    })
+        Ok(SessionRef {
+            namespace: namespace.into(),
+            node_name: match box_name {
+                Some(box_name) => box_name.into(),
+                None => return Err(UserAuthError::SessionNotBinded),
+            },
+            timestamp: None,
+            user_name: user_name.into(),
+        })
+    }
 }
 
 #[cfg(feature = "actix")]
@@ -271,51 +335,29 @@ fn get_user_name_with_timestamp_impl(
 }
 
 #[cfg(feature = "actix")]
-#[instrument(level = Level::INFO, skip(client, request), err(Display))]
-pub async fn get_user_namespace(
-    client: &::kube::Client,
+#[instrument(level = Level::INFO, skip(request), err(Display))]
+fn get_user_namespace(
     request: &::actix_web::HttpRequest,
-) -> Result<String, UserAuthError> {
-    // get current time
-    let now = Utc::now();
-
-    let token = get_user_token(request)?;
-    let user_name = get_user_name_with_timestamp_impl(&token, now)?;
-    let role = get_user_role(client, &user_name, now).await?;
-    get_user_namespace_with(client, request, &user_name, role, now).await
-}
-
-#[cfg(feature = "actix")]
-async fn get_user_namespace_with(
-    client: &::kube::Client,
-    request: &::actix_web::HttpRequest,
-    user_name: &str,
+    user: &UserCrd,
     role: UserRoleSpec,
     now: DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
     match request.headers().get(::ark_api::consts::HEADER_NAMESPACE) {
         Some(token) => match token.to_str().map_err(::anyhow::Error::from) {
-            Ok(namespace) => check_user_namespace(Some(namespace.into()), user_name, role),
+            Ok(namespace) => check_user_namespace(Some(namespace.into()), user, role),
             Err(e) => {
                 warn!("[{now}] failed to parse the token: {token:?}: {e}");
                 Err(UserAuthError::NamespaceTokenMalformed)
             }
         },
-        None => {
-            let api = Api::<UserCrd>::all(client.clone());
-            let user = api.get(user_name).await.map_err(|e| {
-                warn!("[{now}] failed to find the user: {e}");
-                UserAuthError::UserNotRegistered
-            })?;
-            Ok(user.user_namespace())
-        }
+        None => Ok(user.user_namespace()),
     }
 }
 
 #[instrument(level = Level::INFO, skip(client), err(Display))]
 async fn get_user_role(
     client: &::kube::Client,
-    user_name: &str,
+    user: &UserCrd,
     now: ::chrono::DateTime<Utc>,
 ) -> Result<UserRoleSpec, UserAuthError> {
     use vine_api::{user_role::UserRoleCrd, user_role_binding::UserRoleBindingCrd};
@@ -336,6 +378,7 @@ async fn get_user_role(
     let role = {
         let api = Api::<UserRoleBindingCrd>::all(client.clone());
         let lp = ListParams::default();
+        let user_name = user.preferred_name();
         api.list(&lp)
             .await
             .map(|list| list.items)
@@ -354,136 +397,6 @@ async fn get_user_role(
             .sum()
     };
     Ok(role)
-}
-
-#[instrument(level = Level::INFO, skip(client), err(Display))]
-pub async fn execute(client: &Client, user_name: &str) -> Result<UserAuthResponse> {
-    // get current time
-    let now = Utc::now();
-    execute_with_timestamp(client, user_name, now).await
-}
-
-#[instrument(level = Level::INFO, skip(client), err(Display))]
-async fn execute_with_timestamp(
-    client: &Client,
-    user_name: &str,
-    now: DateTime<Utc>,
-) -> Result<UserAuthResponse> {
-    // get the user CR
-    let api = Api::<UserCrd>::all(client.clone());
-    let user = match api.get_opt(user_name).await? {
-        Some(user) => user,
-        None => {
-            warn!("[{now}] failed to find an user: {user_name:?}");
-            return Ok(UserAuthError::UserNotRegistered.into());
-        }
-    };
-    let user_name = user.perferred_name();
-
-    // get available boxes
-    let boxes = {
-        let api = Api::<Node>::all(client.clone());
-        let lp = ListParams::default();
-        api.list(&lp)
-            .await?
-            .items
-            .into_iter()
-            .filter(|item| {
-                item.status
-                    .as_ref()
-                    .and_then(|status| status.conditions.as_ref())
-                    .and_then(|conditions| conditions.last())
-                    .map(|condition| condition.status == "True")
-                    .unwrap_or_default()
-            })
-            .map(|item| (item.name_any(), item.spec.unwrap()))
-            .collect::<BTreeMap<_, _>>()
-    };
-
-    let box_bindings = {
-        let api = Api::<UserBoxBindingCrd>::all(client.clone());
-        let lp = ListParams::default();
-        api.list(&lp)
-            .await?
-            .items
-            .into_iter()
-            .filter(|item| item.spec.user == user_name)
-            .filter(|item| {
-                item.spec
-                    .expired_timestamp
-                    .as_ref()
-                    .map(|timestamp| timestamp < &now)
-                    .unwrap_or(true)
-            })
-            .filter_map(|item| {
-                Some(UserBoxBindingSpec {
-                    user: item.spec.user,
-                    r#box: boxes.get(&item.spec.r#box)?.clone(),
-                    autologin: item.spec.autologin,
-                    expired_timestamp: item.spec.expired_timestamp,
-                })
-            })
-            .collect::<Vec<_>>()
-    };
-
-    // get available quotas
-    let quotas = {
-        let api = Api::<UserBoxQuotaCrd>::all(client.clone());
-        let lp = ListParams::default();
-        api.list(&lp)
-            .await?
-            .items
-            .into_iter()
-            .map(|item| (item.name_any(), item.spec))
-            .collect::<BTreeMap<_, _>>()
-    };
-
-    let box_quota_bindings = {
-        let api = Api::<UserBoxQuotaBindingCrd>::all(client.clone());
-        let lp = ListParams::default();
-        api.list(&lp)
-            .await?
-            .items
-            .into_iter()
-            .filter(|item| item.spec.user == user_name)
-            .filter(|item| {
-                item.spec
-                    .expired_timestamp
-                    .as_ref()
-                    .map(|timestamp| timestamp < &now)
-                    .unwrap_or(true)
-            })
-            .filter_map(|item| {
-                Some(UserBoxQuotaBindingSpec {
-                    user: item.spec.user,
-                    quota: quotas.get(&item.spec.quota)?.clone(),
-                    expired_timestamp: item.spec.expired_timestamp,
-                })
-            })
-            .collect::<Vec<_>>()
-    };
-
-    // get current box info
-    let labels = user.labels();
-    let box_name = if labels
-        .get(::ark_api::consts::LABEL_BIND_STATUS)
-        .map(AsRef::as_ref)
-        == Some("true")
-    {
-        labels.get(::ark_api::consts::LABEL_BIND_NODE).cloned()
-    } else {
-        None
-    };
-
-    // Login Successed!
-    info!("[{now}] auth accepted: {user_name:?}");
-    Ok(UserAuthResponse::Accept {
-        box_bindings,
-        box_name,
-        box_quota_bindings,
-        user: user.spec,
-        user_name,
-    })
 }
 
 #[cfg(feature = "actix")]
@@ -508,17 +421,17 @@ fn get_user_token(request: &::actix_web::HttpRequest) -> Result<&str, UserAuthEr
 
 fn check_user_namespace(
     namespace: Option<String>,
-    user_name: &str,
+    user: &UserCrd,
     role: UserRoleSpec,
 ) -> Result<String, UserAuthError> {
     match namespace {
         Some(namespace) => {
-            if role.is_admin || namespace == UserCrd::user_namespace_with(user_name) {
+            if role.is_admin || namespace == user.user_namespace() {
                 Ok(namespace)
             } else {
                 Err(UserAuthError::NamespaceNotAllowed)
             }
         }
-        None => Ok(UserCrd::user_namespace_with(user_name)),
+        None => Ok(user.user_namespace()),
     }
 }

@@ -7,13 +7,15 @@ use ark_core::result::Result;
 use dash_provider::{input::Name, storage::KubernetesStorageClient};
 use kube::Client;
 use tracing::{instrument, Level};
+use vine_api::user_session::UserSession;
+use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/task/{name}")]
 pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -29,8 +31,8 @@ pub async fn get(request: HttpRequest, kube: Data<Client>, name: Path<Name>) -> 
 #[get("/task")]
 pub async fn get_list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref();
-    let namespace = match ::vine_rbac::auth::get_user_namespace(kube, &request).await {
-        Ok(namespace) => namespace,
+    let namespace = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session.namespace,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 

@@ -20,18 +20,18 @@ use kube::{
 };
 use serde_json::Value;
 use tracing::{instrument, Level};
-use vine_api::user_session::UserSessionRef;
+use vine_api::user_session::UserSession;
 
 pub(crate) const NAME: &str = "dash-provider-client";
 
 pub struct DashProviderClient<'a> {
     api: Api<DashJobCrd>,
     client: Client,
-    session: &'a UserSessionRef,
+    session: &'a UserSession,
 }
 
 impl<'a> DashProviderClient<'a> {
-    pub fn new(client: Client, session: &'a UserSessionRef) -> Self {
+    pub fn new(client: Client, session: &'a UserSession) -> Self {
         Self {
             api: Api::namespaced(client.clone(), &session.namespace),
             client,

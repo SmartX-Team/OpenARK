@@ -1,16 +1,12 @@
 use anyhow::{anyhow, Result};
 use ark_core_k8s::data::{EmailAddress, Url};
-use k8s_openapi::api::core::v1::NodeSpec;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{
-    user::UserSpec, user_box_binding::UserBoxBindingSpec, user_box_quota::UserBoxQuotaSpec,
-    user_box_quota_binding::UserBoxQuotaBindingSpec,
-};
+use crate::{user::UserSpec, user_box_quota::UserBoxQuotaSpec};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, CustomResource)]
 #[kube(
@@ -110,25 +106,6 @@ impl UserAuthPayload {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", tag = "status", content = "data")]
-pub enum UserAuthResponse {
-    Accept {
-        box_bindings: Vec<UserBoxBindingSpec<NodeSpec>>,
-        box_name: Option<String>,
-        box_quota_bindings: Vec<UserBoxQuotaBindingSpec<UserBoxQuotaSpec>>,
-        user: UserSpec,
-        user_name: String,
-    },
-    Error(UserAuthError),
-}
-
-impl From<UserAuthError> for UserAuthResponse {
-    fn from(error: UserAuthError) -> Self {
-        Self::Error(error)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", tag = "status", content = "data")]
 pub enum UserSessionResponse {
     Accept {
         box_quota: UserBoxQuotaSpec,
@@ -181,6 +158,10 @@ pub enum UserAuthError {
     NamespaceTokenMalformed,
     #[error("Malformed primary key. Please contact the administrator.")]
     PrimaryKeyMalformed,
+    #[error("This user is not an admin. Please contact the administrator.")]
+    UserNotAdmin,
     #[error("This user is not registered. Please contact the administrator.")]
     UserNotRegistered,
+    #[error("This user has no available vine sessions. Please contact the administrator.")]
+    SessionNotBinded,
 }

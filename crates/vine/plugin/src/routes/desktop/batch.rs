@@ -6,7 +6,7 @@ use actix_web::{
 use ark_core::result::Result;
 use kube::Client;
 use tracing::{instrument, warn, Level};
-use vine_api::user_session::{UserSessionCommandBatch, UserSessionMetadata};
+use vine_api::user_session::{UserSession, UserSessionCommandBatch};
 use vine_rbac::auth::AuthUserSession;
 use vine_session::batch::{BatchCommandArgs, BatchCommandUsers};
 
@@ -23,7 +23,7 @@ pub async fn post_exec_broadcast(
     }): Json<UserSessionCommandBatch>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
-    if let Err(error) = UserSessionMetadata::from_request(&kube, &request)
+    if let Err(error) = UserSession::from_request(&kube, &request)
         .await
         .and_then(|metadata| metadata.assert_admin())
     {

@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{instrument, Level};
-use vine_api::user_session::{UserSessionCommandBatch, UserSessionRef};
+use vine_api::user_session::{UserSession, UserSessionCommandBatch};
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
@@ -134,7 +134,7 @@ impl DashClient {
 
 impl DashClient {
     #[instrument(level = Level::INFO, err(Display))]
-    pub async fn get_user(&self) -> Result<UserSessionRef> {
+    pub async fn get_user(&self) -> Result<UserSession> {
         self.get("/user/").await
     }
 

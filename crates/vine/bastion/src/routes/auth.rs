@@ -1,22 +1,14 @@
 use actix_web::{get, web::Data, HttpRequest, HttpResponse, Responder};
+use ark_core::result::Result;
 use kube::Client;
-use tracing::{error, instrument, Level};
-use vine_api::user_auth::UserAuthResponse;
+use tracing::{instrument, Level};
+use vine_api::user_session::UserSession;
+use vine_rbac::auth::AuthUserSession;
 
-#[instrument(level = Level::INFO, skip(request, client))]
+#[instrument(level = Level::INFO, skip(request, kube))]
 #[get("/auth")]
-pub async fn get(request: HttpRequest, client: Data<Client>) -> impl Responder {
-    match match ::vine_rbac::auth::get_user_name(&request) {
-        Ok(user_name) => ::vine_rbac::auth::execute(&client, &user_name).await,
-        Err(response) => Ok(response.into()),
-    } {
-        Ok(response) if matches!(response, UserAuthResponse::Accept { .. }) => {
-            HttpResponse::Ok().json(response)
-        }
-        Ok(response) => HttpResponse::Forbidden().json(response),
-        Err(e) => {
-            error!("failed to auth: {e}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+pub async fn get(request: HttpRequest, kube: Data<Client>) -> impl Responder {
+    HttpResponse::from(Result::from(
+        UserSession::from_request(&kube, &request).await,
+    ))
 }

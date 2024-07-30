@@ -3,7 +3,7 @@ use ark_api::SessionRef;
 use ark_core::result::Result;
 use kube::Client;
 use tracing::{instrument, warn, Level};
-use vine_api::user_session::UserSessionMetadata;
+use vine_api::user_session::UserSession;
 use vine_rbac::auth::AuthUserSession;
 use vine_session::exec::SessionExec;
 
@@ -11,9 +11,9 @@ use vine_session::exec::SessionExec;
 #[get("/batch/user/session")]
 pub async fn list(request: HttpRequest, kube: Data<Client>) -> impl Responder {
     let kube = kube.as_ref().clone();
-    if let Err(error) = UserSessionMetadata::from_request(&kube, &request)
+    if let Err(error) = UserSession::from_request(&kube, &request)
         .await
-        .and_then(|metadata| metadata.assert_admin())
+        .and_then(|session| session.assert_admin())
     {
         warn!("{error}");
         return HttpResponse::from(Result::<()>::Err(error.to_string()));

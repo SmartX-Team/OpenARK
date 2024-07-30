@@ -13,8 +13,8 @@ use futures::{stream::FuturesUnordered, TryStreamExt};
 use kube::Client;
 use serde_json::Value;
 use tracing::{instrument, Level};
-use vine_api::user_session::UserSessionMetadata;
-use vine_rbac::auth::{AuthUserSession, AuthUserSessionMetadata};
+use vine_api::user_session::UserSession;
+use vine_rbac::auth::AuthUserSession;
 
 #[instrument(level = Level::INFO, skip(request, kube))]
 #[post("/batch/job")]
@@ -24,8 +24,8 @@ pub async fn post(
     values: Json<Vec<Payload<BTreeMap<String, Value>>>>,
 ) -> impl Responder {
     let kube = kube.as_ref().clone();
-    let metadata = match UserSessionMetadata::from_request(&kube, &request).await {
-        Ok(metadata) => metadata,
+    let session = match UserSession::from_request(&kube, &request).await {
+        Ok(session) => session,
         Err(error) => return HttpResponse::from(Result::<()>::Err(error.to_string())),
     };
 
@@ -39,9 +39,9 @@ pub async fn post(
                  value,
              }| {
                 let kube = kube.clone();
-                let metadata = metadata.clone();
+                let session = session.clone();
                 async move {
-                    let session = metadata.namespaced(namespace).await?;
+                    let session = session.namespaced(namespace).await?;
                     let client = DashProviderClient::new(kube, &session);
                     client.create(&task_name, value).await
                 }

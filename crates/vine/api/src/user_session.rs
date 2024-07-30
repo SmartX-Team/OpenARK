@@ -1,23 +1,26 @@
+use std::sync::Arc;
+
+use k8s_openapi::api::core::v1::NodeSpec;
+use kube::Client;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{user::UserSpec, user_role::UserRoleSpec};
+use crate::{
+    user::UserCrd, user_box_binding::UserBoxBindingSpec, user_box_quota::UserBoxQuotaSpec,
+    user_box_quota_binding::UserBoxQuotaBindingSpec, user_role::UserRoleSpec,
+};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-
-pub struct UserSessionRef {
-    #[serde(flatten)]
-    pub metadata: UserSessionMetadata,
-    pub namespace: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct UserSessionMetadata {
+pub struct UserSession {
+    pub box_bindings: Arc<Vec<UserBoxBindingSpec<NodeSpec>>>,
     pub box_name: Option<String>,
+    pub box_quota_bindings: Arc<Vec<UserBoxQuotaBindingSpec<UserBoxQuotaSpec>>>,
+    #[serde(skip)]
+    pub kube: Option<Client>,
+    pub namespace: String,
     pub role: UserRoleSpec,
-    pub user: UserSpec,
+    pub user: Arc<UserCrd>,
     pub user_name: String,
 }
 
