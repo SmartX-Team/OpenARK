@@ -77,7 +77,8 @@ impl AuthUserSession for UserSessionRef {
         let metadata =
             UserSessionMetadata::from_request_with_timestamp(client, request, now).await?;
 
-        get_user_namespace_with(request, &metadata.user_name, metadata.role, now)
+        get_user_namespace_with(client, request, &metadata.user_name, metadata.role, now)
+            .await
             .map(|namespace| Self {
                 metadata,
                 namespace,
@@ -172,6 +173,45 @@ impl AuthUserSessionMetadata for UserSessionMetadata {
 }
 
 #[cfg(feature = "actix")]
+#[derive(Clone)]
+pub struct UserClient {
+    pub kube: ::kube::Client,
+    pub name: String,
+    pub role: UserRoleSpec,
+}
+
+#[cfg(feature = "actix")]
+#[instrument(level = Level::INFO, skip(client, request), err(Display))]
+pub async fn get_user_client(
+    client: &::kube::Client,
+    request: &::actix_web::HttpRequest,
+) -> Result<UserClient, UserAuthError> {
+    // get current time
+    let now = Utc::now();
+
+    let token = get_user_token(request)?;
+    let user_name = get_user_name_with_timestamp_impl(&token, now)?;
+    let role = get_user_role(client, &user_name, now).await?;
+    let namespace = get_user_namespace_with(client, request, &user_name, role, now).await?;
+
+    let config = ::kube::Config {
+        auth_info: ::kube::config::AuthInfo {
+            token: Some(token.to_string().into()),
+            ..Default::default()
+        },
+        default_namespace: namespace,
+        ..::kube::Config::incluster().map_err(|_| UserAuthError::NamespaceNotAllowed)?
+    };
+    let client = Client::try_from(config).map_err(|_| UserAuthError::NamespaceNotAllowed)?;
+
+    Ok(UserClient {
+        kube: client,
+        name: user_name,
+        role,
+    })
+}
+
+#[cfg(feature = "actix")]
 pub fn get_user_name(request: &::actix_web::HttpRequest) -> Result<String, UserAuthError> {
     // get current time
     let now = Utc::now();
@@ -183,8 +223,9 @@ fn get_user_name_with_timestamp(
     request: &::actix_web::HttpRequest,
     now: ::chrono::DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
-    ::std::env::var("DASH_UNSAFE_MOCK_USERNAME")
-        .or_else(|_| get_user_name_with_timestamp_impl(request, now))
+    ::std::env::var("DASH_UNSAFE_MOCK_USERNAME").or_else(|_| {
+        get_user_token(request).and_then(|token| get_user_name_with_timestamp_impl(&token, now))
+    })
 }
 
 #[cfg(all(feature = "actix", not(feature = "unsafe-mock")))]
@@ -193,41 +234,32 @@ fn get_user_name_with_timestamp(
     request: &::actix_web::HttpRequest,
     now: ::chrono::DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
-    get_user_name_with_timestamp_impl(request, now)
+    let token = get_user_token(request)?;
+    get_user_name_with_timestamp_impl(&token, now)
 }
 
 #[cfg(feature = "actix")]
 fn get_user_name_with_timestamp_impl(
-    request: &::actix_web::HttpRequest,
+    token: &str,
     now: ::chrono::DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
-    use anyhow::Error;
     use base64::Engine;
     use vine_api::user_auth::UserAuthPayload;
 
     // parse the Authorization token
-    let payload: UserAuthPayload = match request.headers().get("Authorization") {
-        Some(token) => match token.to_str().map_err(Error::from).and_then(|token| {
-            match token
-                .strip_prefix("Bearer ")
-                .and_then(|token| token.split('.').nth(1))
-            {
-                Some(payload) => ::base64::engine::general_purpose::STANDARD_NO_PAD
-                    .decode(payload)
-                    .map_err(Into::into)
-                    .and_then(|payload| ::serde_json::from_slice(&payload).map_err(Into::into)),
-                None => ::anyhow::bail!("[{now}] the Authorization token is not a Bearer token"),
-            }
-        }) {
-            Ok(payload) => payload,
-            Err(e) => {
-                warn!("[{now}] failed to parse the token: {token:?}: {e}");
-                return Err(UserAuthError::AuthorizationTokenMalformed);
-            }
-        },
-        None => {
-            warn!("[{now}] failed to get the token: Authorization");
-            return Err(UserAuthError::AuthorizationTokenNotFound);
+    let payload: UserAuthPayload = match match token.split('.').nth(1) {
+        Some(payload) => ::base64::engine::general_purpose::STANDARD_NO_PAD
+            .decode(payload)
+            .map_err(Into::into)
+            .and_then(|payload| ::serde_json::from_slice(&payload).map_err(Into::into)),
+        None => Err(::anyhow::anyhow!(
+            "[{now}] the Authorization token is not a Bearer token"
+        )),
+    } {
+        Ok(payload) => payload,
+        Err(e) => {
+            warn!("[{now}] failed to parse the token: {token:?}: {e}");
+            return Err(UserAuthError::AuthorizationTokenMalformed);
         }
     };
 
@@ -247,13 +279,15 @@ pub async fn get_user_namespace(
     // get current time
     let now = Utc::now();
 
-    let user_name = get_user_name(request)?;
+    let token = get_user_token(request)?;
+    let user_name = get_user_name_with_timestamp_impl(&token, now)?;
     let role = get_user_role(client, &user_name, now).await?;
-    get_user_namespace_with(request, &user_name, role, now)
+    get_user_namespace_with(client, request, &user_name, role, now).await
 }
 
 #[cfg(feature = "actix")]
-fn get_user_namespace_with(
+async fn get_user_namespace_with(
+    client: &::kube::Client,
     request: &::actix_web::HttpRequest,
     user_name: &str,
     role: UserRoleSpec,
@@ -267,7 +301,14 @@ fn get_user_namespace_with(
                 Err(UserAuthError::NamespaceTokenMalformed)
             }
         },
-        None => Ok(UserCrd::user_namespace_with(user_name)),
+        None => {
+            let api = Api::<UserCrd>::all(client.clone());
+            let user = api.get(user_name).await.map_err(|e| {
+                warn!("[{now}] failed to find the user: {e}");
+                UserAuthError::UserNotRegistered
+            })?;
+            Ok(user.user_namespace())
+        }
     }
 }
 
@@ -443,6 +484,26 @@ async fn execute_with_timestamp(
         user: user.spec,
         user_name,
     })
+}
+
+#[cfg(feature = "actix")]
+fn get_user_token(request: &::actix_web::HttpRequest) -> Result<&str, UserAuthError> {
+    const HEADER_AUTHORIZATION: &str = "Authorization";
+
+    request
+        .headers()
+        .get(HEADER_AUTHORIZATION)
+        .ok_or(UserAuthError::AuthorizationTokenNotFound)
+        .and_then(|token| {
+            token
+                .to_str()
+                .map_err(|_| UserAuthError::AuthorizationTokenMalformed)
+        })
+        .and_then(|token| {
+            token
+                .strip_prefix("Bearer ")
+                .ok_or(UserAuthError::AuthorizationTokenNotFound)
+        })
 }
 
 fn check_user_namespace(
