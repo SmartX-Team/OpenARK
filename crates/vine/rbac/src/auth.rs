@@ -216,6 +216,7 @@ impl AuthUserSession for UserSession {
             box_quota_bindings: Arc::new(box_quota_bindings),
             kube: Some(client),
             namespace,
+            token: Some(token.into()),
             role,
             user: Arc::new(user),
             user_name,
@@ -231,6 +232,7 @@ impl AuthUserSession for UserSession {
             kube,
             namespace: _,
             role,
+            token,
             user,
             user_name,
         } = self;
@@ -243,6 +245,7 @@ impl AuthUserSession for UserSession {
                 kube,
                 namespace,
                 role,
+                token,
                 user,
                 user_name,
             })

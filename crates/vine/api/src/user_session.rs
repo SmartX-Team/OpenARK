@@ -20,6 +20,8 @@ pub struct UserSession {
     pub kube: Option<Client>,
     pub namespace: String,
     pub role: UserRoleSpec,
+    #[serde(skip)]
+    pub token: Option<String>,
     pub user: Arc<UserCrd>,
     pub user_name: String,
 }
