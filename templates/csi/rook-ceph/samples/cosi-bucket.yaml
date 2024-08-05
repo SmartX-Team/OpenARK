@@ -1,0 +1,73 @@
+---
+kind: BucketClass
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-bcc
+driverName: ceph.objectstorage.k8s.io
+deletionPolicy: Delete
+parameters:
+  objectStoreUserSecretName: rook-ceph-object-user-my-store-cosi
+  objectStoreUserSecretNamespace: csi-rook-ceph # any namespace can be used
+---
+kind: BucketAccessClass
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-bac
+driverName: ceph.objectstorage.k8s.io
+authenticationType: KEY
+parameters:
+  objectStoreUserSecretName: rook-ceph-object-user-my-store-cosi
+  objectStoreUserSecretNamespace: csi-rook-ceph # any namespace can be used
+---
+kind: BucketClaim
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-bc
+  namespace: default # any namespace can be used
+spec:
+  bucketClassName: sample-bcc
+  protocols:
+    - s3
+---
+kind: BucketAccess
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-access
+  namespace: default # any namespace can be used
+spec:
+  bucketAccessClassName: sample-bac
+  bucketClaimName: sample-bc
+  protocol: s3
+  # Change to the name of the secret where access details are stored
+  credentialsSecretName: sample-secret-name
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-myapp
+  namespace: default # any namespace can be used
+spec:
+  selector:
+    matchLabels:
+      app: sample-myapp
+  template:
+    metadata:
+      labels:
+        app: sample-myapp
+    spec:
+      containers:
+        - name: myapp
+          image: docker.io/library/busybox:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: cosi-secrets
+              mountPath: /run/secrets/objectstorage.k8s.io/cosi
+      volumes:
+        - name: cosi-secrets
+          secret:
+            #  Set the name of the secret from the BucketAccess
+            secretName: sample-secret-name

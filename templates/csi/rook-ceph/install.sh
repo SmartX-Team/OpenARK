@@ -24,6 +24,12 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED="${ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED:-$ROOK_CEPH_USE_SINGLE_MON_UNTIL_DEPLOYED_DEFAULT}"
 ROOK_CEPH_WAIT_UNTIL_DEPLOYED="${ROOK_CEPH_WAIT_UNTIL_DEPLOYED:-$ROOK_CEPH_WAIT_UNTIL_DEPLOYED_DEFAULT}"
 
+# Parse from CoreDNS
+DOMAIN_NAME="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq -r '.data.domain_name'
+)"
+
 ###########################################################
 #   Install Cluster Role                                  #
 ###########################################################
@@ -93,6 +99,10 @@ helm upgrade --install "rook-ceph-cluster" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
     --set "operatorNamespace=${NAMESPACE}" \
+    --set 'cephObjectStores[0].ingress.annotations.cert-manager\.io/cluster-issuer'"=${DOMAIN_NAME}" \
+    --set "cephObjectStores[0].ingress.host.name=obj.${DOMAIN_NAME}" \
+    --set "cephObjectStores[0].ingress.ingressClassName=${DOMAIN_NAME}" \
+    --set "cephObjectStores[0].ingress.tls[0].hosts[0]=obj.${DOMAIN_NAME}" \
     --values "./values-cluster.yaml"
 
 ###########################################################
@@ -171,11 +181,23 @@ if [ "x${ROOK_CEPH_WAIT_UNTIL_DEPLOYED}" == "xtrue" ]; then
                 --create-namespace \
                 --namespace "${NAMESPACE}" \
                 --set "operatorNamespace=${NAMESPACE}" \
+                --set 'cephObjectStores[0].ingress.annotations.cert-manager\.io/cluster-issuer'"=${DOMAIN_NAME}" \
+                --set "cephObjectStores[0].ingress.host.name=obj.${DOMAIN_NAME}" \
+                --set "cephObjectStores[0].ingress.ingressClassName=${DOMAIN_NAME}" \
+                --set "cephObjectStores[0].ingress.tls[0].hosts[0]=obj.${DOMAIN_NAME}" \
                 --values "./values-cluster.yaml"
             wait_ceph_cluster
         fi
     fi
 fi
+
+###########################################################
+#   Install Ceph COSI Driver                              #
+###########################################################
+
+echo "- Installing Ceph COSI Driver ... "
+
+kubectl apply -f ./ceph-cosi-driver.yaml || true
 
 ###########################################################
 #   Patch Service Monitor                                 #
