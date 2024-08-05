@@ -87,6 +87,15 @@ impl From<DataFrame> for LazyFrame {
     }
 }
 
+impl fmt::Debug for LazyFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "Empty"),
+            Self::Polars(_) => f.debug_tuple("Polars").finish(),
+        }
+    }
+}
+
 impl LazyFrame {
     pub fn all(&self) -> Result<LazySlice> {
         match self {

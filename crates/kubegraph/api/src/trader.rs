@@ -13,9 +13,33 @@ use crate::{
 
 #[async_trait]
 pub trait NetworkTrader<T> {
-    async fn is_locked(&self, problem: &VirtualProblem) -> Result<bool>;
+    async fn is_locked(&self, problem: &VirtualProblem) -> Result<bool>
+    where
+        T: 'async_trait;
 
-    async fn register(&self, ctx: NetworkTraderContext<T>) -> Result<()>;
+    async fn register(&self, ctx: NetworkTraderContext<T>) -> Result<()>
+    where
+        T: 'async_trait;
+}
+
+#[async_trait]
+impl<T> NetworkTrader<T> for ()
+where
+    T: Send,
+{
+    async fn is_locked(&self, _: &VirtualProblem) -> Result<bool>
+    where
+        T: 'async_trait,
+    {
+        Ok(false)
+    }
+
+    async fn register(&self, _: NetworkTraderContext<T>) -> Result<()>
+    where
+        T: 'async_trait,
+    {
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

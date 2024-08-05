@@ -13,7 +13,7 @@ use kubegraph_api::{
         product::ProductSpec,
         r#pub::PubSpec,
         sub::SubSpec,
-        transaction::{TransactionSpec, TransactionTemplate},
+        transaction::{TransactionReceipt, TransactionTemplate},
         BaseModel, Page,
     },
 };
@@ -89,7 +89,10 @@ impl MarketClient {
     }
 
     #[instrument(level = Level::INFO, skip(self, spec))]
-    pub async fn insert_product(&self, spec: &ProductSpec) -> Result<()> {
+    pub async fn insert_product(
+        &self,
+        spec: &ProductSpec,
+    ) -> Result<<ProductSpec as BaseModel>::Id> {
         let request = Request {
             method: Method::PUT,
             rel_url: "prod",
@@ -141,7 +144,7 @@ impl MarketClient {
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
         template: &TransactionTemplate,
-    ) -> Result<<TransactionSpec as BaseModel>::Id> {
+    ) -> Result<TransactionReceipt> {
         let request = Request {
             method: Method::POST,
             rel_url: &format!("prod/{prod_id}/trade"),
@@ -197,7 +200,7 @@ impl MarketClient {
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
         spec: &PubSpec,
-    ) -> Result<()> {
+    ) -> Result<<PubSpec as BaseModel>::Id> {
         let request = Request {
             method: Method::PUT,
             rel_url: &format!("prod/{prod_id}/pub"),
@@ -268,7 +271,7 @@ impl MarketClient {
         &self,
         prod_id: <ProductSpec as BaseModel>::Id,
         spec: &SubSpec,
-    ) -> Result<()> {
+    ) -> Result<<SubSpec as BaseModel>::Id> {
         let request = Request {
             method: Method::PUT,
             rel_url: &format!("prod/{prod_id}/sub"),

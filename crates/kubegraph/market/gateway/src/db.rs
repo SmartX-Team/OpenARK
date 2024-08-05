@@ -9,12 +9,11 @@ use futures::TryFutureExt;
 use kubegraph_api::{
     component::NetworkComponent,
     market::{
-        function::MarketFunctionContext,
         price::{PriceHistogram, PriceItem},
         product::ProductSpec,
         r#pub::PubSpec,
         sub::SubSpec,
-        transaction::{TransactionError, TransactionSpec, TransactionTemplate},
+        transaction::{TransactionError, TransactionReceipt, TransactionSpec, TransactionTemplate},
         BaseModel, Page,
     },
 };
@@ -269,10 +268,11 @@ impl Database {
     pub async fn trade(
         &self,
         template: TransactionTemplate,
-    ) -> Result<<TransactionSpec as BaseModel>::Id, TransactionError> {
+    ) -> Result<TransactionReceipt, TransactionError> {
         let (
             txn_id,
             TransactionTemplate {
+                prod: _,
                 r#pub,
                 sub,
                 cost: _,
@@ -280,18 +280,21 @@ impl Database {
             },
         ) = self.trade_on_db(template).await?;
 
-        let ctx = MarketFunctionContext { template };
+        let receipt = TransactionReceipt {
+            id: txn_id,
+            template,
+        };
 
         let task_pub = self
             .function
-            .spawn(ctx.clone(), r#pub)
+            .spawn(receipt, r#pub)
             .map_err(TransactionError::FunctionFailedPub);
         let task_sub = self
             .function
-            .spawn(ctx, sub)
+            .spawn(receipt, sub)
             .map_err(TransactionError::FunctionFailedSub);
 
-        try_join!(task_pub, task_sub).map(|((), ())| txn_id)
+        try_join!(task_pub, task_sub).map(|((), ())| receipt)
     }
 
     #[instrument(level = Level::INFO, skip(self))]
@@ -301,7 +304,7 @@ impl Database {
     ) -> Result<
         (
             <TransactionSpec as BaseModel>::Id,
-            TransactionTemplate<PubSpec, SubSpec>,
+            TransactionTemplate<<ProductSpec as BaseModel>::Id, PubSpec, SubSpec>,
         ),
         TransactionError,
     > {
@@ -309,6 +312,7 @@ impl Database {
             .transaction::<_, _, DbErr>(|txn| {
                 Box::pin(async move {
                     let TransactionTemplate {
+                        prod,
                         r#pub: pub_id,
                         sub: sub_id,
                         cost,
@@ -391,6 +395,7 @@ impl Database {
                     };
 
                     let template = TransactionTemplate {
+                        prod,
                         r#pub: pub_spec,
                         sub: sub_spec,
                         cost,

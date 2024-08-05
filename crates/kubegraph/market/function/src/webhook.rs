@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use kubegraph_api::{
-    function::webhook::NetworkFunctionWebhookSpec, market::function::MarketFunctionContext,
+    function::webhook::NetworkFunctionWebhookSpec, market::transaction::TransactionReceipt,
 };
 use tokio::spawn;
 use tracing::{error, info, instrument, Level};
@@ -11,10 +11,10 @@ impl super::MarketFunction<NetworkFunctionWebhookSpec> for super::MarketFunction
     #[instrument(level = Level::INFO, skip(self))]
     async fn spawn(
         &self,
-        ctx: MarketFunctionContext,
+        receipt: TransactionReceipt,
         spec: NetworkFunctionWebhookSpec,
     ) -> Result<()> {
-        spawn(call(self.session.clone(), ctx, spec));
+        spawn(call(self.session.clone(), receipt, spec));
         Ok(())
     }
 }
@@ -22,12 +22,12 @@ impl super::MarketFunction<NetworkFunctionWebhookSpec> for super::MarketFunction
 #[instrument(level = Level::INFO, skip(session))]
 async fn call(
     session: ::reqwest::Client,
-    ctx: MarketFunctionContext,
+    receipt: TransactionReceipt,
     spec: NetworkFunctionWebhookSpec,
 ) {
     let NetworkFunctionWebhookSpec { endpoint } = spec;
 
-    let response = match session.post(endpoint.0).json(&ctx).send().await {
+    let response = match session.post(endpoint.0).json(&receipt).send().await {
         Ok(response) => response,
         Err(error) => {
             error!("failed to call market function: {error}");

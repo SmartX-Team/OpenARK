@@ -6,14 +6,14 @@ use async_trait::async_trait;
 use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
-    market::{function::MarketFunctionContext, r#pub::PubSpec, sub::SubSpec},
+    market::{r#pub::PubSpec, sub::SubSpec, transaction::TransactionReceipt},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
 
 #[async_trait]
 pub trait MarketFunction<T> {
-    async fn spawn(&self, ctx: MarketFunctionContext, spec: T) -> Result<()>;
+    async fn spawn(&self, receipt: TransactionReceipt, spec: T) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -37,16 +37,16 @@ impl NetworkComponent for MarketFunctionClient {
 #[async_trait]
 impl MarketFunction<PubSpec> for MarketFunctionClient {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn spawn(&self, ctx: MarketFunctionContext, spec: PubSpec) -> Result<()> {
-        self.spawn(ctx, spec.function).await
+    async fn spawn(&self, receipt: TransactionReceipt, spec: PubSpec) -> Result<()> {
+        self.spawn(receipt, spec.function).await
     }
 }
 
 #[async_trait]
 impl MarketFunction<SubSpec> for MarketFunctionClient {
     #[instrument(level = Level::INFO, skip(self))]
-    async fn spawn(&self, ctx: MarketFunctionContext, spec: SubSpec) -> Result<()> {
-        self.spawn(ctx, spec.function).await
+    async fn spawn(&self, receipt: TransactionReceipt, spec: SubSpec) -> Result<()> {
+        self.spawn(receipt, spec.function).await
     }
 }
 

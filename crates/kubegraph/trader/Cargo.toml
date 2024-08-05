@@ -39,9 +39,12 @@ ark-core = { path = "../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../api", default-features = false }
 kubegraph-market-client = { path = "../market/client", default-features = false }
 
+actix-web = { workspace = true }
+actix-web-opentelemetry = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+futures = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }

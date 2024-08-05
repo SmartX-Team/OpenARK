@@ -25,7 +25,7 @@ use kubegraph_vm_lazy::{
     LazyVirtualMachine,
 };
 use regex::Regex;
-use tracing::{instrument, Level};
+use tracing::{info, instrument, Level};
 
 #[derive(Clone, Default)]
 pub struct NetworkDependencyGraph {}
@@ -164,9 +164,7 @@ impl ::kubegraph_api::dependency::NetworkDependencySolver for NetworkDependencyG
 
         if problem.spec.verbose {
             let GraphData { edges, nodes } = graph.clone().collect().await?;
-            println!("Nodes: {nodes}");
-            println!("Edges: {edges}");
-            println!();
+            info!("Nodes: {nodes}\nEdges: {edges}");
         }
 
         Ok(NetworkDependencyPipelineTemplate {

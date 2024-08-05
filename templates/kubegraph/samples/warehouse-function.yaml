@@ -2,17 +2,6 @@
 apiVersion: kubegraph.ulagbulag.io/v1alpha1
 kind: NetworkFunction
 metadata:
-  name: warehouse-annotation
-  namespace: kubegraph
-spec:
-  annotation: {}
-  filter: payload >= 0
-  script: |
-    supply = payload;
----
-apiVersion: kubegraph.ulagbulag.io/v1alpha1
-kind: NetworkFunction
-metadata:
   name: warehouse
   namespace: kubegraph
 spec:

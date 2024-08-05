@@ -246,6 +246,7 @@ where
                 static_edges,
             };
             self.trader().register(ctx).await?;
+            info!("Registered the problem to the market: {scope}");
             return Ok(self::sealed::NetworkVirtualMachineState::Trading);
         }
 

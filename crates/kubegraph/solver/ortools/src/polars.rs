@@ -15,7 +15,7 @@ use pl::{
     lazy::{dsl, frame::LazyFrame},
     series::Series,
 };
-use tracing::{instrument, Level};
+use tracing::{info, instrument, Level};
 
 #[async_trait]
 impl ::kubegraph_api::solver::NetworkSolver<GraphData<DataFrame>> for super::NetworkSolver {
@@ -185,7 +185,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::Net
         }
 
         if *verbose {
-            println!("Solving min cost flow with: {num_nodes} nodes, and {num_edges} edges.");
+            info!("Solving min cost flow with: {num_nodes} nodes, and {num_edges} edges.");
         }
 
         // Step 7. Add special nodes

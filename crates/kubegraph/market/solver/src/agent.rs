@@ -8,7 +8,10 @@ use futures::TryStreamExt;
 use kubegraph_api::{
     component::NetworkComponent,
     market::{
-        price::PriceHistogram, product::ProductSpec, transaction::TransactionTemplate, BaseModel,
+        price::PriceHistogram,
+        product::ProductSpec,
+        transaction::{TransactionReceipt, TransactionTemplate},
+        BaseModel,
     },
     vm::NetworkFallbackPolicy,
 };
@@ -88,7 +91,7 @@ impl MarketAgent {
                     .try_collect()
                     .await?;
 
-                let templates = self.solver.solve(&product, histogram).await?;
+                let templates = self.solver.solve(prod_id, &product, histogram).await?;
 
                 for template in templates {
                     self.trade(prod_id, template).await?;
@@ -116,9 +119,12 @@ impl MarketAgent {
         prod_id: <ProductSpec as BaseModel>::Id,
         template: TransactionTemplate,
     ) -> Result<()> {
-        self.client.trade(prod_id, &template).await.map(|txn_id| {
-            info!("Transaction ID: {txn_id}");
-        })
+        self.client
+            .trade(prod_id, &template)
+            .await
+            .map(|TransactionReceipt { id, template: _ }| {
+                info!("Transaction ID: {id}");
+            })
     }
 }
 

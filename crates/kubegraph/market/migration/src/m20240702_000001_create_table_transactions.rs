@@ -18,6 +18,22 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
+                        ColumnDef::new(self::Transactions::ProdId)
+                            .uuid() // Uuid
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-transactions-prod_id")
+                            .from(self::Transactions::Table, self::Transactions::ProdId)
+                            .to(
+                                super::m20240701_000002_create_table_prices::Prices::Table,
+                                super::m20240701_000002_create_table_prices::Prices::Id,
+                            )
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(
                         ColumnDef::new(self::Transactions::PubId)
                             .uuid() // Uuid
                             .not_null(),
@@ -117,6 +133,7 @@ impl MigrationTrait for Migration {
 pub(super) enum Transactions {
     Table,
     Id,
+    ProdId,
     PubId,
     SubId,
     CreatedAt,

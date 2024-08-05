@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use kubegraph_api::{
     component::NetworkComponent,
-    market::{price::PriceHistogram, product::ProductSpec, transaction::TransactionTemplate},
+    market::{
+        price::PriceHistogram, product::ProductSpec, transaction::TransactionTemplate, BaseModel,
+    },
 };
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
@@ -40,12 +42,13 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
     #[instrument(level = Level::INFO, skip(self, product, histogram))]
     async fn solve(
         &self,
+        prod_id: <ProductSpec as BaseModel>::Id,
         product: &ProductSpec,
         histogram: PriceHistogram,
     ) -> Result<Vec<TransactionTemplate>> {
         match self {
             #[cfg(feature = "market-solver-trivial")]
-            Self::Trivial(solver) => solver.solve(product, histogram).await,
+            Self::Trivial(solver) => solver.solve(prod_id, product, histogram).await,
         }
     }
 }

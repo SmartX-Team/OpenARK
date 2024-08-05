@@ -9,7 +9,6 @@ use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
     frame::LazyFrame,
-    function::webhook::NetworkFunctionWebhookSpec,
     market::{product::ProductSpec, sub::SubSpec, BaseModel},
     problem::VirtualProblem,
     trader::NetworkTraderContext,
@@ -17,7 +16,8 @@ use kubegraph_api::{
 use kubegraph_market_client::{MarketClient, MarketClientArgs};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::{info, instrument, Level};
+use tokio::spawn;
+use tracing::{debug, info, instrument, Level};
 
 #[derive(Clone)]
 pub struct NetworkTrader {
@@ -36,12 +36,15 @@ impl NetworkComponent for NetworkTrader {
     ) -> Result<Self> {
         let NetworkTraderArgs { client, db } = args;
 
+        let db = crate::db::NetworkTraderDB::try_new(db, signal).await?;
+        spawn(crate::actix::loop_forever(db.clone()));
+
         Ok(Self {
             client: {
                 info!("Initializing market trader...");
                 MarketClient::try_new(client, signal).await?
             },
-            db: crate::db::NetworkTraderDB::try_new(db, signal).await?,
+            db,
         })
     }
 }
@@ -58,10 +61,10 @@ impl ::kubegraph_api::trader::NetworkTrader<LazyFrame> for NetworkTrader {
         let mut state = NetworkTraderState::default();
         match self.try_register(&mut state, ctx).await {
             Ok(()) => Ok(()),
-            Err(error) => self
-                .rollback_register(state)
-                .await
-                .map_err(|error_rollback| error.context(error_rollback)),
+            Err(error) => match self.rollback_register(state).await {
+                Ok(()) => Err(error),
+                Err(error_rollback) => Err(error.context(error_rollback)),
+            },
         }
     }
 }
@@ -74,6 +77,7 @@ impl NetworkTrader {
         ctx: NetworkTraderContext<LazyFrame>,
     ) -> Result<()> {
         // Step 1. Create a problem
+        debug!("Creating a problem");
         let prod_id = {
             let spec = ProductSpec {
                 problem: ctx.problem.spec.clone(),
@@ -82,44 +86,44 @@ impl NetworkTrader {
         };
         state.prod_id.replace(prod_id);
 
-        // Step 2. Create a webhook
-        let function: NetworkFunctionWebhookSpec = todo!();
-        state.function.replace(function.clone());
-
-        // Step 3. Estimate the cost
+        // Step 2. Estimate the cost
+        debug!("Estimating the cost");
         let cost = todo!();
 
-        // Step 4. Create a subscriber
-        {
+        // Step 3. Create a subscriber
+        debug!("Creating a subscriber");
+        let sub_id = {
             let spec = SubSpec {
                 cost,
                 count: 1,
-                function,
+                function: self.db.webhook_endpoint()?,
             };
             self.client.insert_sub(prod_id, &spec).await?
-        }
+        };
+        state.sub_id.replace(sub_id);
 
-        // Step 5. Store it to the DB
+        // Step 4. Store it to the DB
+        debug!("Storing the session to the DB");
         let session = crate::session::NetworkTraderSession { ctx };
         self.db.register(session).await
     }
 
     #[instrument(level = Level::INFO, skip(self, state))]
     async fn rollback_register(&self, state: NetworkTraderState) -> Result<()> {
-        let NetworkTraderState {
-            function,
-            prod_id: _,
-            sub_id,
-        } = state;
+        let NetworkTraderState { prod_id, sub_id } = state;
 
-        // Step -4. Rollback creating the subscriber
-        todo!();
+        let mut error = None;
 
-        // Step -3. Rollback estimating the cost
+        // Step -3. Rollback creating the subscriber
+        debug!("Rollback creating the subscriber");
+        if let Some((prod_id, sub_id)) = prod_id.zip(sub_id) {
+            if let Err(e) = self.client.remove_sub(prod_id, sub_id).await {
+                error.replace(e);
+            }
+        }
+
+        // Step -2. Rollback estimating the cost
         // NOTE: nothing to do
-
-        // Step -2. Rollback creating the webhook
-        todo!();
 
         // Step -1. Rollback creating the problem
         // NOTE: nothing to do
@@ -130,7 +134,6 @@ impl NetworkTrader {
 
 #[derive(Default)]
 struct NetworkTraderState {
-    function: Option<NetworkFunctionWebhookSpec>,
     prod_id: Option<<ProductSpec as BaseModel>::Id>,
     sub_id: Option<<SubSpec as BaseModel>::Id>,
 }

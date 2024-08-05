@@ -7,6 +7,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FunctionCallRequest<T = DataFrame, M = GraphMetadataPinned> {
     pub graph: Graph<GraphData<T>, M>,
     pub metadata: super::FunctionMetadata,

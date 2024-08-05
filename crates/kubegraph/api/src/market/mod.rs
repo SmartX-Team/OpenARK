@@ -1,4 +1,3 @@
-pub mod function;
 pub mod price;
 pub mod product;
 pub mod r#pub;

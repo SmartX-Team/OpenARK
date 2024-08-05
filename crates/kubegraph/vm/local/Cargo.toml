@@ -20,7 +20,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["full"]
+default = []
 full = [
     "connector-full",
     "df-full",
@@ -59,7 +59,7 @@ df-polars = [
     "kubegraph-dependency-solver/df-polars",
     "kubegraph-runner/df-polars",
     "kubegraph-solver-ortools?/df-polars",
-    "kubegraph-trader/df-polars",
+    "kubegraph-trader?/df-polars",
     "kubegraph-visualizer-egui?/df-polars",
 ]
 

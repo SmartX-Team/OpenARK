@@ -17,6 +17,7 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
     #[instrument(level = Level::INFO, skip(self, _product, histogram))]
     async fn solve(
         &self,
+        prod_id: <ProductSpec as BaseModel>::Id,
         _product: &ProductSpec,
         histogram: PriceHistogram,
     ) -> Result<Vec<TransactionTemplate>> {
@@ -81,6 +82,7 @@ impl ::kubegraph_market_solver_api::MarketSolver for MarketSolver {
             withdraw(&mut subs, &mut sub, count);
 
             let template = TransactionTemplate {
+                prod: prod_id,
                 r#pub: pub_id,
                 sub: sub_id,
                 cost,

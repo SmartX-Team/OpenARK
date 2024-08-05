@@ -18,6 +18,7 @@ type Count = <ProductSpec as BaseModel>::Count;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Id,
+    pub prod_id: Id,
     pub pub_id: Id,
     pub sub_id: Id,
     #[sea_orm(column_type = "Timestamp")]
@@ -70,6 +71,7 @@ impl From<Model> for TransactionSpec {
     fn from(value: Model) -> Self {
         let Model {
             id: _,
+            prod_id: prod,
             pub_id: r#pub,
             sub_id: sub,
             created_at,
@@ -83,6 +85,7 @@ impl From<Model> for TransactionSpec {
 
         Self {
             template: TransactionTemplate {
+                prod,
                 r#pub,
                 sub,
                 cost,
@@ -105,6 +108,7 @@ impl ActiveModel {
     pub const fn from_id(id: Id) -> Self {
         Self {
             id: ActiveValue::Set(id),
+            prod_id: ActiveValue::NotSet,
             pub_id: ActiveValue::NotSet,
             sub_id: ActiveValue::NotSet,
             created_at: ActiveValue::NotSet,
@@ -119,6 +123,7 @@ impl ActiveModel {
 
     pub const fn from_template(id: Id, template: TransactionTemplate) -> Self {
         let TransactionTemplate {
+            prod: prod_id,
             r#pub: pub_id,
             sub: sub_id,
             cost,
@@ -127,6 +132,7 @@ impl ActiveModel {
 
         Self {
             id: ActiveValue::Set(id),
+            prod_id: ActiveValue::Set(prod_id),
             pub_id: ActiveValue::Set(pub_id),
             sub_id: ActiveValue::Set(sub_id),
             created_at: ActiveValue::NotSet,

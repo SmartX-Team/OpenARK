@@ -3,15 +3,24 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::product::ProductSpec;
+use super::{product::ProductSpec, r#pub::PubSpec, sub::SubSpec, BaseModel};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionReceipt {
+    pub id: <TransactionSpec as BaseModel>::Id,
+    #[serde(flatten)]
+    pub template: TransactionTemplate,
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionSpec<
-    Pub = <ProductSpec as super::BaseModel>::Id,
-    Sub = <ProductSpec as super::BaseModel>::Id,
+    Prod = <ProductSpec as super::BaseModel>::Id,
+    Pub = <PubSpec as super::BaseModel>::Id,
+    Sub = <SubSpec as super::BaseModel>::Id,
 > {
-    pub template: TransactionTemplate<Pub, Sub>,
+    pub template: TransactionTemplate<Prod, Pub, Sub>,
     pub timestamp: DateTime<Utc>,
     #[serde(rename = "pub")]
     pub pub_spec: TaskSpec,
@@ -41,9 +50,11 @@ pub enum TaskState {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionTemplate<
-    Pub = <ProductSpec as super::BaseModel>::Id,
-    Sub = <ProductSpec as super::BaseModel>::Id,
+    Prod = <ProductSpec as super::BaseModel>::Id,
+    Pub = <PubSpec as super::BaseModel>::Id,
+    Sub = <SubSpec as super::BaseModel>::Id,
 > {
+    pub prod: Prod,
     pub r#pub: Pub,
     pub sub: Sub,
     pub cost: <TransactionSpec as super::BaseModel>::Cost,
