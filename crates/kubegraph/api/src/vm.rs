@@ -200,7 +200,7 @@ where
     ) -> Result<self::sealed::NetworkVirtualMachineState> {
         // Step 1. Check whether the problem is locked
         let scope = &problem.scope;
-        if self.trader().is_locked(&problem).await? {
+        if self.trader().is_enabled() && self.trader().is_locked(&problem).await? {
             info!("The problem is locked by the market: {scope}");
             return Ok(self::sealed::NetworkVirtualMachineState::Trading);
         }
@@ -238,16 +238,21 @@ where
 
         // Step 4. Register to the market if no feasible functions are found
         if matches!(&data.edges, LazyFrame::Empty) {
-            info!("Registering the problem to the market: {scope}");
-            let ctx = NetworkTraderContext {
-                functions,
-                graph: data,
-                problem,
-                static_edges,
-            };
-            self.trader().register(ctx).await?;
-            info!("Registered the problem to the market: {scope}");
-            return Ok(self::sealed::NetworkVirtualMachineState::Trading);
+            info!("No feasible functions are found: {scope}");
+            if self.trader().is_enabled() {
+                info!("Registering the problem to the market: {scope}");
+                let ctx = NetworkTraderContext {
+                    functions,
+                    graph: data,
+                    problem,
+                    static_edges,
+                };
+                self.trader().register(ctx).await?;
+                info!("Registered the problem to the market: {scope}");
+                return Ok(self::sealed::NetworkVirtualMachineState::Trading);
+            } else {
+                return Ok(self::sealed::NetworkVirtualMachineState::Completed);
+            }
         }
 
         // Step 5. Apply edges to real-world (or simulator)
@@ -421,7 +426,7 @@ where
         + for<'a> NetworkRunner<<Self as NetworkVirtualMachine>::GraphDB, LazyFrame>;
     type Solver: NetworkComponent
         + NetworkSolver<GraphData<LazyFrame>, Output = GraphData<LazyFrame>>;
-    type Trader: NetworkComponent + NetworkTrader<LazyFrame>;
+    type Trader: 'static + NetworkComponent + NetworkTrader<LazyFrame>;
     type Visualizer: NetworkComponent + NetworkVisualizer;
 
     fn dependency_solver(&self) -> &<Self as NetworkVirtualMachine>::DependencySolver;

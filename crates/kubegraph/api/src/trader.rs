@@ -13,6 +13,10 @@ use crate::{
 
 #[async_trait]
 pub trait NetworkTrader<T> {
+    fn is_enabled(&self) -> bool {
+        true
+    }
+
     async fn is_locked(&self, problem: &VirtualProblem) -> Result<bool>
     where
         T: 'async_trait;
@@ -27,6 +31,10 @@ impl<T> NetworkTrader<T> for ()
 where
     T: Send,
 {
+    fn is_enabled(&self) -> bool {
+        false
+    }
+
     async fn is_locked(&self, _: &VirtualProblem) -> Result<bool>
     where
         T: 'async_trait,

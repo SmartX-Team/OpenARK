@@ -27,7 +27,7 @@ full = [
     "function-full",
     "graph-full",
     "solver-full",
-    "trader-full",
+    # "trader-full",
     "vm-full",
 ]
 

@@ -136,7 +136,6 @@ impl ::kubegraph_api::visualizer::NetworkVisualizer for NetworkVisualizer {
     }
 
     #[instrument(level = Level::INFO, skip(self))]
-    #[instrument(level = Level::INFO, skip(self))]
     async fn close(&self) -> Result<()> {
         match self {
             Self::Disabled => Ok(()),
