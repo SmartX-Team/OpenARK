@@ -7,7 +7,7 @@ ARG DESKTOP_DIST="ubuntu"
 ARG DESKTOP_VERSION="latest"
 
 # Be ready for serving
-FROM registry.ark.svc.ops.openark/ulagbulag/openark-vine-desktop:ubuntu-24.04-v24 AS server
+FROM quay.io/ulagbulag/openark-vine-desktop:ubuntu-24.04-v25 AS server
 
 # Server Configuration
 CMD [ "/opt/openark/entrypoint.sh" ]
