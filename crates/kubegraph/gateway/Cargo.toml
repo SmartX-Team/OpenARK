@@ -37,10 +37,19 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = ["connector-fake", "connector-prometheus", "connector-local"]
+connector-full = [
+    "connector-fake",
+    "connector-http",
+    "connector-local",
+    "connector-prometheus",
+]
 connector-fake = [
     "kubegraph-api/connector-fake",
     "kubegraph-vm-local?/connector-fake",
+]
+connector-http = [
+    "kubegraph-api/connector-http",
+    "kubegraph-vm-local?/connector-http",
 ]
 connector-local = [
     "kubegraph-api/connector-local",

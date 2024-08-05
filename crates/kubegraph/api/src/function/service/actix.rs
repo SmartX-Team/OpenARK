@@ -10,7 +10,7 @@ use actix_web::{
 use actix_web_opentelemetry::{RequestMetrics, RequestTracing};
 use anyhow::{anyhow, Result};
 use ark_core::{env::infer, result::Result as HttpResult, signal::FunctionSignal};
-use clap::Parser;
+use clap::{Args, Parser};
 use futures::TryFutureExt;
 use tokio::time::sleep;
 use tracing::{error, info, instrument, warn, Level};
@@ -35,16 +35,19 @@ where
     ))
 }
 
-pub(super) async fn loop_forever<F>(signal: FunctionSignal, function: Arc<F>)
-where
+pub(super) async fn loop_forever<F>(
+    signal: FunctionSignal,
+    function: Arc<F>,
+    fallback_policy: NetworkFallbackPolicy,
+) where
     F: 'static + NetworkFunctionServiceExt,
-    <F as NetworkComponent>::Args: Parser,
+    <F as NetworkComponent>::Args: Send + Args + Parser,
 {
     loop {
         if let Err(error) = try_loop_forever(&function).await {
             error!("failed to operate http server: {error}");
 
-            match function.fallback_policy() {
+            match fallback_policy {
                 NetworkFallbackPolicy::Interval { interval } => {
                     warn!("restarting http server in {interval:?}...");
                     sleep(interval).await;
@@ -62,7 +65,7 @@ where
 async fn try_loop_forever<F>(function: &Arc<F>) -> Result<()>
 where
     F: 'static + NetworkFunctionServiceExt,
-    <F as NetworkComponent>::Args: Parser,
+    <F as NetworkComponent>::Args: Send + Args + Parser,
 {
     info!("Starting http server...");
 

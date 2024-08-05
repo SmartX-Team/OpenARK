@@ -32,8 +32,14 @@ function-entrypoint = [
 vm-entrypoint = []
 
 # Connectors
-connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
+connector-full = [
+    "connector-fake",
+    "connector-http",
+    "connector-local",
+    "connector-prometheus",
+]
 connector-fake = []
+connector-http = []
 connector-local = []
 connector-prometheus = []
 

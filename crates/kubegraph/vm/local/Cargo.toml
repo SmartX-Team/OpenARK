@@ -32,22 +32,37 @@ full = [
 ]
 
 # Configure Connectors
-connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
+connector-full = [
+    "connector-fake",
+    "connector-http",
+    "connector-local",
+    "connector-prometheus",
+]
 connector-fake = [
     "kubegraph-api/connector-fake",
     "kubegraph-connector-fake",
+    "kubegraph-connector-http?/connector-fake",
     "kubegraph-connector-local?/connector-fake",
     "kubegraph-connector-prometheus?/connector-fake",
+]
+connector-http = [
+    "kubegraph-api/connector-http",
+    "kubegraph-connector-fake?/connector-http",
+    "kubegraph-connector-http",
+    "kubegraph-connector-local?/connector-http",
+    "kubegraph-connector-prometheus?/connector-http",
 ]
 connector-local = [
     "kubegraph-api/connector-local",
     "kubegraph-connector-fake?/connector-local",
+    "kubegraph-connector-http?/connector-local",
     "kubegraph-connector-local",
     "kubegraph-connector-prometheus?/connector-local",
 ]
 connector-prometheus = [
     "kubegraph-api/connector-prometheus",
     "kubegraph-connector-fake?/connector-prometheus",
+    "kubegraph-connector-http?/connector-prometheus",
     "kubegraph-connector-local?/connector-prometheus",
     "kubegraph-connector-prometheus",
 ]
@@ -99,6 +114,7 @@ openssl-tls = [
     "kube/openssl-tls",
     "kubegraph-api/openssl-tls",
     "kubegraph-connector-fake?/openssl-tls",
+    "kubegraph-connector-http?/openssl-tls",
     "kubegraph-connector-local?/openssl-tls",
     "kubegraph-connector-prometheus?/openssl-tls",
     "kubegraph-graph-local?/openssl-tls",
@@ -112,6 +128,7 @@ rustls-tls = [
     "kube/rustls-tls",
     "kubegraph-api/rustls-tls",
     "kubegraph-connector-fake?/rustls-tls",
+    "kubegraph-connector-http?/rustls-tls",
     "kubegraph-connector-local?/rustls-tls",
     "kubegraph-connector-prometheus?/rustls-tls",
     "kubegraph-graph-local?/rustls-tls",
@@ -126,6 +143,7 @@ rustls-tls = [
 ark-core = { path = "../../../ark/core", features = ["signal"] }
 kubegraph-api = { path = "../../api", default-features = false }
 kubegraph-connector-fake = { path = "../../connector/fake", optional = true, default-features = false }
+kubegraph-connector-http = { path = "../../connector/http", optional = true, default-features = false }
 kubegraph-connector-local = { path = "../../connector/local", optional = true, default-features = false }
 kubegraph-connector-prometheus = { path = "../../connector/prometheus", optional = true, default-features = false }
 kubegraph-dependency-solver = { path = "../../dependency/solver", default-features = false }

@@ -24,8 +24,9 @@ default = ["full"]
 full = ["connector-full"]
 
 # Connectors
-connector-full = ["connector-fake", "connector-local"]
+connector-full = ["connector-fake", "connector-http", "connector-local"]
 connector-fake = ["kubegraph-api/connector-fake"]
+connector-http = ["kubegraph-api/connector-http"]
 connector-local = ["kubegraph-api/connector-local"]
 
 # TLS

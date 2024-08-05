@@ -5,7 +5,9 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use ark_core::signal::FunctionSignal;
 use async_trait::async_trait;
-use clap::Parser;
+use clap::{Args, Parser};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tokio::spawn;
 use tracing::{error, info, instrument, warn, Level};
 
@@ -20,7 +22,7 @@ use super::call::FunctionCallRequest;
 pub trait NetworkFunctionServiceExt
 where
     Self: NetworkComponentExt + NetworkFunctionService,
-    <Self as NetworkComponent>::Args: Parser,
+    <Self as NetworkComponent>::Args: Send + Args + Parser,
 {
     async fn main()
     where
@@ -44,7 +46,14 @@ where
         }
 
         info!("Booting...");
-        let function = match <Self as NetworkComponentExt>::try_default(&signal).await {
+        let NetworkFunctionServiceAgentArgs {
+            fallback_policy,
+            service: args,
+        } = match NetworkFunctionServiceAgentArgs::try_parse() {
+            Ok(args) => args,
+            Err(error) => signal.panic(error).await,
+        };
+        let function = match <Self as NetworkComponent>::try_new(args, &signal).await {
             Ok(function) => Arc::new(function),
             Err(error) => {
                 signal
@@ -54,8 +63,11 @@ where
         };
 
         info!("Creating http server...");
-        let handler_http_server =
-            spawn(self::actix::loop_forever(signal.clone(), function.clone()));
+        let handler_http_server = spawn(self::actix::loop_forever(
+            signal.clone(),
+            function.clone(),
+            fallback_policy,
+        ));
 
         info!("Registering side workers...");
         let mut handlers = handlers(&signal, &function);
@@ -77,11 +89,31 @@ where
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
+#[clap(rename_all = "kebab-case")]
+#[serde(rename_all = "camelCase")]
+struct NetworkFunctionServiceAgentArgs<S>
+where
+    S: Args,
+{
+    #[arg(
+        long,
+        env = "KUBEGRAPH_FUNCTION_FALLBACK_POLICY",
+        value_name = "POLICY",
+        default_value_t = NetworkFallbackPolicy::default(),
+    )]
+    #[serde(default)]
+    fallback_policy: NetworkFallbackPolicy,
+
+    #[command(flatten)]
+    service: S,
+}
+
 #[async_trait]
 impl<T> NetworkFunctionServiceExt for T
 where
     Self: NetworkComponentExt + NetworkFunctionService,
-    <Self as NetworkComponent>::Args: Parser,
+    <Self as NetworkComponent>::Args: Send + Args + Parser,
 {
 }
 
@@ -90,8 +122,6 @@ pub trait NetworkFunctionService
 where
     Self: Send + Sync,
 {
-    fn fallback_policy(&self) -> NetworkFallbackPolicy;
-
     async fn handle(&self, request: FunctionCallRequest) -> Result<()>;
 
     #[instrument(level = Level::INFO, skip(self))]

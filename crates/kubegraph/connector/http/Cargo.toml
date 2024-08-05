@@ -1,5 +1,5 @@
 [package]
-name = "kubegraph-connector-fake"
+name = "kubegraph-connector-http"
 
 authors = { workspace = true }
 description = { workspace = true }
@@ -24,25 +24,24 @@ default = ["full"]
 full = ["connector-full"]
 
 # Connectors
-connector-full = ["connector-http", "connector-local", "connector-prometheus"]
-connector-http = ["kubegraph-api/connector-http"]
+connector-full = ["connector-fake", "connector-local", "connector-prometheus"]
+connector-fake = ["kubegraph-api/connector-fake"]
 connector-local = ["kubegraph-api/connector-local"]
 connector-prometheus = ["kubegraph-api/connector-prometheus"]
 
 # TLS
-openssl-tls = ["kubegraph-api/openssl-tls"]
-rustls-tls = ["kubegraph-api/rustls-tls"]
+openssl-tls = ["kubegraph-api/openssl-tls", "reqwest/native-tls"]
+rustls-tls = ["kubegraph-api/rustls-tls", "reqwest/rustls-tls"]
 
 [dependencies]
+ark-core-k8s = { path = "../../../ark/core/k8s", features = ["data"] }
 kubegraph-api = { path = "../../api", default-features = false, features = [
-    "connector-fake",
+    "connector-prometheus",
     "df-polars",
 ] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-polars = { workspace = true }
-rand = { workspace = true }
-rand_distr = { workspace = true }
+reqwest = { workspace = true }
 tracing = { workspace = true }

@@ -5,21 +5,15 @@ use clap::Parser;
 use kubegraph_api::{
     component::NetworkComponent,
     function::{call::FunctionCallRequest, service::NetworkFunctionServiceExt},
-    vm::NetworkFallbackPolicy,
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tracing::{instrument, Level};
 
-#[derive(Clone, Debug, PartialEq, Parser)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, Parser)]
 #[clap(rename_all = "kebab-case")]
-struct NetworkFunctionServiceArgs {
-    #[arg(
-        long,
-        env = "KUBEGRAPH_FUNCTION_FALLBACK_POLICY",
-        value_name = "POLICY",
-        default_value_t = NetworkFallbackPolicy::default(),
-    )]
-    fallback_policy: NetworkFallbackPolicy,
-}
+#[serde(rename_all = "camelCase")]
+struct NetworkFunctionServiceArgs {}
 
 struct NetworkFunctionService {
     args: NetworkFunctionServiceArgs,
@@ -36,12 +30,9 @@ impl NetworkComponent for NetworkFunctionService {
 
 #[async_trait]
 impl ::kubegraph_api::function::service::NetworkFunctionService for NetworkFunctionService {
-    fn fallback_policy(&self) -> NetworkFallbackPolicy {
-        self.args.fallback_policy
-    }
-
     #[instrument(level = Level::INFO, skip(self, request))]
     async fn handle(&self, request: FunctionCallRequest) -> Result<()> {
+        dbg!(request);
         Ok(())
     }
 }

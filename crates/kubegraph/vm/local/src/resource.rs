@@ -243,6 +243,9 @@ impl NetworkConnectorDBWorker {
                     #[cfg(feature = "connector-fake")]
                     ::kubegraph_connector_fake::NetworkConnector::default()
                         .loop_forever(vm.clone()),
+                    #[cfg(feature = "connector-http")]
+                    ::kubegraph_connector_http::NetworkConnector::default()
+                        .loop_forever(vm.clone()),
                     #[cfg(feature = "connector-local")]
                     ::kubegraph_connector_local::NetworkConnector::default()
                         .loop_forever(vm.clone()),

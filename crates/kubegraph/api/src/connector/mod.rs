@@ -1,5 +1,7 @@
 #[cfg(feature = "connector-fake")]
 pub mod fake;
+#[cfg(feature = "connector-http")]
+pub mod http;
 #[cfg(feature = "connector-local")]
 pub mod local;
 #[cfg(feature = "connector-prometheus")]
@@ -235,6 +237,8 @@ pub enum NetworkConnectorKind {
     #[cfg(feature = "connector-fake")]
     Fake(self::fake::NetworkConnectorFakeSpec),
     #[cfg(feature = "connector-local")]
+    Http(self::http::NetworkConnectorHttpSpec),
+    #[cfg(feature = "connector-local")]
     Local(self::local::NetworkConnectorLocalSpec),
     #[cfg(feature = "connector-prometheus")]
     Prometheus(self::prometheus::NetworkConnectorPrometheusSpec),
@@ -246,6 +250,8 @@ impl NetworkConnectorKind {
             Self::Unknown {} => NetworkConnectorType::Unknown.name().into(),
             #[cfg(feature = "connector-fake")]
             Self::Fake(_) => NetworkConnectorType::Fake.name().into(),
+            #[cfg(feature = "connector-http")]
+            Self::Http(_) => NetworkConnectorType::Http.name().into(),
             #[cfg(feature = "connector-local")]
             Self::Local(_) => NetworkConnectorType::Local.name().into(),
             #[cfg(feature = "connector-prometheus")]
@@ -262,6 +268,8 @@ impl NetworkConnectorKind {
             Self::Unknown {} => NetworkConnectorType::Unknown,
             #[cfg(feature = "connector-fake")]
             Self::Fake(_) => NetworkConnectorType::Fake,
+            #[cfg(feature = "connector-http")]
+            Self::Http(_) => NetworkConnectorType::Http,
             #[cfg(feature = "connector-local")]
             Self::Local(_) => NetworkConnectorType::Local,
             #[cfg(feature = "connector-prometheus")]
@@ -284,6 +292,8 @@ pub enum NetworkConnectorType {
     Unknown,
     #[cfg(feature = "connector-fake")]
     Fake,
+    #[cfg(feature = "connector-http")]
+    Http,
     #[cfg(feature = "connector-local")]
     Local,
     #[cfg(feature = "connector-prometheus")]
@@ -296,6 +306,8 @@ impl NetworkConnectorType {
             Self::Unknown => "unknown",
             #[cfg(feature = "connector-fake")]
             Self::Fake => "fake",
+            #[cfg(feature = "connector-http")]
+            Self::Http => "http",
             #[cfg(feature = "connector-local")]
             Self::Local => "local",
             #[cfg(feature = "connector-prometheus")]

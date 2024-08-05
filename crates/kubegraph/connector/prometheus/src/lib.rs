@@ -129,8 +129,9 @@ impl NetworkConnectorItem<NetworkQueryMetadata> {
         let vectors = data.into_vector().ok().unwrap();
 
         // Collect columns
-        let df = collect_polars_columns(vectors, consts)
-            .map_err(|error| anyhow!("failed to collect {type} into dataframe: {error}"))?;
+        let df = collect_polars_columns(vectors, consts).map_err(|error| {
+            anyhow!("failed to collect {type} into dataframe ({namespace}/{name}): {error}")
+        })?;
         let metadata = GraphMetadataRaw::from_polars(&df).into();
 
         let graph = Graph {

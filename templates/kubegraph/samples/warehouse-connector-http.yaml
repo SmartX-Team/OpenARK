@@ -1,0 +1,19 @@
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkConnector
+metadata:
+  name: warehouse-sample
+  namespace: kubegraph
+spec:
+  http:
+    url: http://localhost:8888/warehouse
+---
+apiVersion: kubegraph.ulagbulag.io/v1alpha1
+kind: NetworkProblem
+metadata:
+  name: warehouse
+  namespace: kubegraph
+spec:
+  metadata:
+    supply: payload
+  verbose: true
