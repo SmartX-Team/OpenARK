@@ -69,6 +69,12 @@ if which podman; then
         su "${USER_NAME}" -c "cp /etc/containers/podman-containers.conf '${USER_HOME}/.config/containers/containers.conf'"
     fi
 
+    # Rootless Docker (Podman) Configuration
+    sed -i '/^keyring/ d' /etc/containers/containers.conf
+    sed -i 's/^\[containers\]/\0\nkeyring=false/g' /etc/containers/containers.conf
+    sed -i '/^no_pivot_root/ d' /etc/containers/containers.conf
+    sed -i 's/^\[engine\]/\0\nno_pivot_root=true/g' /etc/containers/containers.conf
+
     # Initialize rootless podman
     su "${USER_NAME}" -c "podman system migrate"
 
@@ -103,12 +109,16 @@ export PATH="${DOCKER_BIN}:${PATH}"
 export SKIP_IPTABLES="1"
 
 # Install rootless docker
-if [ ! -d "${DOCKER_BIN}" ]; then
-    curl -fsSL 'https://get.docker.com/rootless' | su 'user' -s '/bin/bash'
-fi
+if [ "x${DOCKER_ROOTLESS}" = 'xtrue' ]; then
+    if docker --version | grep -q '^Docker'; then
+        if [ ! -d "${DOCKER_BIN}" ]; then
+            curl -fsSL 'https://get.docker.com/rootless' | su 'user' -s '/bin/bash'
+        fi
 
-# Run rootless docker daemon
-su "${USER_NAME}" -c "env PATH=${PATH} dockerd-rootless.sh" &
+        # Run rootless docker daemon
+        su "${USER_NAME}" -c "env PATH=${PATH} dockerd-rootless.sh" &
+    fi
+fi
 
 ###########################################################
 #   Share public environment variables                    #

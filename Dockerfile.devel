@@ -20,7 +20,7 @@ WORKDIR /
 # Install Development Environment Dependencies
 RUN true \
     # Remove podman
-    && apt-get purge --allow-change-held-packages -y podman \
+    && apt-get purge --allow-change-held-packages -y podman-docker \
     && apt-get autoremove -y \
     && apt-get update && apt-get install -y \
     build-essential \
@@ -41,6 +41,7 @@ RUN true \
     nasm \
     openssh-server \
     pkg-config \
+    podman \
     python3-full \
     s3fs \
     xauth \

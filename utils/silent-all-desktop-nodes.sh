@@ -31,7 +31,7 @@ for name in $(kubectl get box --no-headers -o name); do
     # Collect the infomation
     box_name="${name##*/}"
     box_alias="$(kubectl get "${name}" -o jsonpath --template '{.metadata.labels.dash\.ulagbulag\.io/alias}')"
-    if [ "x${box_alias}" == 'x' ]; then
+    if [ "x${box_alias}" = 'x' ]; then
         box_alias="${box_name}"
     fi
 

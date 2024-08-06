@@ -124,6 +124,8 @@ spec:
             #   value: my-ssh-password!
             - name: USER_SHELL
               value: /bin/zsh
+            - name: DOCKER_ROOTLESS
+              value: "false"
           ports:
             - name: ssh
               protocol: TCP
@@ -140,7 +142,6 @@ spec:
                 - SETFCAP
                 - SYS_ADMIN
                 - SYS_CHROOT
-                - SYS_SYS_ADMIN
             privileged: true
           resources:
             limits:

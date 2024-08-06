@@ -247,6 +247,12 @@ RUN apt-get update && apt-get install -y \
     && curl -sL -o '/etc/containers/containers.conf' "${PODMAN_REPO}/containers.conf" \
     && curl -sL -o '/etc/containers/podman-containers.conf' "${PODMAN_REPO}/podman-containers.conf" \
     && chmod 644 '/etc/containers/containers.conf' '/etc/containers/podman-containers.conf' \
+    ## Rootless Docker (Podman) Configuration
+    && sed -i '/^keyring/ d' /etc/containers/containers.conf \
+    && sed -i 's/^\[containers\]/\0\nkeyring=false/g' /etc/containers/containers.conf \
+    && sed -i '/^no_pivot_root/ d' /etc/containers/containers.conf \
+    && sed -i 's/^\[engine\]/\0\nno_pivot_root=true/g' /etc/containers/containers.conf \
+    && /etc/containers/containers.conf \
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
