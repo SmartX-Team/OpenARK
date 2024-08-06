@@ -2,6 +2,14 @@
 ## The logging level for the operator: ERROR | WARNING | INFO | DEBUG
 logLevel: DEBUG
 
+# -- Pod resource requests & limits
+resources:
+  limits:
+    memory: 2Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
 ## Settings for whether to disable the drivers or other daemons if they are not
 ## needed
 # csi:
