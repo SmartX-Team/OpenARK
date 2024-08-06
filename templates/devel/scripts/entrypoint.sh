@@ -132,7 +132,13 @@ for env_key in $(
         continue
     elif [ "x${env_key}" = 'xHOME' ]; then
         continue
-    elif echo "x${env_key}" | grep -q '^USER_'; then
+    elif [ "x${env_key}" = 'xOLDPWD' ]; then
+        continue
+    elif [ "x${env_key}" = 'xPWD' ]; then
+        continue
+    elif [ "x${env_key}" = 'xSHLVL' ]; then
+        continue
+    elif echo "x${env_key}" | grep -q '^xUSER_'; then
         continue
     fi
 

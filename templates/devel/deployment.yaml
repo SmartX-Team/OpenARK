@@ -153,6 +153,7 @@ spec:
               mountPath: /home/user
             - name: host-ssh
               mountPath: /etc/ssh
+      enableServiceLinks: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault
