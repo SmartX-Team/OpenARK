@@ -16,6 +16,13 @@ all:
         kube_node:
       vars:
         #############################
+        # KISS
+        #############################
+
+        # Optimize for HPC clusters
+        kiss_hpc_enable: false
+
+        #############################
         # k8s-cluster
         #############################
 
@@ -100,7 +107,7 @@ all:
         kube_proxy_mode: ipvs
 
         # Configure Dual Stack networking (i.e. both IPv4 and IPv6)
-        enable_dual_stack_networks: true # disable IPv6
+        enable_dual_stack_networks: false # disable IPv6
 
         # configure arp_ignore and arp_announce to avoid answering ARP queries from kube-ipvs0 interface
         # must be set to true for MetalLB to work
@@ -116,7 +123,7 @@ all:
           - 1.0.0.1
 
         # Enable nodelocal dns cache
-        enable_nodelocaldns: true
+        enable_nodelocaldns: false
 
         # Enable k8s_external plugin for CoreDNS
         enable_coredns_k8s_external: false
@@ -176,7 +183,7 @@ all:
         cilium_debug: false
 
         cilium_enable_ipv4: true
-        cilium_enable_ipv6: true
+        cilium_enable_ipv6: false
 
         # Enable l2 announcement from cilium to replace Metallb Ref: https://docs.cilium.io/en/v1.14/network/l2-announcements/
         cilium_l2announcements: false
@@ -200,7 +207,7 @@ all:
         cilium_tunnel_mode: disabled  # native
 
         # LoadBalancer Mode (snat/dsr/hybrid) Ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/#dsr-mode
-        cilium_loadbalancer_mode: snat
+        cilium_loadbalancer_mode: hybrid
 
         # Optional features
         cilium_enable_prometheus: true
@@ -209,7 +216,7 @@ all:
         # Monitor aggregation level (none/low/medium/maximum)
         cilium_monitor_aggregation: medium
         # Kube Proxy Replacement mode (strict/partial)
-        cilium_kube_proxy_replacement: true  # strict
+        cilium_kube_proxy_replacement: strict
 
         # Auto direct nodes routes can be used to advertise pods routes in your cluster
         # without any tunelling (with `cilium_tunnel_mode` sets to `disabled`).
@@ -275,7 +282,7 @@ all:
 
         # The default IP address management mode is "Cluster Scope".
         # https://docs.cilium.io/en/stable/concepts/networking/ipam/
-        cilium_ipam_mode: multi-pool
+        cilium_ipam_mode: cluster-pool
 
         ## A dictionary of extra config variables to add to cilium-config, formatted like:
         ##  cilium_config_extra_vars:
@@ -283,10 +290,12 @@ all:
         ##    var2: "value2"
         cilium_config_extra_vars:
           # NOTE: See more performance tuning guide at: https://docs.cilium.io/en/stable/operations/performance/tuning/
-          # datapath-mode: netkit
+          bpf-lb-acceleration: "best-effort"  # [disabled, native, best-effort]
+          # Enable on cilium >= 1.16
+          # datapath-mode: "{{ 'netkit' if (kiss_hpc_enable | default(False)) else 'veth' }}"
           enable-bbr: "true"
-          # enable-ipv4-big-tcp: true
-          # enable-ipv6-big-tcp: true
+          enable-ipv4-big-tcp: "true"
+          enable-ipv6-big-tcp: "true"
 
         # Name of the cluster. Only relevant when building a mesh of clusters.
         cilium_cluster_name: "{{ cluster_name }}"
@@ -299,7 +308,7 @@ all:
         cilium_enable_ipv6_masquerade: true
 
         # -- Enable native IP masquerade support in eBPF
-        cilium_enable_bpf_masquerade: false
+        cilium_enable_bpf_masquerade: "{{ kiss_hpc_enable | default(False) }}"
 
         # -- Configure whether direct routing mode should route traffic via
         # host stack (true) or directly and more efficiently out of BPF (false) if
@@ -330,7 +339,11 @@ all:
             resources:
               - ciliumpodippools
             verbs:
-              - '*'
+              - create
+              - get
+              - list
+              - update
+              - watch
 
         #############################
         # addons
@@ -368,7 +381,7 @@ all:
         cert_manager_namespace: cert-manager
 
         # MetalLB deployment
-        metallb_enabled: false
+        metallb_enabled: "{{ (kube_network_plugin | default('')) == 'calico' }}"
         metallb_speaker_enabled: false
         metallb_namespace: metallb-system
         metallb_config:

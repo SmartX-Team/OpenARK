@@ -257,7 +257,7 @@ if lspci | grep 'NVIDIA'; then
 
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-            dnf install -y kernel-devel pulseaudio
+            dnf install -y pulseaudio
             dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
             # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
             # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
@@ -659,9 +659,15 @@ fi
 
 # Kernel Command-line
 ## VFIO
-sudo grubby --update-kernel=ALL --args='amd_iommu=on'
-sudo grubby --update-kernel=ALL --args='intel_iommu=on'
-sudo grubby --update-kernel=ALL --args='iommu=pt'
+#sudo grubby --update-kernel=ALL --args='amd_iommu=on'
+#sudo grubby --update-kernel=ALL --args='intel_iommu=on'
+#sudo grubby --update-kernel=ALL --args='iommu=pt'
+
+## Kernel
+VMLINUZ_KERNEL_PATH="$(find /boot -maxdepth 1 -name 'vmlinuz-*' | sort | tail -n1)"
+sudo grubby --set-default="${VMLINUZ_KERNEL_PATH}"
+
+## Apply
 sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # VFIO

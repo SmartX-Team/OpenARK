@@ -26,14 +26,6 @@
         --overwrite
         node-role.kubernetes.io/kiss=ControlPlane
 
-- name: Label Nodes | KISS Ephemeral Control Planes
-  hosts: kiss_ephemeral_node
-  tasks:
-    - command: >
-        {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }}
-        --overwrite
-        node-role.kubernetes.io/kiss-ephemeral-control-plane=
-
 - name: Label Nodes | First Node
   hosts: kiss_ephemeral_node
   tasks:

@@ -490,6 +490,7 @@ function install_k8s_cluster() {
     local node_first="$(echo ${names} | awk '{print $1}')"
 
     # Parse variables
+    local FORCE_RESET="$(kiss_config 'group_force_reset')"
     local KISS_BOOTSTRAP_NODE_IMAGE="$(kiss_config 'bootstrapper_node_image')"
     local KISS_INSTALLER_IMAGE="$(kiss_config 'kiss_installer_image')"
     local KUBERNETES_CONFIG="$(realpath $(eval echo $(kiss_config 'bootstrapper_kubernetes_config_path')))"
@@ -572,25 +573,29 @@ function install_k8s_cluster() {
             '
 
         # Remove last cluster if exists
-        __log 'INFO' "Resetting last k8s cluster ..."
-        ${CONTAINER_RUNTIME} run --rm --tty \
-            --name "k8s-reset" \
-            --net "host" \
-            --env "ansible_user=${USER_NAME}" \
-            --env "KUBESPRAY_NODES=${nodes}" \
-            --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
-            --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
-            --volume "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/:/etc/kiss/bootstrap/:ro" \
-            --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
-            --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
-            "${KUBESPRAY_IMAGE}" bash -c '
-                sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
-                && exec ansible-playbook \
-                    --become --become-user="root" \
-                    --inventory "/root/kiss/bootstrap/all.yaml" \
-                    --inventory "/root/kiss/bootstrap/config.yaml" \
-                    "/etc/kiss/bootstrap/roles/reset-k8s.yaml"
-            '
+        if [ "x${FORCE_RESET}" = 'xtrue' ]; then
+            __log 'INFO' "Resetting last k8s cluster ..."
+            ${CONTAINER_RUNTIME} run --rm --tty \
+                --name "k8s-reset" \
+                --net "host" \
+                --env "ansible_user=${USER_NAME}" \
+                --env "KUBESPRAY_NODES=${nodes}" \
+                --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
+                --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
+                --volume "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/:/etc/kiss/bootstrap/:ro" \
+                --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
+                --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
+                "${KUBESPRAY_IMAGE}" bash -c '
+                    sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
+                    && exec ansible-playbook \
+                        --become --become-user="root" \
+                        --inventory "/root/kiss/bootstrap/all.yaml" \
+                        --inventory "/root/kiss/bootstrap/config.yaml" \
+                        "/etc/kiss/bootstrap/roles/reset-k8s.yaml"
+                '
+        else
+            __log 'SKIP' "Skipping resetting last k8s cluster ..."
+        fi
 
         # Install cluster
         __log 'INFO' "Installing k8s cluster ..."
