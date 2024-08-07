@@ -9,16 +9,27 @@
       when: node_packed | length
       include_tasks: ../tasks/load-node.yaml
 
-- name: Save hosts to nodes
-  hosts: kiss_ephemeral_node
-  gather_facts: false
-  tasks:
-    - template:
-        src: ../templates/hosts.yaml.j2
-        dest: /etc/kiss/bootstrap/inventory/hosts.yaml
+- name: Common tasks for every playbooks
+  import_playbook: /kubespray/playbooks/boilerplate.yml
 
-- name: Reset k8s cluster
-  import_playbook: >
-    /kubespray/reset.yml
-    reset_confirmation="yes"
-  ignore_errors: true
+- name: Gather facts
+  import_playbook: /kubespray/playbooks/facts.yml
+
+- name: Reset the kubespray node
+  hosts: etcd:k8s_cluster:calico_rr
+  gather_facts: false
+  pre_tasks:
+    - name: Gather information about installed services
+      service_facts:
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - role: kubespray-defaults
+    - role: kubernetes/preinstall
+      when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'"
+      tags: resolvconf
+      dns_early: true
+    - role: reset
+      tags: reset
+  vars:
+    flush_iptables: true
+    reset_restart_network: true

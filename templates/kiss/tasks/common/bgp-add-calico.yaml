@@ -23,4 +23,5 @@
   delay: "{{ 5 }}"
   with_inventory_hostnames: global_rr
   when:
+    - kube_network_plugin == 'calico'
     - inventory_hostname == groups['kube_control_plane'][0]

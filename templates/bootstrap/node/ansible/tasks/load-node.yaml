@@ -10,13 +10,14 @@
     ansible_python_interpreter: /usr/bin/python3
     ansible_ssh_host: "{{ node[1] }}"
     ansible_ssh_port: "{{ node[2] }}"
-    ansible_user: root
+    ansible_user: "{{ lookup('env', 'ansible_user') | default('root') }}"
     bin_dir: /usr/local/bin
     ip: "{{ node[1] }}"
     name: "{{ node[0] }}"
     groups:
       - all
       - etcd
+      - k8s_cluster
       - k8s_cluster_default
       - kiss_ephemeral_node
       - kube_control_plane

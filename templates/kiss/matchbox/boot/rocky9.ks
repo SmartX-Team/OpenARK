@@ -30,12 +30,13 @@ timezone Asia/Seoul --utc
 @^minimal-environment
 bc
 bluez
+elrepo-release
 epel-release
 git
+grubby
 kernel
 kernel-core
 kernel-devel
-kernel-headers
 kernel-modules
 kernel-modules-core
 lvm2
@@ -44,6 +45,7 @@ NetworkManager-wifi
 nfs-utils
 pciutils
 podman-docker
+sqlite
 vim
 yum-utils
 %end
@@ -150,65 +152,6 @@ repo --name=BaseOS --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E 
 repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
 EOF
 
-# Advanced Network configuration
-mkdir -p /etc/NetworkManager/system-connections/
-## Wireless - WIFI
-if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
-    ## Disable all other interfaces to enforce WIFI
-    for interface in $(
-        ip addr show |
-            grep 'state UP' |
-            grep -Po '^[0-9]+: +\K[0-9a-z]+'
-    ); do
-        ip link set "${interface}" down
-    done
-
-    ## Disable Power Saving Mode on NetworkManager
-    mkdir -p /etc/NetworkManager/conf.d/
-    cat <<EOF >/etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
-[connection]
-wifi.powersave = 2
-EOF
-
-    for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
-        _IS_DESKTOP=true
-        cat <<EOF >/etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
-[connection]
-id=10-kiss-enable-$interface
-uuid=$(python3 -c 'import uuid; print(uuid.uuid4())')
-type=wifi
-interface-name=$interface
-
-[ipv4]
-method=auto
-route-metric=10
-
-[ipv6]
-addr-gen-mode=default
-method=disabled
-
-[wifi]
-mode=infrastructure
-ssid=NETWORK_WIRELESS_WIFI_SSID
-
-[wifi-security]
-auth-log=open
-key-mgmt=NETWORK_WIRELESS_WIFI_KEY_MGMT
-psk=NETWORK_WIRELESS_WIFI_KEY_PSK
-
-[proxy]
-EOF
-        chmod 600 /etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
-
-        ## Reload NetworkManager
-        nmcli connection reload
-
-        ## Try to enable WIFI Connection
-        ### NOTE: the latest Wi-Fi chipset may not be supported on the kickstart OS.
-        nmcli connection up "10-kiss-enable-$interface" || true
-    done
-fi
-
 # Reboot after Installation
 cat <<EOF >>/tmp/kiss-config
 reboot
@@ -253,44 +196,19 @@ echo 'timeout=300' >>/etc/dnf/dnf.conf
 echo 'fastestmirror=True' >>/etc/dnf/dnf.conf
 echo 'max_parallel_downloads=5' >>/etc/dnf/dnf.conf
 
+# Kernel Configuration
+## Install Bleeding-edge kernel
+dnf install --enablerepo='elrepo-kernel' -y \
+    kernel-ml \
+    kernel-ml-core \
+    kernel-ml-devel \
+    kernel-ml-modules \
+    kernel-ml-modules-extra
+
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 ## Wireless - WIFI
 if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
-    for interface in $(nmcli device | grep '^[a-z0-9-]\+ *wifi \+' | sed 's/^\([a-z0-9-]\+\).*$/\1/g' | xargs); do
-        _IS_DESKTOP=true
-        cat <<EOF >/etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
-[connection]
-id=10-kiss-enable-$interface
-uuid=$(python3 -c 'import uuid; print(uuid.uuid4())')
-type=wifi
-interface-name=$interface
-
-[ipv4]
-method=auto
-route-metric=10
-
-[ipv6]
-addr-gen-mode=default
-method=disabled
-
-[wifi]
-mode=infrastructure
-ssid=NETWORK_WIRELESS_WIFI_SSID
-
-[wifi-security]
-auth-log=open
-key-mgmt=NETWORK_WIRELESS_WIFI_KEY_MGMT
-psk=NETWORK_WIRELESS_WIFI_KEY_PSK
-
-[proxy]
-EOF
-        chmod 600 /etc/NetworkManager/system-connections/10-kiss-enable-$interface.nmconnection
-
-        ### NOTE: the latest Wi-Fi chipset may not be supported on the kickstart OS.
-        nmcli connection up "10-kiss-enable-$interface" || true
-    done
-
     ## Disable Power Saving Mode (iwlmvm)
     cat <<EOF >/etc/modprobe.d/iwlmvm.conf
 options iwlmvm power_scheme=1
@@ -339,7 +257,7 @@ if lspci | grep 'NVIDIA'; then
 
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-            dnf install -y kernel-devel kernel-headers pulseaudio
+            dnf install -y kernel-devel pulseaudio
             dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
             # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
             # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
@@ -459,44 +377,6 @@ chmod 550 /usr/local/bin/notify-new-box.sh
 
 # Network Configuration
 mkdir -p /etc/systemd/system/multi-user.target.wants/
-
-## Wireless (Wi-Fi)
-cat <<EOF >/usr/local/bin/optimize-wifi.sh
-#!/bin/bash
-# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
-# Use of this source code is governed by a GPL-3-style license that can be
-# found in the LICENSE file.
-
-# Prehibit errors
-set -e -o pipefail
-
-# Remove BSSID condition
-if
-    nmcli connection show '10-kiss-enable-master' |
-        grep -Po '^connection\.type\: *802\-11\-wireless\$' >dev/null
-then
-    nmcli connection modify '10-kiss-enable-master' -802-11-wireless.bssid ""
-    nmcli connection reload
-fi
-
-# Finished!
-exec true
-EOF
-chmod u+x /usr/local/bin/optimize-wifi.sh
-
-cat <<EOF >/etc/systemd/system/optimize-wifi.service
-[Unit]
-Description=Optimize wireless networking performance.
-Wants=network-online.target
-After=network-online.target
-[Service]
-ExecStart=/usr/local/bin/optimize-wifi.sh
-Restart=on-failure
-RestartSec=30
-[Install]
-WantedBy=multi-user.target
-EOF
-ln -sf /etc/systemd/system/optimize-wifi.service /etc/systemd/system/multi-user.target.wants/optimize-wifi.service
 
 # Sysctl Configuration
 mkdir -p /etc/sysctl.d/

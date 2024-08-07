@@ -5,10 +5,27 @@
     deploy_container_engine: "{{ deploy_container_engine | default(inventory_hostname in groups['k8s_cluster'] or etcd_deployment_type == 'docker') }}"
     is_fedora_coreos: "{{ is_fedora_coreos | default(False) }}"
 
+- name: Common tasks for every playbooks
+  import_playbook: /kubespray/playbooks/boilerplate.yml
+
+- name: Gather facts
+  import_playbook: /kubespray/playbooks/facts.yml
+
 - name: Reset the kubespray node
-  include_tasks: /kubespray/roles/reset/tasks/main.yml
-  ignore_errors: true
+  hosts: etcd:k8s_cluster:calico_rr
+  gather_facts: false
+  pre_tasks:
+    - name: Gather information about installed services
+      service_facts:
+  environment: "{{ proxy_disable_env }}"
+  roles:
+    - role: kubespray-defaults
+    - role: kubernetes/preinstall
+      when: "dns_mode != 'none' and resolvconf_mode == 'host_resolvconf'"
+      tags: resolvconf
+      dns_early: true
+    - role: reset
+      tags: reset
   vars:
     flush_iptables: true
-    kube_network_plugin: null
     reset_restart_network: true

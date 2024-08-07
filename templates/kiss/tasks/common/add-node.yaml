@@ -18,7 +18,7 @@
     ansible_host_key_checking: false
     ansible_ssh_host: "{{ node[2] }}"
     ansible_ssh_port: 22
-    ansible_user: "{{ lookup('env', 'ansible_user') }}"
+    ansible_user: "{{ lookup('env', 'ansible_user') | default('root') }}"
     ip: "{{ node[2] }}"
     name: "{{ node[1] }}"
     groups:

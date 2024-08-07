@@ -52,7 +52,7 @@ all:
         ## set "name": "url". insecure url must be started http://
         ## Port number is also needed if the default HTTPS port is not used.
         containerd_insecure_registries:
-          "registry.ark.svc.ops.openark": "http://registry.ark.svc.ops.openark"
+          "registry.ark.svc.ops.openark": "http://registry.ark.svc.{{ cluster_name }}" # DevSkim: ignore DS137138
 
         ## Settings for etcd deployment type
         # Set this to docker if you are using container_manager: docker
@@ -64,40 +64,7 @@ all:
 
         # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
         # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
-        kube_network_plugin: calico
-
-        ## Settings for calico CNI
-        # add default ippool blockSize (defaults kube_network_node_prefix)
-        calico_pool_blocksize: 26
-        # Global as_num (/calico/bgp/v1/global/as_num)
-        global_as_num: "64512"
-        # You can set MTU value here. If left undefined or empty, it will
-        # not be specified in calico CNI config, so Calico will use built-in
-        # defaults. The value should be a number, not a string.
-        calico_mtu: 9000
-        # Choose data store type for calico: "etcd" or "kdd" (kubernetes datastore)
-        # The default value for calico_datastore is set in role kubespray-default
-        calico_datastore: kdd
-        # Calico container settings
-        calico_allow_ip_forwarding: false
-        # Should calico ignore kernel's RPF check setting,
-        # see https://github.com/projectcalico/felix/blob/ab8799eaea66627e5db7717e62fca61fd9c08646/python/calico/felix/config.py#L198
-        calico_node_ignorelooserpf: false
-        # Advertise Cluster IPs
-        calico_advertise_cluster_ips: true
-        # Advertise Service LoadBalancer IPs
-        calico_advertise_service_loadbalancer_ips:
-          - 192.168.0.0/24 # Dev
-        # Configure peering with router(s) at global scope
-        peer_with_router: false
-        # Set calico network backend: "bird", "vxlan" or "none"
-        # bird enable BGP routing, required for ipip and no encapsulation modes
-        calico_network_backend: bird # enable BGP routing
-        # Enable BGP encapsulation mode
-        calico_ipip_mode: CrossSubnet
-        calico_vxlan_mode: Never
-        # Enable eBPF mode
-        calico_bpf_enabled: false
+        kube_network_plugin: cilium
 
         # Setting multi_networking to true will install Multus: https://github.com/intel/multus-cni
         kube_network_plugin_multus: false
@@ -123,17 +90,17 @@ all:
         #  - kube_pods_subnet: 10.233.64.0/18
         #  - kube_network_node_prefix: 25
         #  - kubelet_max_pods: 110
-        kube_network_node_prefix: 26
+        kube_network_node_prefix: 24
 
         # Kubernetes internal network for services, unused block of space.
-        kube_service_addresses: 10.64.0.0/12 # same as calico CIDR
-        kube_child_service_addresses: 10.112.0.0/12 # same as calico CIDR
+        kube_service_addresses: 10.64.0.0/12 # same as CNI CIDR
+        kube_child_service_addresses: 10.112.0.0/12 # same as CNI CIDR
 
         ## Kube Proxy mode One of ['iptables','ipvs']
         kube_proxy_mode: ipvs
 
         # Configure Dual Stack networking (i.e. both IPv4 and IPv6)
-        enable_dual_stack_networks: false # disable IPv6
+        enable_dual_stack_networks: true # disable IPv6
 
         # configure arp_ignore and arp_announce to avoid answering ARP queries from kube-ipvs0 interface
         # must be set to true for MetalLB to work
@@ -166,15 +133,215 @@ all:
         sysctl_file_path: /etc/sysctl.d/99-sysctl.conf
 
         #############################
+        # CNI / Calico
+        #############################
+
+        # add default ippool blockSize (defaults kube_network_node_prefix)
+        # calico_pool_blocksize: "{{ kube_network_node_prefix }}"
+        # Global as_num (/calico/bgp/v1/global/as_num)
+        global_as_num: "64512"
+        # You can set MTU value here. If left undefined or empty, it will
+        # not be specified in calico CNI config, so Calico will use built-in
+        # defaults. The value should be a number, not a string.
+        calico_mtu: 9000
+        # Choose data store type for calico: "etcd" or "kdd" (kubernetes datastore)
+        # The default value for calico_datastore is set in role kubespray-default
+        calico_datastore: kdd
+        # Calico container settings
+        calico_allow_ip_forwarding: false
+        # Should calico ignore kernel's RPF check setting,
+        # see https://github.com/projectcalico/felix/blob/ab8799eaea66627e5db7717e62fca61fd9c08646/python/calico/felix/config.py#L198
+        calico_node_ignorelooserpf: false
+        # Advertise Cluster IPs
+        calico_advertise_cluster_ips: true
+        # Advertise Service LoadBalancer IPs
+        calico_advertise_service_loadbalancer_ips:
+          - 192.168.0.0/24 # Dev
+        # Configure peering with router(s) at global scope
+        peer_with_router: false
+        # Set calico network backend: "bird", "vxlan" or "none"
+        # bird enable BGP routing, required for ipip and no encapsulation modes
+        calico_network_backend: bird # enable BGP routing
+        # Enable BGP encapsulation mode
+        calico_ipip_mode: CrossSubnet
+        calico_vxlan_mode: Never
+        # Enable eBPF mode
+        calico_bpf_enabled: false
+
+        #############################
+        # CNI / Cilium
+        #############################
+
+        # Log-level
+        cilium_debug: false
+
+        cilium_enable_ipv4: true
+        cilium_enable_ipv6: true
+
+        # Enable l2 announcement from cilium to replace Metallb Ref: https://docs.cilium.io/en/v1.14/network/l2-announcements/
+        cilium_l2announcements: false
+
+        # Identity allocation mode selects how identities are shared between cilium
+        # nodes by setting how they are stored. The options are "crd" or "kvstore".
+        # - "crd" stores identities in kubernetes as CRDs (custom resource definition).
+        #   These can be queried with:
+        #     `kubectl get ciliumid`
+        # - "kvstore" stores identities in an etcd kvstore.
+        # - In order to support External Workloads, "crd" is required
+        #   - Ref: https://docs.cilium.io/en/stable/gettingstarted/external-workloads/#setting-up-support-for-external-workloads-beta
+        # - KVStore operations are only required when cilium-operator is running with any of the below options:
+        #   - --synchronize-k8s-services
+        #   - --synchronize-k8s-nodes
+        #   - --identity-allocation-mode=kvstore
+        #   - Ref: https://docs.cilium.io/en/stable/internals/cilium_operator/#kvstore-operations
+        cilium_identity_allocation_mode: kvstore
+
+        # Overlay Network Mode
+        cilium_tunnel_mode: disabled  # native
+
+        # LoadBalancer Mode (snat/dsr/hybrid) Ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/#dsr-mode
+        cilium_loadbalancer_mode: snat
+
+        # Optional features
+        cilium_enable_prometheus: true
+        # Enable if you want to make use of hostPort mappings
+        cilium_enable_portmap: true
+        # Monitor aggregation level (none/low/medium/maximum)
+        cilium_monitor_aggregation: medium
+        # Kube Proxy Replacement mode (strict/partial)
+        cilium_kube_proxy_replacement: true  # strict
+
+        # Auto direct nodes routes can be used to advertise pods routes in your cluster
+        # without any tunelling (with `cilium_tunnel_mode` sets to `disabled`).
+        # This works only if you have a L2 connectivity between all your nodes.
+        # You wil also have to specify the variable `cilium_native_routing_cidr` to
+        # make this work. Please refer to the cilium documentation for more
+        # information about this kind of setups.
+        cilium_auto_direct_node_routes: false
+
+        # Allows to explicitly specify the IPv4 CIDR for native routing.
+        # When specified, Cilium assumes networking for this CIDR is preconfigured and
+        # hands traffic destined for that range to the Linux network stack without
+        # applying any SNAT.
+        # Generally speaking, specifying a native routing CIDR implies that Cilium can
+        # depend on the underlying networking stack to route packets to their
+        # destination. To offer a concrete example, if Cilium is configured to use
+        # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+        # the user must configure the routes to reach pods, either manually or by
+        # setting the auto-direct-node-routes flag.
+        cilium_native_routing_cidr: "10.0.0.0/8"
+
+        # Allows to explicitly specify the IPv6 CIDR for native routing.
+        cilium_native_routing_cidr_ipv6: "fd00::/100"
+
+        # Enable transparent network encryption.
+        cilium_encryption_enabled: false
+
+        # Encryption method. Can be either ipsec or wireguard.
+        # Only effective when `cilium_encryption_enabled` is set to true.
+        cilium_encryption_type: wireguard
+
+        # Enable encryption for pure node to node traffic.
+        # This option is only effective when `cilium_encryption_type` is set to `ipsec`.
+        cilium_ipsec_node_encryption: false
+
+        # If your kernel or distribution does not support WireGuard, Cilium agent can be configured to fall back on the user-space implementation.
+        # When this flag is enabled and Cilium detects that the kernel has no native support for WireGuard,
+        # it will fallback on the wireguard-go user-space implementation of WireGuard.
+        # This option is only effective when `cilium_encryption_type` is set to `wireguard`.
+        cilium_wireguard_userspace_fallback: false
+
+        # Enable Bandwidth Manager
+        # Cilium’s bandwidth manager supports the kubernetes.io/egress-bandwidth Pod annotation.
+        # Bandwidth enforcement currently does not work in combination with L7 Cilium Network Policies.
+        # In case they select the Pod at egress, then the bandwidth enforcement will be disabled for those Pods.
+        # Bandwidth Manager requires a v5.1.x or more recent Linux kernel.
+        cilium_enable_bandwidth_manager: true
+
+        # IP Masquerade Agent
+        # https://docs.cilium.io/en/stable/concepts/networking/masquerading/
+        # By default, all packets from a pod destined to an IP address outside of the cilium_native_routing_cidr range are masqueraded
+        cilium_ip_masq_agent_enable: false
+
+        # Hubble
+        ### Enable Hubble without install
+        cilium_enable_hubble: true
+        ### Enable Hubble Metrics
+        cilium_enable_hubble_metrics: true
+        ### Enable Hubble install
+        cilium_hubble_install: true
+        ### Enable auto generate certs if cilium_hubble_install: true
+        cilium_hubble_tls_generate: true
+
+        # The default IP address management mode is "Cluster Scope".
+        # https://docs.cilium.io/en/stable/concepts/networking/ipam/
+        cilium_ipam_mode: multi-pool
+
+        ## A dictionary of extra config variables to add to cilium-config, formatted like:
+        ##  cilium_config_extra_vars:
+        ##    var1: "value1"
+        ##    var2: "value2"
+        cilium_config_extra_vars:
+          # NOTE: See more performance tuning guide at: https://docs.cilium.io/en/stable/operations/performance/tuning/
+          # datapath-mode: netkit
+          enable-bbr: "true"
+          # enable-ipv4-big-tcp: true
+          # enable-ipv6-big-tcp: true
+
+        # Name of the cluster. Only relevant when building a mesh of clusters.
+        cilium_cluster_name: "{{ cluster_name }}"
+
+        # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
+        # Available for Cilium v1.10 and up
+        cilium_enable_ipv4_masquerade: true
+        # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
+        # Available for Cilium v1.10 and up
+        cilium_enable_ipv6_masquerade: true
+
+        # -- Enable native IP masquerade support in eBPF
+        cilium_enable_bpf_masquerade: false
+
+        # -- Configure whether direct routing mode should route traffic via
+        # host stack (true) or directly and more efficiently out of BPF (false) if
+        # the kernel supports it. The latter has the implication that it will also
+        # bypass netfilter in the host namespace.
+        cilium_enable_host_legacy_routing: false  # BPF, depends on BBR
+
+        # A list of extra rules variables to add to clusterrole for cilium operator, formatted like:
+        #   cilium_clusterrole_rules_operator_extra_vars:
+        #     - apiGroups:
+        #       - '""'
+        #       resources:
+        #       - pods
+        #       verbs:
+        #       - delete
+        #     - apiGroups:
+        #       - '""'
+        #       resources:
+        #       - nodes
+        #       verbs:
+        #       - list
+        #       - watch
+        #       resourceNames:
+        #       - toto
+        cilium_clusterrole_rules_operator_extra_vars:
+          - apiGroups:
+              - cilium.io
+            resources:
+              - ciliumpodippools
+            verbs:
+              - '*'
+
+        #############################
         # addons
         #############################
 
         # Kubernetes dashboard
         # RBAC required. see docs/getting-started.md for access details.
-        dashboard_enabled: true
+        dashboard_enabled: false
 
         # Helm deployment
-        helm_enabled: false
+        helm_enabled: true
 
         # Metrics Server deployment
         metrics_server_enabled: true
@@ -201,7 +368,7 @@ all:
         cert_manager_namespace: cert-manager
 
         # MetalLB deployment
-        metallb_enabled: true
+        metallb_enabled: false
         metallb_speaker_enabled: false
         metallb_namespace: metallb-system
         metallb_config:

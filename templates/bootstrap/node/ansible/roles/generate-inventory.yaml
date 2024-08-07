@@ -1,0 +1,18 @@
+---
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load nodes
+      loop: "{{ lookup('env', 'KUBESPRAY_NODES') | split(' ') }}"
+      loop_control:
+        loop_var: node_packed
+      when: node_packed | length
+      include_tasks: ../tasks/load-node.yaml
+
+- name: Save hosts to nodes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - template:
+        src: ../templates/hosts.yaml.j2
+        dest: /etc/kiss/bootstrap/inventory/hosts.yaml

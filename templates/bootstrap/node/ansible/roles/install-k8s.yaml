@@ -9,14 +9,6 @@
       when: node_packed | length
       include_tasks: ../tasks/load-node.yaml
 
-- name: Save hosts to nodes
-  hosts: kiss_ephemeral_node
-  gather_facts: false
-  tasks:
-    - template:
-        src: ../templates/hosts.yaml.j2
-        dest: /etc/kiss/bootstrap/inventory/hosts.yaml
-
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml
 

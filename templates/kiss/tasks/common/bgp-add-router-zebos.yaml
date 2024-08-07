@@ -3,6 +3,7 @@
   when:
     - ansible_network_os is defined
     - ansible_network_os == 'zebos'
+    - kube_network_plugin == 'calico'
   delegate_to: localhost
   with_inventory_hostnames: target
   script:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Copyright (c) 2022-2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
@@ -12,7 +12,7 @@ set -e -o pipefail
 
 # Configure default environment variables
 CONTAINER_RUNTIME_DEFAULT="docker"
-INSTLLAER_TYPE_DEFAULT="container" # One of: container (default), iso
+INSTALLER_TYPE_DEFAULT="host" # One of: container, host (default), iso
 IPCALC_IMAGE_DEFAULT="docker.io/debber/ipcalc:latest"
 ISO_BASE_URL_DEFAULT="https://download.rockylinux.org/pub/rocky/9/BaseOS/$(uname -m)/os/images/boot.iso"
 KISS_BOOTSTRAPPER_URL_DEFAULT="https://raw.githubusercontent.com/ulagbulag/openark/master/templates/bootstrap/bootstrap.sh"
@@ -23,7 +23,7 @@ YQ_IMAGE_DEFAULT="docker.io/mikefarah/yq:latest"
 
 # Configure environment variables
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$CONTAINER_RUNTIME_DEFAULT}"
-INSTLLAER_TYPE="${INSTLLAER_TYPE:-$INSTLLAER_TYPE_DEFAULT}"
+INSTALLER_TYPE="${INSTALLER_TYPE:-$INSTALLER_TYPE_DEFAULT}"
 IPCALC_IMAGE="${IPCALC_IMAGE:-$IPCALC_IMAGE_DEFAULT}"
 ISO_BASE_URL="${ISO_BASE_URL:-$ISO_BASE_URL_DEFAULT}"
 KISS_BOOTSTRAPPER_URL="${KISS_BOOTSTRAPPER_URL:-$KISS_BOOTSTRAPPER_URL_DEFAULT}"
@@ -33,21 +33,83 @@ XORRISO_IMAGE="${XORRISO_IMAGE:-$XORRISO_IMAGE_DEFAULT}"
 YQ_IMAGE="${YQ_IMAGE:-$YQ_IMAGE_DEFAULT}"
 
 ###########################################################
+#   Define Console Logger                                 #
+###########################################################
+
+function __log() {
+    local level=$1
+    local content=$2
+
+    local reset='\033[0m'
+    case "x${level}" in
+    'xPATCH')
+        local color='\033[35m'
+        local important=0
+        ;;
+    'xSKIP')
+        local color='\033[33m'
+        local important=0
+        ;;
+    'xINFO')
+        local color='\033[1;92m'
+        local important=1
+        ;;
+    'xDONE')
+        local color='\033[1;94m'
+        local important=0
+        ;;
+    'xWARN')
+        local color='\033[1;93m'
+        local important=1
+        ;;
+    'xERROR')
+        local color='\033[1;91m'
+        local important=1
+        ;;
+    *)
+        local color="${reset}"
+        local important=0
+        ;;
+    esac
+
+    local msg="${color} - ${content}${reset}\n"
+    if [ "x${important}" = 'x1' ]; then
+        local divider='================================================================================'
+        local msg="${divider}\n${msg}"
+    fi
+
+    if [ "x${level}" = 'xERROR' ]; then
+        printf "${msg}" >&2
+        exit 1
+    else
+        printf "${msg}"
+    fi
+}
+
+###########################################################
 #   Define Dependency Checker                             #
 ###########################################################
 
 function check_dependencies() {
+    # Switch to podman on host install
+    if [ "x${INSTALLER_TYPE}" = 'xhost' ]; then
+        __log 'PATCH' "Switching default container runtime to podman"
+        CONTAINER_RUNTIME='podman'
+    fi
+
     # Check container runtime and install if not exists
     if ! which ${CONTAINER_RUNTIME} >/dev/null; then
-        echo "WARN: Cannot find container runtime \"${CONTAINER_RUNTIME}\""
+        __log 'WARN' "WARN: Cannot find container runtime \"${CONTAINER_RUNTIME}\"" >&2
 
-        if [ "x${CONTAINER_RUNTIME}" = 'xdocker' ]; then
-            echo "* Installing \"${CONTAINER_RUNTIME}\"..."
-            curl --proto '=https' --tlsv1.2 -sSf 'https://get.docker.com' | sudo sh
-
-        else
+        case "x${CONTAINER_RUNTIME}" in
+        'xdocker')
+            __log 'PATCH' "Installing \"${CONTAINER_RUNTIME}\"..."
+            curl --proto '=https' -sSf 'https://get.docker.com' | sudo sh
+            ;;
+        *)
             exit 1
-        fi
+            ;;
+        esac
     fi
 
     # Check container runtime is running
@@ -97,6 +159,7 @@ function __kiss_patch() {
     local patched_file="${KISS_CONFIG_PATH}.patched"
 
     # patch data
+    __log 'PATCH' "Patching ${kind}: ${key}"
     cat "${KISS_CONFIG_PATH}" |
         ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
             "(select(.kind == \"${kind}\") | .${data}.${key}) = ${value}" \
@@ -106,12 +169,11 @@ function __kiss_patch() {
 
 function kiss_validate_config_file() {
     if [ ! -f "${KISS_CONFIG_PATH}" ]; then
-        echo "- Downloading default KISS configuration file to \"${KISS_CONFIG_PATH}\"..."
+        __log 'PATCH' "Downloading default KISS configuration file to \"${KISS_CONFIG_PATH}\"..."
         mkdir -p "$(dirname "${KISS_CONFIG_PATH}")"
         curl -o "${KISS_CONFIG_PATH}" "${KISS_CONFIG_URL}"
 
-        echo "- NOTE: Please configure the file and try it agait; Aborting."
-        exit 1
+        __log 'ERROR' "NOTE: Please configure the file and try it agait; Aborting."
     fi
 
     # Set default cluster name
@@ -162,9 +224,7 @@ function find_public_ip() {
             head -n1
     )"
     if [ ! "${netdev}" ]; then
-        echo "Err"
-        echo "Error: Cannot find an active network device"
-        exit 1
+        __log 'ERROR' "Error: Cannot find an active network device"
     fi
 
     public_ip="$(
@@ -172,9 +232,7 @@ function find_public_ip() {
             grep -Po '^ +inet \K[0-9.]+'
     )"
     if [ ! "${public_ip}" ]; then
-        echo "Err"
-        echo "Error: Cannot find a public host IP"
-        exit 1
+        __log 'ERROR' "Error: Cannot find a public host IP"
     fi
 
     echo "${public_ip}"
@@ -184,9 +242,11 @@ function find_public_ip() {
 function generate_ssh_keypair() {
     local key_file="$(kiss_config 'bootstrapper_auth_ssh_key_path')"
     if [ ! -f "${key_file}" ]; then
-        echo "- Generating a SSH Keypair ... "
+        __log 'INFO' "Generating a SSH Keypair ..."
         mkdir -p "$(dirname ${key_file})"
         ssh-keygen -q -t ed25519 -f "${key_file}" -N ''
+    else
+        __log 'SKIP' "Skipping generating a SSH Keypair ..."
     fi
 
     # Patch configs
@@ -214,16 +274,26 @@ function create_user() {
     local USER_UID="2000"
 
     # Create an user if not exists
-    if ! $(${prefix} cat /etc/passwd | grep -q '^user:'); then
-        ${prefix} groupadd -g "${USER_GID}" -o "${USER_NAME}"
+    if ! $(${prefix} cat /etc/passwd | grep -Poq "^${USER_NAME}:"); then
+        __log 'INFO' "Creating an user: ${USER_NAME}"
+
+        ${prefix} groupadd -g "${USER_GID}" -o "${USER_NAME}" || true
         ${prefix} useradd -u "${USER_UID}" -g "${USER_GID}" \
             -G "audio,cdrom,input,pipewire,render,video" \
-            -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}"
+            -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" ||
+            true
 
         # Enable cgroup2 namespace
-        echo -e "${USER_UID}:2001:65535" | ${prefix} tee -a /etc/subuid
-        echo -e "${USER_GID}:2001:65535" | ${prefix} tee -a /etc/subgid
+        ${prefix} cat /etc/subuid | grep -Poq "^${USER_UID}:" ||
+            echo -e "${USER_UID}:2001:65535" | ${prefix} tee -a /etc/subuid
+        ${prefix} cat /etc/subgid | grep -Poq "^${USER_GID}:" ||
+            echo -e "${USER_GID}:2001:65535" | ${prefix} tee -a /etc/subgid
+    else
+        __log 'SKIP' "Skipping creating an user: ${USER_NAME}"
     fi
+
+    # Finished!
+    __log 'DONE' "User is ready: ${USER_NAME}"
 }
 
 ###########################################################
@@ -245,18 +315,19 @@ function spawn_node_on_container() {
     local NEED_SPAWN=1
     if [ $(${CONTAINER_RUNTIME} ps -a -q -f "name=${name}") ]; then
         if [ $(echo "${REUSE_NODES}" | awk '{print tolower($0)}') == "true" ]; then
-            echo -n "- Using already spawned node (${name}) ... "
+            __log 'SKIP' "Using already spawned node (${name}) ..."
             local NEED_SPAWN=0
         else
-            echo "Error: Already spawned node (${name})"
-            exit 1
+            __log 'ERROR' "Error: Already spawned node (${name})"
         fi
     fi
 
     if [ "x${NEED_SPAWN}" == "x1" ]; then
+        __log 'INFO' "Preparing for creating a node container ..."
+
         # Reset data
         if [ $(echo "${REUSE_KUBERNETES_DATA}" | awk '{print tolower($0)}') == "false" ]; then
-            echo "- Removing previous data ... "
+            __log 'PATCH' "Removing previous data ..."
             sudo rm -rf "${KUBERNETES_DATA}" || true
         fi
         sudo mkdir -p "${KUBERNETES_DATA}"
@@ -297,7 +368,7 @@ function spawn_node_on_container() {
         done
 
         # Spawn a node
-        echo -n "- Spawning a node (${name}) ... "
+        __log 'INFO' "Spawning a node (${name}) ..."
         ${CONTAINER_RUNTIME} run --detach \
             --name "${name}" \
             --cgroupns "host" \
@@ -305,6 +376,7 @@ function spawn_node_on_container() {
             --ipc "host" \
             --net "host" \
             --privileged \
+            --pull "always" \
             --env "SSH_PUBKEY=$(cat ${SSH_KEYFILE}.pub)" \
             --log-opt "max-size=100m" \
             --log-opt "max-file=5" \
@@ -375,7 +447,7 @@ function spawn_node_on_container() {
     export nodes="${nodes} ${node}"
 
     # Finished!
-    echo "OK (${node})"
+    __log 'DONE' "Node is ready: ${node}"
 }
 
 # Define a host node spawner function
@@ -383,14 +455,18 @@ function spawn_node_on_host() {
     local name="$1"
 
     # Parse variables
-    local KISS_BOOTSTRAP_NODE_IMAGE="$(kiss_config 'bootstrapper_node_image')"
-    local KUBERNETES_DATA="$(kiss_config 'bootstrapper_node_data_kubernetes_path')"
-    local REUSE_KUBERNETES_DATA="$(kiss_config 'bootstrapper_node_reuse_data_kubernetes')"
-    local REUSE_NODES="$(kiss_config 'bootstrapper_node_reuse_container')"
     local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
+    local USER_NAME="$(kiss_config 'auth_ssh_username')"
+
+    __log 'INFO' "Preparing for using the host as a node ..."
 
     # Create a default user if not exists
     create_user "sudo"
+
+    # Register the ssh keys
+    __log 'PATCH' "Registering the ssh keys: ${USER_NAME}"
+    sudo cat "/home/${USER_NAME}/.ssh/authorized_keys" | grep -Poq "^$(cat ${SSH_KEYFILE}.pub)$" ||
+        echo "$(cat ${SSH_KEYFILE}.pub)" | sudo tee -a "/home/${USER_NAME}/.ssh/authorized_keys" >/dev/null
 
     # Get suitable access IP
     local node_ip="$(find_public_ip)"
@@ -401,7 +477,7 @@ function spawn_node_on_host() {
     export nodes="${nodes} ${node}"
 
     # Finished!
-    echo "OK (${node})"
+    __log 'DONE' "Node is ready: ${node}"
 }
 
 ###########################################################
@@ -414,6 +490,7 @@ function install_k8s_cluster() {
     local node_first="$(echo ${names} | awk '{print $1}')"
 
     # Parse variables
+    local KISS_BOOTSTRAP_NODE_IMAGE="$(kiss_config 'bootstrapper_node_image')"
     local KISS_INSTALLER_IMAGE="$(kiss_config 'kiss_installer_image')"
     local KUBERNETES_CONFIG="$(realpath $(eval echo $(kiss_config 'bootstrapper_kubernetes_config_path')))"
     local KUBESPRAY_CONFIG="$(kiss_config 'bootstrapper_kubespray_config_path')"
@@ -421,6 +498,7 @@ function install_k8s_cluster() {
     local KUBESPRAY_CONFIG_TEMPLATE="$(kiss_config 'bootstrapper_kubespray_config_template_path')"
     local KUBESPRAY_IMAGE="$(kiss_config 'kubespray_image')"
     local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
+    local USER_NAME="$(kiss_config 'auth_ssh_username')"
 
     # Check if k8s cluster already exists
     local NEED_INSTALL=1
@@ -429,22 +507,35 @@ function install_k8s_cluster() {
             kubectl get nodes --no-headers "${node_first}" \
             >/dev/null 2>/dev/null
     then
-        echo -n "- Using already installed k8s cluster ... "
+        __log 'SKIP' "Using already installed k8s cluster ..."
         local NEED_INSTALL=0
     fi
 
     if [ "x${NEED_INSTALL}" == "x1" ]; then
+        __log 'INFO' "Preparing for deploying a kubernetes cluster ..."
+
         # Cleanup
+        __log 'PATCH' "Cleaning up old configurations ..."
         rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
 
-        # Get a sample kubespray configuration file
+        # Get sample kubespray configurations
+        __log 'PATCH' "Loading kubespray configurations ..."
         mkdir -p "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
+        ${CONTAINER_RUNTIME} run \
+            --entrypoint /usr/bin/env \
+            --log-opt "max-size=100m" \
+            --log-opt "max-file=5" \
+            --net "host" \
+            --pull "always" \
+            --rm \
+            --tmpfs "/run" \
+            --tmpfs "/tmp" \
+            "${KISS_BOOTSTRAP_NODE_IMAGE}" \
             tar -cf - -C "/etc/kiss/bootstrap/" "." |
             tar -xf - -C "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
 
         # Load kiss configurations
-        echo -n "- Loading kiss configurations ... "
+        __log 'PATCH' "Loading kiss configurations ..."
         ${CONTAINER_RUNTIME} run --rm \
             --name "kiss-configuration-loader" \
             --entrypoint "/usr/bin/env" \
@@ -456,13 +547,36 @@ function install_k8s_cluster() {
         local KUBESPRAY_CONFIG="$(realpath "${KUBESPRAY_CONFIG}")"
         local KUBESPRAY_CONFIG_ALL="$(realpath "${KUBESPRAY_CONFIG_ALL}")"
         local KUBESPRAY_CONFIG_TEMPLATE="$(realpath "${KUBESPRAY_CONFIG_TEMPLATE}")"
-        echo "OK"
+        __log 'DONE' "Loaded configurations"
+
+        # Create a host inventory
+        __log 'INFO' "Creating a host inventory ..."
+        ${CONTAINER_RUNTIME} run --rm --tty \
+            --name "k8s-generate-inventory" \
+            --net "host" \
+            --env "ansible_user=${USER_NAME}" \
+            --env "KUBESPRAY_NODES=${nodes}" \
+            --pull "always" \
+            --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
+            --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
+            --volume "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/:/etc/kiss/bootstrap/:rw" \
+            --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
+            --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
+            "${KUBESPRAY_IMAGE}" bash -c '
+                sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
+                && exec ansible-playbook \
+                    --become --become-user="root" \
+                    --inventory "/root/kiss/bootstrap/all.yaml" \
+                    --inventory "/root/kiss/bootstrap/config.yaml" \
+                    "/etc/kiss/bootstrap/roles/generate-inventory.yaml"
+            '
 
         # Remove last cluster if exists
-        echo "- Resetting last k8s cluster ... "
-        ${CONTAINER_RUNTIME} run --rm \
+        __log 'INFO' "Resetting last k8s cluster ..."
+        ${CONTAINER_RUNTIME} run --rm --tty \
             --name "k8s-reset" \
             --net "host" \
+            --env "ansible_user=${USER_NAME}" \
             --env "KUBESPRAY_NODES=${nodes}" \
             --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
             --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
@@ -470,21 +584,20 @@ function install_k8s_cluster() {
             --volume "${SSH_KEYFILE}:/root/.ssh/id_ed25519:ro" \
             --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
             "${KUBESPRAY_IMAGE}" bash -c '
-                sed -i "s/\(^ \+default: \)\"no\"/\1\"yes\"/g" /kubespray/reset.yml \
-                && sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
-                && ansible-playbook \
+                sed -i "s/\(^\- name\: reset | Restart network$\)/\1\n  ignore_errors\: true/g" /kubespray/roles/reset/tasks/main.yml \
+                && exec ansible-playbook \
                     --become --become-user="root" \
-                    --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
                     --inventory "/root/kiss/bootstrap/all.yaml" \
                     --inventory "/root/kiss/bootstrap/config.yaml" \
                     "/etc/kiss/bootstrap/roles/reset-k8s.yaml"
-            ' || true
+            '
 
         # Install cluster
-        echo "- Installing k8s cluster ... "
-        ${CONTAINER_RUNTIME} run --rm \
+        __log 'INFO' "Installing k8s cluster ..."
+        ${CONTAINER_RUNTIME} run --rm --tty \
             --name "k8s-installer" \
             --net "host" \
+            --env "ansible_user=${USER_NAME}" \
             --env "KUBESPRAY_NODES=${nodes}" \
             --volume "${KUBESPRAY_CONFIG}:/root/kiss/bootstrap/config.yaml:ro" \
             --volume "${KUBESPRAY_CONFIG_ALL}:/root/kiss/bootstrap/all.yaml:ro" \
@@ -493,37 +606,41 @@ function install_k8s_cluster() {
             --volume "${SSH_KEYFILE}.pub:/root/.ssh/id_ed25519.pub:ro" \
             "${KUBESPRAY_IMAGE}" ansible-playbook \
             --become --become-user="root" \
-            --inventory "/etc/kiss/bootstrap/defaults/all.yaml" \
             --inventory "/root/kiss/bootstrap/all.yaml" \
             --inventory "/root/kiss/bootstrap/config.yaml" \
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
         # Upload kubespray config into nodes
-        for name in ${KUBESPRAY_NODES}; do
-            ${CONTAINER_RUNTIME} exec "${node_first}" \
-                mkdir -p "/root/kiss/bootstrap/"
-            ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                tee "/root/kiss/bootstrap/all.yaml" \
-                <"${KUBESPRAY_CONFIG_ALL}" |
-                echo -n ''
-            ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                tee "/root/kiss/bootstrap/config.yaml" \
-                <"${KUBESPRAY_CONFIG}" |
-                echo -n ''
-        done
+        if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
+            __log 'PATCH' "Uploading kubespray configurations ..."
+            for name in ${KUBESPRAY_NODES}; do
+                ${CONTAINER_RUNTIME} exec "${node_first}" \
+                    mkdir -p "/root/kiss/bootstrap/"
+                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
+                    tee "/root/kiss/bootstrap/all.yaml" \
+                    <"${KUBESPRAY_CONFIG_ALL}" |
+                    echo -n ''
+                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
+                    tee "/root/kiss/bootstrap/config.yaml" \
+                    <"${KUBESPRAY_CONFIG}" |
+                    echo -n ''
+            done
 
-        # Download k8s config into host
-        mkdir -p "${KUBERNETES_CONFIG}"
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
-            tar -cf - -C "/root/.kube" "." |
-            tar -xf - -C "${KUBERNETES_CONFIG}"
+            # Download k8s config into host
+            __log 'PATCH' "Downloading kubernetes config file ..."
+            mkdir -p "${KUBERNETES_CONFIG}"
+            ${CONTAINER_RUNTIME} exec "${node_first}" \
+                tar -cf - -C "/root/.kube" "." |
+                tar -xf - -C "${KUBERNETES_CONFIG}"
+        fi
 
         # Cleanup
-        rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
+        # __log 'PATCH' "Cleaning up configurations ..."
+        # rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
     fi
 
     # Finished!
-    echo "OK"
+    __log 'DONE' "Installed kubernetes cluster"
 }
 
 ###########################################################
@@ -547,40 +664,44 @@ function install_kiss_cluster() {
             kubectl get namespaces kiss \
             >/dev/null 2>/dev/null
     then
-        echo -n "- Using already installed kiss cluster ... "
+        __log 'SKIP' "Using already installed kiss cluster ..."
         local NEED_INSTALL=0
     fi
 
     if [ "x${NEED_INSTALL}" == "x1" ]; then
-        # Upload the K8S Configuration File to the Cluster
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
-            kubectl create namespace kiss
-        cat "${KISS_CONFIG_PATH}" |
-            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                "(select(.kind == \"ConfigMap\") | .data.auth_ssh_key_id_ed25519_public) = \"$(
-                    cat "${SSH_KEYFILE}.pub" |
-                        awk '{print $1 " " $2}'
-                )\"" |
-            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                "(select(.kind == \"ConfigMap\") | .data.kiss_cluster_name) = \"default\"" |
-            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
-                    cat "${SSH_KEYFILE}"
-                )\n\"" |
-            ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                kubectl apply -f -
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
-            kubectl create -n kiss configmap "ansible-control-planes-default" \
-            "--from-file=defaults.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
-            "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
-            "--from-file=all.yaml=/root/kiss/bootstrap/all.yaml" \
-            "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
+        if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
+            # Upload the K8S Configuration File to the Cluster
+            __log 'PATCH' "Uploading kubernetes configurations to the cluster ..."
+            ${CONTAINER_RUNTIME} exec "${node_first}" \
+                kubectl create namespace kiss
+            cat "${KISS_CONFIG_PATH}" |
+                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                    "(select(.kind == \"ConfigMap\") | .data.auth_ssh_key_id_ed25519_public) = \"$(
+                        cat "${SSH_KEYFILE}.pub" |
+                            awk '{print $1 " " $2}'
+                    )\"" |
+                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                    "(select(.kind == \"ConfigMap\") | .data.kiss_cluster_name) = \"default\"" |
+                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                    "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
+                        cat "${SSH_KEYFILE}"
+                    )\n\"" |
+                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
+                    kubectl apply -f -
+            ${CONTAINER_RUNTIME} exec "${node_first}" \
+                kubectl create -n kiss configmap "ansible-control-planes-default" \
+                "--from-file=defaults.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
+                "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
+                "--from-file=all.yaml=/root/kiss/bootstrap/all.yaml" \
+                "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
+        fi
 
         # Install cluster
-        echo "- Installing kiss cluster ... "
-        ${CONTAINER_RUNTIME} run --rm \
+        __log 'INFO' "Installing kiss cluster ..."
+        ${CONTAINER_RUNTIME} run --rm --tty \
             --name "kiss-installer" \
             --net "host" \
+            --pull "always" \
             --volume "${KUBERNETES_CONFIG}:/root/.kube:ro" \
             "${KISS_INSTALLER_IMAGE}"
 
@@ -597,7 +718,7 @@ function install_kiss_cluster() {
     fi
 
     # Finished!
-    echo "OK"
+    __log 'DONE' "Installed kiss cluster"
 }
 
 ###########################################################
@@ -605,9 +726,6 @@ function install_kiss_cluster() {
 ###########################################################
 
 function build_installer_iso() {
-    # Prehibit errors
-    set -o pipefail
-
     # Define variables
     local BOOT_IPXE_FILE='boot-rocky9.ipxe'
     local BOOT_KICKSTART_FILE='rocky9.ks'
@@ -633,30 +751,30 @@ function build_installer_iso() {
     kiss_patch_config 'bootstrapper_kubespray_config_template_path' "\"${KUBESPRAY_CONFIG_TEMPLATE}\""
 
     ROOTFS="$(pwd)/config/rootfs"
-    echo "- Create and Enter into a rootfs directory ..."
+    __log 'INFO' "Create and Enter into a rootfs directory ..."
     rm -rf "${ROOTFS}"
     mkdir -p "${ROOTFS}"
     pushd "${ROOTFS}" >/dev/null
 
     SCRIPTS_HOME="$(pwd)/../../../kiss/matchbox/boot/"
-    echo "- Copying install scripts from \"${SCRIPTS_HOME}\" ..."
+    __log 'INFO' "Copying install scripts from \"${SCRIPTS_HOME}\" ..."
     cp -arp ${SCRIPTS_HOME}/* "${ROOTFS}"
 
-    echo "- Parsing boot scripts ..."
+    __log 'PATCH' "Parsing boot scripts ..."
     local re_url='[0-9a-zA-Z:/\.\$\{\}]*'
     local boot_dist_repo="$(cat "${BOOT_IPXE_FILE}" | grep -Po "inst.repo=\K${re_url}")"
 
-    echo "- Removing unneeded scripts ..."
+    __log 'PATCH' "Removing unneeded scripts ..."
     rm -rf ${ROOTFS}/*.ipxe
 
-    echo "- Applying SSH Keys into scripts ..."
+    __log 'INFO' "Applying SSH Keys into scripts ..."
     sed -i "s/ENV_USERNAME/$(kiss_config 'auth_ssh_username')/g" ./*
     sed -i "s/ENV_SSH_AUTHORIZED_KEYS/$(kiss_config 'auth_ssh_key_id_ed25519_public')/g" ./*
 
-    echo "- Enabling static network interface ..."
+    __log 'INFO' "Enabling static network interface ..."
     sed -i "s/^\(network .*\)$/\#\1\nnetwork --activate --bootproto=static --ip=${BOOT_NETWORK_IPV4_ADDRESS} --netmask=${BOOT_NETWORK_IPV4_NETMASK} --gateway=${BOOT_NETWORK_IPV4_GATEWAY} --nameserver=${BOOT_NETWORK_DNS_SERVER_NS1},${BOOT_NETWORK_DNS_SERVER_NS2} --mtu=${BOOT_NETWORK_MTU}/g" "${ROOTFS}/${BOOT_KICKSTART_FILE}"
 
-    echo "- Enabling auto-deployment of KISS cluster ..."
+    __log 'INFO' "Enabling auto-deployment of KISS cluster ..."
     sed -i 's/^\(\%end \+\)#\( \+\)SCRIPT_END$/\#\1\#\2SCRIPT_CONTINUE/g' "${ROOTFS}/${BOOT_KICKSTART_FILE}"
     cat <<EOF >>"${ROOTFS}/${BOOT_KICKSTART_FILE}"
 
@@ -673,7 +791,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 Environment="CONTAINER_RUNTIME=${CONTAINER_RUNTIME}"
-Environment="INSTLLAER_TYPE=container"
+Environment="INSTALLER_TYPE=host"
 Environment="KISS_CONFIG_PATH=${KUBESPRAY_CONFIG_TEMPLATE}/$(basename "${KISS_CONFIG_PATH}")"
 ExecStart=/bin/bash -c " \
     ls /etc/systemd/system/multi-user.target.wants/kubelet.service >/dev/null || \
@@ -703,13 +821,13 @@ __EOF__
 
 EOF
 
-    echo "- Adding KISS Cluster Configuration File ..."
+    __log 'INFO' "Adding KISS Cluster Configuration File ..."
     cp "${KISS_CONFIG_PATH}" ./
 
-    echo "- Adding Keyfile ..."
+    __log 'INFO' "Adding Keyfile ..."
     cp "${SSH_KEYFILE}" ./
 
-    echo "- Adding grub.cfg ..."
+    __log 'INFO' "Adding grub.cfg ..."
     cat <<EOF >"${ROOTFS}/grub.cfg"
 set default="1"
 
@@ -735,7 +853,7 @@ boot
 
 EOF
 
-    echo "- Adding isolinux.cfg ..."
+    __log 'INFO' "Adding isolinux.cfg ..."
     cat <<EOF >"${ROOTFS}/isolinux.cfg"
 default vesamenu.c32
 timeout 3
@@ -748,16 +866,16 @@ boot
 
 EOF
 
-    echo "- Finished Patching!"
+    __log 'INFO' "Finished Patching!"
     popd
 
     ISO_BASE_PATH="$(pwd)/config/base.iso"
-    echo "- Downloading base ISO ..."
+    __log 'PATCH' "Downloading base ISO ..."
     if [ ! -f "${ISO_BASE_PATH}" ]; then
         curl -o "${ISO_BASE_PATH}" "${ISO_BASE_URL}"
     fi
 
-    echo "- Patching ISO ..."
+    __log 'INFO' "Patching ISO ..."
     INSTALLER_PATH="$(pwd)/config/OpenARK-$(date -u +%y.%m-%d)-server-$(uname -m).iso"
     rm -f "${INSTALLER_PATH}"
     ln -sf "${INSTALLER_PATH}" "${INSTALLER_PATH}/../installer.iso" 2>/dev/null || true
@@ -783,20 +901,20 @@ function main() {
     # Check host dependencies
     check_dependencies
 
-    # Validate Configurations
-    kiss_validate_config_file
+    case "x${INSTALLER_TYPE}" in
+    "xcontainer")
+        # Validate Configurations
+        kiss_validate_config_file
 
-    case "${INSTLLAER_TYPE}" in
-    "container")
         # Configure Host
         configure_linux_kernel
         generate_ssh_keypair
 
         # Spawn k8s cluster nodes
         export nodes # results
-        if [ "x${KUBESPRAY_NODES}" = 'xhost' ]; then
+        if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
             export KUBESPRAY_NODES="$(sudo cat /sys/class/dmi/id/product_uuid)"
-            spawn_node_on_host "${name}"
+            spawn_node_on_host ${KUBESPRAY_NODES}
         else
             for name in ${KUBESPRAY_NODES}; do
                 spawn_node_on_container "${name}"
@@ -810,17 +928,20 @@ function main() {
         install_kiss_cluster ${KUBESPRAY_NODES}
 
         # Finished!
-        echo "Installed!"
+        __log 'DONE' "Installed!"
         ;;
-    "host")
+    "xhost")
         # Set default node name to 'host'
         export KUBESPRAY_NODES="host"
 
         # Same as `container`
-        export INSTLLAER_TYPE='container'
+        export INSTALLER_TYPE='container'
         main "$@"
         ;;
-    "iso")
+    "xiso")
+        # Validate Configurations
+        kiss_validate_config_file
+
         # Configure Host
         generate_ssh_keypair
 
@@ -828,14 +949,13 @@ function main() {
         build_installer_iso
 
         # Finished!
-        echo "Finished!"
+        __log 'DONE' "Installed!"
         ;;
     *)
-        echo "Unsupported installer type: ${INSTLLAER_TYPE}; Aborting." >&2
-        exit 1
+        __log 'ERROR' "Unsupported installer type: ${INSTALLER_TYPE}; Aborting."
         ;;
     esac
 }
 
 # Execute main function
-main "$@" || exit 1
+main "$@"
