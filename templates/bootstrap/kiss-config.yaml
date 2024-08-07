@@ -30,6 +30,7 @@ data:
   ###########################################################################
   bootstrapper_auth_ssh_key_path: ./config/id_ed25519
   bootstrapper_kubernetes_config_path: ~/.kube/
+  bootstrapper_kubernetes_reuse: "true"
   bootstrapper_kubespray_config_path: ./config/bootstrap/defaults/all.yaml
   bootstrapper_kubespray_config_all_path: ./config/bootstrap/defaults/all.yaml
   bootstrapper_kubespray_config_template_path: ./config/

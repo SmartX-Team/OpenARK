@@ -212,7 +212,7 @@ all:
         # Optional features
         cilium_enable_prometheus: true
         # Enable if you want to make use of hostPort mappings
-        cilium_enable_portmap: true
+        cilium_enable_portmap: false
         # Monitor aggregation level (none/low/medium/maximum)
         cilium_monitor_aggregation: medium
         # Kube Proxy Replacement mode (strict/partial)

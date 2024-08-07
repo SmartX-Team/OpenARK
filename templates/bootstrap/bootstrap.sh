@@ -209,6 +209,11 @@ function kiss_patch_secret() {
 #   Configure Host                                        #
 ###########################################################
 
+function configure_env() {
+    # Update PATH
+    export PATH="${PATH}:/usr/local/bin"
+}
+
 function configure_linux_kernel() {
     # Disable swap
     sudo swapoff -a
@@ -294,6 +299,20 @@ function create_user() {
 
     # Finished!
     __log 'DONE' "User is ready: ${USER_NAME}"
+}
+
+###########################################################
+#   Define shell                                          #
+###########################################################
+
+function __shell() {
+    local node_first="$1"
+
+    if [ "x${INSTALLER_TYPE}" = 'xhost' ]; then
+        echo -n "sudo env PATH='${PATH}'"
+    else
+        echo -n "${CONTAINER_RUNTIME} exec ${node_first}"
+    fi
 }
 
 ###########################################################
@@ -490,7 +509,6 @@ function install_k8s_cluster() {
     local node_first="$(echo ${names} | awk '{print $1}')"
 
     # Parse variables
-    local FORCE_RESET="$(kiss_config 'group_force_reset')"
     local KISS_BOOTSTRAP_NODE_IMAGE="$(kiss_config 'bootstrapper_node_image')"
     local KISS_INSTALLER_IMAGE="$(kiss_config 'kiss_installer_image')"
     local KUBERNETES_CONFIG="$(realpath $(eval echo $(kiss_config 'bootstrapper_kubernetes_config_path')))"
@@ -498,13 +516,14 @@ function install_k8s_cluster() {
     local KUBESPRAY_CONFIG_ALL="$(kiss_config 'bootstrapper_kubespray_config_all_path')"
     local KUBESPRAY_CONFIG_TEMPLATE="$(kiss_config 'bootstrapper_kubespray_config_template_path')"
     local KUBESPRAY_IMAGE="$(kiss_config 'kubespray_image')"
+    local REUSE_KUBERNETES="$(kiss_config 'bootstrapper_kubernetes_reuse')"
     local SSH_KEYFILE="$(realpath $(kiss_config 'bootstrapper_auth_ssh_key_path'))"
     local USER_NAME="$(kiss_config 'auth_ssh_username')"
 
     # Check if k8s cluster already exists
     local NEED_INSTALL=1
     if
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
+        $(__shell "${node_first}") \
             kubectl get nodes --no-headers "${node_first}" \
             >/dev/null 2>/dev/null
     then
@@ -573,7 +592,9 @@ function install_k8s_cluster() {
             '
 
         # Remove last cluster if exists
-        if [ "x${FORCE_RESET}" = 'xtrue' ]; then
+        if [ "x${REUSE_KUBERNETES}" = 'xtrue' ]; then
+            __log 'SKIP' "Skipping resetting last k8s cluster ..."
+        else
             __log 'INFO' "Resetting last k8s cluster ..."
             ${CONTAINER_RUNTIME} run --rm --tty \
                 --name "k8s-reset" \
@@ -593,8 +614,6 @@ function install_k8s_cluster() {
                         --inventory "/root/kiss/bootstrap/config.yaml" \
                         "/etc/kiss/bootstrap/roles/reset-k8s.yaml"
                 '
-        else
-            __log 'SKIP' "Skipping resetting last k8s cluster ..."
         fi
 
         # Install cluster
@@ -616,36 +635,33 @@ function install_k8s_cluster() {
             "/etc/kiss/bootstrap/roles/install-k8s.yaml"
 
         # Upload kubespray config into nodes
-        if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
-            __log 'PATCH' "Uploading kubespray configurations ..."
-            for name in ${KUBESPRAY_NODES}; do
-                ${CONTAINER_RUNTIME} exec "${node_first}" \
-                    mkdir -p "/root/kiss/bootstrap/"
-                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                    tee "/root/kiss/bootstrap/all.yaml" \
-                    <"${KUBESPRAY_CONFIG_ALL}" |
-                    echo -n ''
-                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                    tee "/root/kiss/bootstrap/config.yaml" \
-                    <"${KUBESPRAY_CONFIG}" |
-                    echo -n ''
-            done
-
-            # Download k8s config into host
-            __log 'PATCH' "Downloading kubernetes config file ..."
-            mkdir -p "${KUBERNETES_CONFIG}"
-            ${CONTAINER_RUNTIME} exec "${node_first}" \
-                tar -cf - -C "/root/.kube" "." |
-                tar -xf - -C "${KUBERNETES_CONFIG}"
+        __log 'PATCH' "Uploading kubespray configurations ..."
+        if [ "x${INSTALLER_TYPE}" = 'xhost' ]; then
+            $(__shell "${node_first}") \
+                cp -r "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/" '/etc/kiss'
         fi
+        $(__shell "${node_first}") \
+            mkdir -p "/root/kiss/bootstrap/"
+        $(__shell "${node_first}") \
+            tee "/root/kiss/bootstrap/all.yaml" \
+            <"${KUBESPRAY_CONFIG_ALL}"
+        $(__shell "${node_first}") \
+            tee "/root/kiss/bootstrap/config.yaml" \
+            <"${KUBESPRAY_CONFIG}"
+
+        # Download k8s config into host
+        __log 'PATCH' "Downloading kubernetes config file ..."
+        mkdir -p "${KUBERNETES_CONFIG}"
+        $(__shell "${node_first}") tar -cf - -C "/root/.kube" "." |
+            tar -xf - -C "${KUBERNETES_CONFIG}"
 
         # Cleanup
-        # __log 'PATCH' "Cleaning up configurations ..."
-        # rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
+        __log 'PATCH' "Cleaning up configurations ..."
+        rm -rf "${KUBESPRAY_CONFIG_TEMPLATE}/bootstrap/"
     fi
 
     # Finished!
-    __log 'DONE' "Installed kubernetes cluster"
+    __log 'DONE' "Installed k8s cluster"
 }
 
 ###########################################################
@@ -665,7 +681,7 @@ function install_kiss_cluster() {
     # Check if kiss cluster already exists
     local NEED_INSTALL=1
     if
-        ${CONTAINER_RUNTIME} exec "${node_first}" \
+        $(__shell "${node_first}") \
             kubectl get namespaces kiss \
             >/dev/null 2>/dev/null
     then
@@ -674,32 +690,30 @@ function install_kiss_cluster() {
     fi
 
     if [ "x${NEED_INSTALL}" == "x1" ]; then
-        if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
-            # Upload the K8S Configuration File to the Cluster
-            __log 'PATCH' "Uploading kubernetes configurations to the cluster ..."
-            ${CONTAINER_RUNTIME} exec "${node_first}" \
-                kubectl create namespace kiss
-            cat "${KISS_CONFIG_PATH}" |
-                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                    "(select(.kind == \"ConfigMap\") | .data.auth_ssh_key_id_ed25519_public) = \"$(
-                        cat "${SSH_KEYFILE}.pub" |
-                            awk '{print $1 " " $2}'
-                    )\"" |
-                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                    "(select(.kind == \"ConfigMap\") | .data.kiss_cluster_name) = \"default\"" |
-                ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
-                    "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
-                        cat "${SSH_KEYFILE}"
-                    )\n\"" |
-                ${CONTAINER_RUNTIME} exec -i "${node_first}" \
-                    kubectl apply -f -
-            ${CONTAINER_RUNTIME} exec "${node_first}" \
-                kubectl create -n kiss configmap "ansible-control-planes-default" \
-                "--from-file=defaults.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
-                "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
-                "--from-file=all.yaml=/root/kiss/bootstrap/all.yaml" \
-                "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
-        fi
+        # Upload the K8S Configuration File to the Cluster
+        __log 'PATCH' "Uploading kubernetes configurations to the cluster ..."
+        $(__shell "${node_first}") \
+            kubectl create namespace kiss
+        cat "${KISS_CONFIG_PATH}" |
+            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                "(select(.kind == \"ConfigMap\") | .data.auth_ssh_key_id_ed25519_public) = \"$(
+                    cat "${SSH_KEYFILE}.pub" |
+                        awk '{print $1 " " $2}'
+                )\"" |
+            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                "(select(.kind == \"ConfigMap\") | .data.kiss_cluster_name) = \"default\"" |
+            ${CONTAINER_RUNTIME} run --interactive --rm "${YQ_IMAGE}" \
+                "(select(.kind == \"Secret\") | .stringData.auth_ssh_key_id_ed25519) = \"$(
+                    cat "${SSH_KEYFILE}"
+                )\n\"" |
+            $(__shell "${node_first}") \
+                kubectl apply -f -
+        $(__shell "${node_first}") \
+            kubectl create -n kiss configmap "ansible-control-planes-default" \
+            "--from-file=defaults.yaml=/etc/kiss/bootstrap/defaults/all.yaml" \
+            "--from-file=hosts.yaml=/etc/kiss/bootstrap/inventory/hosts.yaml" \
+            "--from-file=all.yaml=/root/kiss/bootstrap/all.yaml" \
+            "--from-file=config.yaml=/root/kiss/bootstrap/config.yaml"
 
         # Install cluster
         __log 'INFO' "Installing kiss cluster ..."
@@ -912,12 +926,14 @@ function main() {
         kiss_validate_config_file
 
         # Configure Host
+        configure_env
         configure_linux_kernel
         generate_ssh_keypair
 
         # Spawn k8s cluster nodes
         export nodes # results
         if [ "x${KUBESPRAY_NODES}" = 'xhost ' ]; then
+            export INSTALLER_TYPE='host'
             export KUBESPRAY_NODES="$(sudo cat /sys/class/dmi/id/product_uuid)"
             spawn_node_on_host ${KUBESPRAY_NODES}
         else
@@ -933,7 +949,7 @@ function main() {
         install_kiss_cluster ${KUBESPRAY_NODES}
 
         # Finished!
-        __log 'DONE' "Installed!"
+        __log 'DONE' "Completed!"
         ;;
     "xhost")
         # Set default node name to 'host'
@@ -954,7 +970,7 @@ function main() {
         build_installer_iso
 
         # Finished!
-        __log 'DONE' "Installed!"
+        __log 'DONE' "Completed!"
         ;;
     *)
         __log 'ERROR' "Unsupported installer type: ${INSTALLER_TYPE}; Aborting."
