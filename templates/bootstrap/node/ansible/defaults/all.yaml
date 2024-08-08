@@ -69,9 +69,9 @@ all:
         etcd_config_dir: /etc/etcd
         etcd_events_data_dir: /var/lib/etcd-events
 
-        # Choose network plugin (cilium, cilium-helm, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
+        # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
         # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
-        kube_network_plugin: cilium-helm
+        kube_network_plugin: custom_cni # Cilium
 
         # Setting multi_networking to true will install Multus: https://github.com/intel/multus-cni
         kube_network_plugin_multus: false
@@ -179,10 +179,21 @@ all:
         # CNI / Cilium
         #############################
 
-        cilium_helm_servicemonitor_crd_enabled: true
+        kube_proxy_remove: true
+
+        custom_cni_chart_namespace: kube-system
+        custom_cni_chart_release_name: cilium
+        custom_cni_chart_repository_name: cilium
+        custom_cni_chart_repository_url: https://helm.cilium.io/
+        custom_cni_chart_ref: "{{ custom_cni_chart_repository_name }}/cilium"
+        custom_cni_chart_version: "{{ cilium_version[1:] }}"
+
+        custom_cni_preflight_templates:
+          - path: https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+            state: present # options: [latest, present, absent]
 
         # Fill values override here
-        cilium_helm_values:
+        custom_cni_chart_values:
           # -- Affinity for cilium-agent.
           # affinity:
           #   podAntiAffinity:
@@ -471,7 +482,28 @@ all:
           ipam:
             # -- Configure IP Address Management mode.
             # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
-            mode: "cluster-pool"
+            mode: "multi-pool"
+
+            operator:
+              # @schema
+              # type: [array, string]
+              # @schema
+              # -- IPv4 CIDR list range to delegate to individual nodes for IPAM.
+              clusterPoolIPv4PodCIDRList:
+                - "{{ kube_pods_subnet }}"
+
+              # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
+              clusterPoolIPv4MaskSize: "{{ kube_network_node_prefix }}"
+
+              # @schema
+              # type: [array, string]
+              # @schema
+              # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
+              clusterPoolIPv6PodCIDRList:
+                - "{{ kube_pods_subnet_ipv6 }}"
+
+              # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
+              clusterPoolIPv6MaskSize: "{{ kube_network_node_prefix_ipv6 }}"
 
           # -- Configure the eBPF-based ip-masq-agent
           ipMasqAgent:
@@ -518,10 +550,18 @@ all:
             # range via the Kubernetes node resource
             requireIPv6PodCIDR: false
 
+          # -- (string) Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap (kubeadm-based clusters only)
+          k8sServiceHost: "{{ kube_apiserver_global_endpoint | urlsplit('hostname') }}"
+          # @schema
+          # type: [string, integer]
+          # @schema
+          # -- (string) Kubernetes service port
+          k8sServicePort: "{{ kube_apiserver_global_endpoint | urlsplit('port') }}"
+
           # -- Configure the kube-proxy replacement in Cilium BPF datapath
           # Valid options are "true" or "false".
           # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
-          kubeProxyReplacement: true
+          kubeProxyReplacement: "{{ kube_proxy_remove }}"
 
           # -- Configure L2 announcements
           l2announcements:
@@ -591,6 +631,8 @@ all:
             enabled: true
             # -- Roll out cilium-operator pods automatically when configmap is updated.
             rollOutPods: true
+            # -- Number of replicas to run for the cilium-operator deployment
+            replicas: "{{ 1 if groups.k8s_cluster | length == 1 else 2 }}"
             # -- Affinity for cilium-operator
             # affinity:
             #   podAntiAffinity:
