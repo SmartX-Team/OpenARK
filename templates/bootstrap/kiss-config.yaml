@@ -66,7 +66,8 @@ data:
   ###########################################################################
   # Kubespray Configuration
   ###########################################################################
-  kubespray_image: quay.io/kubespray/kubespray:v2.25.0
+  # TODO: Wait for PR begin merged: https://github.com/kubernetes-sigs/kubespray/pull/11430
+  kubespray_image: quay.io/ulagbulag/kubespray:v2.25.0-cilium-helm
 
   ###########################################################################
   # Network Configuration

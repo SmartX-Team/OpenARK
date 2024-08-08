@@ -527,8 +527,10 @@ function install_k8s_cluster() {
             kubectl get nodes --no-headers "${node_first}" \
             >/dev/null 2>/dev/null
     then
-        __log 'SKIP' "Using already installed k8s cluster ..."
-        local NEED_INSTALL=0
+        if [ "x${REUSE_KUBERNETES}" = 'xtrue' ]; then
+            __log 'SKIP' "Using already installed k8s cluster ..."
+            local NEED_INSTALL=0
+        fi
     fi
 
     if [ "x${NEED_INSTALL}" == "x1" ]; then

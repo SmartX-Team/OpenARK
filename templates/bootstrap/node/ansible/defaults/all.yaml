@@ -69,9 +69,9 @@ all:
         etcd_config_dir: /etc/etcd
         etcd_events_data_dir: /var/lib/etcd-events
 
-        # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
+        # Choose network plugin (cilium, cilium-helm, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
         # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
-        kube_network_plugin: cilium
+        kube_network_plugin: cilium-helm
 
         # Setting multi_networking to true will install Multus: https://github.com/intel/multus-cni
         kube_network_plugin_multus: false
@@ -179,171 +179,469 @@ all:
         # CNI / Cilium
         #############################
 
-        # Log-level
-        cilium_debug: false
+        # Fill values override here
+        cilium_helm_values:
+          # -- Affinity for cilium-agent.
+          # affinity:
+          #   podAntiAffinity:
+          #     requiredDuringSchedulingIgnoredDuringExecution:
+          #       - topologyKey: kubernetes.io/hostname
+          #         labelSelector:
+          #           matchLabels:
+          #             k8s-app: cilium
 
-        cilium_enable_ipv4: true
-        cilium_enable_ipv6: false
+          # Configuration for types of authentication for Cilium (beta)
+          authentication:
+            # -- Enable authentication processing and garbage collection.
+            # Note that if disabled, policy enforcement will still block requests that require authentication.
+            # But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+            enabled: true
 
-        # Enable l2 announcement from cilium to replace Metallb Ref: https://docs.cilium.io/en/v1.14/network/l2-announcements/
-        cilium_l2announcements: false
+          # @schema
+          # type: [boolean, string]
+          # @schema
+          # -- Enable installation of PodCIDR routes between worker
+          # nodes if worker nodes share a common L2 network segment.
+          autoDirectNodeRoutes: false
 
-        # Identity allocation mode selects how identities are shared between cilium
-        # nodes by setting how they are stored. The options are "crd" or "kvstore".
-        # - "crd" stores identities in kubernetes as CRDs (custom resource definition).
-        #   These can be queried with:
-        #     `kubectl get ciliumid`
-        # - "kvstore" stores identities in an etcd kvstore.
-        # - In order to support External Workloads, "crd" is required
-        #   - Ref: https://docs.cilium.io/en/stable/gettingstarted/external-workloads/#setting-up-support-for-external-workloads-beta
-        # - KVStore operations are only required when cilium-operator is running with any of the below options:
-        #   - --synchronize-k8s-services
-        #   - --synchronize-k8s-nodes
-        #   - --identity-allocation-mode=kvstore
-        #   - Ref: https://docs.cilium.io/en/stable/internals/cilium_operator/#kvstore-operations
-        cilium_identity_allocation_mode: kvstore
+          # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
+          # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
+          # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
+          bandwidthManager:
+            # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
+            enabled: true
+            # -- Activate BBR TCP congestion control for Pods
+            bbr: true
 
-        # Overlay Network Mode
-        cilium_tunnel_mode: disabled  # native
+          bgp:
+            # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
+            # cilium-agent and cilium-operator
+            enabled: false
+            announce:
+              # -- Enable allocation and announcement of service LoadBalancer IPs
+              loadbalancerIP: true
+              # -- Enable announcement of node pod CIDR
+              podCIDR: false
 
-        # LoadBalancer Mode (snat/dsr/hybrid) Ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/#dsr-mode
-        cilium_loadbalancer_mode: hybrid
+          # CiliumBGPPeeringPolicy CRDs.
+          bgpControlPlane:
+            # -- Enables the BGP control plane.
+            enabled: true
 
-        # Optional features
-        cilium_enable_prometheus: true
-        # Enable if you want to make use of hostPort mappings
-        cilium_enable_portmap: false
-        # Monitor aggregation level (none/low/medium/maximum)
-        cilium_monitor_aggregation: medium
-        # Kube Proxy Replacement mode (strict/partial)
-        cilium_kube_proxy_replacement: strict
+          bpf:
+            # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
+            # @default -- `veth`
+            datapathMode: veth
+            # @schema
+            # type: [null, boolean]
+            # @schema
+            # -- (bool) Enable native IP masquerade support in eBPF
+            # @default -- `false`
+            masquerade: true
 
-        # Auto direct nodes routes can be used to advertise pods routes in your cluster
-        # without any tunelling (with `cilium_tunnel_mode` sets to `disabled`).
-        # This works only if you have a L2 connectivity between all your nodes.
-        # You wil also have to specify the variable `cilium_native_routing_cidr` to
-        # make this work. Please refer to the cilium documentation for more
-        # information about this kind of setups.
-        cilium_auto_direct_node_routes: false
+          clustermesh:
+            # -- Deploy clustermesh-apiserver for clustermesh
+            useAPIServer: false
+            apiserver:
+              tls:
+                # -- Configure the clustermesh authentication mode.
+                # Supported values:
+                # - legacy:     All clusters access remote clustermesh instances with the same
+                #               username (i.e., remote). The "remote" certificate must be
+                #               generated with CN=remote if provided manually.
+                # - migration:  Intermediate mode required to upgrade from legacy to cluster
+                #               (and vice versa) with no disruption. Specifically, it enables
+                #               the creation of the per-cluster usernames, while still using
+                #               the common one for authentication. The "remote" certificate must
+                #               be generated with CN=remote if provided manually (same as legacy).
+                # - cluster:    Each cluster accesses remote etcd instances with a username
+                #               depending on the local cluster name (i.e., remote-<cluster-name>).
+                #               The "remote" certificate must be generated with CN=remote-<cluster-name>
+                #               if provided manually. Cluster mode is meaningful only when the same
+                #               CA is shared across all clusters part of the mesh.
+                authMode: legacy
+                # -- Configure automatic TLS certificates generation.
+                # A Kubernetes CronJob is used the generate any
+                # certificates not provided by the user at installation
+                # time.
+                auto:
+                  # -- When set to true, automatically generate a CA and certificates to
+                  # enable mTLS between clustermesh-apiserver and external workload instances.
+                  # If set to false, the certs to be provided by setting appropriate values below.
+                  enabled: true
+                  # Sets the method to auto-generate certificates. Supported values:
+                  # - helm:         This method uses Helm to generate all certificates.
+                  # - cronJob:      This method uses a Kubernetes CronJob the generate any
+                  #                 certificates not provided by the user at installation
+                  #                 time.
+                  # - certmanager:  This method use cert-manager to generate & rotate certificates.
+                  method: helm
+              # clustermesh-apiserver Prometheus metrics configuration
+              metrics:
+                # -- Enables exporting apiserver metrics in OpenMetrics format.
+                enabled: true
+                serviceMonitor:
+                  # -- Enable service monitor.
+                  # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+                  enabled: false # TODO: chaining
 
-        # Allows to explicitly specify the IPv4 CIDR for native routing.
-        # When specified, Cilium assumes networking for this CIDR is preconfigured and
-        # hands traffic destined for that range to the Linux network stack without
-        # applying any SNAT.
-        # Generally speaking, specifying a native routing CIDR implies that Cilium can
-        # depend on the underlying networking stack to route packets to their
-        # destination. To offer a concrete example, if Cilium is configured to use
-        # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
-        # the user must configure the routes to reach pods, either manually or by
-        # setting the auto-direct-node-routes flag.
-        cilium_native_routing_cidr: "10.0.0.0/8"
+          # -- Grafana dashboards for cilium-agent
+          # grafana can import dashboards based on the label and value
+          # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+          dashboards:
+            enabled: false
 
-        # Allows to explicitly specify the IPv6 CIDR for native routing.
-        cilium_native_routing_cidr_ipv6: "fd00::/100"
+          debug:
+            # -- Enable debug logging
+            enabled: false
 
-        # Enable transparent network encryption.
-        cilium_encryption_enabled: false
+          egressGateway:
+            # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+            # cluster.
+            enabled: true
 
-        # Encryption method. Can be either ipsec or wireguard.
-        # Only effective when `cilium_encryption_enabled` is set to true.
-        cilium_encryption_type: wireguard
+          # -- Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
+          enableIPv4BIGTCP: true
+          # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
+          enableIPv6BIGTCP: true
 
-        # Enable encryption for pure node to node traffic.
-        # This option is only effective when `cilium_encryption_type` is set to `ipsec`.
-        cilium_ipsec_node_encryption: false
+          encryption:
+            # -- Enable transparent network encryption.
+            enabled: false
+            # -- Encryption method. Can be either ipsec or wireguard.
+            type: wireguard
+            # -- Enable encryption for pure node to node traffic.
+            # This option is only effective when encryption.type is set to "wireguard".
+            nodeEncryption: false
+            # -- Configure the WireGuard Pod2Pod strict mode.
+            strictMode:
+              # -- Enable WireGuard Pod2Pod strict mode.
+              enabled: false
 
-        # If your kernel or distribution does not support WireGuard, Cilium agent can be configured to fall back on the user-space implementation.
-        # When this flag is enabled and Cilium detects that the kernel has no native support for WireGuard,
-        # it will fallback on the wireguard-go user-space implementation of WireGuard.
-        # This option is only effective when `cilium_encryption_type` is set to `wireguard`.
-        cilium_wireguard_userspace_fallback: false
+          # Configure Cilium Envoy options.
+          envoy:
+            # @schema
+            # type: [null, boolean]
+            # @schema
+            # -- Enable Envoy Proxy in standalone DaemonSet.
+            # This field is enabled by default for new installation.
+            # @default -- `true` for new installation
+            enabled: true
+            # -- Roll out cilium envoy pods automatically when configmap is updated.
+            rollOutPods: true
+            # -- Configure Cilium Envoy Prometheus options.
+            # Note that some of these apply to either cilium-agent or cilium-envoy.
+            prometheus:
+              # -- Enable prometheus metrics for cilium-envoy
+              enabled: true
+              serviceMonitor:
+                # -- Enable service monitors.
+                # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+                # Note that this setting applies to both cilium-envoy _and_ cilium-agent
+                # with Envoy enabled.
+                enabled: false # TODO: chaining
 
-        # Enable Bandwidth Manager
-        # Cilium’s bandwidth manager supports the kubernetes.io/egress-bandwidth Pod annotation.
-        # Bandwidth enforcement currently does not work in combination with L7 Cilium Network Policies.
-        # In case they select the Pod at egress, then the bandwidth enforcement will be disabled for those Pods.
-        # Bandwidth Manager requires a v5.1.x or more recent Linux kernel.
-        cilium_enable_bandwidth_manager: true
+          externalIPs:
+            # -- Enable ExternalIPs service support.
+            enabled: true
 
-        # IP Masquerade Agent
-        # https://docs.cilium.io/en/stable/concepts/networking/masquerading/
-        # By default, all packets from a pod destined to an IP address outside of the cilium_native_routing_cidr range are masqueraded
-        cilium_ip_masq_agent_enable: false
+          gatewayAPI:
+            # -- Enable support for Gateway API in cilium
+            # This will automatically set enable-envoy-config as well.
+            enabled: false
+            # -- Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+            enableProxyProtocol: false
+            # -- Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol.
+            enableAppProtocol: true
+            # -- Enable ALPN for all listeners configured with Gateway API. ALPN will attempt HTTP/2, then HTTP 1.1.
+            # Note that this will also enable `appProtocol` support, and services that wish to use HTTP/2 will need to indicate that via their `appProtocol`.
+            enableAlpn: true
 
-        # Hubble
-        ### Enable Hubble without install
-        cilium_enable_hubble: true
-        ### Enable Hubble Metrics
-        cilium_enable_hubble_metrics: true
-        ### Enable Hubble install
-        cilium_hubble_install: true
-        ### Enable auto generate certs if cilium_hubble_install: true
-        cilium_hubble_tls_generate: true
+          hostPort:
+            # -- Enable hostPort service support.
+            enabled: true
 
-        # The default IP address management mode is "Cluster Scope".
-        # https://docs.cilium.io/en/stable/concepts/networking/ipam/
-        cilium_ipam_mode: cluster-pool
+          hubble:
+            # -- Enable Hubble (true by default).
+            enabled: true
 
-        ## A dictionary of extra config variables to add to cilium-config, formatted like:
-        ##  cilium_config_extra_vars:
-        ##    var1: "value1"
-        ##    var2: "value2"
-        cilium_config_extra_vars:
-          # NOTE: See more performance tuning guide at: https://docs.cilium.io/en/stable/operations/performance/tuning/
-          bpf-lb-acceleration: "best-effort"  # [disabled, native, best-effort]
-          # Enable on cilium >= 1.16
-          # datapath-mode: "{{ 'netkit' if (kiss_hpc_enable | default(False)) else 'veth' }}"
-          enable-bbr: "true"
-          enable-ipv4-big-tcp: "true"
-          enable-ipv6-big-tcp: "true"
+            # -- Hubble metrics configuration.
+            # See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics
+            # for more comprehensive documentation about Hubble metrics.
+            metrics:
+              # -- Enables exporting hubble metrics in OpenMetrics format.
+              enableOpenMetrics: false
+              tls:
+                # Enable hubble metrics server TLS.
+                enabled: false
+              serviceMonitor:
+                # -- Create ServiceMonitor resources for Prometheus Operator.
+                # This requires the prometheus CRDs to be available.
+                # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+                enabled: false # TODO: chaining
+              # -- Grafana dashboards for hubble
+              # grafana can import dashboards based on the label and value
+              # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+              dashboards:
+                enabled: false
 
-        # Name of the cluster. Only relevant when building a mesh of clusters.
-        cilium_cluster_name: "{{ cluster_name }}"
+            # -- Enables redacting sensitive information present in Layer 7 flows.
+            redact:
+              enabled: false
+            # -- Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
+            preferIpv6: false
+            peerService:
+              # -- Service Port for the Peer service.
+              # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
+              # port 80 if not.
+              # servicePort: 80
+              # -- Target Port for the Peer service, must match the hubble.listenAddress'
+              # port.
+              targetPort: 4244
+              # -- The cluster domain to use to query the Hubble Peer service. It should
+              # be the local cluster.
+              clusterDomain: "{{ cluster_name }}"
+            # -- TLS configuration for Hubble
+            tls:
+              # -- Enable mutual TLS for listenAddress. Setting this value to false is
+              # highly discouraged as the Hubble API provides access to potentially
+              # sensitive network flow metadata and is exposed on the host network.
+              enabled: true
+              # -- Configure automatic TLS certificates generation.
+              auto:
+                # -- Auto-generate certificates.
+                # When set to true, automatically generate a CA and certificates to
+                # enable mTLS between Hubble server and Hubble Relay instances. If set to
+                # false, the certs for Hubble server need to be provided by setting
+                # appropriate values below.
+                enabled: true
+                # -- Set the method to auto-generate certificates. Supported values:
+                # - helm:         This method uses Helm to generate all certificates.
+                # - cronJob:      This method uses a Kubernetes CronJob the generate any
+                #                 certificates not provided by the user at installation
+                #                 time.
+                # - certmanager:  This method use cert-manager to generate & rotate certificates.
+                method: helm
+            relay:
+              # -- Enable Hubble Relay (requires hubble.enabled=true)
+              enabled: true
+              # -- Roll out Hubble Relay pods automatically when configmap is updated.
+              rollOutPods: true
+              # -- Enable prometheus metrics for hubble-relay on the configured port at
+              # /metrics
+              prometheus:
+                enabled: true
+                serviceMonitor:
+                  # -- Enable service monitors.
+                  # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+                  enabled: false # TODO: chaining
 
-        # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
-        # Available for Cilium v1.10 and up
-        cilium_enable_ipv4_masquerade: true
-        # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
-        # Available for Cilium v1.10 and up
-        cilium_enable_ipv6_masquerade: true
+            ui:
+              # -- Whether to enable the Hubble UI.
+              enabled: true
+              # -- Roll out Hubble-ui pods automatically when configmap is updated.
+              rollOutPods: true
+              standalone:
+                # -- When true, it will allow installing the Hubble UI only, without checking dependencies.
+                # It is useful if a cluster already has cilium and Hubble relay installed and you just
+                # want Hubble UI to be deployed.
+                # When installed via helm, installing UI should be done via `helm upgrade` and when installed via the cilium cli, then `cilium hubble enable --ui`
+                enabled: false
 
-        # -- Enable native IP masquerade support in eBPF
-        cilium_enable_bpf_masquerade: "{{ kiss_hpc_enable | default(False) }}"
+          ingressController:
+            # -- Enable cilium ingress controller
+            # This will automatically set enable-envoy-config as well.
+            enabled: true
+            # -- Set cilium ingress controller to be the default ingress controller
+            # This will let cilium ingress controller route entries without ingress class set
+            default: true
+            # -- Default ingress load balancer mode
+            # Supported values: shared, dedicated
+            # For granular control, use the following annotations on the ingress resource:
+            # "ingress.cilium.io/loadbalancer-mode: dedicated" (or "shared").
+            loadbalancerMode: dedicated
+            # -- Enforce https for host having matching TLS host in Ingress.
+            # Incoming traffic to http listener will return 308 http error code with respective location in header.
+            enforceHttps: true
+            # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+            enableProxyProtocol: false
 
-        # -- Configure whether direct routing mode should route traffic via
-        # host stack (true) or directly and more efficiently out of BPF (false) if
-        # the kernel supports it. The latter has the implication that it will also
-        # bypass netfilter in the host namespace.
-        cilium_enable_host_legacy_routing: false  # BPF, depends on BBR
+          ipam:
+            # -- Configure IP Address Management mode.
+            # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
+            mode: "cluster-pool"
 
-        # A list of extra rules variables to add to clusterrole for cilium operator, formatted like:
-        #   cilium_clusterrole_rules_operator_extra_vars:
-        #     - apiGroups:
-        #       - '""'
-        #       resources:
-        #       - pods
-        #       verbs:
-        #       - delete
-        #     - apiGroups:
-        #       - '""'
-        #       resources:
-        #       - nodes
-        #       verbs:
-        #       - list
-        #       - watch
-        #       resourceNames:
-        #       - toto
-        cilium_clusterrole_rules_operator_extra_vars:
-          - apiGroups:
-              - cilium.io
-            resources:
-              - ciliumpodippools
-            verbs:
-              - create
-              - get
-              - list
-              - update
-              - watch
+          # -- Configure the eBPF-based ip-masq-agent
+          ipMasqAgent:
+            enabled: true
+
+          ipv4:
+            # -- Enable IPv4 support.
+            enabled: true
+
+          # -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
+          # When specified, Cilium assumes networking for this CIDR is preconfigured and
+          # hands traffic destined for that range to the Linux network stack without
+          # applying any SNAT.
+          # Generally speaking, specifying a native routing CIDR implies that Cilium can
+          # depend on the underlying networking stack to route packets to their
+          # destination. To offer a concrete example, if Cilium is configured to use
+          # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+          # the user must configure the routes to reach pods, either manually or by
+          # setting the auto-direct-node-routes flag.
+          ipv4NativeRoutingCIDR: "10.0.0.0/8"
+
+          ipv6:
+            # -- Enable IPv6 support.
+            enabled: false
+
+          # -- (string) Allows to explicitly specify the IPv6 CIDR for native routing.
+          # When specified, Cilium assumes networking for this CIDR is preconfigured and
+          # hands traffic destined for that range to the Linux network stack without
+          # applying any SNAT.
+          # Generally speaking, specifying a native routing CIDR implies that Cilium can
+          # depend on the underlying networking stack to route packets to their
+          # destination. To offer a concrete example, if Cilium is configured to use
+          # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+          # the user must configure the routes to reach pods, either manually or by
+          # setting the auto-direct-node-routes flag.
+          ipv6NativeRoutingCIDR: "fd00::/100"
+
+          # -- Configure Kubernetes specific configuration
+          k8s:
+            # -- requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
+            # range via the Kubernetes node resource
+            requireIPv4PodCIDR: false
+            # -- requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR
+            # range via the Kubernetes node resource
+            requireIPv6PodCIDR: false
+
+          # -- Configure the kube-proxy replacement in Cilium BPF datapath
+          # Valid options are "true" or "false".
+          # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
+          kubeProxyReplacement: true
+
+          # -- Configure L2 announcements
+          l2announcements:
+            # -- Enable L2 announcements
+            enabled: false
+
+          l2NeighDiscovery:
+            # -- Enable L2 neighbor discovery in the agent
+            enabled: true
+
+          # -- Configure L2 pod announcements
+          l2podAnnouncements:
+            # -- Enable L2 pod announcements
+            enabled: false
+
+          # -- Enable Layer 7 network policy.
+          l7Proxy: true
+
+          # -- Configure service load balancing
+          loadBalancer:
+            # -- mode is the operation mode of load balancing for remote backends
+            # e.g. snat, dsr, hybrid
+            mode: hybrid
+
+            # -- acceleration is the option to accelerate service handling via XDP
+            # Applicable values can be: disabled (do not use XDP), native (XDP BPF
+            # program is run directly out of the networking driver's early receive
+            # path), or best-effort (use native mode XDP acceleration on devices
+            # that support it).
+            acceleration: best-effort
+
+            # -- L7 LoadBalancer
+            l7:
+              # -- Enable L7 service load balancing via envoy proxy.
+              # The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7,
+              # will be forwarded to the local backend proxy to be load balanced to the service endpoints.
+              # Please refer to docs for supported annotations for more configuration.
+              #
+              # Applicable values:
+              #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
+              #   - disabled: Disable L7 load balancing by way of service annotation.
+              backend: envoy
+
+          # -- Enables periodic logging of system load
+          logSystemLoad: false
+
+          monitor:
+            # -- Enable the cilium-monitor sidecar.
+            enabled: false
+
+          nodeinit:
+            # -- Enable the node initialization DaemonSet
+            enabled: false
+
+          nodeIPAM:
+            # -- Configure Node IPAM
+            # ref: https://docs.cilium.io/en/stable/network/node-ipam/
+            enabled: false
+
+          # -- Configure N-S k8s service loadbalancing
+          nodePort:
+            # -- Enable the Cilium NodePort service implementation.
+            enabled: true
+
+          operator:
+            # -- Enable the cilium-operator component (required).
+            enabled: true
+            # -- Roll out cilium-operator pods automatically when configmap is updated.
+            rollOutPods: true
+            # -- Affinity for cilium-operator
+            # affinity:
+            #   podAntiAffinity:
+            #     requiredDuringSchedulingIgnoredDuringExecution:
+            #       - topologyKey: kubernetes.io/hostname
+            #         labelSelector:
+            #           matchLabels:
+            #             io.cilium/app: operator
+            # -- Enable prometheus metrics for cilium-operator on the configured port at
+            # /metrics
+            prometheus:
+              enabled: true
+              serviceMonitor:
+                # -- Enable service monitors.
+                # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+                enabled: false # TODO: chaining
+            # -- Grafana dashboards for cilium-operator
+            # grafana can import dashboards based on the label and value
+            # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+            dashboards:
+              enabled: false
+
+          preflight:
+            # -- Enable Cilium pre-flight resources (required for upgrade)
+            enabled: false
+
+          # -- Configure prometheus metrics on the configured port at /metrics
+          prometheus:
+            enabled: true
+            serviceMonitor:
+              # -- Enable service monitors.
+              # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+              enabled: false # TODO: chaining
+              # -- Set to `true` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
+              trustCRDsExist: false
+
+          # -- Enable native-routing mode or tunneling mode.
+          # Possible values:
+          #   - ""
+          #   - native
+          #   - tunnel
+          # @default -- `"tunnel"`
+          routingMode: native
+
+          # -- SCTP Configuration Values
+          sctp:
+            # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
+            enabled: false
+
+          # -- Configure sysctl override described in #20072.
+          sysctlfix:
+            # -- Enable the sysctl override. When enabled, the init container will mount the /proc of the host so that the `sysctlfix` utility can execute.
+            enabled: true
 
         #############################
         # addons
@@ -377,7 +675,7 @@ all:
         #     fs_type: ext4
 
         # Cert manager deployment
-        cert_manager_enabled: true
+        cert_manager_enabled: false
         cert_manager_namespace: cert-manager
 
         # MetalLB deployment
