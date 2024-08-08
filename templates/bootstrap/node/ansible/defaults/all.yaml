@@ -363,7 +363,7 @@ all:
           gatewayAPI:
             # -- Enable support for Gateway API in cilium
             # This will automatically set enable-envoy-config as well.
-            enabled: false
+            enabled: true
             # -- Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
             enableProxyProtocol: false
             # -- Enable Backend Protocol selection support (GEP-1911) for Gateway API via appProtocol.
@@ -466,7 +466,7 @@ all:
           ingressController:
             # -- Enable cilium ingress controller
             # This will automatically set enable-envoy-config as well.
-            enabled: true
+            enabled: false
             # -- Set cilium ingress controller to be the default ingress controller
             # This will let cilium ingress controller route entries without ingress class set
             default: true
