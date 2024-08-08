@@ -179,6 +179,8 @@ all:
         # CNI / Cilium
         #############################
 
+        cilium_helm_servicemonitor_crd_enabled: true
+
         # Fill values override here
         cilium_helm_values:
           # -- Affinity for cilium-agent.
