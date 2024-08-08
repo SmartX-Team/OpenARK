@@ -283,13 +283,13 @@ all:
                 serviceMonitor:
                   # -- Enable service monitor.
                   # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-                  enabled: false # TODO: chaining
+                  enabled: true
 
           # -- Grafana dashboards for cilium-agent
           # grafana can import dashboards based on the label and value
           # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
           dashboards:
-            enabled: false
+            enabled: true
 
           debug:
             # -- Enable debug logging
@@ -339,7 +339,7 @@ all:
                 # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
                 # Note that this setting applies to both cilium-envoy _and_ cilium-agent
                 # with Envoy enabled.
-                enabled: false # TODO: chaining
+                enabled: true
 
           externalIPs:
             # -- Enable ExternalIPs service support.
@@ -378,12 +378,12 @@ all:
                 # -- Create ServiceMonitor resources for Prometheus Operator.
                 # This requires the prometheus CRDs to be available.
                 # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-                enabled: false # TODO: chaining
+                enabled: true
               # -- Grafana dashboards for hubble
               # grafana can import dashboards based on the label and value
               # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
               dashboards:
-                enabled: false
+                enabled: true
 
             # -- Enables redacting sensitive information present in Layer 7 flows.
             redact:
@@ -434,7 +434,7 @@ all:
                 serviceMonitor:
                   # -- Enable service monitors.
                   # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-                  enabled: false # TODO: chaining
+                  enabled: true
 
             ui:
               # -- Whether to enable the Hubble UI.
@@ -604,12 +604,12 @@ all:
               serviceMonitor:
                 # -- Enable service monitors.
                 # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-                enabled: false # TODO: chaining
+                enabled: true
             # -- Grafana dashboards for cilium-operator
             # grafana can import dashboards based on the label and value
             # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
             dashboards:
-              enabled: false
+              enabled: true
 
           preflight:
             # -- Enable Cilium pre-flight resources (required for upgrade)
@@ -621,9 +621,9 @@ all:
             serviceMonitor:
               # -- Enable service monitors.
               # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-              enabled: false # TODO: chaining
+              enabled: true
               # -- Set to `true` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
-              trustCRDsExist: false
+              trustCRDsExist: true
 
           # -- Enable native-routing mode or tunneling mode.
           # Possible values:
