@@ -111,7 +111,7 @@ all:
 
         # configure arp_ignore and arp_announce to avoid answering ARP queries from kube-ipvs0 interface
         # must be set to true for MetalLB to work
-        kube_proxy_strict_arp: true # set to true for MetalLB to work
+        kube_proxy_strict_arp: "{{ (kube_network_plugin | default('')) == 'calico' }}" # set to true for MetalLB to work
 
         # DNS configuration.
         # Kubernetes cluster name, also will be used as DNS domain
