@@ -655,6 +655,14 @@ all:
             dashboards:
               enabled: true
 
+          # @schema
+          # type: [null, string, array]
+          # @schema
+          # -- policyCIDRMatchMode is a list of entities that may be selected by CIDR selector.
+          # The possible value is "nodes".
+          policyCIDRMatchMode:
+            - nodes
+
           preflight:
             # -- Enable Cilium pre-flight resources (required for upgrade)
             enabled: false
