@@ -108,24 +108,13 @@ impl<'a> ClusterState<'a> {
         };
         let mut nodes = self.control_planes.to_vec(filter);
 
-        // estimate the number of default nodes
-        let num_default_nodes = if self.owner_group.is_default() {
-            self.config.bootstrapper_node_size
-        } else {
-            0
-        };
-
         // truncate the number of nodes to `etcd_nodes_max`
         if self.config.etcd_nodes_max > 0 {
-            nodes.truncate(if self.config.etcd_nodes_max < num_default_nodes {
-                0
-            } else {
-                self.config.etcd_nodes_max - num_default_nodes
-            });
+            nodes.truncate(self.config.etcd_nodes_max);
         }
 
         // ETCD nodes should be odd (RAFT)
-        if (nodes.len() + num_default_nodes) % 2 == 0 {
+        if nodes.len() % 2 == 0 {
             nodes.pop();
         }
 

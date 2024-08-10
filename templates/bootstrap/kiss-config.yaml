@@ -42,7 +42,6 @@ data:
   bootstrapper_node_name: node1.master # set to "host" if you want to install on host machines
   bootstrapper_node_reuse_container: "true"
   bootstrapper_node_reuse_data_kubernetes: "false"
-  bootstrapper_node_size: "1"
 
   ###########################################################################
   # Domain Configuration
