@@ -15,8 +15,9 @@ export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/arm64,linux/amd64')
 
 export AWS_REGION := env_var_or_default('AWS_REGION', 'us-east-1')
-export AWS_SECURE_TLS := if env_var("AWS_ENDPOINT_URL") =~ 'http://' { 'false' } else { 'true' }
-export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('DEFAULT_RUNTIME_PACKAGE', 'ark-cli')
+export AWS_SECURE_TLS := if env_var_or_default("AWS_ENDPOINT_URL", '') =~ 'http://' { 'false' } else { 'true' }
+export DEFAULT_CONTAINER_RUNTIME := env_var_or_default('CONTAINER_RUNTIME', 'docker buildx')
+export DEFAULT_RUNTIME_PACKAGE := env_var_or_default('RUNTIME_PACKAGE', 'ark-cli')
 export PIPE_MODEL := env_var_or_default('PIPE_MODEL', 'buildkit')
 
 default:
@@ -46,7 +47,7 @@ run *ARGS:
 
 oci-build *ARGS:
   mkdir -p "${OCI_BUILD_LOG_DIR}"
-  docker buildx build \
+  ${DEFAULT_CONTAINER_RUNTIME} build \
     --file './Dockerfile' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
@@ -56,7 +57,7 @@ oci-build *ARGS:
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-base-$( date -u +%s ).log"
 
 oci-build-devel *ARGS:
-  docker buildx build \
+  ${DEFAULT_CONTAINER_RUNTIME} build \
     --file './Dockerfile.devel' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-devel" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
@@ -68,7 +69,7 @@ oci-build-devel *ARGS:
     . 2>&1 | tee "${OCI_BUILD_LOG_DIR}/build-devel-$( date -u +%s ).log"
 
 oci-build-full *ARGS:
-  docker buildx build \
+  ${DEFAULT_CONTAINER_RUNTIME} build \
     --file './Dockerfile.full' \
     --tag "${OCI_IMAGE}:${OCI_IMAGE_VERSION}-full" \
     --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \

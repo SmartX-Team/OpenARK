@@ -36,7 +36,7 @@ echo "- Installing VINE Ingress ... "
 cat "./ingress.yaml" |
     yq '.metadata.namespace = "'"ingress-${DOMAIN_NAME/./-}"'"' |
     yq '.metadata.annotations."cert-manager.io/cluster-issuer" = "'"${DOMAIN_NAME}"'"' |
-    yq '.metadata.annotations."kubernetes.io/ingress.class" = "'"${DOMAIN_NAME}"'"' |
+    yq '.spec.ingressClassName = "'"${DOMAIN_NAME}"'"' |
     yq '.spec.rules[0].host = "'"${DOMAIN_NAME}"'"' |
     yq '.spec.tls[0].hosts[0] = "'"${DOMAIN_NAME}"'"' |
     yq '.spec.tls[0].secretName = "'"${DOMAIN_NAME}"'"' |

@@ -49,6 +49,9 @@ controller:
 
   service:
     type: ClusterIP
+    # -- Labels to be added to both controller services.
+    labels:
+      ark.ulagbulag.io/is-external: "true"
 
   podAnnotations:
     prometheus.io/port: "10254"

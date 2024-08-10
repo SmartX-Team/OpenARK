@@ -24,3 +24,7 @@ affinity:
               values:
                 - ControlPlane
                 - Gateway
+
+service:
+  labels:
+    ark.ulagbulag.io/is-external: "true"

@@ -6,7 +6,6 @@ metadata:
   namespace: devops-arc
   annotations:
     cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
-    kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.openark
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     vine.ulagbulag.io/is-service: "true"
@@ -14,6 +13,7 @@ metadata:
     vine.ulagbulag.io/is-service-system: "true"
     vine.ulagbulag.io/service-kind: Github ARC Webhook
 spec:
+  ingressClassName: ingress-nginx-controller.vine.svc.ops.openark
   rules:
     - host: ingress-nginx-controller.vine.svc.ops.openark
       http:

@@ -173,6 +173,8 @@ kind: Service
 metadata:
   name: matchbox
   namespace: kiss
+  labels:
+    ark.ulagbulag.io/is-external: "true"
 spec:
   type: ClusterIP
   selector:

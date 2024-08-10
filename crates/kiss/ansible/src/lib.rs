@@ -33,6 +33,7 @@ impl AnsibleClient {
     pub const LABEL_COMPLETED_STATE: &'static str = "kiss.ulagbulag.io/completed_state";
     pub const LABEL_JOB_NAME: &'static str = "kiss.ulagbulag.io/job_name";
     pub const LABEL_JOB_IS_CRITICAL: &'static str = "kiss.ulagbulag.io/is_critical";
+    pub const LABEL_VERIFY_BIND_GROUP: &'static str = "kiss.ulagbulag.io/verify-bind-group";
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn try_default(kube: &Client) -> Result<Self> {
@@ -48,13 +49,22 @@ impl AnsibleClient {
         let box_status = job.r#box.status.as_ref();
         let name = format!("box-{}-{}", &job.task, &box_name);
 
+        let verify_bind_group = job
+            .r#box
+            .metadata
+            .labels
+            .as_ref()
+            .and_then(|labels| labels.get(Self::LABEL_VERIFY_BIND_GROUP))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(true);
+
         let bind_group = job
             .r#box
             .status
             .as_ref()
             .and_then(|status| status.bind_group.as_ref());
         let group = &job.r#box.spec.group;
-        let reset = self.kiss.group_force_reset || bind_group != Some(group);
+        let reset = self.kiss.group_force_reset || verify_bind_group && bind_group != Some(group);
 
         {
             let dp = DeleteParams::background();
@@ -134,6 +144,7 @@ impl AnsibleClient {
                 }),
                 spec: Some(PodSpec {
                     affinity: Some(crate::job::affinity()),
+                    host_network: Some(true),
                     priority_class_name: Some("k8s-cluster-critical".into()),
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),

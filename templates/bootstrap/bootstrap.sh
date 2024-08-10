@@ -726,6 +726,31 @@ function install_kiss_cluster() {
             --volume "${KUBERNETES_CONFIG}:/root/.kube:ro" \
             "${KISS_INSTALLER_IMAGE}"
 
+        # Wait for kiss operator to run
+        __log 'INFO' "Waiting for kiss operator to run ..."
+        $(__shell "${node_first}") \
+            kubectl rollout status deployment operator
+
+        # Register the boxes
+        for node in ${nodes}; do
+            __log 'INFO' "Registering the box: ${node} ..."
+            cat <<EOF | $(__shell "${node_first}") kubectl create box "${node}"
+---
+apiVersion: kiss.ulagbulag.io/v1alpha1
+kind: Box
+metadata:
+    name: "${node}"
+    labels:
+        kiss.ulagbulag.io/verify-bind-group: "false"
+spec:
+    group:
+        clusterName: default
+        role: ControlPlane
+    machine:
+        uuid: "${node}"
+EOF
+        done
+
         # Show how to deploy your SSH keys into the Web (i.e. Github) repository.
         echo
         echo "* NOTE: You can register the SSH public key to activate the snapshot manager."

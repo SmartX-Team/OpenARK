@@ -243,6 +243,9 @@ all:
             enabled: true
 
           bpf:
+            # -- Enables pre-allocation of eBPF map values. This increases
+            # memory usage but can reduce latency.
+            # preallocateMaps: false
             # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
             # @default -- `veth`
             datapathMode: veth
@@ -333,6 +336,9 @@ all:
             strictMode:
               # -- Enable WireGuard Pod2Pod strict mode.
               enabled: false
+              # -- Allow dynamic lookup of remote node identities.
+              # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+              allowRemoteNodeIdentities: false
 
           # Configure Cilium Envoy options.
           envoy:
@@ -526,7 +532,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          ipv4NativeRoutingCIDR: "10.0.0.0/8"
+          # ipv4NativeRoutingCIDR: "{{ kiss_network_ipv4_subnet }}"
 
           ipv6:
             # -- Enable IPv6 support.
@@ -542,7 +548,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          ipv6NativeRoutingCIDR: "fd00::/100"
+          # ipv6NativeRoutingCIDR: "{{ kiss_network_ipv6_subnet }}"
 
           # -- Configure Kubernetes specific configuration
           k8s:

@@ -63,6 +63,11 @@ controller:
     # -- Enable 'scope' or not
     enabled: false
 
+  service:
+    # -- Labels to be added to both controller services.
+    labels:
+      ark.ulagbulag.io/is-external: "true"
+
   podAnnotations:
     prometheus.io/port: "10254"
     prometheus.io/scrape: "true"

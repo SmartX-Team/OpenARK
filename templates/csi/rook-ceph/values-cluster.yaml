@@ -237,7 +237,6 @@ ingress:
   dashboard:
     annotations:
       cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
-      kubernetes.io/ingress.class: ingress-nginx-controller.vine.svc.ops.openark
       nginx.ingress.kubernetes.io/auth-response-headers: Authorization
       nginx.ingress.kubernetes.io/auth-url: https://$http_x_forwarded_auth/oauth2/auth
       nginx.ingress.kubernetes.io/auth-signin: https://$http_x_forwarded_auth/oauth2/start?rd=$http_x_forwarded_proto://$http_x_forwarded_host$escaped_request_uri
@@ -265,7 +264,7 @@ ingress:
 
     # Note: Only one of ingress class annotation or the `ingressClassName:` can be used at a time
     # to set the ingress class
-    ingressClassName: ""
+    ingressClassName: ingress-nginx-controller.vine.svc.ops.openark
 
 # -- A list of CephBlockPool configurations to deploy
 # @default -- See [below](#ceph-block-pools)

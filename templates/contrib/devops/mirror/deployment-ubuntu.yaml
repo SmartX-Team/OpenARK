@@ -269,8 +269,7 @@ metadata:
   name: apt-ubuntu
   namespace: devops-mirror
   annotations:
-    cert-manager.io/cluster-issuer: mobilex.kr
-    kubernetes.io/ingress.class: mobilex.kr
+    cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
     nginx.ingress.kubernetes.io/proxy-body-size: 200M
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -279,6 +278,7 @@ metadata:
     vine.ulagbulag.io/is-service-system: "false"
     vine.ulagbulag.io/service-kind: APT Mirror Server (Ubuntu)
 spec:
+  ingressClassName: ingress-nginx-controller.vine.svc.ops.openark
   rules:
     - host: archive.ubuntu.com
       http:

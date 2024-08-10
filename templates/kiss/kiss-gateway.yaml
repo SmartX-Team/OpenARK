@@ -73,6 +73,8 @@ kind: Service
 metadata:
   name: gateway
   namespace: kiss
+  labels:
+    ark.ulagbulag.io/is-external: "true"
 spec:
   type: ClusterIP
   selector:

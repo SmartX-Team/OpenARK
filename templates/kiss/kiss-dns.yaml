@@ -77,6 +77,8 @@ kind: Service
 metadata:
   name: dns
   namespace: kiss
+  labels:
+    ark.ulagbulag.io/is-external: "true"
 spec:
   type: ClusterIP
   selector:
