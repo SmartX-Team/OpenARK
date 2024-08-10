@@ -21,7 +21,7 @@ data:
   # Bare-metal Box Grouping Configuration
   ###########################################################################
   group_enable_default_cluster: "false"
-  group_enforce_ansible_control_planes: "true"
+  group_enforce_ansible_control_planes: "false"
   group_force_reset: "false"
   group_force_reset_os: "false"
 
