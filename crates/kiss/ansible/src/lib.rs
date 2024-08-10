@@ -15,7 +15,7 @@ use k8s_openapi::{
     },
     apimachinery::pkg::api::resource::Quantity,
 };
-use kiss_api::r#box::{BoxCrd, BoxGroupSpec, BoxPowerType, BoxState};
+use kiss_api::r#box::{BoxCrd, BoxGroupRole, BoxGroupSpec, BoxPowerType, BoxState};
 use kube::{
     api::{DeleteParams, ListParams, PostParams},
     core::ObjectMeta,
@@ -65,6 +65,11 @@ impl AnsibleClient {
             .and_then(|status| status.bind_group.as_ref());
         let group = &job.r#box.spec.group;
         let reset = self.kiss.group_force_reset || verify_bind_group && bind_group != Some(group);
+
+        let priority_class_name = match group.role {
+            BoxGroupRole::ControlPlane => "system-cluster-critical",
+            _ => "k8s-cluster-critical",
+        };
 
         {
             let dp = DeleteParams::background();
@@ -145,7 +150,7 @@ impl AnsibleClient {
                 spec: Some(PodSpec {
                     affinity: Some(crate::job::affinity()),
                     host_network: Some(true),
-                    priority_class_name: Some("k8s-cluster-critical".into()),
+                    priority_class_name: Some(priority_class_name.into()),
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
                     tolerations: if job.is_critical {
