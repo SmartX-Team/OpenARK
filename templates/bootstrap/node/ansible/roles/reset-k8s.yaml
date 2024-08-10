@@ -34,12 +34,15 @@
     flush_iptables: true
     reset_restart_network: true
 
-- name: Reset | Cleanup DNS
-  file:
-    path: "{{ item }}"
-    state: absent
-  with_items:
-    - /etc/NetworkManager/conf.d/dns.conf
-  ignore_errors: true # noqa ignore-errors
-  tags:
-    - files
+- name: Reset | Cleanup extras
+  hosts: etcd:k8s_cluster:calico_rr
+  tasks:
+    - name: Reset | Cleanup DNS
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/NetworkManager/conf.d/dns.conf
+      ignore_errors: true # noqa ignore-errors
+      tags:
+        - files

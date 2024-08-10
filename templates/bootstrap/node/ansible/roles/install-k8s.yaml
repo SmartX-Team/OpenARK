@@ -12,6 +12,18 @@
 - name: Install k8s cluster
   import_playbook: /kubespray/cluster.yml
 
+- name: Post-install | Wait for apiserver to be operated
+  hosts: kiss_ephemeral_node
+  tasks:
+    - command: "{{ bin_dir }}/kubectl version"
+      retries: 10
+      delay: 5
+
+    - command: >
+        {{ bin_dir }}/kubectl get nodes {{ inventory_hostname }} --output name
+      retries: 10
+      delay: 5
+
 - name: Calico | Add BGP peers
   hosts: kube_control_plane
   tasks:

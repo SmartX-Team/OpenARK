@@ -1,3 +1,6 @@
 ---
 - name: Fine-tune Kernel
   include_tasks: system-kernel-tune.yaml
+
+- name: Provision Kernel
+  include_tasks: system-kernel-upgrade.yaml

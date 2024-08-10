@@ -1,0 +1,52 @@
+---
+- name: Check whether the latest kernel is running
+  block:
+    - name: Check whether the latest kernel is running - Flatcar Container Linux
+      when: kiss_os_default == 'flatcar'
+      set_fact:
+        kiss_is_kernel_latest: true
+    - name: Check whether the latest kernel is running - RockyLinux
+      when: kiss_os_default == 'rocky9'
+      set_fact:
+        kiss_is_kernel_latest: "{{ '.elrepo.' in ansible_facts.kernel }}"
+      register: boot_file
+
+- name: Upgrade kernel - RockyLinux
+  when:
+    - not kiss_is_kernel_latest
+    - kiss_os_default == 'rocky9'
+  block:
+    - name: Upgrade kernel - RockyLinux - Upgrade OS
+      dnf:
+        name: "*"
+        state: latest
+
+    - name: Upgrade kernel - RockyLinux - Add ELRepo Repository
+      dnf:
+        name:
+          - elrepo-release
+          - grubby
+          - sqlite
+        enablerepo: elrepo-kernel
+        state: latest
+
+    - name: Upgrade kernel - RockyLinux - Remove Stable Kernel
+      dnf:
+        name:
+          - kernel
+          - kernel-core
+          - kernel-devel
+          - kernel-modules
+          - kernel-modules-core
+        state: absent
+        autoremove: no
+
+- name: Reboot the boxes if upgraded (The task will be restarted)
+  when: not kiss_is_kernel_latest
+  reboot:
+    reboot_timeout: 3600 # 1h (booting can take a long time)
+
+- name: Assert rebooting
+  when: not kiss_is_kernel_latest
+  fail:
+    msg: The nodes should be rebooted!

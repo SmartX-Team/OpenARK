@@ -729,12 +729,12 @@ function install_kiss_cluster() {
         # Wait for kiss operator to run
         __log 'INFO' "Waiting for kiss operator to run ..."
         $(__shell "${node_first}") \
-            kubectl rollout status deployment operator
+            kubectl -n kiss rollout status deployment operator
 
         # Register the boxes
         for node in ${nodes}; do
             __log 'INFO' "Registering the box: ${node} ..."
-            cat <<EOF | $(__shell "${node_first}") kubectl create box "${node}"
+            cat <<EOF | $(__shell "${node_first}") kubectl create -f -
 ---
 apiVersion: kiss.ulagbulag.io/v1alpha1
 kind: Box

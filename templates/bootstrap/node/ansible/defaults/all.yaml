@@ -248,7 +248,7 @@ all:
             # preallocateMaps: false
             # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
             # @default -- `veth`
-            datapathMode: veth
+            datapathMode: netkit
             # @schema
             # type: [null, boolean]
             # @schema
@@ -593,7 +593,7 @@ all:
           loadBalancer:
             # -- mode is the operation mode of load balancing for remote backends
             # e.g. snat, dsr, hybrid
-            mode: hybrid
+            mode: dsr
 
             # -- acceleration is the option to accelerate service handling via XDP
             # Applicable values can be: disabled (do not use XDP), native (XDP BPF
@@ -613,6 +613,9 @@ all:
               #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
               #   - disabled: Disable L7 load balancing by way of service annotation.
               backend: envoy
+
+          # -- Enable Local Redirect Policy.
+          localRedirectPolicy: true # required for node-local-dns
 
           # -- Enables periodic logging of system load
           logSystemLoad: false

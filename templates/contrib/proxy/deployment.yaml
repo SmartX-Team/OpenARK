@@ -33,6 +33,13 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
+                      - Compute
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
                       - Gateway
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -41,6 +48,7 @@ spec:
                     operator: In
                     values:
                       - Compute
+                      - ControlPlane
                       - Gateway
       securityContext:
         seccompProfile:
@@ -50,12 +58,16 @@ spec:
           image: docker.io/serjs/go-socks5-proxy:latest
           imagePullPolicy: Always
           env:
-            # TODO(user): change your own username!
             - name: PROXY_USER
-              value: username
-            # TODO(user): change your own password!
+              valueFrom:
+                secretKeyRef:
+                  name: socks5-proxy
+                  key: username
             - name: PROXY_PASSWORD
-              value: myPassword!
+              valueFrom:
+                secretKeyRef:
+                  name: socks5-proxy
+                  key: password
             - name: PROXY_PORT
               value: "1080"
           ports:
@@ -69,17 +81,3 @@ spec:
             limits:
               cpu: "1"
               memory: 200Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: socks5-proxy
-spec:
-  type: LoadBalancer
-  selector:
-    name: socks5-proxy
-  ports:
-    - name: http
-      protocol: TCP
-      port: 1080
-      targetPort: 1080

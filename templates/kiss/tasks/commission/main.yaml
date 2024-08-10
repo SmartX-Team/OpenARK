@@ -5,10 +5,10 @@
     - include_tasks: ping.yaml
     # Step 2 - Configure base
     - include_tasks: hostname.yaml
-    # Step 3 - Configure storage
-    - include_tasks: storage.yaml
-    # Step 4 - Configure kernel and system
+    # Step 3 - Configure kernel and system
     - include_tasks: system.yaml
+    # Step 4 - Configure storage
+    - include_tasks: storage.yaml
     # Step 5 - Configure devices
     - include_tasks: power.yaml
     - include_tasks: network.yaml
