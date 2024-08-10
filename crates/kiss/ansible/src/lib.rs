@@ -9,8 +9,8 @@ use k8s_openapi::{
         batch::v1::{CronJob, CronJobSpec, Job, JobSpec, JobTemplateSpec},
         core::v1::{
             ConfigMapKeySelector, ConfigMapVolumeSource, Container, EnvVar, EnvVarSource,
-            KeyToPath, PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector,
-            SecretVolumeSource, Toleration, Volume, VolumeMount,
+            KeyToPath, PodDNSConfig, PodSpec, PodTemplateSpec, ResourceRequirements,
+            SecretKeySelector, SecretVolumeSource, Toleration, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::api::resource::Quantity,
@@ -149,6 +149,13 @@ impl AnsibleClient {
                 }),
                 spec: Some(PodSpec {
                     affinity: Some(crate::job::affinity()),
+                    dns_config: Some(PodDNSConfig {
+                        nameservers: Some(vec![
+                            self.kiss.bootstrapper_network_dns_server_ns1.to_string(),
+                            self.kiss.bootstrapper_network_dns_server_ns2.to_string(),
+                        ]),
+                        ..Default::default()
+                    }),
                     host_network: Some(true),
                     priority_class_name: Some(priority_class_name.into()),
                     restart_policy: Some("OnFailure".into()),

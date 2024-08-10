@@ -10,6 +10,8 @@ use tracing::{instrument, Level};
 pub struct KissConfig {
     pub allow_critical_commands: bool,
     pub allow_pruning_network_interfaces: bool,
+    pub bootstrapper_network_dns_server_ns1: Ipv4Addr,
+    pub bootstrapper_network_dns_server_ns2: Ipv4Addr,
     pub etcd_nodes_max: usize,
     pub group_enable_default_cluster: bool,
     pub group_enforce_ansible_control_planes: bool,
@@ -37,6 +39,14 @@ impl KissConfig {
         Ok(Self {
             allow_critical_commands: infer(&config, "allow_critical_commands")?,
             allow_pruning_network_interfaces: infer(&config, "allow_pruning_network_interfaces")?,
+            bootstrapper_network_dns_server_ns1: infer(
+                &config,
+                "bootstrapper_network_dns_server_ns1",
+            )?,
+            bootstrapper_network_dns_server_ns2: infer(
+                &config,
+                "bootstrapper_network_dns_server_ns2",
+            )?,
             etcd_nodes_max: infer(&config, "etcd_nodes_max")?,
             group_enable_default_cluster: infer(&config, "group_enable_default_cluster")?,
             group_enforce_ansible_control_planes: infer(
