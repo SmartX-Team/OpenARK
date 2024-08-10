@@ -39,14 +39,18 @@ fi
 ###########################################################
 
 echo "- Installing NGINX Ingress ... "
-pushd "nginx-ingress" && ./install.sh && popd
+pushd "nginx-ingress"
+./install.sh
+popd
 
 ###########################################################
 #   Install Dex                                           #
 ###########################################################
 
 echo "- Installing Dex ... "
-pushd "dex" && ./install.sh && popd
+pushd "dex"
+./install.sh
+popd
 
 ###########################################################
 #   Install Daemonsets                                    #
@@ -60,7 +64,9 @@ kubectl apply -f "./plugins/daemonset-generic-device-plugin.yaml"
 ###########################################################
 
 # templates
-pushd "templates" && ./install.sh && popd
+pushd "templates"
+./install.sh
+popd
 
 ###########################################################
 #   Install VINE Desktop Scripts                          #
@@ -74,7 +80,9 @@ pushd "desktop" && ./install-scripts.sh && popd
 ###########################################################
 
 echo "- Installing VINE Desktop Guest Shells ... "
-pushd "guest" && ./install.sh && popd
+pushd "guest"
+./install.sh
+popd
 
 # Finished!
 echo "Installed!"

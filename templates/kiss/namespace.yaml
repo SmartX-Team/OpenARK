@@ -44,6 +44,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kiss
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
         - ipBlock:
             cidr: 0.0.0.0/0 # TODO: required for reset-reboot-pip, maybe can be resolved by new image?
 ---

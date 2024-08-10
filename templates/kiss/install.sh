@@ -36,10 +36,14 @@ function install_kiss_cluster() {
             -f "ntpd.yaml"
 
         # ansible tasks
-        pushd "tasks" && ./install.sh && popd
+        pushd "tasks"
+        ./install.sh
+        popd
 
         # matchbox
-        pushd "matchbox" && ./install.sh && popd
+        pushd "matchbox"
+        ./install.sh
+        popd
 
         # kiss service
         kubectl apply -R -f "./kiss-*.yaml"

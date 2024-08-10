@@ -39,28 +39,36 @@ fi
 ###########################################################
 
 echo "- Installing Opentelemetry ... "
-pushd "opentelemetry" && ./install.sh && popd
+pushd "opentelemetry"
+./install.sh
+popd
 
 #############################################################
 #   Install Tempo                                           #
 #############################################################
 
 echo "- Installing Tempo ... "
-pushd "tempo" && ./install.sh && popd
+pushd "tempo"
+./install.sh
+popd
 
 #############################################################
 #   Install Loki                                            #
 #############################################################
 
 echo "- Installing Loki ... "
-pushd "loki" && ./install.sh && popd
+pushd "loki"
+./install.sh
+popd
 
 #############################################################
 #   Install Grafana                                         #
 #############################################################
 
 echo "- Installing Grafana ... "
-pushd "grafana" && ./install.sh && popd
+pushd "grafana"
+./install.sh
+popd
 
 # Finished!
 echo "Installed!"

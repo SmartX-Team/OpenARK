@@ -13,7 +13,9 @@ set -x
 ###########################################################
 
 echo "- Installing Monitoring Stack ... "
-pushd "monitoring" && ./install.sh && popd
+pushd "monitoring"
+./install.sh
+popd
 
 # Finished!
 echo "Installed!"

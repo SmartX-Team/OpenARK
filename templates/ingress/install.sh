@@ -59,21 +59,27 @@ fi
 ###########################################################
 
 echo "- Installing K8S Gateway ... "
-pushd "k8s-gateway" && ./install.sh && popd
+pushd "k8s-gateway"
+./install.sh
+popd
 
 ###########################################################
 #   Install NGINX Ingress                                 #
 ###########################################################
 
 echo "- Installing NGINX Ingress ... "
-pushd "nginx-ingress" && ./install.sh && popd
+pushd "nginx-ingress"
+./install.sh
+popd
 
 ###########################################################
 #   Install VINE Ingress                                  #
 ###########################################################
 
 echo "- Installing VINE Ingress ... "
-pushd "vine-ingress" && ./install.sh && popd
+pushd "vine-ingress"
+./install.sh
+popd
 
 # Finished!
 echo "Installed!"
