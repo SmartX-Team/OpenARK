@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Build it!
-ARG IPXE_DRIVER="ipxe"
+ARG IPXE_DRIVER="snp"
 ARG IPXE_SRC="https://github.com/ipxe/ipxe.git"
 ARG IPXE_VERSION
 RUN mkdir /src && cd /src \
@@ -40,6 +40,8 @@ RUN mkdir /src && cd /src \
     && cd ipxe/src \
     && git checkout "${IPXE_VERSION}" \
     && mkdir /ipxe \
+    # Patch DHCP settings
+    && sed -i 's/^\(#define DHCP_DISC_END_TIMEOUT_SEC [0-9]\+$/\132/g' './config/dhcp.h' \
     # Build each iPXE platforms
     # * usage: make [platform]/[driver].[extension]
     ### ARCH [0x00] - BIOS
