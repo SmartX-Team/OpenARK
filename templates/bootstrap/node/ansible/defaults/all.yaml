@@ -216,7 +216,7 @@ all:
           # @schema
           # -- Enable installation of PodCIDR routes between worker
           # nodes if worker nodes share a common L2 network segment.
-          autoDirectNodeRoutes: false
+          autoDirectNodeRoutes: true
 
           # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
           # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
@@ -248,13 +248,22 @@ all:
             # preallocateMaps: false
             # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
             # @default -- `veth`
-            datapathMode: netkit
+            datapathMode: netkit # FIXME: migrate OS from Rocky to Ubuntu that supports `CONFIG_NETKIT`
             # @schema
             # type: [null, boolean]
             # @schema
             # -- (bool) Enable native IP masquerade support in eBPF
             # @default -- `false`
             masquerade: true
+            # @schema
+            # type: [null, boolean]
+            # @schema
+            # -- (bool) Configure whether direct routing mode should route traffic via
+            # host stack (true) or directly and more efficiently out of BPF (false) if
+            # the kernel supports it. The latter has the implication that it will also
+            # bypass netfilter in the host namespace.
+            # @default -- `false`
+            hostLegacyRouting: false
             # -- Allow cluster external access to ClusterIP services.
             lbExternalClusterIP: true
 
@@ -532,7 +541,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          # ipv4NativeRoutingCIDR: "{{ kiss_network_ipv4_subnet }}"
+          ipv4NativeRoutingCIDR: "10.0.0.0/8"
 
           ipv6:
             # -- Enable IPv6 support.
@@ -548,7 +557,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          # ipv6NativeRoutingCIDR: "{{ kiss_network_ipv6_subnet }}"
+          ipv6NativeRoutingCIDR: "fd00::/100"
 
           # -- Configure Kubernetes specific configuration
           k8s:

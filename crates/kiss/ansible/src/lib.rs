@@ -149,6 +149,14 @@ impl AnsibleClient {
                 }),
                 spec: Some(PodSpec {
                     affinity: Some(crate::job::affinity()),
+                    dns_config: Some(PodDNSConfig {
+                        nameservers: Some(vec![
+                            self.kiss.bootstrapper_network_dns_server_ns1.to_string(),
+                            self.kiss.bootstrapper_network_dns_server_ns2.to_string(),
+                        ]),
+                        ..Default::default()
+                    }),
+                    host_network: Some(true),
                     priority_class_name: Some(priority_class_name.into()),
                     restart_policy: Some("OnFailure".into()),
                     service_account: Some("ansible-playbook".into()),
@@ -313,6 +321,11 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
+                                name: "kiss_group_reset_storage".into(),
+                                value: Some(self.kiss.group_reset_storage.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
                                 name: "kiss_group_role".into(),
                                 value: Some(group.role.to_string()),
                                 ..Default::default()
@@ -418,6 +431,11 @@ impl AnsibleClient {
                             EnvVar {
                                 name: "kiss_os_default".into(),
                                 value: Some(self.kiss.os_default.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_os_kernel".into(),
+                                value: Some(self.kiss.os_kernel.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

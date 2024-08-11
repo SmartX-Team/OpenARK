@@ -24,6 +24,7 @@ data:
   group_enforce_ansible_control_planes: "false"
   group_force_reset: "false"
   group_force_reset_os: "false"
+  group_reset_storage: "true"
 
   ###########################################################################
   # Bootstrapper Node Configuration
@@ -83,6 +84,7 @@ data:
   # OS Configuration
   ###########################################################################
   os_default: rocky9 # One of: flatcar, rocky9 (default)
+  os_kernel: stable # One of: edge, stable (default)
 
   ###########################################################################
   # Service/CSI Configuration

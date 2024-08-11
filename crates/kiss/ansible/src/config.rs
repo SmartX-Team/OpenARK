@@ -17,6 +17,7 @@ pub struct KissConfig {
     pub group_enforce_ansible_control_planes: bool,
     pub group_force_reset: bool,
     pub group_force_reset_os: bool,
+    pub group_reset_storage: bool,
     pub kiss_cluster_name: String,
     pub kubespray_image: String,
     pub network_interface_mtu_size: u16,
@@ -27,6 +28,7 @@ pub struct KissConfig {
     pub network_ipv4_subnet: Ipv4Net,
     pub network_nameserver_incluster_ipv4: Ipv4Addr,
     pub os_default: String,
+    pub os_kernel: String,
 }
 
 impl KissConfig {
@@ -55,6 +57,7 @@ impl KissConfig {
             )?,
             group_force_reset: infer(&config, "group_force_reset")?,
             group_force_reset_os: infer(&config, "group_force_reset_os")?,
+            group_reset_storage: infer(&config, "group_reset_storage")?,
             kiss_cluster_name: infer(&config, "kiss_cluster_name")?,
             kubespray_image: infer(&config, "kubespray_image")?,
             network_interface_mtu_size: infer(&config, "network_interface_mtu_size")?,
@@ -65,6 +68,7 @@ impl KissConfig {
             network_ipv4_subnet: infer(&config, "network_ipv4_subnet")?,
             network_nameserver_incluster_ipv4: infer(&config, "network_nameserver_incluster_ipv4")?,
             os_default: infer(&config, "os_default")?,
+            os_kernel: infer(&config, "os_kernel")?,
         })
     }
 }

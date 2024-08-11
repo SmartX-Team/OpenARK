@@ -140,6 +140,7 @@
 
 - name: Cleanup disks
   when:
+    - kiss_group_reset_storage is not defined or kiss_group_reset_storage
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists or kiss_os_dirty
     - not kiss_storage_exists

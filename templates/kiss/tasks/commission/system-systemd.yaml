@@ -1,0 +1,8 @@
+---
+# See: https://docs.cilium.io/en/v1.16/operations/performance/tuning/#stop-irqbalance-and-pin-the-nic-interrupts-to-specific-cpus
+- name: Disable irqbalance
+  systemd:
+    name: irqbalance.service
+    state: stopped
+    enabled: false
+    daemon_reload: true

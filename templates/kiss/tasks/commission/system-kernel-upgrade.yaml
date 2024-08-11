@@ -1,5 +1,6 @@
 ---
 - name: Check whether the latest kernel is running
+  when: kiss_os_kernel is defined and kiss_os_kernel == 'edge'
   block:
     - name: Check whether the latest kernel is running - Flatcar Container Linux
       when: kiss_os_default == 'flatcar'
@@ -8,11 +9,12 @@
     - name: Check whether the latest kernel is running - RockyLinux
       when: kiss_os_default == 'rocky9'
       set_fact:
-        kiss_is_kernel_latest: "{{ '.elrepo.' in ansible_facts.kernel }}"
+        kiss_is_kernel_latest: "{{ '.fc' in ansible_facts.kernel }}"
       register: boot_file
 
 - name: Upgrade kernel - RockyLinux
   when:
+    - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
     - not kiss_is_kernel_latest
     - kiss_os_default == 'rocky9'
   block:
@@ -21,32 +23,54 @@
         name: "*"
         state: latest
 
-    - name: Upgrade kernel - RockyLinux - Add ELRepo Repository
+    - name: Upgrade kernel - RockyLinux - Install dependencies
       dnf:
         name:
-          - elrepo-release
+          - koji
           - grubby
           - sqlite
-        enablerepo: elrepo-kernel
+        enablerepo: epel
         state: latest
 
-    - name: Upgrade kernel - RockyLinux - Remove Stable Kernel
-      dnf:
-        name:
-          - kernel
-          - kernel-core
-          - kernel-devel
-          - kernel-modules
-          - kernel-modules-core
-        state: absent
-        autoremove: no
+    - name: Upgrade kernel - RockyLinux - Get the latest kernel version
+      shell:
+        cmd: >
+          koji list-builds --package=kernel --state=COMPLETE
+          | awk '{print $1}'
+          | grep -P '^kernel-[0-9\.-]+\.fc[0-9]+$'
+          | sort -V
+          | tail -n1
+      register: kiss_kernel_version
+
+    - name: Upgrade kernel - RockyLinux - Install Bleeding-edge Kernel ({{ kiss_kernel_version.stdout }})
+      vars:
+        kiss_kernel_dir: /tmp/kernel-koji
+      shell:
+        cmd: >
+          mkdir -p "{{ kiss_kernel_dir }}"
+          && cd "{{ kiss_kernel_dir }}"
+          && koji download-build --noprogress --arch="{{ ansible_architecture }}" "{{ kiss_kernel_version.stdout }}"
+          && dnf install -y
+          "{{ kiss_kernel_dir }}/kernel-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}.rpm"
+          "{{ kiss_kernel_dir }}/kernel-core-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}.rpm"
+          "{{ kiss_kernel_dir }}/kernel-devel-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}.rpm"
+          "{{ kiss_kernel_dir }}/kernel-modules-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}.rpm"
+          "{{ kiss_kernel_dir }}/kernel-modules-core-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}.rpm"
+          && cd /
+          && rm -rf "{{ kiss_kernel_dir }}"
+          && grubby --set-default="/boot/vmlinuz-{{ kiss_kernel_version.stdout[7:] }}.{{ ansible_architecture }}"
+          && grub2-mkconfig -o /boot/grub2/grub.cfg
 
 - name: Reboot the boxes if upgraded (The task will be restarted)
-  when: not kiss_is_kernel_latest
+  when:
+    - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
+    - not kiss_is_kernel_latest
   reboot:
     reboot_timeout: 3600 # 1h (booting can take a long time)
 
 - name: Assert rebooting
-  when: not kiss_is_kernel_latest
+  when:
+    - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
+    - not kiss_is_kernel_latest
   fail:
     msg: The nodes should be rebooted!

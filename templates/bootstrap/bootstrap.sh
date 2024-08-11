@@ -732,7 +732,7 @@ function install_kiss_cluster() {
             kubectl -n kiss rollout status deployment operator
 
         # Register the boxes
-        for node in ${nodes}; do
+        for node in $@; do
             __log 'INFO' "Registering the box: ${node} ..."
             cat <<EOF | $(__shell "${node_first}") kubectl create -f -
 ---

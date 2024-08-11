@@ -196,15 +196,6 @@ echo 'timeout=300' >>/etc/dnf/dnf.conf
 echo 'fastestmirror=True' >>/etc/dnf/dnf.conf
 echo 'max_parallel_downloads=5' >>/etc/dnf/dnf.conf
 
-# Kernel Configuration
-## Install Bleeding-edge kernel
-dnf install --enablerepo='elrepo-kernel' -y \
-    kernel-ml \
-    kernel-ml-core \
-    kernel-ml-devel \
-    kernel-ml-modules \
-    kernel-ml-modules-extra
-
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 ## Wireless - WIFI

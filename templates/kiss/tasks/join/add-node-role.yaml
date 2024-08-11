@@ -1,4 +1,18 @@
 ---
+- name: Post-install | Wait for apiserver to be operated
+  hosts: target
+  tasks:
+    - command: "{{ bin_dir }}/kubectl version"
+      delegate_to: "{{ groups['kube_control_plane'] | first }}"
+      retries: 10
+      delay: 5
+
+    - command: >
+        {{ bin_dir }}/kubectl get nodes {{ inventory_hostname }} --output name
+      delegate_to: "{{ groups['kube_control_plane'] | first }}"
+      retries: 10
+      delay: 5
+
 - hosts: target
   tasks:
     - name: Mark the bootstrapped node as "{{ kiss_group_role }}"
