@@ -3,20 +3,25 @@
   when: kiss_os_kernel is defined and kiss_os_kernel == 'edge'
   block:
     - name: Check whether the latest kernel is running - Flatcar Container Linux
-      when: kiss_os_default == 'flatcar'
+      when: kiss_os_default in ['flatcar']
       set_fact:
         kiss_is_kernel_latest: true
     - name: Check whether the latest kernel is running - RockyLinux
-      when: kiss_os_default == 'rocky9'
+      when: kiss_os_default in ['rocky9']
       set_fact:
         kiss_is_kernel_latest: "{{ '.fc' in ansible_facts.kernel }}"
+      register: boot_file
+    - name: Check whether the latest kernel is running - RockyLinux
+      when: kiss_os_default in ['ubuntu2404']
+      set_fact:
+        kiss_is_kernel_latest: true # Only when Ubuntu 24.04
       register: boot_file
 
 - name: Upgrade kernel - RockyLinux
   when:
     - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
-    - not kiss_is_kernel_latest
-    - kiss_os_default == 'rocky9'
+    - kiss_is_kernel_latest is defined and not kiss_is_kernel_latest
+    - kiss_os_default in ['rocky9']
   block:
     - name: Upgrade kernel - RockyLinux - Upgrade OS
       dnf:

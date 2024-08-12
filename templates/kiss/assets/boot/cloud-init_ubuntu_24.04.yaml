@@ -1,0 +1,106 @@
+#cloud-config
+version: 1
+autoinstall:
+  version: 1
+
+  apt:
+    fallback: abort
+    geoip: true
+    preserve_sources_list: false
+    mirror-selection:
+      primary:
+        - country-mirror
+  kernel:
+    flavor: hwe
+  keyboard:
+    layout: us
+  locale: en_US.UTF-8
+  network:
+    version: 2
+    renderer: NetworkManager
+    ethernets:
+      alleths:
+        match:
+          name: en*
+        dhcp4: true
+  # refresh-installer:
+  #   update: true
+  shutdown: reboot
+  timezone: geoip
+  updates: security
+
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - "ENV_SSH_AUTHORIZED_KEYS"
+
+  user-data:
+    disable_root: true
+    # package_update: true
+    # package_upgrade: true
+    users:
+      - name: kiss
+        groups: docker, sudo, users, wheel
+        lock_passwd: true
+        passwd: "$6$rBhSuMvNSgbLh2H/$1rCRSowuivSwaXvjmBaGLOYp5ad5EFuxw78YTx3I3TrhyduLmw2fpmA9QxNTHq.OAIJmkO/KHZH/ImalRwpaP1" # TODO: remove after debugging
+        shell: /bin/bash
+        ssh_authorized_keys:
+          - "ENV_SSH_AUTHORIZED_KEYS"
+        sudo: ALL=(ALL) NOPASSWD:ALL
+
+  storage:
+    swap:
+      size: 0
+    layout:
+      name: direct
+      match:
+        # ssd: true
+        size: smallest
+
+  early-commands:
+    # Installer Network Configuration
+    - |
+      cat <<EOF >>/etc/systemd/resolved.conf
+      [Resolve]
+      DNS=10.64.0.3
+      EOF
+      systemctl restart systemd-resolved.service
+    - >
+      apt-get update && apt-get install -y network-manager
+      && systemctl disable --now systemd-networkd.service systemd-networkd.socket
+      && systemctl enable --now NetworkManager.service
+      && nmcli connection reload
+      && for dev in $(nmcli connection show --active | awk '{print $4}' | grep -P '^en'); do
+      nmcli connection down "${dev}" || true
+      ; done
+      && netplan apply
+  late-commands:
+    # Install dependencies
+    - >
+      curtin in-target --target=/target -- apt-get update
+      && curtin in-target --target=/target -- apt-get install -y
+      bc
+      bluez
+      build-essential
+      curl
+      git
+      haveged
+      libspa-0.2-bluetooth
+      network-manager
+      nfs-common
+      pciutils
+      pipewire
+      pipewire-audio-client-libraries
+      podman
+      pulseaudio-utils
+      ubuntu-server
+      vim
+      wget
+    # Execute Post-installation Scripts
+    - >
+      curl -o /target/tmp/post-install.sh
+      "http://assets.kiss.svc.ops.openark/boot/cloud-init_ubuntu_$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)_post-install.sh"
+      && chmod a+x /target/tmp/post-install.sh
+    - curtin in-target --target=/target -- /tmp/post-install.sh
+    - rm -f /target/tmp/post-install.sh

@@ -46,11 +46,10 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              cpu: 30m
+              cpu: 50m
               memory: 20Mi
             limits:
-              cpu: 50m
-              memory: 50Mi
+              memory: 100Mi
           volumeMounts:
             - name: tftpboot
               mountPath: /var/lib/tftpboot
@@ -76,7 +75,7 @@ spec:
             - --dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
             ## iPXE END
             - --dhcp-userclass=set:ipxe,iPXE
-            - --dhcp-boot=tag:ipxe,http://matchbox.kiss.svc.ops.openark/assets/boot/boot-$(OS_DEFAULT).ipxe
+            - --dhcp-boot=tag:ipxe,http://assets.kiss.svc.ops.openark/boot/boot-$(OS_DEFAULT).ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
             - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
             - --dhcp-option=26,$(NETWORK_INTERFACE_MTU_SIZE)
@@ -131,8 +130,8 @@ spec:
               cpu: 30m
               memory: 20Mi
             limits:
-              cpu: 50m
-              memory: 50Mi
+              cpu: 500m
+              memory: 100Mi
           securityContext:
             capabilities:
               add:

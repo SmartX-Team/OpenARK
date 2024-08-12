@@ -32,7 +32,7 @@ function install_kiss_cluster() {
         kubectl apply \
             -f "dnsmasq.yaml" \
             -f "docker-registry.yaml" \
-            -f "matchbox.yaml" \
+            -f "assets.yaml" \
             -f "ntpd.yaml"
 
         # ansible tasks
@@ -40,8 +40,8 @@ function install_kiss_cluster() {
         ./install.sh
         popd
 
-        # matchbox
-        pushd "matchbox"
+        # assets
+        pushd "assets"
         ./install.sh
         popd
 

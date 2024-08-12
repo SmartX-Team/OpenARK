@@ -1,200 +1,19 @@
-# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
-# Use of this source code is governed by a GPL-3-style license that can be
-# found in the LICENSE file.
-
-# https://access.redhat.com/labs/kickstartconfig/
-
-# Install Method
-firstboot --disable
-text
-
-# Machine Information
-## EULA Agreement
-eula --agreed
-## Firewall Configuration
-firewall --disabled
-## Keyboard Layouts
-keyboard us
-## SELinux Configuration
-selinux --permissive
-## System Authorization
-authselect --enablemkhomedir --enablesssd --enablesssdauth --updateall
-## System Language
-lang en_US.UTF-8
-## System Timezone
-timezone Asia/Seoul --utc
-
-# Install Packages
-%packages
-@^development
-@^minimal-environment
-bc
-bluez
-elrepo-release
-epel-release
-git
-grubby
-kernel
-kernel-core
-kernel-devel
-kernel-modules
-kernel-modules-core
-lvm2
-NetworkManager-bluetooth
-NetworkManager-wifi
-nfs-utils
-pciutils
-podman-docker
-sqlite
-vim
-yum-utils
-%end
-
-# KDump Configuration
-%addon com_redhat_kdump --enable --reserve-mb='auto'
-%end
-
-# User Configuration
-rootpw --lock
-group --gid 5 --name tty
-group --gid 10 --name wheel
-group --gid 11 --name cdrom
-group --gid 39 --name video
-group --gid 63 --name audio
-group --gid 100 --name users
-group --gid 101 --name winbindd_privileged
-group --gid 171 --name pulse
-group --gid 983 --name pulse-rt
-group --gid 984 --name pulse-access
-group --gid 989 --name pipewire
-group --gid 999 --name input
-group --gid 1000 --name docker
-user --uid 1000 --gid 1001 --name ENV_USERNAME --groups docker,users,wheel
-user --uid 2000 --gid 2000 --name tenant --groups audio,cdrom,input,pipewire,pulse,pulse-access,pulse-rt,render,video --shell /bin/bash --homedir /opt/vdi/tenants/host --lock
-sshkey --username ENV_USERNAME "ENV_SSH_AUTHORIZED_KEYS"
-
-# Disk Configuration
-clearpart --all --initlabel
-%include /tmp/kiss-config
-%pre
+#!/bin/bash
 
 # TODO: auth & import from main cluster!
 
 # Prehibit errors
-set -e
-# Verbose
-set -x
-
-# Network
-for netdev in $(ls /sys/class/net | grep '^e'); do
-    cat <<EOF >>/tmp/kiss-config
-network --activate --bootproto=dhcp --device=${netdev}
-EOF
-done
-
-# Minimum size of disk needed specified in GIBIBYTES
-MINSIZE=50
-
-BLOCKDEV="/sys/block"
-ROOTDEV=""
-ROOTSIZE=1000000000
-
-# Remove all LVM partitions
-dmsetup remove_all
-
-# /sys/block/*/size is in 512 byte chunks
-for DEV in $(lsblk -d | sed 's/^\(nvme[0-9]\+n[0-9]\+\)\?\([sv]d[a-z]\+\)\?.*$/\1\2/g' | xargs); do
-    if [ -d ${BLOCKDEV}/${DEV} ]; then
-        if (($(cat ${BLOCKDEV}/${DEV}/removable) == 0)); then
-            # Remove all data in disks
-            wipefs --all --force /dev/${DEV} && sync
-            sgdisk --zap-all /dev/${DEV} && sync
-            dd if=/dev/zero of=/dev/${DEV} bs=1M count=1024 && sync
-            partprobe /dev/${DEV} && sync
-
-            # Find the suitable disk
-            SIZE=$(($(cat ${BLOCKDEV}/${DEV}/size) / 2 ** 21))
-            if (($SIZE > ${MINSIZE} + 5)); then
-                if (($SIZE < ${ROOTSIZE})); then
-                    echo "Detected suitable disk: ${DEV} (${SIZE} GiB)"
-                    ROOTDEV=${DEV}
-                    ROOTSIZE=$SIZE
-                fi
-            fi
-        fi
-    fi
-done
-
-cat <<EOF >>/tmp/kiss-config
-# Write partition table
-part /boot/efi --fstype=efi --size=200 --ondisk=${ROOTDEV}
-part /boot --fstype=ext4 --size=512 --ondisk=${ROOTDEV}
-part / --fstype=ext4 --size=$((${MINSIZE} * 2 ** 10)) --ondisk=${ROOTDEV} --grow
-
-# Bootloader Configuration
-bootloader --boot-drive ${ROOTDEV}
-EOF
-
-# Get OS Version
-VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
-
-# Installation Source Configuration
-cat <<EOF >>/tmp/kiss-config
-url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-AppStream-${VERSION_ID}&arch=$(uname -m)"
-url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-BaseOS-${VERSION_ID}&arch=$(uname -m)"
-url --mirrorlist="https://mirrors.rockylinux.org/mirrorlist?repo=rocky-extras-${VERSION_ID}&arch=$(uname -m)"
-EOF
-
-# Repository Information
-cat <<EOF >>/tmp/kiss-config
-repo --name=AppStream --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/AppStream/$(uname -m)/os/"
-repo --name=BaseOS --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/BaseOS/$(uname -m)/os/"
-repo --name=extras --baseurl="http://download.rockylinux.org/pub/rocky/$(rpm -E %rhel)/extras/$(uname -m)/os/"
-EOF
-
-# Reboot after Installation
-cat <<EOF >>/tmp/kiss-config
-reboot
-EOF
-
-%end
-
-%post --erroronfail
-
-# TODO: auth & import from main cluster!
-
-# Prehibit errors
-set -e
+set -e -o pipefail
 # Verbose
 set -x
 
 # Get OS Version
-VERSION_ID="$(awk -F'=' '/VERSION_ID/{ gsub(/"/,""); print $2}' /etc/os-release)"
+source /etc/os-release
 
 # Pre-Hook
 ## Desktop Environment Configuration
-if [ "$(uname -m)" = 'x86_64' ]; then
-    ARCH_WIN32='i686'
-else
-    ARCH_WIN32="$(uname -m)"
-fi
 _IS_DESKTOP="false"
 _IS_NVIDIA_MANUAL="false"
-
-## SBSA Architecture Configuration
-if [ "$(uname -m)" = 'aarch64' ]; then
-    ARCH_SBSA='sbsa'
-else
-    ARCH_SBSA="$(uname -m)"
-fi
-
-# Increase package manager timeout
-echo 'retries=0' >>/etc/dnf/dnf.conf
-echo 'timeout=300' >>/etc/dnf/dnf.conf
-
-# Improve package downloading speed
-echo 'fastestmirror=True' >>/etc/dnf/dnf.conf
-echo 'max_parallel_downloads=5' >>/etc/dnf/dnf.conf
 
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
@@ -209,16 +28,24 @@ EOF
     cat <<EOF >/etc/modprobe.d/iwlwifi.conf
 options iwlwifi power_save=0
 EOF
+fi
 
-    ## Disable Power Saving Mode on NetworkManager
-    mkdir -p /etc/NetworkManager/conf.d/
-    cat <<EOF >/etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
+## Disable Power Saving Mode on NetworkManager
+mkdir -p /etc/NetworkManager/conf.d/
+rm -f /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+cat <<EOF >/etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
 [connection]
 wifi.powersave = 2
 EOF
-fi
+
+## Diasble systemd-networkd
+systemctl disable \
+    systemd-networkd.service \
+    systemd-networkd.socket \
+    systemd-networkd-wait-online.service
 
 ## Fix CoreDNS timeout
+mkdir -p /etc/sysconfig
 echo 'RES_OPTIONS="single-request-reopen"' >>/etc/sysconfig/network
 
 # Allow passwordless sudo command
@@ -248,21 +75,23 @@ if lspci | grep 'NVIDIA'; then
 
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-            dnf install -y pulseaudio
-            dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
             # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
             # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
-            #dnf module install -y "nvidia-driver:latest-dkms"
-            dnf module install -y "nvidia-driver:535-dkms"
-            # NOTE: use fixed cuda toolkit
-            dnf install -y \
-                cuda-toolkit \
-                dkms \
-                "nvidia-driver-cuda-libs.${ARCH_WIN32}" \
-                "nvidia-fabric-manager" \
-                "nvidia-driver-libs.${ARCH_WIN32}" \
-                "nvidia-driver-NvFBCOpenGL.${ARCH_WIN32}" \
-                "nvidia-driver-NVML.${ARCH_WIN32}"
+            apt-get install -y \
+                "libnvidia-cfg1-535" \
+                "libnvidia-common-535" \
+                "libnvidia-compute-535" \
+                "libnvidia-decode-535" \
+                "libnvidia-encode-535" \
+                "libnvidia-extra-535" \
+                "libnvidia-fbc1-535" \
+                "libnvidia-gl-535" \
+                "libnvidia-nscq-535" \
+                "nvidia-compute-utils-535" \
+                "nvidia-dkms-535" \
+                "nvidia-fabricmanager-535" \
+                "nvidia-utils-535" \
+                "xserver-xorg-video-nvidia-535"
         fi
 
         # Enable NVIDIA FabricManager
@@ -285,9 +114,8 @@ EOF
 fi
 
 # ContainerD Configuration
-yum-config-manager --add-repo "https://download.docker.com/linux/centos/docker-ce.repo"
-dnf install -y containerd.io
-ln -sf /usr/lib/systemd/system/containerd.service /etc/systemd/system/multi-user.target.wants/containerd.service
+apt-get install -y containerd podman
+systemctl enable containerd.service
 
 # Docker (Podman) Configuration
 mkdir -p /etc/containers/
@@ -297,11 +125,12 @@ touch /etc/containers/nodocker
 cat <<EOF >/etc/docker/daemon.json
 {
     "insecure-registries": [
-    "registry.kiss.svc.ops.openark"
+        "registry.kiss.svc.ops.openark"
     ]
 }
 EOF
-ln -sf /usr/lib/systemd/system/podman.socket /etc/systemd/system/sockets.target.wants/podman.socket
+systemctl disable podman.service
+systemctl enable podman.socket
 
 # Environment Variables Configuration
 mkdir -p /etc/profile.d/
@@ -383,7 +212,13 @@ EOF
 TENANT_HOME="/opt/vdi/tenants/host"
 mkdir -p "${TENANT_HOME}"
 chmod 700 "${TENANT_HOME}"
-chown tenant:tenant "${TENANT_HOME}"
+if ! grep -Pq '^tenant:' /etc/passwd; then
+    groupadd --gid "2000" "tenant"
+    useradd --uid "2000" --gid "2000" --groups "audio,cdrom,input,pipewire,render,video" \
+        --home "${TENANT_HOME}" --shell "/bin/bash" \
+        --non-unique "tenant"
+fi
+chown -R tenant:tenant "${TENANT_HOME}"
 
 # Guest User Configuration
 TENANT_GUEST_HOME="/opt/vdi/tenants/remote/guest"
@@ -394,22 +229,25 @@ chown tenant:tenant "${TENANT_GUEST_HOME}"
 # Post-Hook
 ## Desktop Environment Configuration
 if [ "x${_IS_DESKTOP}" == "xtrue" ]; then
+    ### Register Mozilla PPA (Firefox)
+    add-apt-repository -y ppa:mozillateam
+    cat <<EOF >/etc/apt/preferences.d/mozilla
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1000
+EOF
+
     ### Common
-    dnf install -y \
+    apt-get update
+    apt-get install -y \
         firefox \
-        "gnutls.${ARCH_WIN32}" \
-        mesa-dri-drivers \
-        "mesa-dri-drivers.${ARCH_WIN32}" \
-        "mesa-libGLU.${ARCH_WIN32}" \
-        pulseaudio \
-        vulkan \
-        "vulkan-loader.${ARCH_WIN32}" \
+        firefox-locale-ko \
+        mesa-vulkan-drivers \
         wireplumber \
         xdg-dbus-proxy \
         xdotool \
-        xorg-x11-server-Xorg \
-        xrandr \
-        xset
+        x11-xserver-utils \
+        xorg
 
     #### Autologin to X11
     cat <<EOF >/usr/local/bin/xinit
@@ -550,12 +388,13 @@ fi
 EOF
 
     #### Firefox Configuration
-    cat <<EOF | sudo tee /usr/lib64/firefox/defaults/pref/autoconfig.js
+    mkdir -p /usr/lib/firefox/defaults/pref
+    cat <<EOF >/usr/lib/firefox/defaults/pref/autoconfig.js
 pref("general.config.filename", "firefox.cfg");
 pref("general.config.obscure_value", 0);
 EOF
 
-    cat <<EOF | sudo tee /usr/lib64/firefox/firefox.cfg
+    cat <<EOF >/usr/lib/firefox/firefox.cfg
 // IMPORTANT: Start your code on the 2nd line
 
 lockPref("app.update.disable_button.showUpdateHistory", true);
@@ -586,8 +425,10 @@ EOF
     SERVICE_HOME="${TENANT_HOME}/.config/systemd/user"
 
     for service in \
-        "pulseaudio.service default.target.wants/pulseaudio.service" \
-        "pulseaudio.socket sockets.target.wants/pulseaudio.socket"; do
+        "pipewire.service default.target.wants/pipewire.service" \
+        "pipewire.socket sockets.target.wants/pipewire.socket" \
+        "pipewire-pulse.service default.target.wants/pipewire-pulse.service" \
+        "pipewire-pulse.socket sockets.target.wants/pipewire-pulse.socket"; do
         SERVICE_SRC="/usr/lib/systemd/user/$(echo "${service}" | awk '{print $1}')"
         SERVICE_DST="${SERVICE_HOME}/$(echo "${service}" | awk '{print $2}')"
         if [ -f "${SERVICE_SRC}" ]; then
@@ -638,30 +479,24 @@ EndSection
 EOF
 fi
 
-# Haveged Configuration
-dnf install -y haveged
-systemctl enable haveged.service
-
 # DKMS Build
 if which dkms >/dev/null 2>/dev/null; then
-    SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort | tail -n1)"
+    SRC_KERNEL_VERSION="$(ls '/lib/modules/' | sort -V | tail -n1)"
     dkms autoinstall -k "${SRC_KERNEL_VERSION}"
 fi
 
 # Kernel Command-line
 ## VFIO
-#sudo grubby --update-kernel=ALL --args='amd_iommu=on'
-#sudo grubby --update-kernel=ALL --args='intel_iommu=on'
-#sudo grubby --update-kernel=ALL --args='iommu=pt'
+#grubby --update-kernel=ALL --args='amd_iommu=on'
+#grubby --update-kernel=ALL --args='intel_iommu=on'
+#grubby --update-kernel=ALL --args='iommu=pt'
 
 ## Kernel
-VMLINUZ_KERNEL_PATH="$(find /boot -maxdepth 1 -name 'vmlinuz-*' | sort | tail -n1)"
-sudo grubby --set-default="${VMLINUZ_KERNEL_PATH}"
+#VMLINUZ_KERNEL_PATH="$(find /boot -maxdepth 1 -name 'vmlinuz-*' | sort -V | tail -n1)"
+#grubby --set-default="${VMLINUZ_KERNEL_PATH}"
 
 ## Apply
-sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+grub-mkconfig -o /boot/grub/grub.cfg
 
 # VFIO
-echo 'vfio-pci' > /etc/modules-load.d/vfio-pci.conf 
-
-%end  # SCRIPT_END
+echo 'vfio-pci' >/etc/modules-load.d/vfio-pci.conf

@@ -802,7 +802,7 @@ function build_installer_iso() {
     mkdir -p "${ROOTFS}"
     pushd "${ROOTFS}" >/dev/null
 
-    SCRIPTS_HOME="$(pwd)/../../../kiss/matchbox/boot/"
+    SCRIPTS_HOME="$(pwd)/../../../kiss/assets/boot/"
     __log 'INFO' "Copying install scripts from \"${SCRIPTS_HOME}\" ..."
     cp -arp ${SCRIPTS_HOME}/* "${ROOTFS}"
 

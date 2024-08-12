@@ -1,0 +1,16 @@
+{
+  "id": "kiss",
+  "name": "OpenARK OS (Flatcar Container Linux)",
+  "boot": {
+    "kernel": "http://assets.kiss.svc.ops.openark/assets/flatcar/flatcar-${buildarch}/current/flatcar_production_pxe.vmlinuz",
+    "initrd": [
+      "http://assets.kiss.svc.ops.openark/assets/flatcar/flatcar-${buildarch}/current/flatcar_production_pxe_image.cpio.gz"
+    ],
+    "args": [
+      "initrd=flatcar_production_pxe_image.cpio.gz",
+      "flatcar.config.url=http://assets.kiss.svc.ops.openark/ignition",
+      "flatcar.first_boot=yes"
+    ]
+  },
+  "ignition_id": "kiss.yaml"
+}

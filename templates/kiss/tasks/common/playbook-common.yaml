@@ -124,7 +124,7 @@
         ansible_python_interpreter: /opt/bin/python
         bin_dir: /opt/bin
 
-- hosts: os_rocky9
+- hosts: os_rocky9:os_ubuntu2404
   gather_facts: false
   tasks:
     - name: Set common facts

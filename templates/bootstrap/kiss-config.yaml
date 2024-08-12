@@ -83,7 +83,7 @@ data:
   ###########################################################################
   # OS Configuration
   ###########################################################################
-  os_default: rocky9 # One of: flatcar, rocky9 (default)
+  os_default: ubuntu2404 # One of: flatcar, rocky9, ubuntu2404 (default)
   os_kernel: stable # One of: edge, stable (default)
 
   ###########################################################################

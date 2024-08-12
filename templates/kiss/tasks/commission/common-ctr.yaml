@@ -4,10 +4,21 @@
     path: "{{ bin_dir }}/ctr"
   register: ctr_file
 
-- name: Install ContainerD
-  when: not ctr_file.stat.exists
+- name: Install ContainerD | RockyLinux
+  when:
+    - not ctr_file.stat.exists
+    - kiss_os_default in ['rocky9']
   package:
     name: containerd.io
+    state: present
+  ignore_errors: true
+
+- name: Install ContainerD | Ubuntu
+  when:
+    - not ctr_file.stat.exists
+    - kiss_os_default in ['ubuntu2404']
+  package:
+    name: containerd
     state: present
   ignore_errors: true
 

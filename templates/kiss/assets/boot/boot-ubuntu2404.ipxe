@@ -1,0 +1,26 @@
+#!ipxe
+# Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a GPL-3-style license that can be
+# found in the LICENSE file.
+
+:init
+set arch ${buildarch}
+iseq ${arch} i386 && set arch x86_64 ||
+iseq ${arch} x86_64 && set arch amd64 ||
+
+set os_ver 24.04
+set repo http://mirror.kakao.com/ubuntu-releases/${os_ver}
+# set repo http://assets.kiss.svc.ops.openark/assets/ubuntu-${os_ver}
+set cloud_config_url http://assets.kiss.svc.ops.openark/boot/cloud-init_ubuntu_${os_ver}.yaml
+
+:kernel
+kernel --name vmlinuz ${repo}/netboot/${arch}/linux || goto kernel
+
+:initrd
+initrd --name initrd ${repo}/netboot/${arch}/initrd || goto initrd
+
+:initargs
+imgargs vmlinuz initrd=initrd autoinstall ip=dhcp url=${repo}/ubuntu-${os_ver}-live-server-${arch}.iso cloud-config-url=${cloud_config_url}
+
+:boot
+boot || goto boot

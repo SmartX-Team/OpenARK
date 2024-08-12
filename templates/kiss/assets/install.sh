@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
 # Use of this source code is governed by a GPL-3-style license that can be
 # found in the LICENSE file.
 
@@ -17,7 +17,7 @@ echo "- Installing templates ... "
 for dir in ./*; do
     # playbook directory
     if [ -d "${dir}" ]; then
-        kubectl create configmap "matchbox-$(basename ${dir})" \
+        kubectl create configmap "assets-$(basename ${dir})" \
             --namespace=kiss \
             --from-file=${dir} \
             --output=yaml \
@@ -26,8 +26,8 @@ for dir in ./*; do
     fi
 done
 
-echo "- Restarting matchbox ... "
-kubectl --namespace kiss rollout restart deploy matchbox
+echo "- Restarting assets ... "
+kubectl --namespace kiss rollout restart deploy assets
 
 # Finished!
 echo "Installed!"

@@ -269,6 +269,61 @@ jobs:
         continue-on-error: true # ignore errors on building iPXE
         run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
+  build-and-push-image-kiss-assets:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - lint-yaml
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y podman
+          && mkdir -p /home/runner/.docker/
+          && echo '{"auths":{"quay.io":{}}}' >/home/runner/.docker/config.json
+
+      # TODO: Wait a buildah issue to be resolved: https://github.com/redhat-actions/buildah-build/issues/116
+      - name: Disable container build cache
+        run: find ./ -name 'Dockerfile*' -exec sed -i '/--mount=type=cache[a-z0-9,=\/-]* \\$/ d' '{}' \;
+
+      - name: Log in to ${{ env.REGISTRY }}
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build Image
+        id: build-and-push-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}-kiss-assets
+          tags: latest
+          context: ./templates/kiss/assets
+          containerfiles: |
+            ./templates/kiss/assets/Dockerfile
+          build-args: |
+            DEBIAN_VERSION=${{ env.DEBIAN_VERSION }}
+
+      - name: Push To ${{ env.REGISTRY }}
+        id: push-to-quay
+        if: ${{ github.repository }} == ${{ env.REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-and-push-image.outputs.image }}
+          tags: ${{ steps.build-and-push-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}/${{ env.REGISTRY_REPOSITORY }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
   build-and-push-image-kiss-optimizer-wifi:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
@@ -881,6 +936,7 @@ jobs:
       - build-and-push-image-bootstrap-node
       - build-and-push-image-ipmitool
       - build-and-push-image-ipxe
+      - build-and-push-image-kiss-assets
       - build-and-push-image-kiss-optimizer-wifi
       - build-and-push-image-snapshot-git
       - build-and-push-image-upgrade-csi-rook-ceph

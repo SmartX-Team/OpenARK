@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: matchbox
+  name: assets
   namespace: kiss
   labels:
-    name: matchbox
+    name: assets
     kissService: "true"
-    serviceType: internal
+    serviceType: proxy
 spec:
   replicas: 1
   strategy:
@@ -15,23 +15,31 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: matchbox
+      name: assets
   template:
     metadata:
       labels:
-        name: matchbox
+        name: assets
         kissService: "true"
-        serviceType: internal
+        serviceType: proxy
     spec:
       affinity:
         nodeAffinity:
-          # KISS normal control plane nodes should be preferred
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 1
               preference:
                 matchExpressions:
-                  - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
-                    operator: DoesNotExist
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
@@ -39,31 +47,34 @@ spec:
                     operator: In
                     values:
                       - ControlPlane
+                      - Compute
+                      - Gateway
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
         - name: init-data
-          image: docker.io/ubuntu:rolling
+          image: quay.io/ulagbulag/openark-kiss-assets:latest
+          imagePullPolicy: Always
           command:
             - bash
           args:
             - -c
             - |
-              # Boot
-              cp /var/lib/matchbox/assets/boot-raw/* /var/lib/matchbox/assets/boot/
-              SSH_AUTHORIZED_KEYS_SED=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< ${SSH_AUTHORIZED_KEYS})
-              sed -i "s/NETWORK_WIRELESS_WIFI_SSID/${NETWORK_WIRELESS_WIFI_SSID}/g" /var/lib/matchbox/assets/boot/*.ks
-              sed -i "s/NETWORK_WIRELESS_WIFI_KEY_MGMT/${NETWORK_WIRELESS_WIFI_KEY_MGMT}/g" /var/lib/matchbox/assets/boot/*.ks
-              sed -i "s/NETWORK_WIRELESS_WIFI_KEY_PSK/${NETWORK_WIRELESS_WIFI_KEY_PSK}/g" /var/lib/matchbox/assets/boot/*.ks
-              sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/assets/boot/*.ks
-              sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/assets/boot/*.ks
+              # Prehibit errors
+              set -e -o pipefail
 
-              # Ignition
-              cp /var/lib/matchbox/ignition-raw/*.yaml /var/lib/matchbox/ignition/
+              # Init
+              _exec='find /usr/share/nginx/html -type f -exec'
+
+              # Patch
+              cp -r /usr/share/nginx/html-raw/* /usr/share/nginx/html/
               SSH_AUTHORIZED_KEYS_SED=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< ${SSH_AUTHORIZED_KEYS})
-              sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" /var/lib/matchbox/ignition/*.yaml
-              sed -i "s/ENV_USERNAME/${USERNAME}/g" /var/lib/matchbox/ignition/*.yaml
+              ${_exec} sed -i "s/NETWORK_WIRELESS_WIFI_SSID/${NETWORK_WIRELESS_WIFI_SSID}/g" {} \;
+              ${_exec} sed -i "s/NETWORK_WIRELESS_WIFI_KEY_MGMT/${NETWORK_WIRELESS_WIFI_KEY_MGMT}/g" {} \;
+              ${_exec} sed -i "s/NETWORK_WIRELESS_WIFI_KEY_PSK/${NETWORK_WIRELESS_WIFI_KEY_PSK}/g" {} \;
+              ${_exec} sed -i "s/ENV_SSH_AUTHORIZED_KEYS/${SSH_AUTHORIZED_KEYS_SED}/g" {} \;
+              ${_exec} sed -i "s/ENV_USERNAME/${USERNAME}/g" {} \;
           env:
             - name: NETWORK_WIRELESS_WIFI_KEY_MGMT
               valueFrom:
@@ -99,49 +110,53 @@ spec:
               memory: 50Mi
           volumeMounts:
             - name: boot
-              mountPath: /var/lib/matchbox/assets/boot
+              mountPath: /usr/share/nginx/html/boot
             - name: boot-raw
-              mountPath: /var/lib/matchbox/assets/boot-raw
+              mountPath: /usr/share/nginx/html-raw/boot
             - name: ignition
-              mountPath: /var/lib/matchbox/ignition
+              mountPath: /usr/share/nginx/html/ignition
             - name: ignition-raw
-              mountPath: /var/lib/matchbox/ignition-raw
+              mountPath: /usr/share/nginx/html/ignition-raw
             - name: tmp
               mountPath: /tmp
       containers:
-        - name: matchbox
-          image: quay.io/poseidon/matchbox:v0.9.1-48-gddbed051
-          env:
-            - name: MATCHBOX_ADDRESS
-              value: 0.0.0.0:8080
-            - name: MATCHBOX_LOG_LEVEL
-              value: debug
+        - name: nginx
+          image: quay.io/ulagbulag/openark-kiss-assets:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
           livenessProbe:
+            failureThreshold: 3
             initialDelaySeconds: 5
+            periodSeconds: 10
             httpGet:
               path: /
-              port: 8080
+              port: http
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            httpGet:
+              path: /_health
+              port: http
           resources:
-            requests:
-              cpu: 30m
-              memory: 20Mi
             limits:
-              cpu: 50m
-              memory: 50Mi
+              cpu: "4"
+              memory: 4Gi
           volumeMounts:
             - name: assets
-              mountPath: /var/lib/matchbox/assets
+              mountPath: /usr/share/nginx/html/assets
+            - name: cache
+              mountPath: /var/cache/nginx
             - name: boot
-              mountPath: /var/lib/matchbox/assets/boot
+              mountPath: /usr/share/nginx/html/boot
             - name: groups
-              mountPath: /var/lib/matchbox/groups
+              mountPath: /usr/share/nginx/html/groups
             - name: ignition
-              mountPath: /var/lib/matchbox/ignition
+              mountPath: /usr/share/nginx/html/ignition
             - name: profiles
-              mountPath: /var/lib/matchbox/profiles
+              mountPath: /usr/share/nginx/html/profiles
       volumes:
         - name: assets
           emptyDir: {}
@@ -149,36 +164,34 @@ spec:
           emptyDir: {}
         - name: boot-raw
           configMap:
-            name: matchbox-boot
-            defaultMode: 256
+            name: assets-boot
+        - name: cache
+          emptyDir: {}
         - name: groups
           configMap:
-            name: matchbox-groups
-            defaultMode: 256
+            name: assets-groups
         - name: ignition
           emptyDir: {}
         - name: ignition-raw
           configMap:
-            name: matchbox-ignition
-            defaultMode: 256
+            name: assets-ignition
         - name: profiles
           configMap:
-            name: matchbox-profiles
-            defaultMode: 256
+            name: assets-profiles
         - name: tmp
           emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: matchbox
+  name: assets
   namespace: kiss
   labels:
     ark.ulagbulag.io/is-external: "true"
 spec:
   type: ClusterIP
   selector:
-    name: matchbox
+    name: assets
   ports:
     - name: http
       protocol: TCP

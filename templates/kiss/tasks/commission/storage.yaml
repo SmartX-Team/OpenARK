@@ -5,14 +5,19 @@
 - name: Check whether kiss OS is installed in a disk
   block:
     - name: Check whether kiss OS is installed in a disk - Flatcar Container Linux
-      when: kiss_os_default == 'flatcar'
+      when: kiss_os_default in ['flatcar']
       stat:
         path: /boot/flatcar
       register: boot_file
     - name: Check whether kiss OS is installed in a disk - RockyLinux
-      when: kiss_os_default == 'rocky9'
+      when: kiss_os_default in ['rocky9']
       stat:
         path: /boot/efi/EFI/rocky
+      register: boot_file
+    - name: Check whether kiss OS is installed in a disk - Ubuntu
+      when: kiss_os_default in ['ubuntu2404']
+      stat:
+        path: /boot/efi/EFI/ubuntu
       register: boot_file
 
 - name: Check whether kiss OS is dirty
