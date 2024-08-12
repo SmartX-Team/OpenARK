@@ -16,13 +16,6 @@ all:
         kube_node:
       vars:
         #############################
-        # KISS
-        #############################
-
-        # Optimize for HPC clusters
-        kiss_hpc_enable: false
-
-        #############################
         # k8s-cluster
         #############################
 
@@ -179,7 +172,7 @@ all:
         # CNI / Cilium
         #############################
 
-        kube_proxy_remove: true
+        kube_proxy_remove: "{{ (kube_network_plugin | default('')) == 'custom_cni' }}" # set to true for Cilium to work
 
         custom_cni_chart_namespace: kube-system
         custom_cni_chart_release_name: cilium
