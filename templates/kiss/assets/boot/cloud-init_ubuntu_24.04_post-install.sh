@@ -214,7 +214,7 @@ mkdir -p "${TENANT_HOME}"
 chmod 700 "${TENANT_HOME}"
 if ! grep -Pq '^tenant:' /etc/passwd; then
     groupadd --gid "2000" "tenant"
-    useradd --uid "2000" --gid "2000" --groups "audio,cdrom,input,pipewire,render,video" \
+    useradd --uid "2000" --gid "2000" --groups "audio,cdrom,input,pipewire,render,tty,video" \
         --home "${TENANT_HOME}" --shell "/bin/bash" \
         --non-unique "tenant"
 fi
@@ -248,6 +248,12 @@ EOF
         xdotool \
         x11-xserver-utils \
         xorg
+
+    #### Enable user-level virtual console (xf86) acccess
+    cat <<EOF >/etc/X11/Xwrapper.config
+allowed_users=console
+needs_root_rights=yes
+EOF
 
     #### Autologin to X11
     cat <<EOF >/usr/local/bin/xinit
@@ -497,6 +503,16 @@ fi
 
 ## Apply
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# Boot Order
+BOOT_NUM="$(
+    efibootmgr |
+        grep -P '^Boot[0-9A-F]+(\*)?[ \t]+Ubuntu[ \t]+' |
+        grep -P '\\EFI\\ubuntu\\shimx64.efi\)$' |
+        grep -Po '^Boot\K[0-9A-F]+'
+)"
+#sudo efibootmgr --bootnum "${BOOT_NUM}" --active
+sudo efibootmgr --bootorder "${BOOT_NUM}"
 
 # VFIO
 echo 'vfio-pci' >/etc/modules-load.d/vfio-pci.conf

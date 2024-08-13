@@ -9,50 +9,6 @@ set -e -o pipefail
 set -x
 
 ###########################################################
-#   Configuration                                         #
-###########################################################
-
-# Parse from CoreDNS
-export CLUSTER_NAME="$(
-    kubectl -n kube-system get configmap coredns -o yaml |
-        yq -r '.data.Corefile' |
-        grep -Po ' +kubernetes \K[\w\.\_\-]+'
-)"
-export DOMAIN_NAME="ingress-nginx-controller.vine.svc.${CLUSTER_NAME}"
-
-###########################################################
-#   Check Environment Variables                           #
-###########################################################
-
-if [ "x${CLUSTER_NAME}" == "x" ]; then
-    echo 'Skipping installation: "CLUSTER_NAME" not set'
-    exit 0
-fi
-
-if [ "x${DOMAIN_NAME}" == "x" ]; then
-    echo 'Skipping installation: "DOMAIN_NAME" not set'
-    exit 0
-fi
-
-###########################################################
-#   Install NGINX Ingress                                 #
-###########################################################
-
-echo "- Installing NGINX Ingress ... "
-pushd "nginx-ingress"
-./install.sh
-popd
-
-###########################################################
-#   Install Dex                                           #
-###########################################################
-
-echo "- Installing Dex ... "
-pushd "dex"
-./install.sh
-popd
-
-###########################################################
 #   Install Daemonsets                                    #
 ###########################################################
 

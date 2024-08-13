@@ -6,16 +6,13 @@
 configOverride: |
   [global]
   mon_allow_pool_delete = true
-  osd_pool_default_size = 3
-  osd_pool_default_min_size = 2
 
 # Installs a debugging toolbox deployment
 toolbox:
   # Enable Ceph debugging pod deployment
   enabled: true
   # -- Toolbox image, defaults to the image used by the Ceph cluster
-  # FIXME: Upgrade it after RGW Issue is resolved: https://github.com/rook/rook/issues/12099
-  image: quay.io/ceph/ceph:v17.2.5
+  image: quay.io/ceph/ceph:v18.2.2
   # affinity:
   #   nodeAffinity:
   #     # KISS normal control plane nodes should be preferred

@@ -156,6 +156,7 @@
 
 - name: Update boot order to Disk-first
   when:
+    - kiss_group_reset_storage is not defined or kiss_group_reset_storage
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
     - kiss_os_hot_install
@@ -163,6 +164,7 @@
 
 - name: Update boot order to PxE-first
   when:
+    - kiss_group_reset_storage is not defined or kiss_group_reset_storage
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
     - not kiss_os_hot_install
@@ -170,6 +172,7 @@
 
 - name: Reboot the boxes after installing OS (The task will be restarted)
   when:
+    - kiss_group_reset_storage is not defined or kiss_group_reset_storage
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
   reboot:
@@ -177,6 +180,7 @@
 
 - name: Assert rebooting
   when:
+    - kiss_group_reset_storage is not defined or kiss_group_reset_storage
     - kiss_group_role_is_member is defined and kiss_group_role_is_member
     - not kiss_os_exists
   fail:

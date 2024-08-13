@@ -2,6 +2,16 @@
 ## The logging level for the operator: ERROR | WARNING | INFO | DEBUG
 logLevel: DEBUG
 
+# Settings for whether to disable the drivers or other daemons if they are not
+# needed
+csi:
+  # TODO: Wait for next official v3.11.1+ release
+  cephcsi:
+    # -- Ceph CSI image repository
+    repository: quay.io/ulagbulag/cephcsi
+    # -- Ceph CSI image tag
+    tag: v3.11.1-amd64
+
 # -- Pod resource requests & limits
 resources:
   limits:

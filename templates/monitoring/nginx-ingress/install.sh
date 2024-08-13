@@ -52,5 +52,8 @@ helm upgrade --install "ingress-nginx" \
     --set controller.ingressClassResource.controllerValue="k8s.io/ingress-nginx/${DOMAIN_NAME}" \
     --values "./values.yaml"
 
+# Waiting for being deployed
+kubectl -n vine rollout status deployment ingress-nginx-controller
+
 # Finished!
 echo "Installed!"

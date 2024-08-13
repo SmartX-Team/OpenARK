@@ -34,12 +34,27 @@ if [ "x${DOMAIN_NAME}" == "x" ]; then
     exit 0
 fi
 
-###########################################################
-#   Install Opentelemetry                                 #
-###########################################################
+#############################################################
+#   Install Charts                                          #
+#############################################################
 
-echo "- Installing Opentelemetry ... "
-pushd "opentelemetry"
+# NOTE: Ordered! (CRD dependency)
+
+#############################################################
+#   Install NGINX Ingress                                   #
+#############################################################
+
+echo "- Installing NGINX Ingress ... "
+pushd "nginx-ingress"
+./install.sh
+popd
+
+#############################################################
+#   Install Grafana                                         #
+#############################################################
+
+echo "- Installing Grafana ... "
+pushd "grafana"
 ./install.sh
 popd
 
@@ -62,11 +77,11 @@ pushd "loki"
 popd
 
 #############################################################
-#   Install Grafana                                         #
+#   Install Opentelemetry                                   #
 #############################################################
 
-echo "- Installing Grafana ... "
-pushd "grafana"
+echo "- Installing Opentelemetry ... "
+pushd "opentelemetry"
 ./install.sh
 popd
 
