@@ -209,4 +209,4 @@ function main() {
 }
 
 # Execute main function
-main "$@" || exit 1
+main "$@"
