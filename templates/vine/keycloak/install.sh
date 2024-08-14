@@ -38,10 +38,10 @@ echo "- Configuring Helm channel ... "
 helm repo add "${NAMESPACE}-keycloak" "${HELM_CHART}"
 
 ###########################################################
-#   Install Dex                                           #
+#   Install Keycloak                                      #
 ###########################################################
 
-echo "- Installing Operator ... "
+echo "- Installing Keycloak ... "
 
 helm upgrade --install "keycloak" \
     "${NAMESPACE}-keycloak/keycloak" \

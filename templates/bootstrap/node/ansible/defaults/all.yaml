@@ -349,6 +349,14 @@ all:
               # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
               allowRemoteNodeIdentities: false
 
+          endpointRoutes:
+            # @schema
+            # type: [boolean, string]
+            # @schema
+            # -- Enable use of per endpoint routes instead of routing via
+            # the cilium_host interface.
+            enabled: true
+
           # Configure Cilium Envoy options.
           envoy:
             # @schema
