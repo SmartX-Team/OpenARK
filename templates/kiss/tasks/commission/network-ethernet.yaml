@@ -224,7 +224,6 @@
     - interfaces | length > 0
     - interface_primary is defined
     - not interface_primary_is_current
-    - kiss_network_service == 'NetworkManager'
   shell: >
     ip addr show dev "{{ interface_primary_name }}"
     | grep -Po 'permaddr \K[0-9a-f:]+'
@@ -239,7 +238,6 @@
     - interface_primary is defined
     - not interface_primary_is_current
     - interface_primary_mac_address.rc == 0
-    - kiss_network_service == 'NetworkManager'
   set_fact:
     interface_primary: >
       {{
