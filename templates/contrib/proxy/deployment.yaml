@@ -33,7 +33,7 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
-                      - Compute
+                      - ControlPlane
             - weight: 2
               preference:
                 matchExpressions:
@@ -50,6 +50,7 @@ spec:
                       - Compute
                       - ControlPlane
                       - Gateway
+      hostNetwork: true
       securityContext:
         seccompProfile:
           type: RuntimeDefault

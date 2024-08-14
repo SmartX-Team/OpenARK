@@ -44,6 +44,13 @@ systemctl disable \
     systemd-networkd.socket \
     systemd-networkd-wait-online.service
 
+## Deactivate systemd-resolved DNSStubListener
+mkdir -p /etc/systemd/resolved.conf.d/
+cat <<EOF >/etc/systemd/resolved.conf.d/99-systemd.conf
+[Resolve]
+DNSStubListener=no
+EOF
+
 ## Fix CoreDNS timeout
 mkdir -p /etc/sysconfig
 echo 'RES_OPTIONS="single-request-reopen"' >>/etc/sysconfig/network

@@ -133,6 +133,13 @@ all:
         sysctl_file_path: /etc/sysctl.d/99-sysctl.conf
 
         #############################
+        # k8s-cluster / Extras
+        #############################
+
+        nameservers: "{{ upstream_dns_servers }}"
+        systemd_resolved_disable_stub_listener: true
+
+        #############################
         # CNI / Calico
         #############################
 
@@ -534,7 +541,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          ipv4NativeRoutingCIDR: "10.0.0.0/8"
+          ipv4NativeRoutingCIDR: "10.32.0.0/12"
 
           ipv6:
             # -- Enable IPv6 support.
@@ -769,7 +776,8 @@ all:
           - Node
           - RBAC
         # AppArmor-based OS
-        # kube_apiserver_feature_gates: ['AppArmor=true']
+        kube_apiserver_feature_gates:
+          - AppArmor=true
         kube_apiserver_request_timeout: 120s
         kube_apiserver_service_account_lookup: true
 
@@ -824,12 +832,14 @@ all:
         # AppArmor-based OS
         # kube_controller_feature_gates: ["RotateKubeletServerCertificate=true", "AppArmor=true"]
         kube_controller_feature_gates:
+          - AppArmor=true
           - RotateKubeletServerCertificate=true
 
         ## kube-scheduler
         kube_scheduler_bind_address: 127.0.0.1
         # AppArmor-based OS
-        # kube_scheduler_feature_gates: ["AppArmor=true"]
+        kube_scheduler_feature_gates:
+          - AppArmor=true
 
         ## kubelet
         kubelet_authorization_mode_webhook: true

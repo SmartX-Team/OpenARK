@@ -20,6 +20,21 @@ NAMESPACE_DEFAULT="gpu-nvidia"
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
+# Parse from kiss-config
+export OS_DEFAULT="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq -r '.data.os_default'
+)"
+
+###########################################################
+#   Check Environment Variables                           #
+###########################################################
+
+if [ "x${OS_DEFAULT}" == "x" ]; then
+    echo 'Skipping installation: "OS_DEFAULT" not set'
+    exit 0
+fi
+
 ###########################################################
 #   Configure Helm Channel                                #
 ###########################################################
@@ -39,7 +54,18 @@ TOOLKIT_VERSION="$(
         yq '.toolkit.version' |
         grep -Po '^v[0-9\.]+'
 )"
-TOOLKIT_OS="ubi8" # should be run over rockylinux
+case "${OS_DEFAULT}" in
+"rocky9")
+    TOOLKIT_OS="ubi8"
+    ;;
+"ubuntu2404")
+    TOOLKIT_OS="ubuntu20.04"
+    ;;
+*)
+    echo "Unknown OS: ${OS_DEFAULT}" >&2
+    exit 1
+    ;;
+esac
 
 ###########################################################
 #   Checking if Operator is already installed             #

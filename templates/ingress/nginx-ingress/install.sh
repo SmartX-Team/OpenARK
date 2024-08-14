@@ -20,6 +20,12 @@ NAMESPACE_DEFAULT="ingress"
 HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
+# Parse from kiss-config
+export AUTH_DOMAIN_NAME="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq -r '.data.auth_domain_name'
+)"
+
 ###########################################################
 #   Check Environment Variables                           #
 ###########################################################
@@ -32,6 +38,10 @@ fi
 if [ "x${LOADBALANCER_IP}" == "x" ]; then
     echo 'Skipping installation: "LOADBALANCER_IP" not set'
     exit 0
+fi
+
+if [ "x${AUTH_DOMAIN_NAME}" == "x" ]; then
+    AUTH_DOMAIN_NAME="auth.${DOMAIN_NAME}"
 fi
 
 ###########################################################
@@ -55,7 +65,7 @@ helm upgrade --install "${NAMESPACE}-${DOMAIN_NAME/./-}-ingress-nginx" \
     --set controller.ingressClass="${DOMAIN_NAME}" \
     --set controller.ingressClassResource.name="${DOMAIN_NAME}" \
     --set controller.ingressClassResource.controllerValue="k8s.io/ingress-nginx/${DOMAIN_NAME}" \
-    --set controller.proxySetHeaders.X-Forwarded-Auth="auth.${DOMAIN_NAME}" \
+    --set controller.proxySetHeaders.X-Forwarded-Auth="${AUTH_DOMAIN_NAME}" \
     --set controller.service.loadBalancerIP="${LOADBALANCER_IP}" \
     --values "./values.yaml"
 

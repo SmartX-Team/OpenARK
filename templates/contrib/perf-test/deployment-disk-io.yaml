@@ -1,0 +1,150 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: perf-test-disk-io
+  labels:
+    app.kubernetes.io/component: perf-test-disk-io
+    app.kubernetes.io/instance: perf-test-disk-io
+    app.kubernetes.io/managed-by: perf-test
+    app.kubernetes.io/part-of: perf-test
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: perf-test-disk-io
+        app.kubernetes.io/instance: perf-test-disk-io
+        app.kubernetes.io/managed-by: perf-test
+        app.kubernetes.io/part-of: perf-test
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Gateway
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
+                      - Compute
+                      - Gateway
+      containers:
+        - name: shell
+          image: docker.io/library/debian:stable
+          imagePullPolicy: Always
+          command:
+            - /usr/bin/env
+            - /bin/bash
+            - "-c"
+          args:
+            - |
+              #!/bin/bash
+              # Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+              # Use of this source code is governed by a GPL-3-style license that can be
+              # found in the LICENSE file.
+
+              # Prehibit errors
+              set -e -o pipefail
+
+              ###########################################################
+              #   Download fio                                          #
+              ###########################################################
+
+              # Install
+              apt-get update
+              apt-get install -y fio
+
+              # Cleanup
+              apt-get clean all
+              rm -rf /var/lib/apt/lists/*
+
+              ###########################################################
+              #   Cleanup                                               #
+              ###########################################################
+
+              rm -rf /data/*
+
+              ###########################################################
+              #   Configuration                                         #
+              ###########################################################
+
+              FILE_OUTPUT_PREFIX="/out/${NAME}"
+
+              ###########################################################
+              #   Serial Read                                           #
+              ###########################################################
+
+              echo '[serial-read]'
+              fio --name "${NAME}_read" --rw 'read' --output "${FILE_OUTPUT_PREFIX}_read.log" \
+                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
+                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
+                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+
+              ###########################################################
+              #   Serial Write                                          #
+              ###########################################################
+
+              echo '[serial-write]'
+              fio --name "${NAME}_write" --rw 'write' --output "${FILE_OUTPUT_PREFIX}_write.log" \
+                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
+                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
+                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+
+              ###########################################################
+              #   Random Read                                           #
+              ###########################################################
+
+              echo '[random-read]'
+              fio --name "${NAME}_randread" --rw 'randread' --output "${FILE_OUTPUT_PREFIX}_randread.log" \
+                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
+                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
+                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+
+              ###########################################################
+              #   Random Write                                          #
+              ###########################################################
+
+              echo '[random-write]'
+              fio --name "${NAME}_randwrite" --rw 'randwrite' --output "${FILE_OUTPUT_PREFIX}_randwrite.log" \
+                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
+                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
+                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+          env:
+            - name: BUFFERED
+              value: "1"
+            - name: DURATION
+              value: "30"
+            - name: FILE_BLOCK_UNIT_SIZE
+              value: 1M
+            - name: FILE_PATH
+              value: /data/testfile
+            - name: FILE_SIZE
+              value: 1G
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/component']
+            - name: NUM_JOBS
+              value: "8"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: collector
+              mountPath: /out
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: perf-test-disk-io
+        - name: collector
+          persistentVolumeClaim:
+            claimName: perf-test-collector

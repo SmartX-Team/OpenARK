@@ -1,0 +1,36 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: perf-test-disk-io
+  labels:
+    app.kubernetes.io/component: perf-test-disk-io
+    app.kubernetes.io/instance: perf-test-disk-io
+    app.kubernetes.io/managed-by: perf-test
+    app.kubernetes.io/part-of: perf-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: ceph-block
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: perf-test-collector
+  labels:
+    app.kubernetes.io/component: perf-test-collector
+    app.kubernetes.io/instance: perf-test-collector
+    app.kubernetes.io/managed-by: perf-test
+    app.kubernetes.io/part-of: perf-test
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ceph-filesystem
+  volumeMode: Filesystem
