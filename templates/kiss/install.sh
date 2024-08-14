@@ -32,7 +32,7 @@ function install_kiss_cluster() {
         kubectl apply \
             -f "dnsmasq.yaml" \
             -f "docker-registry.yaml" \
-            -f "assets.yaml" \
+            -f "kiss-assets.yaml" \
             -f "ntpd.yaml"
 
         # ansible tasks
