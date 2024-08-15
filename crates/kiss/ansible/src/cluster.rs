@@ -96,7 +96,7 @@ impl<'a> ClusterState<'a> {
         let filter = ClusterBoxFilter::RunningWith {
             uuid: self.owner_uuid,
         };
-        let mut nodes = self.control_planes.to_vec(filter);
+        let nodes = self.control_planes.to_vec(filter);
 
         // Sort the nodes by the name
         //
@@ -104,11 +104,13 @@ impl<'a> ClusterState<'a> {
         // and the first node of them becomes a `first_kube_control_plane`.
         // It may mismatch our filter which sorts by created date.
         //
+        // Ensure that there are no heterogeneous kubernetes clusters
+        //
         // For more details see: https://github.com/kubernetes-sigs/kubespray/blob/master/roles/kubernetes/control-plane/tasks/define-first-kube-control.yml
-        nodes.sort_by_key(|node| node.uuid);
+        let fn_sort = sort_nodes_by_name;
 
         const NODE_ROLE: &str = "kube_control_plane";
-        get_nodes_as_string(nodes, NODE_ROLE)
+        get_nodes_as_string(nodes, NODE_ROLE, fn_sort)
     }
 
     pub fn get_etcd_nodes_as_string(&self) -> String {
@@ -127,8 +129,10 @@ impl<'a> ClusterState<'a> {
             nodes.pop();
         }
 
+        let fn_sort = sort_nodes_by_date;
+
         const NODE_ROLE: &str = "etcd";
-        get_nodes_as_string(nodes, NODE_ROLE)
+        get_nodes_as_string(nodes, NODE_ROLE, fn_sort)
     }
 
     pub fn get_worker_nodes(&self) -> Result<impl Iterator<Item = &BoxCrd>> {
@@ -148,8 +152,10 @@ impl<'a> ClusterState<'a> {
                 let filter = ClusterBoxFilter::Running;
                 let nodes = workers.to_vec(filter);
 
+                let fn_sort = sort_nodes_by_date;
+
                 const NODE_ROLE: &str = "kube_node";
-                get_nodes_as_string(nodes, NODE_ROLE)
+                get_nodes_as_string(nodes, NODE_ROLE, fn_sort)
             })
             .unwrap_or_default()
     }
@@ -304,24 +310,34 @@ impl ClusterBoxFilter {
     }
 }
 
-fn get_nodes_as_string<'a, I>(nodes: I, node_role: &str) -> String
+fn get_nodes_as_string<'a, I, F, K>(nodes: I, node_role: &str, sort: F) -> String
 where
     I: IntoIterator<Item = &'a ClusterBoxState>,
+    F: Fn(&'a ClusterBoxState) -> K,
+    K: Ord,
 {
     nodes
         .into_iter()
-        .sorted_by_key(|&node| {
-            (
-                // Place the unready node to the last
-                // so that the cluster info should be preferred.
-                !node.is_running,
-                &node.created_at,
-                node,
-            )
-        })
+        .sorted_by_key(|&node| sort(node))
         .filter_map(|node| node.get_host())
         .map(|host| format!("{node_role}:{host}"))
         .join(" ")
+}
+
+const fn sort_nodes_by_date<'a>(
+    node: &'a ClusterBoxState,
+) -> (bool, Option<&'a Time>, &'a ClusterBoxState) {
+    (
+        // Place the unready node to the last
+        // so that the cluster info should be preferred.
+        !node.is_running,
+        node.created_at.as_ref(),
+        node,
+    )
+}
+
+const fn sort_nodes_by_name<'a>(node: &'a ClusterBoxState) -> Uuid {
+    node.uuid
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
