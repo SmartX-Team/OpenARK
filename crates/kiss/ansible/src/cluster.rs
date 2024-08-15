@@ -336,8 +336,13 @@ const fn sort_nodes_by_date<'a>(
     )
 }
 
-const fn sort_nodes_by_name<'a>(node: &'a ClusterBoxState) -> Uuid {
-    node.uuid
+const fn sort_nodes_by_name<'a>(node: &'a ClusterBoxState) -> (bool, Uuid) {
+    (
+        // Place the unready node to the last
+        // so that the cluster info should be preferred.
+        !node.is_running,
+        node.uuid,
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
