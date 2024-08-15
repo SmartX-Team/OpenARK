@@ -77,7 +77,7 @@ spec:
             - --dhcp-userclass=set:ipxe,iPXE
             - --dhcp-boot=tag:ipxe,http://assets.kiss.svc.ops.openark/boot/boot-$(OS_DEFAULT).ipxe
             - --dhcp-option=3,$(DHCP_RANGE_IPV4_GATEWAY)
-            - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1)
+            - --dhcp-option=6,$(DHCP_RANGE_IPV4_NAMESERVER_1),$(DHCP_RANGE_IPV4_NAMESERVER_FALLBACK_1),$(DHCP_RANGE_IPV4_NAMESERVER_FALLBACK_2)
             - --dhcp-option=26,$(NETWORK_INTERFACE_MTU_SIZE)
             - --dhcp-option=27,1
             - --dhcp-range=$(DHCP_RANGE_IPV4_BEGIN),$(DHCP_RANGE_IPV4_END),$(DHCP_RANGE_IPV4_DURATION)
@@ -111,6 +111,16 @@ spec:
                 configMapKeyRef:
                   name: kiss-config
                   key: network_nameserver_incluster_ipv4
+            - name: DHCP_RANGE_IPV4_NAMESERVER_FALLBACK_1
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: bootstrapper_network_dns_server_ns1
+            - name: DHCP_RANGE_IPV4_NAMESERVER_FALLBACK_2
+              valueFrom:
+                configMapKeyRef:
+                  name: kiss-config
+                  key: bootstrapper_network_dns_server_ns2
             - name: NETWORK_INTERFACE_MTU_SIZE
               valueFrom:
                 configMapKeyRef:
