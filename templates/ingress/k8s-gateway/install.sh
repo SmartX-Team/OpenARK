@@ -73,6 +73,7 @@ helm upgrade --install "exdns-1" \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \
     --set domain="${DOMAIN_NAME}" \
     --set secondary="exdns-2-k8s-gateway.${NAMESPACE}-${DOMAIN_NAME/./-}" \
+    --set service.annotations."coredns\.io/hostname"="ns1.${DOMAIN_NAME}" \
     --set service.loadBalancerIP="${DNS_SERVER_1}" \
     --values "./values.yaml"
 helm upgrade --install "exdns-2" \
@@ -81,6 +82,7 @@ helm upgrade --install "exdns-2" \
     --namespace "${NAMESPACE}-${DOMAIN_NAME/./-}" \
     --set domain="${DOMAIN_NAME}" \
     --set secondary="exdns-1-k8s-gateway.${NAMESPACE}-${DOMAIN_NAME/./-}" \
+    --set service.annotations."coredns\.io/hostname"="ns2.${DOMAIN_NAME}" \
     --set service.loadBalancerIP="${DNS_SERVER_2}" \
     --values "./values.yaml"
 
