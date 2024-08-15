@@ -27,7 +27,9 @@
       - "os_{{ lookup('env', 'kiss_os_default') }}"
 
 - name: Add a node | Kubernetes Cluster | {{ node[1] }}
-  when: node[0] in ['kube_control_plane', 'kube_node']
+  when:
+    - node_packed is defined and node_packed != '' and result_ping.rc == 0
+    - node[0] in ['kube_control_plane', 'kube_node']
   add_host:
     ansible_host: "{{ node[1] }}"
     ip: "{{ node[2] }}"
