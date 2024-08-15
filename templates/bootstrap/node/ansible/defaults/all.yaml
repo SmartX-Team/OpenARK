@@ -552,7 +552,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          ipv4NativeRoutingCIDR: "10.32.0.0/12"
+          # ipv4NativeRoutingCIDR: "10.32.0.0/12"
 
           ipv6:
             # -- Enable IPv6 support.
@@ -568,7 +568,7 @@ all:
           # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
           # the user must configure the routes to reach pods, either manually or by
           # setting the auto-direct-node-routes flag.
-          ipv6NativeRoutingCIDR: "fd00::/100"
+          # ipv6NativeRoutingCIDR: "fd00::/100"
 
           # -- Configure Kubernetes specific configuration
           k8s:
