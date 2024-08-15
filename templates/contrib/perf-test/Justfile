@@ -9,8 +9,8 @@ deploy:
   kubectl apply -f deployment-toolkit.yaml -f pvc.yaml
 
 start *ARGS:
-  kubectl delete -f deployment-disk-io.yaml || true
-  kubectl apply -f deployment-disk-io.yaml
+  kubectl delete -f job-disk-io.yaml || true
+  kubectl apply -f job-disk-io.yaml
   kubectl wait --for=condition=ready pods -l 'app.kubernetes.io/component=perf-test-disk-io'
 
 exec *ARGS:
