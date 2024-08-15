@@ -118,6 +118,9 @@ all:
         # Enable nodelocal dns cache
         enable_nodelocaldns: false
 
+        # Can be host_resolvconf, docker_dns or none
+        resolvconf_mode: "none"
+
         # Enable k8s_external plugin for CoreDNS
         enable_coredns_k8s_external: false
         # Enable endpoint_pod_names option for kubernetes plugin
