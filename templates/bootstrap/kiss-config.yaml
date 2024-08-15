@@ -24,7 +24,7 @@ data:
   group_enforce_ansible_control_planes: "false"
   group_force_reset: "false"
   group_force_reset_os: "false"
-  group_reset_storage: "true"
+  group_reset_storage: "false"
 
   ###########################################################################
   # Bootstrapper Node Configuration
