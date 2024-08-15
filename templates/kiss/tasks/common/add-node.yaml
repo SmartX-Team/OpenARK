@@ -4,14 +4,14 @@
   set_fact:
     node: "{{ node_packed | split(':') }}"
 
-- name: Ping node - {{ node[1] }}
+- name: Ping node | {{ node[0] }} | {{ node[1] }}
   when: node_packed is defined and node_packed != ''
   command: ping -4 -c 4 {{ node[2] }}
   register: result_ping
   failed_when:
     - result_ping.rc != 0 and node[0] != 'kube_node'
 
-- name: Add a node - {{ node[1] }}
+- name: Add a node | {{ node[0] }} | {{ node[1] }}
   when: node_packed is defined and node_packed != '' and result_ping.rc == 0
   add_host:
     ansible_host: "{{ node[1] }}"
@@ -23,12 +23,19 @@
     name: "{{ node[1] }}"
     groups:
       - all
-      - "{{ 'kube_node' if node[0] == 'kube_control_plane' else 'all' }}"
       - "{{ node[0] }}"
-      - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
       - "os_{{ lookup('env', 'kiss_os_default') }}"
 
-- name: Test node connection - {{ node[1] }}
+- name: Add a node | Kubernetes Cluster | {{ node[1] }}
+  when: node_packed is defined and node_packed != '' and result_ping.rc == 0
+  add_host:
+    ansible_host: "{{ node[1] }}"
+    ip: "{{ node[2] }}"
+    name: "{{ node[1] }}"
+    groups:
+      - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
+
+- name: Test node connection | {{ node[0] }} | {{ node[1] }}
   when: node_packed is defined and node_packed != '' and result_ping.rc == 0
   delegate_to: "{{ node[1] }}"
   ping:

@@ -96,7 +96,16 @@ impl<'a> ClusterState<'a> {
         let filter = ClusterBoxFilter::RunningWith {
             uuid: self.owner_uuid,
         };
-        let nodes = self.control_planes.to_vec(filter);
+        let mut nodes = self.control_planes.to_vec(filter);
+
+        // Sort the nodes by the name
+        //
+        // NOTE: `kubespray` collects the control plane nodes ordered by the name,
+        // and the first node of them becomes a `first_kube_control_plane`.
+        // It may mismatch our filter which sorts by created date.
+        //
+        // For more details see: https://github.com/kubernetes-sigs/kubespray/blob/master/roles/kubernetes/control-plane/tasks/define-first-kube-control.yml
+        nodes.sort_by_key(|node| node.uuid);
 
         const NODE_ROLE: &str = "kube_control_plane";
         get_nodes_as_string(nodes, NODE_ROLE)
@@ -295,9 +304,12 @@ impl ClusterBoxFilter {
     }
 }
 
-fn get_nodes_as_string(nodes: Vec<&ClusterBoxState>, node_role: &str) -> String {
+fn get_nodes_as_string<'a, I>(nodes: I, node_role: &str) -> String
+where
+    I: IntoIterator<Item = &'a ClusterBoxState>,
+{
     nodes
-        .iter()
+        .into_iter()
         .sorted_by_key(|&&node| {
             (
                 // Place the unready node to the last
