@@ -28,6 +28,8 @@ NUM_STORAGE_NODES="$(
         wc -l
 )"
 
+EXTRA_VALUES=""
+
 ###########################################################
 #   Install Cluster Role                                  #
 ###########################################################
@@ -76,20 +78,21 @@ until kubectl get crd 'cephclusters.ceph.rook.io'; do
 done
 
 ###########################################################
-#   Install Storage Class                                 #
+#   Install Ceph Cluster                                  #
 ###########################################################
 
-echo "- Installing Storage Class ... "
+echo "- Installing Ceph Cluster ... "
 
-# tweaks - use single monitor node until ceph cluster is deployed
-# FIXME: Rook-Ceph on Flatcar OS is not working on mon > 1
-# See also: https://github.com/rook/rook/issues/10110
+# Resize the number of monitors
 NUM_MONS=$(yq ".cephClusterSpec.mon.count" "./values-cluster.yaml")
-TEMPLATE_PATH="./tmp-values-cluster.yaml"
 if [ "x$((${NUM_STORAGE_NODES} < ${NUM_MONS}))" == "x1" ]; then
-    yq ".cephClusterSpec.mon.count = 1" "./values-cluster.yaml" >"${TEMPLATE_PATH}"
-else
-    cp "./values-cluster.yaml" "${TEMPLATE_PATH}"
+    EXTRA_VALUES="${EXTRA_VALUES} --set cephClusterSpec.mon.count=1"
+fi
+
+# Resize the number of managers
+NUM_MGRS=$(yq ".cephClusterSpec.mgr.count" "./values-cluster.yaml")
+if [ "x$((${NUM_STORAGE_NODES} < ${NUM_MGRS}))" == "x1" ]; then
+    EXTRA_VALUES="${EXTRA_VALUES} --set cephClusterSpec.mgr.count=1"
 fi
 
 helm upgrade --install "rook-ceph-cluster" \
@@ -97,8 +100,8 @@ helm upgrade --install "rook-ceph-cluster" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
     --set "operatorNamespace=${NAMESPACE}" \
-    --values "${TEMPLATE_PATH}"
-rm -f "${TEMPLATE_PATH}"
+    --values "./values-cluster.yaml" \
+    ${EXTRA_VALUES}
 
 echo -n "- Waiting for deploying Ceph Tools ... "
 kubectl --namespace "${NAMESPACE}" rollout status deployment "rook-ceph-tools"
