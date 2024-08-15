@@ -310,7 +310,7 @@ where
 {
     nodes
         .into_iter()
-        .sorted_by_key(|&&node| {
+        .sorted_by_key(|&node| {
             (
                 // Place the unready node to the last
                 // so that the cluster info should be preferred.
