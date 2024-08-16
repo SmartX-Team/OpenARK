@@ -349,14 +349,6 @@ cat <<EOF >/usr/local/bin/notify-new-box.sh
 # Prehibit errors
 set -e -o pipefail
 
-# Enable primary interface if possible
-for connection in \$(
-    sudo nmcli connection show |
-        grep -Po '^10-kiss-enable-[0-9a-z]+'
-); do
-    sudo nmcli connection up "\${connection}" || true
-done
-
 # Collect node info
 ADDRESS="\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1)"
 UUID="\$(cat /sys/class/dmi/id/product_uuid)"

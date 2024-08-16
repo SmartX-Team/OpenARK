@@ -44,6 +44,14 @@ systemctl disable \
     systemd-networkd.socket \
     systemd-networkd-wait-online.service
 
+## Deactivate systemd-resolved
+mkdir -p /etc/NetworkManager/conf.d/
+cat <<EOF >/etc/NetworkManager/conf.d/99-systemd.conf
+[main]
+dns=default
+rc-manager=resolvconf
+EOF
+
 ## Deactivate systemd-resolved DNSStubListener
 mkdir -p /etc/systemd/resolved.conf.d/
 cat <<EOF >/etc/systemd/resolved.conf.d/99-systemd.conf
@@ -184,14 +192,6 @@ cat <<EOF >/usr/local/bin/notify-new-box.sh
 
 # Prehibit errors
 set -e -o pipefail
-
-# Enable primary interface if possible
-for connection in \$(
-    sudo nmcli connection show |
-        grep -Po '^10-kiss-enable-[0-9a-z]+'
-); do
-    sudo nmcli connection up "\${connection}" || true
-done
 
 # Collect node info
 ADDRESS="\$(ip route get 1.1.1.1 | grep -oP 'src \K\d+(\.\d+){3}' | head -1)"
