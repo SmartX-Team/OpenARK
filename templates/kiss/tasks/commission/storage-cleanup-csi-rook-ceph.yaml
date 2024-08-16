@@ -4,7 +4,7 @@
     paths:
       - /var/lib/kubelet/plugins/
     file_type: directory
-    pattern: rook-ceph.*
+    pattern: csi-rook-ceph.*
   register: results
 
 - name: Remove plugins
@@ -18,7 +18,7 @@
   find:
     paths:
       - /var/lib/kubelet/plugins_registry/
-    pattern: rook-ceph.*
+    pattern: csi-rook-ceph.*
   register: results
 
 - name: Remove plugin registries
