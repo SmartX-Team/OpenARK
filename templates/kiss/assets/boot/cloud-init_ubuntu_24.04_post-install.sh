@@ -521,5 +521,10 @@ BOOT_NUM="$(
 #sudo efibootmgr --bootnum "${BOOT_NUM}" --active
 sudo efibootmgr --bootorder "${BOOT_NUM}"
 
+# Hostname
+UUID="$(cat /sys/class/dmi/id/product_uuid)"
+echo "127.0.0.1 ${UUID}" >>/etc/hosts
+echo -n "${UUID}" >/etc/hostname
+
 # VFIO
 echo 'vfio-pci' >/etc/modules-load.d/vfio-pci.conf
