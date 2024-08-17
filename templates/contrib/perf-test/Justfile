@@ -7,6 +7,7 @@ set dotenv-load
 
 deploy:
   kubectl apply -f deployment-toolkit.yaml -f pvc.yaml
+  kubectl rollout status deployment perf-test-toolkit
 
 start *ARGS:
   kubectl delete -f job-disk-io.yaml || true
