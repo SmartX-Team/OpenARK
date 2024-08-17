@@ -23,7 +23,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 # Parse from kiss-config
 export AUTH_DOMAIN_NAME="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq -r '.data.auth_domain_name'
+        yq -r '.data.auth_domain_name // ""'
 )"
 
 ###########################################################

@@ -26,7 +26,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 export DOMAIN_NAME="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq -r '.data.domain_name'
+        yq -r '.data.domain_name // ""'
 )"
 
 ###########################################################

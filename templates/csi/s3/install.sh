@@ -23,22 +23,22 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 # Parse from kiss-config
 STORAGE_CLASS_NAME="$(
     kubectl -n kiss get secret kiss-config -o yaml |
-        yq -r '.data.object_storage_class_name' |
+        yq -r '.data.object_storage_class_name // ""' |
         base64 --decode
 )"
 STORAGE_ENDPOINT="$(
     kubectl -n kiss get secret kiss-config -o yaml |
-        yq -r '.data.object_storage_endpoint' |
+        yq -r '.data.object_storage_endpoint // ""' |
         base64 --decode
 )"
 STORAGE_KEY_ACCESS="$(
     kubectl -n kiss get secret kiss-config -o yaml |
-        yq -r '.data.object_storage_key_access' |
+        yq -r '.data.object_storage_key_access // ""' |
         base64 --decode
 )"
 STORAGE_KEY_SECRET="$(
     kubectl -n kiss get secret kiss-config -o yaml |
-        yq -r '.data.object_storage_key_secret' |
+        yq -r '.data.object_storage_key_secret // ""' |
         base64 --decode
 )"
 

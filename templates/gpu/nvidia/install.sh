@@ -23,7 +23,7 @@ NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 # Parse from kiss-config
 export OS_DEFAULT="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq -r '.data.os_default'
+        yq -r '.data.os_default // ""'
 )"
 
 ###########################################################
