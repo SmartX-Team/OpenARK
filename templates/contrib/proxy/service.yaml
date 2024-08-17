@@ -12,5 +12,5 @@ spec:
   ports:
     - name: http
       protocol: TCP
-      port: 1080
+      port: 29270
       targetPort: 1080
