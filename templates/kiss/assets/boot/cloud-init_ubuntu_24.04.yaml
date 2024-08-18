@@ -42,8 +42,8 @@ autoinstall:
     users:
       - name: kiss
         groups: docker, sudo, users, wheel
-        lock_passwd: true
-        passwd: "$6$rBhSuMvNSgbLh2H/$1rCRSowuivSwaXvjmBaGLOYp5ad5EFuxw78YTx3I3TrhyduLmw2fpmA9QxNTHq.OAIJmkO/KHZH/ImalRwpaP1" # TODO: remove after debugging
+        lock_passwd: false
+        passwd: $6$Tt5aacrWjfFz/v6l$lfIW/m1.dYdoJlRnYrtx/pKDyfUTJg8Sh/rbsOcMD2vJa.4rAzSZy7Lp89Q/3ijK97RQUm/zS0cApJmLFLwyx0
         shell: /bin/bash
         ssh_authorized_keys:
           - "ENV_SSH_AUTHORIZED_KEYS"
@@ -66,6 +66,25 @@ autoinstall:
       DNS=10.64.0.3
       EOF
       systemctl restart systemd-resolved.service
+    - |
+      mkdir -p /etc/NetworkManager/conf.d/
+      cat <<EOF >/etc/NetworkManager/conf.d/99-systemd.conf
+      [main]
+      dns=default
+      rc-manager=resolvconf
+      EOF
+    - rm -f /etc/netplan/50-cloud-init*
+    - |
+      cat <<EOF >/etc/netplan/50-cloud-init.yaml
+      network:
+        version: 2
+        renderer: NetworkManager
+        ethernets:
+          alleths:
+            match:
+              name: en*
+            dhcp4: true
+      EOF
     - >
       apt-get update && apt-get install -y network-manager
       && systemctl disable --now systemd-networkd.service systemd-networkd.socket
@@ -74,7 +93,8 @@ autoinstall:
       && for dev in $(nmcli connection show --active | awk '{print $4}' | grep -P '^en'); do
       nmcli connection down "${dev}" || true
       ; done
-      && netplan apply
+    - until netplan apply; do sleep 3; done
+    - until curl "http://assets.kiss.svc.ops.openark"; do netplan apply || true; sleep 30; done
   late-commands:
     # Install dependencies
     - >

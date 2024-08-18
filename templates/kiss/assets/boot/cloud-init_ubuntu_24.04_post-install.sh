@@ -17,18 +17,24 @@ _IS_NVIDIA_MANUAL="false"
 
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
-## Wireless - WIFI
-if [ "NETWORK_WIRELESS_WIFI_SSID" != "" ]; then
-    ## Disable Power Saving Mode (iwlmvm)
-    cat <<EOF >/etc/modprobe.d/iwlmvm.conf
+
+## Disable Kernel Module: rndis_host
+cat <<EOF >/etc/default/grub.d/10-blacklist-rndis_host.cfg
+GRUB_CMDLINE_LINUX="modprobe.blacklist=rndis_host"
+EOF
+cat <<EOF >/etc/modprobe.d/blacklist-rndis_host.conf
+blacklist rndis_host
+EOF
+
+## Disable Power Saving Mode (iwlmvm)
+cat <<EOF >/etc/modprobe.d/iwlmvm.conf
 options iwlmvm power_scheme=1
 EOF
 
-    ## Disable Power Saving Mode (iwlwifi)
-    cat <<EOF >/etc/modprobe.d/iwlwifi.conf
+## Disable Power Saving Mode (iwlwifi)
+cat <<EOF >/etc/modprobe.d/iwlwifi.conf
 options iwlwifi power_save=0
 EOF
-fi
 
 ## Disable Power Saving Mode on NetworkManager
 mkdir -p /etc/NetworkManager/conf.d/
@@ -518,8 +524,8 @@ BOOT_NUM="$(
         grep -P '\\EFI\\ubuntu\\shimx64.efi\)$' |
         grep -Po '^Boot\K[0-9A-F]+'
 )"
-#sudo efibootmgr --bootnum "${BOOT_NUM}" --active
-sudo efibootmgr --bootorder "${BOOT_NUM}"
+#efibootmgr --bootnum "${BOOT_NUM}" --active
+efibootmgr --bootorder "${BOOT_NUM}"
 
 # Hostname
 UUID="$(cat /sys/class/dmi/id/product_uuid)"

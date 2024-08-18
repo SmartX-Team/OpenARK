@@ -20,7 +20,7 @@ kernel --name vmlinuz ${repo}/netboot/${arch}/linux || goto kernel
 initrd --name initrd ${repo}/netboot/${arch}/initrd || goto initrd
 
 :initargs
-imgargs vmlinuz initrd=initrd autoinstall ip=dhcp url=${repo}/ubuntu-${os_ver}-live-server-${arch}.iso cloud-config-url=${cloud_config_url}
+imgargs vmlinuz initrd=initrd autoinstall ip=dhcp modprobe.blacklist=rndis_host url=${repo}/ubuntu-${os_ver}-live-server-${arch}.iso cloud-config-url=${cloud_config_url}
 
 :boot
 boot || goto boot

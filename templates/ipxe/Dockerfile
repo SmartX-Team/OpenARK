@@ -41,7 +41,7 @@ RUN mkdir /src && cd /src \
     && git checkout "${IPXE_VERSION}" \
     && mkdir /ipxe \
     # Patch DHCP settings
-    && sed -i 's/^\(#define DHCP_DISC_END_TIMEOUT_SEC [0-9]\+$/\132/g' './config/dhcp.h' \
+    && sed -i 's/^\(#define DHCP_DISC_END_TIMEOUT_SEC \)[0-9]\+$/\132/g' './config/dhcp.h' \
     # Build each iPXE platforms
     # * usage: make [platform]/[driver].[extension]
     ### ARCH [0x00] - BIOS

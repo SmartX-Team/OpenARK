@@ -69,6 +69,16 @@
   when: kiss_allow_pruning_network_interfaces | default(False)
   command: nmcli connection reload
 
+- name: Reboot the boxes if network is changed (The task will be restarted)
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  reboot:
+    reboot_timeout: 3600 # 1h (booting can take a long time)
+
+- name: Assert rebooting
+  when: kiss_allow_pruning_network_interfaces | default(False)
+  fail:
+    msg: The nodes should be rebooted!
+
 - name: Enable bonds now | NetworkManager
   when:
     - all_interfaces | length > 0
