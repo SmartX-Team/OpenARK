@@ -110,12 +110,6 @@
         kube_pods_subnet: "{{ kube_child_pods_subnet }}"
         kube_service_addresses: "{{ kube_child_service_addresses }}"
 
-    - name: Append network_nameserver_incluster_ipv4 into upstream_dns_servers
-      when: not kiss_cluster_is_default
-      set_fact:
-        upstream_dns_servers:
-          - "{{ lookup('env', 'kiss_network_nameserver_incluster_ipv4') }}"
-
 - hosts: os_flatcar
   gather_facts: false
   tasks:
