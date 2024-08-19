@@ -1,0 +1,8 @@
+---
+head:
+  headService:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+      labels:
+        ark.ulagbulag.io/is-external: "true"
