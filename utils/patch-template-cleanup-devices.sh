@@ -4,7 +4,7 @@
 # found in the LICENSE file.
 
 # Cleanup all unused disks.
-# It is compatiable with Ceph OSD.
+# It is compatiable with Ceph OSD and DirectPV.
 
 # Prehibit errors
 set -e -o pipefail
@@ -20,6 +20,11 @@ for disk in $(
         sort |
         uniq
 ); do
+    # Unmount all directpv volumes
+    if findmnt -S "${disk}" | grep -Pq '^/var/lib/directpv'; then
+        umount "${disk}"
+    fi
+
     # Skip if mounted partiton
     if findmnt -S "${disk}" >/dev/null 2>/dev/null; then
         echo "Skipping mounted partition: ${disk}"
@@ -29,8 +34,9 @@ for disk in $(
     # Skip if mounted disk
     if [ "$(
         lsblk --noheadings "${disk}" 2>/dev/null |
+            grep -P 'part +/.*$' |
             wc -l
-    )" != "1" ]; then
+    )" != "0" ]; then
         echo "Skipping mounted disk: ${disk}"
         continue
     fi
@@ -41,6 +47,12 @@ for disk in $(
             awk '{print $1}'
     )" == "0" ]; then
         echo "Skipping empty disk: ${disk}"
+        continue
+    fi
+
+    # Skip if logical disk
+    if echo "${disk}" | grep -Pq '^/dev/dm-'; then
+        echo "Skipping logical disk: ${disk}"
         continue
     fi
 
@@ -62,3 +74,9 @@ for disk in $(
     ## Inform the OS of partition table changes
     partprobe "${disk}" && sync
 done
+
+# Cleanup Rook Ceph
+dmsetup remove_all
+rm -rf /var/lib/rook
+rm -rf /var/lib/kubelet/plugins/csi-rook-ceph.*
+rm -rf /var/lib/kubelet/plugins_registry/csi-rook-ceph.*

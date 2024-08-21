@@ -1,2 +1,8 @@
 ---
-[]
+- name: Provision Kernel | Update sysctl.conf
+  template:
+    src: ./template_system_kernel_sysctl.conf
+    dest: /etc/sysctl.d/90-openark.conf
+
+- name: Provision Kernel | Apply sysctl.conf
+  command: sysctl --system

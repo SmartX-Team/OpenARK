@@ -66,3 +66,25 @@ spec:
         memory: 4Gi
   statusCheck:
     mirror: {}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ceph-filesystem-noreplicas
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+allowVolumeExpansion: true
+provisioner: csi-rook-ceph.cephfs.csi.ceph.com
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  clusterID: csi-rook-ceph
+  csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/controller-expand-secret-namespace: csi-rook-ceph
+  csi.storage.k8s.io/fstype: ext4
+  csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+  csi.storage.k8s.io/node-stage-secret-namespace: csi-rook-ceph
+  csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/provisioner-secret-namespace: csi-rook-ceph
+  fsName: ceph-filesystem-noreplicas
+  pool: ceph-filesystem-noreplicas-data0

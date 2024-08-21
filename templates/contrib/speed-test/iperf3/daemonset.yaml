@@ -13,9 +13,14 @@ spec:
       labels:
         app: iperf3
     spec:
+      hostIPC: true
       containers:
         - name: iperf3
-          image: docker.io/leodotcloud/swiss-army-knife:latest
+          image: docker.io/library/ubuntu:24.04
           imagePullPolicy: Always
+          command:
+            - /usr/bin/env
+            - sleep
+            - infinity
           ports:
             - containerPort: 5201

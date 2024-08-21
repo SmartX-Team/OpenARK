@@ -5,7 +5,7 @@ nfd:
 
 sriovNetworkOperator:
   # deploy SR-IOV Network Operator
-  enabled: true
+  enabled: false
 
 # SR-IOV Network Operator chart related values
 sriov-network-operator:
@@ -45,7 +45,7 @@ deployCR: true
 
 ofedDriver:
   # deploy Mellanox OFED driver container
-  deploy: false
+  deploy: true
 
 nvPeerDriver:
   # deploy NVIDIA Peer memory driver container
@@ -91,3 +91,9 @@ nodeAffinity:
       - matchExpressions:
           - key: node-role.kubernetes.io/master
             operator: DoesNotExist
+      - matchExpressions:
+          - key: node-role.kubernetes.io/kiss
+            operator: NotIn
+            values:
+              - Dashboard
+              - Desktop

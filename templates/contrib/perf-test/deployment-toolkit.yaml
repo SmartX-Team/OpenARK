@@ -32,6 +32,13 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
+                      - Compute
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
                       - Gateway
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -40,6 +47,7 @@ spec:
                     operator: In
                     values:
                       - Compute
+                      - ControlPlane
                       - Gateway
       containers:
         - name: shell

@@ -5,32 +5,38 @@
 # Load environment variables
 set dotenv-load
 
+clean:
+  kubectl delete -f job-disk-io.yaml || true
+  kubectl delete -f deployment-toolkit.yaml -f pvc.yaml || true
+
 deploy:
   kubectl apply -f deployment-toolkit.yaml -f pvc.yaml
+  @sleep 1
   kubectl rollout status deployment perf-test-toolkit
 
-start *ARGS:
+reset:
+  @just clean
+  @just deploy
+
+start *ARGS: deploy
   kubectl delete -f job-disk-io.yaml || true
   kubectl apply -f job-disk-io.yaml
+  @sleep 1
   kubectl wait --for=condition=ready pods -l 'app.kubernetes.io/component=perf-test-disk-io'
 
 exec *ARGS:
   @kubectl exec -it -c shell 'deployment/perf-test-toolkit' -- {{ ARGS }}
 
 _stat_avg rw:
-  @echo "1024 * $( \
-    just exec cat '/data/perf-test-disk-io_{{ rw }}.log' \
-      | grep -P '^ +bw' \
-      | grep -Po 'avg=\K[0-9\.]+' \
-      | bc \
-  )" | bc
+  @just exec cat '/data/perf-test-disk-io_{{ rw }}.log' \
+    | grep -P '^ +bw'
 
 stat:
   @echo -n 'read (bps) '
   @just _stat_avg 'read'
   @echo -n 'write (bps) '
   @just _stat_avg 'write'
-  @echo -n 'randread (bps) '
-  @just _stat_avg 'randread'
-  @echo -n 'randwrite (bps) '
-  @just _stat_avg 'randwrite'
+  @# echo -n 'randread (bps) '
+  @# just _stat_avg 'randread'
+  @# echo -n 'randwrite (bps) '
+  @# just _stat_avg 'randwrite'

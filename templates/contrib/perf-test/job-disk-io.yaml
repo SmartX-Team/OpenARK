@@ -27,6 +27,13 @@ spec:
                   - key: node-role.kubernetes.io/kiss
                     operator: In
                     values:
+                      - Compute
+            - weight: 2
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/kiss
+                    operator: In
+                    values:
                       - Gateway
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -35,6 +42,7 @@ spec:
                     operator: In
                     values:
                       - Compute
+                      - ControlPlane
                       - Gateway
       containers:
         - name: shell
@@ -78,15 +86,27 @@ spec:
 
               FILE_OUTPUT_PREFIX="/out/${NAME}"
 
+              ARGS=""
+              ARGS+="--direct ${DIRECT} "
+              ARGS+="--fsync ${FSYNC} "
+              ARGS+="--group_reporting "
+              ARGS+="--iodepth ${IO_DEPTH} "
+              ARGS+="--numjobs ${NUM_JOBS} "
+              ARGS+="--runtime ${DURATION} "
+              ARGS+="--size ${FILE_SIZE} "
+              ARGS+="--time_based "
+
+              ARGS+="--directory /data "
+              # ARGS+="--ioengine rbd "
+              # ARGS+="--rbdname rbd0 "
+
               ###########################################################
               #   Serial Read                                           #
               ###########################################################
 
               echo '[serial-read]'
               fio --name "${NAME}_read" --rw 'read' --output "${FILE_OUTPUT_PREFIX}_read.log" \
-                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
-                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
-                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+                --bs "${FILE_BLOCK_UNIT_SIZE}" ${ARGS}
 
               ###########################################################
               #   Serial Write                                          #
@@ -94,46 +114,47 @@ spec:
 
               echo '[serial-write]'
               fio --name "${NAME}_write" --rw 'write' --output "${FILE_OUTPUT_PREFIX}_write.log" \
-                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
-                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
-                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+                --bs "${FILE_BLOCK_UNIT_SIZE}" ${ARGS}
 
               ###########################################################
               #   Random Read                                           #
               ###########################################################
 
-              echo '[random-read]'
-              fio --name "${NAME}_randread" --rw 'randread' --output "${FILE_OUTPUT_PREFIX}_randread.log" \
-                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
-                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
-                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+              # echo '[random-read]'
+              # fio --name "${NAME}_randread" --rw 'randread' --output "${FILE_OUTPUT_PREFIX}_randread.log" \
+              #   --bs '4K' ${ARGS}
 
               ###########################################################
               #   Random Write                                          #
               ###########################################################
 
-              echo '[random-write]'
-              fio --name "${NAME}_randwrite" --rw 'randwrite' --output "${FILE_OUTPUT_PREFIX}_randwrite.log" \
-                --direct "${BUFFERED}" --directory /data --group_reporting --time_based \
-                --numjobs "${NUM_JOBS}" --runtime "${DURATION}" \
-                --bs "${FILE_BLOCK_UNIT_SIZE}" --size "${FILE_SIZE}"
+              # echo '[random-write]'
+              # fio --name "${NAME}_randwrite" --rw 'randwrite' --output "${FILE_OUTPUT_PREFIX}_randwrite.log" \
+              #   --bs '4K' ${ARGS}
           env:
-            - name: BUFFERED
+            - name: DIRECT
               value: "1"
             - name: DURATION
-              value: "30"
+              value: "60"
             - name: FILE_BLOCK_UNIT_SIZE
-              value: 1M
+              value: 4M
             - name: FILE_PATH
               value: /data/testfile
             - name: FILE_SIZE
               value: 1G
+            - name: FSYNC
+              value: "1"
+            - name: IO_DEPTH
+              value: "64"
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['app.kubernetes.io/component']
             - name: NUM_JOBS
-              value: "8"
+              value: "12"
+          # volumeDevices:
+          #   - name: data
+          #     devicePath: /dev/rbd0
           volumeMounts:
             - name: data
               mountPath: /data
