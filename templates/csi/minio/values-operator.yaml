@@ -2,6 +2,33 @@
 # Root key for Operator Helm Chart
 operator:
   ###
+  # An array of environment variables to pass to the Operator deployment.
+  # Pass an empty array to start Operator with defaults.
+  #
+  # For example:
+  #
+  # .. code-block:: yaml
+  #
+  #    env:
+  #    - name: MINIO_OPERATOR_DEPLOYMENT_NAME
+  #      valueFrom:
+  #        fieldRef:
+  #          fieldPath: metadata.labels['app.kubernetes.io/name']
+  #    - name: CLUSTER_DOMAIN
+  #      value: "cluster.domain"
+  #    - name: WATCHED_NAMESPACE
+  #      value: ""
+  #    - name: MINIO_OPERATOR_RUNTIME
+  #      value: "OpenShift"
+  #
+  # See `Operator environment variables <https://github.com/minio/operator/blob/master/docs/env-variables.md>`__ for a list of all supported values.
+  env:
+    - name: CLUSTER_DOMAIN
+      value: ops.openark # placeholder
+    - name: OPERATOR_STS_ENABLED
+      value: "on"
+
+  ###
   #
   # The `affinity <https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/>`__ or anti-affinity settings to apply to Operator pods.
   #
