@@ -14,7 +14,7 @@ spec:
   resources:
     requests:
       storage: 1Ti
-  storageClassName: ceph-filesystem-noreplicas
+  storageClassName: ceph-filesystem
   # volumeMode: Block
   volumeMode: Filesystem
 ---
