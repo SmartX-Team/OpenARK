@@ -77,7 +77,7 @@ spec:
         - name: nats-token
           secret:
             secretName: dash-system-nats-bound-token
-            optional: false
+            optional: true
             items:
               - key: token
                 path: token

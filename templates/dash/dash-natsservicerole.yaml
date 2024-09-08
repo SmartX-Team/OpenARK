@@ -1,0 +1,113 @@
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-collector
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-collector
+spec:
+  permissions:
+    publish:
+      - dash.collector
+      - dash.collector.>
+    subscribe:
+      - _inbox.*
+      - _INBOX.>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-network
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-network
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network
+spec:
+  permissions:
+    publish:
+      - _inbox.*
+      - _INBOX.>
+      - dash.network.>
+    subscribe:
+      - _inbox.*
+      - _INBOX.>
+      - dash.collector
+      - dash.collector.>
+      - dash.network.>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-network-agent
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network-agent
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-network-agent
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network-agent
+spec:
+  permissions:
+    publish:
+      - _inbox.*
+      - _INBOX.>
+      - dash.network.manage
+    subscribe:
+      - _inbox.*
+      - _INBOX.>
+      - dash.network.alert
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-network-connect
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network-connect
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: nats-dash-network-connect
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-network-connect
+spec:
+  permissions:
+    publish:
+      - dash.network.connect
+---
+apiVersion: nats.io/v1alpha2
+kind: NatsServiceRole
+metadata:
+  name: dash-system
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: dash-system
+spec:
+  permissions:
+    publish:
+      - dash.optimize.>
+    subscribe:
+      - _inbox.>
+      - _INBOX.>
