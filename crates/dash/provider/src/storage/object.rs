@@ -12,11 +12,11 @@ use dash_api::{
         ModelStorageBindingSyncPolicy, ModelStorageBindingSyncPolicyPull,
         ModelStorageBindingSyncPolicyPush,
     },
+    model_user::ModelUserAccessTokenSecretRefSpec,
     storage::object::{
-        get_kubernetes_minio_endpoint, ModelStorageObjectBorrowedSpec,
+        get_default_tenant_name, get_kubernetes_minio_endpoint, ModelStorageObjectBorrowedSpec,
         ModelStorageObjectClonedSpec, ModelStorageObjectOwnedReplicationSpec,
-        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSecretRefSpec, ModelStorageObjectRefSpec,
-        ModelStorageObjectSpec,
+        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
     },
 };
 use dash_provider_api::data::Capacity;
@@ -238,7 +238,7 @@ impl<'model> ObjectStorageSession {
         let ModelStorageObjectRefSpec {
             endpoint,
             secret_ref:
-                ModelStorageObjectRefSecretRefSpec {
+                ModelUserAccessTokenSecretRefSpec {
                     map_access_key,
                     map_secret_key,
                     name: secret_name,
@@ -792,7 +792,7 @@ impl<'model> ObjectStorageSession {
                                 backend: IngressBackend {
                                     resource: None,
                                     service: Some(IngressServiceBackend {
-                                        name: "minio".into(),
+                                        name: get_default_tenant_name().into(),
                                         port: Some(ServiceBackendPort {
                                             name: Some("http-minio".into()),
                                             number: None,
@@ -864,7 +864,7 @@ impl<'model> ObjectStorageSession {
         Ok(ModelStorageObjectRefSpec {
             endpoint: get_kubernetes_minio_endpoint(namespace)
                 .ok_or_else(|| anyhow!("failed to get minio storage endpoint"))?,
-            secret_ref: ModelStorageObjectRefSecretRefSpec {
+            secret_ref: ModelUserAccessTokenSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
                 map_secret_key: "CONSOLE_SECRET_KEY".into(),
                 name: secret_user_0.name_any(),
@@ -2171,7 +2171,6 @@ export MINIO_ROOT_PASSWORD="{password}"
                             "volumesPerServer": total_volumes_per_node,
                         },
                     ],
-                    "prometheusOperator": false,
                     "requestAutoCert": false,
                     "serviceMetadata": {
                         "consoleServiceAnnotations": {
@@ -2410,10 +2409,6 @@ fn get_default_pod_affinity(tenant_name: &str) -> PodAffinity {
         }]),
         required_during_scheduling_ignored_during_execution: None,
     }
-}
-
-const fn get_default_tenant_name() -> &'static str {
-    "object-storage"
 }
 
 fn get_ingress_host(namespace: &str, tenant_name: &str) -> String {
