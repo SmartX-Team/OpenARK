@@ -31,9 +31,8 @@ SSH_KEYFILE_PATH="${SSH_KEYFILE_PATH:-$SSH_KEYFILE_PATH_DEFAULT}"
 echo 'box,label,value' >>"${DST_PATH}"
 
 echo 'Running for boxes'
-for line in $(cat "${CSV_PATH}" | tail '+2'); do
-  box_id="$(echo "${line}" | cut '-d,' -f1)"
-  box_name="$(echo "${line}" | cut '-d,' -f2)"
+for box_id in $(kubectl get box -o jsonpath='{.items[*].metadata.name}'); do
+  box_name=$(kubectl get box "${box_id}" --no-headers | awk '{print $2}')
 
   echo -n "* ${box_name} -> "
   echo -n "${box_id},${box_name}," >>"${DST_PATH}"
