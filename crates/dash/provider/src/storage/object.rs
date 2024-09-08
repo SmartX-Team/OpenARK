@@ -13,10 +13,13 @@ use dash_api::{
         ModelStorageBindingSyncPolicyPush,
     },
     model_user::ModelUserAccessTokenSecretRefSpec,
-    storage::object::{
-        get_default_tenant_name, get_kubernetes_minio_endpoint, ModelStorageObjectBorrowedSpec,
-        ModelStorageObjectClonedSpec, ModelStorageObjectOwnedReplicationSpec,
-        ModelStorageObjectOwnedSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
+    storage::{
+        object::{
+            get_kubernetes_minio_endpoint, ModelStorageObjectBorrowedSpec,
+            ModelStorageObjectClonedSpec, ModelStorageObjectOwnedReplicationSpec,
+            ModelStorageObjectOwnedSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
+        },
+        ModelStorageCrd,
     },
 };
 use dash_provider_api::data::Capacity;
@@ -81,6 +84,7 @@ impl ObjectStorageClient {
     pub async fn try_new<'source>(
         kube: &Client,
         namespace: &str,
+        metadata: Option<&ObjectMeta>,
         storage: ModelStorageBindingStorageSpec<'source, &ModelStorageObjectSpec>,
     ) -> Result<Self> {
         Ok(Self {
@@ -94,6 +98,7 @@ impl ObjectStorageClient {
                         kube,
                         namespace,
                         source_name,
+                        metadata,
                         source,
                     )
                     .await
@@ -106,6 +111,7 @@ impl ObjectStorageClient {
                 kube,
                 namespace,
                 storage.target_name,
+                metadata,
                 storage.target,
             )
             .await?,
@@ -158,20 +164,21 @@ impl<'model> ObjectStorageSession {
         kube: &Client,
         namespace: &str,
         name: &str,
+        metadata: Option<&ObjectMeta>,
         storage: &ModelStorageObjectSpec,
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
-                let _ = Self::create_or_get_storage(kube, namespace).await?;
+                let _ = Self::create_or_get_storage(kube, namespace, metadata).await?;
                 Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
             }
             ModelStorageObjectSpec::Cloned(storage) => {
-                let metadata = Self::create_or_get_storage(kube, namespace).await?;
+                let metadata = Self::create_or_get_storage(kube, namespace, metadata).await?;
                 Self::load_storage_provider_by_cloned(kube, namespace, name, &metadata, storage)
                     .await
             }
             ModelStorageObjectSpec::Owned(storage) => {
-                let metadata = Self::create_or_get_storage(kube, namespace).await?;
+                let metadata = Self::create_or_get_storage(kube, namespace, metadata).await?;
                 Self::load_storage_provider_by_owned(kube, namespace, name, &metadata, storage)
                     .await
             }
@@ -286,7 +293,11 @@ impl<'model> ObjectStorageSession {
 
     #[must_use]
     #[instrument(level = Level::INFO, skip(kube), err(Display))]
-    async fn create_or_get_storage(kube: &Client, namespace: &str) -> Result<ObjectMeta> {
+    async fn create_or_get_storage(
+        kube: &Client,
+        namespace: &str,
+        metadata: Option<&ObjectMeta>,
+    ) -> Result<ObjectMeta> {
         async fn get_latest_nginx_controller_image() -> Result<String> {
             Ok("registry.k8s.io/ingress-nginx/controller:v1.10.0".into())
         }
@@ -297,20 +308,37 @@ impl<'model> ObjectStorageSession {
         let cluster_role_name = format!("dash:{tenant_name}");
         let ingress_class_controller = format!("k8s.io/dash/{tenant_name}/{namespace}");
         let ingress_class_name = get_ingress_class_name(namespace, tenant_name);
-        let ingress_host = get_ingress_host(namespace, tenant_name);
         let service_metrics_name = format!("{tenant_name}-metrics");
 
         let port_http_name = "http";
         let port_https_name = "https";
         let port_metrics_name = "metrics";
 
-        let labels = btreemap! {
-            "app".into() => tenant_name.into(),
-            "dash.ulagbulag.io/modelstorage-type".into() => tenant_name.into(),
+        let annotations = metadata
+            .as_ref()
+            .and_then(|metadata| metadata.annotations.clone());
+        let mut labels = metadata
+            .as_ref()
+            .and_then(|metadata| metadata.labels.clone())
+            .unwrap_or_default();
+        labels.insert("app".into(), tenant_name.into());
+        labels.insert(
+            "dash.ulagbulag.io/modelstorage-type".into(),
+            tenant_name.into(),
+        );
+
+        let service_type = match labels
+            .get(ModelStorageCrd::LABEL_IS_EXTERNAL)
+            .map(|label| label.as_str())
+        {
+            Some("true") => Some("LoadBalancer".into()),
+            Some(_) | None => None,
         };
+
         let metadata = ObjectMeta {
             name: Some(tenant_name.into()),
             namespace: Some(namespace.into()),
+            annotations,
             labels: Some(labels.clone()),
             ..Default::default()
         };
@@ -707,6 +735,7 @@ impl<'model> ObjectStorageSession {
                 metadata: metadata.clone(),
                 spec: Some(ServiceSpec {
                     selector: Some(labels.clone()),
+                    type_: service_type,
                     ports: Some(vec![
                         ServicePort {
                             name: Some(port_http_name.into()),
@@ -784,7 +813,7 @@ impl<'model> ObjectStorageSession {
                     ingress_class_name: Some(ingress_class_name.clone()),
                     tls: None,
                     rules: Some(vec![IngressRule {
-                        host: Some(ingress_host),
+                        host: None,
                         http: Some(HTTPIngressRuleValue {
                             paths: vec![HTTPIngressPath {
                                 path: Some("/".into()),
@@ -792,7 +821,7 @@ impl<'model> ObjectStorageSession {
                                 backend: IngressBackend {
                                     resource: None,
                                     service: Some(IngressServiceBackend {
-                                        name: get_default_tenant_name().into(),
+                                        name: "minio".into(),
                                         port: Some(ServiceBackendPort {
                                             name: Some("http-minio".into()),
                                             number: None,
@@ -1075,7 +1104,6 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
         {
             let api = Api::namespaced(self.kube.clone(), self.namespace);
             let ingress_class_name = get_ingress_class_name(self.namespace, tenant_name);
-            let ingress_host = get_ingress_host(self.namespace, tenant_name);
             let data = || Ingress {
                 metadata: ObjectMeta {
                     annotations: Some(btreemap! {
@@ -1091,7 +1119,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
                     ingress_class_name: Some(ingress_class_name.clone()),
                     tls: None,
                     rules: Some(vec![IngressRule {
-                        host: Some(ingress_host),
+                        host: None,
                         http: Some(HTTPIngressRuleValue {
                             paths: vec![HTTPIngressPath {
                                 path: Some(format!("/{bucket_name}/")),
@@ -2411,8 +2439,8 @@ fn get_default_pod_affinity(tenant_name: &str) -> PodAffinity {
     }
 }
 
-fn get_ingress_host(namespace: &str, tenant_name: &str) -> String {
-    format!("{tenant_name}.{namespace}.svc")
+const fn get_default_tenant_name() -> &'static str {
+    "object-storage"
 }
 
 fn get_ingress_class_name(namespace: &str, tenant_name: &str) -> String {

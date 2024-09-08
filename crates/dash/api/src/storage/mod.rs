@@ -47,6 +47,8 @@ pub struct ModelStorageSpec {
 
 impl ModelStorageCrd {
     pub const FINALIZER_NAME: &'static str = "dash.ulagbulag.io/finalizer-model-storages";
+
+    pub const LABEL_IS_EXTERNAL: &'static str = "ark.ulagbulag.io/is-external";
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

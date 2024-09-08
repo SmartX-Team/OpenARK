@@ -17,7 +17,7 @@ use dash_provider::storage::{
 use futures::TryFutureExt;
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
-use kube::{Resource, ResourceExt};
+use kube::{api::ObjectMeta, Resource, ResourceExt};
 use tracing::{instrument, Level};
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
@@ -29,6 +29,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     pub async fn validate_model_storage(
         &self,
         name: &str,
+        metadata: &ObjectMeta,
         spec: &ModelStorageSpec,
     ) -> Result<Option<u128>> {
         if spec.kind.is_unique() {
@@ -42,7 +43,8 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             }
             ModelStorageKindSpec::Kubernetes(spec) => self.validate_model_storage_kubernetes(spec),
             ModelStorageKindSpec::ObjectStorage(spec) => {
-                self.validate_model_storage_object(name, spec).await
+                self.validate_model_storage_object(name, metadata, spec)
+                    .await
             }
         }
     }
@@ -88,6 +90,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     async fn validate_model_storage_object(
         &self,
         name: &str,
+        metadata: &ObjectMeta,
         storage: &ModelStorageObjectSpec,
     ) -> Result<Option<u128>> {
         let storage = ModelStorageBindingStorageSpec {
@@ -99,6 +102,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
         ObjectStorageClient::try_new(
             self.kubernetes_storage.kube,
             self.kubernetes_storage.namespace,
+            Some(metadata),
             storage,
         )
         .and_then(|client| async move {
@@ -205,7 +209,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             }]
         };
 
-        ObjectStorageClient::try_new(kube, namespace, storage)
+        ObjectStorageClient::try_new(kube, namespace, None, storage)
             .await?
             .get_session(kube, namespace, model)
             .create_bucket(owner_references)
@@ -315,7 +319,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     ) -> Result<()> {
         let KubernetesStorageClient { kube, namespace } = self.kubernetes_storage;
 
-        let client = ObjectStorageClient::try_new(kube, namespace, storage).await?;
+        let client = ObjectStorageClient::try_new(kube, namespace, None, storage).await?;
         let session = client.get_session(kube, namespace, model);
         match deletion_policy {
             ModelStorageBindingDeletionPolicy::Delete => session.delete_bucket().await,

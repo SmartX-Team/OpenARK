@@ -86,7 +86,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .unwrap_or_default()
         {
             ModelStorageState::Pending => {
-                match validator.validate_model_storage(&name, &data.spec).await {
+                match validator
+                    .validate_model_storage(&name, &data.metadata, &data.spec)
+                    .await
+                {
                     Ok(total_quota) => {
                         Self::update_state_or_requeue(
                             &namespace,

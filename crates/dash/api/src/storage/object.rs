@@ -208,16 +208,8 @@ impl ModelStorageObjectRefSpec {
 }
 
 #[inline]
-pub const fn get_default_tenant_name() -> &'static str {
-    "minio"
-}
-
-#[inline]
 pub fn get_kubernetes_minio_endpoint(namespace: &str) -> Option<Url> {
-    format!(
-        "http://{service}.{namespace}.svc",
-        service = get_default_tenant_name()
-    )
-    .parse()
-    .ok()
+    format!("http://object-storage.{namespace}.svc")
+        .parse()
+        .ok()
 }

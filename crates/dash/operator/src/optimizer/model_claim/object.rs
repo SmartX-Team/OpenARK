@@ -27,7 +27,7 @@ impl super::GetCapacity for ModelStorageObjectSpec {
             target_name: &storage_name,
         };
 
-        let client = ObjectStorageClient::try_new(kube, namespace, storage).await?;
+        let client = ObjectStorageClient::try_new(kube, namespace, None, storage).await?;
         let session = client.get_session(kube, namespace, model);
         session.get_capacity().map_ok(Some).await
     }
@@ -40,7 +40,7 @@ impl super::GetCapacity for ModelStorageObjectSpec {
         storage_name: String,
     ) -> Result<Option<Capacity>> {
         let storage =
-            ObjectStorageSession::load_storage_provider(kube, namespace, &storage_name, self)
+            ObjectStorageSession::load_storage_provider(kube, namespace, &storage_name, None, self)
                 .await?;
         storage.get_capacity_global().map_ok(Some).await
     }
