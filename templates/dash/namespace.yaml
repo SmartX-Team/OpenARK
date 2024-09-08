@@ -6,12 +6,3 @@ metadata:
   labels:
     dash.ulagbulag.io/inject-nats: "true"
     dash.ulagbulag.io/inject-otlp: "true"
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: nats-dash-collector
-  namespace: dash
-  labels:
-    nats_cluster: nats
-    nats_service_account: nats-dash-collector

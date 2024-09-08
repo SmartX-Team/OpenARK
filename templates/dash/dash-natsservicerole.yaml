@@ -1,4 +1,13 @@
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nats-dash-collector
+  namespace: dash
+  labels:
+    nats_cluster: nats
+    nats_service_account: nats-dash-collector
+---
 apiVersion: nats.io/v1alpha2
 kind: NatsServiceRole
 metadata:
