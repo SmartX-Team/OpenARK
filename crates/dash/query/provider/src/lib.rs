@@ -208,6 +208,7 @@ async fn load_models<'a>(
                         &kube,
                         namespace,
                         &model_name,
+                        None,
                         &storage,
                     )
                     .await

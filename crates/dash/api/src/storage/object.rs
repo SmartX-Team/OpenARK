@@ -8,6 +8,8 @@ use maplit::btreemap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::model_user::ModelUserAccessTokenSecretRefSpec;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelStorageObjectSpec {
@@ -195,7 +197,7 @@ impl ModelStorageObjectOwnedExternalServiceSpec {
 pub struct ModelStorageObjectRefSpec {
     pub endpoint: Url,
     #[serde(default)]
-    pub secret_ref: ModelStorageObjectRefSecretRefSpec,
+    pub secret_ref: ModelUserAccessTokenSecretRefSpec,
 }
 
 impl ModelStorageObjectRefSpec {
@@ -205,43 +207,9 @@ impl ModelStorageObjectRefSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelStorageObjectRefSecretRefSpec {
-    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_map_access_key")]
-    pub map_access_key: String,
-    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_map_secret_key")]
-    pub map_secret_key: String,
-
-    #[serde(default = "ModelStorageObjectRefSecretRefSpec::default_name")]
-    pub name: String,
-}
-
-impl Default for ModelStorageObjectRefSecretRefSpec {
-    fn default() -> Self {
-        Self {
-            map_access_key: Self::default_map_access_key(),
-            map_secret_key: Self::default_map_secret_key(),
-            name: Self::default_name(),
-        }
-    }
-}
-
-impl ModelStorageObjectRefSecretRefSpec {
-    fn default_map_access_key() -> String {
-        "CONSOLE_ACCESS_KEY".into()
-    }
-
-    fn default_map_secret_key() -> String {
-        "CONSOLE_SECRET_KEY".into()
-    }
-
-    fn default_name() -> String {
-        "object-storage-user-0".into()
-    }
-}
-
 #[inline]
 pub fn get_kubernetes_minio_endpoint(namespace: &str) -> Option<Url> {
-    format!("http://minio.{namespace}.svc").parse().ok()
+    format!("http://object-storage.{namespace}.svc")
+        .parse()
+        .ok()
 }

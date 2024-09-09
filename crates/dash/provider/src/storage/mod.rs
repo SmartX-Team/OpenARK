@@ -215,7 +215,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         model: &ModelCrd,
         ref_name: &str,
     ) -> Result<Option<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, None, storage)
             .await?
             .get_session(self.kube, self.namespace, model)
             .get(ref_name)
@@ -344,7 +344,7 @@ impl<'namespace, 'kube> StorageClient<'namespace, 'kube> {
         storage: ModelStorageBindingStorageSpec<'_, &ModelStorageObjectSpec>,
         model: &ModelCrd,
     ) -> Result<Vec<Value>> {
-        ObjectStorageClient::try_new(self.kube, self.namespace, storage)
+        ObjectStorageClient::try_new(self.kube, self.namespace, None, storage)
             .await?
             .get_session(self.kube, self.namespace, model)
             .get_list()

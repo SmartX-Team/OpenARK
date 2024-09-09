@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::model::{ModelCrd, ModelFieldsNativeSpec, ModelState, ModelStatus};
 use dash_provider::storage::KubernetesStorageClient;
+use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{
     api::{Patch, PatchParams},
     runtime::controller::Action,
@@ -28,6 +29,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
     const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
     const FINALIZER_NAME: &'static str =
         <Self as ::ark_core_k8s::manager::Ctx>::Data::FINALIZER_NAME;
+
+    fn get_subcrds() -> Vec<CustomResourceDefinition> {
+        vec![::dash_api::model_user::ModelUserCrd::crd()]
+    }
 
     #[instrument(level = Level::INFO, skip_all, fields(name = %data.name_any(), namespace = data.namespace()), err(Display))]
     async fn reconcile(
