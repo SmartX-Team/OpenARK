@@ -50,8 +50,8 @@ helm repo add "${NAMESPACE}" "${HELM_CHART}"
 
 echo "- Installing Operator ... "
 
-helm upgrade --install "minio-operator" \
-    "${NAMESPACE}/minio-operator" \
+helm upgrade --install "operator" \
+    "${NAMESPACE}/operator" \
     --create-namespace \
     --namespace "${NAMESPACE}" \
     --set operator.env[0].value="${CLUSTER_NAME}" \
