@@ -309,6 +309,24 @@ prometheusOperator:
 ## Deploy a Prometheus instance
 ##
 prometheus:
+  ## Configuration for Prometheus service
+  ##
+  service:
+    labels:
+      ark.ulagbulag.io/is-external: "true"
+      ark.ulagbulag.io/is-private: "true"
+
+    ## Loadbalancer IP
+    ## Only use if service.type is "LoadBalancer"
+    loadBalancerSourceRanges:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+
+    ## Service type
+    ##
+    type: LoadBalancer
+
   ## Settings affecting prometheusSpec
   ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#prometheusspec
   ##
