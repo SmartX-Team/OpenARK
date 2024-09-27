@@ -18,6 +18,15 @@ USER_NAME="${USER_HOME##*/}"
 USER_ID="$(id -u "${USER_NAME}")"
 
 ###########################################################
+#   XDG Configuration                                     #
+###########################################################
+
+export XDG_RUNTIME_DIR="/run/user/${USER_ID}"
+
+mkdir -p "${XDG_RUNTIME_DIR}"
+chown "${USER_NAME}:${USER_NAME}" "${XDG_RUNTIME_DIR}"
+
+###########################################################
 #   SSH Configuration                                     #
 ###########################################################
 
@@ -98,10 +107,6 @@ fi
 ###########################################################
 #   Run Docker Daemon                                     #
 ###########################################################
-
-export XDG_RUNTIME_DIR="/run/user/${USER_ID}"
-mkdir -p "${XDG_RUNTIME_DIR}"
-chown "${USER_NAME}:${USER_NAME}" "${XDG_RUNTIME_DIR}"
 
 export DOCKER_BIN="${USER_HOME}/.local/bin"
 export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
