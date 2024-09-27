@@ -95,6 +95,24 @@ if [ "x$((${NUM_STORAGE_NODES} < ${NUM_MGRS}))" == "x1" ]; then
     EXTRA_VALUES="${EXTRA_VALUES} --set cephClusterSpec.mgr.count=1"
 fi
 
+# Resize the number of ceph block pool replicas
+NUM_REPLICAS=$(yq ".cephBlockPools[0].spec.replicated.size" "./values-cluster.yaml")
+if [ "x$((${NUM_STORAGE_NODES} < ${NUM_REPLICAS}))" == "x1" ]; then
+    EXTRA_VALUES="${EXTRA_VALUES} --set cephBlockPools[0].spec.replicated.size=1"
+fi
+
+# Resize the number of ceph filesystem metadata pool replicas
+NUM_REPLICAS=$(yq ".cephFileSystems[0].spec.metadataPool.replicated.size" "./values-cluster.yaml")
+if [ "x$((${NUM_STORAGE_NODES} < ${NUM_REPLICAS}))" == "x1" ]; then
+    EXTRA_VALUES="${EXTRA_VALUES} --set cephFileSystems[0].spec.metadataPool.replicated.size=1"
+fi
+
+# Resize the number of ceph filesystem data pool replicas
+NUM_REPLICAS=$(yq ".cephFileSystems[0].spec.dataPools[0].replicated.size" "./values-cluster.yaml")
+if [ "x$((${NUM_STORAGE_NODES} < ${NUM_REPLICAS}))" == "x1" ]; then
+    EXTRA_VALUES="${EXTRA_VALUES} --set cephFileSystems[0].spec.dataPools[0].replicated.size=1"
+fi
+
 helm upgrade --install "rook-ceph-cluster" \
     "${NAMESPACE}/rook-ceph-cluster" \
     --create-namespace \

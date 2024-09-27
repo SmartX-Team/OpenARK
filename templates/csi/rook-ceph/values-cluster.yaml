@@ -6,8 +6,6 @@
 configOverride: |
   [global]
   mon_allow_pool_delete = true
-  osd_pool_default_size = 3
-  osd_pool_default_min_size = 2
 
 # Installs a debugging toolbox deployment
 toolbox:
@@ -113,7 +111,7 @@ cephClusterSpec:
       # Whether to require communication over msgr2. If true, the msgr v1 port (6789) will be disabled
       # and clients will be required to connect to the Ceph cluster with the v2 port (3300).
       # Requires a kernel that supports msgr v2 (kernel 5.11 or CentOS 8.4 or newer).
-      requireMsgr2: false
+      requireMsgr2: true
 
   # To control where various services will be scheduled by kubernetes, use the placement configuration sections below.
   # The example under 'all' would have all services scheduled on kubernetes nodes labeled with 'role=storage-node' and
@@ -137,16 +135,16 @@ cephClusterSpec:
         cpu: "1"
         memory: "1Gi"
     mon:
-      limits:
-        cpu: "2"
-        memory: "2Gi"
+      # limits:
+      #   cpu: "2"
+      #   memory: "2Gi"
       requests:
         cpu: "2"
         memory: "2Gi"
     osd:
       limits:
         cpu: "2"
-        memory: "4Gi"
+        # memory: "4Gi"
       requests:
         cpu: "0.5"
         memory: "500Mi"
