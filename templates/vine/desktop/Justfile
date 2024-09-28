@@ -2,6 +2,7 @@
 export ALPINE_VERSION := env_var_or_default('ALPINE_VERSION', '3.19')
 export DEBIAN_IMAGE := env_var_or_default('DEBIAN_IMAGE', 'docker.io/library/ubuntu')
 export DEBIAN_IMAGE_VERSION := env_var_or_default('DEBIAN_IMAGE_VERSION', '24.04')
+export NGC_CLI_API_KEY := env_var('NGC_CLI_API_KEY')
 export OCI_BUILD_LOG_DIR := env_var_or_default('OCI_BUILD_LOG_DIR', './logs/')
 export OCI_IMAGE := env_var_or_default('OCI_IMAGE', 'quay.io/ulagbulag/openark-vine-desktop')
 export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
@@ -16,6 +17,7 @@ build DIST *ARGS:
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --build-arg "DEBIAN_IMAGE=${DEBIAN_IMAGE}" \
     --build-arg "DEBIAN_IMAGE_VERSION=${DEBIAN_IMAGE_VERSION}" \
+    --secret "id=NGC_CLI_API_KEY" \
     --file "./Dockerfile.{{ DIST }}" \
     --platform "${OCI_PLATFORMS}" \
     --progress 'plain' \

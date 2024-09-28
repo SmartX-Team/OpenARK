@@ -30,7 +30,7 @@ ENV USER_SHELL="${USER_SHELL}"
 ARG DEBIAN_FRONTEND='noninteractive'
 
 # SystemD Configuration
-ENV container docker
+ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 
 # Client Configuration
@@ -133,8 +133,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development environment dependencies
-ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/image_build/main/podman"
-ENV _CONTAINERS_USERNS_CONFIGURED=""
 RUN apt-get update && apt-get install -y \
     # Core
     binutils \
@@ -239,6 +237,14 @@ RUN apt-get update && apt-get install -y \
     zsh-autosuggestions \
     zsh-completions \
     zsh-syntax-highlighting \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure development environment
+ARG PODMAN_REPO="https://raw.githubusercontent.com/containers/image_build/main/podman"
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+RUN true \
     # Allow passwordless sudo command
     && test "x${USER_SUDO}" = "xtrue" \
     && echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >/etc/sudoers.d/10-wheel \
@@ -252,7 +258,6 @@ RUN apt-get update && apt-get install -y \
     && sed -i 's/^\[containers\]/\0\nkeyring=false/g' /etc/containers/containers.conf \
     && sed -i '/^no_pivot_root/ d' /etc/containers/containers.conf \
     && sed -i 's/^\[engine\]/\0\nno_pivot_root=true/g' /etc/containers/containers.conf \
-    && /etc/containers/containers.conf \
     && chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap \
     && systemctl enable podman \
     && touch /etc/containers/nodocker \
@@ -291,10 +296,7 @@ RUN apt-get update && apt-get install -y \
     && ln -sf /usr/local/bin /opt/bin \
     && echo '# local library path registration' >/etc/ld.so.conf.d/100-path-local-lib.conf \
     && echo '/usr/local/lib' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf \
-    # Cleanup
-    && apt-get clean all \
-    && rm -rf /var/lib/apt/lists/*
+    && echo '/usr/local/lib64' >>/etc/ld.so.conf.d/100-path-local-lib.conf
 ENV PATH="${PATH}:/usr/games:/usr/local/bin:/opt/bin"
 
 # Install desktop environment dependencies
@@ -457,7 +459,7 @@ RUN apt-get update && apt-get install -y \
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
     # Remove conflicted repositories
-    && rm /etc/apt/sources.list.d/vscode.list \
+    && rm -f /etc/apt/sources.list.d/vscode.list \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -553,7 +555,7 @@ RUN apt-mark hold wine \
     && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
     && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
     && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
-    && wget -qO "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
+    && curl -Lo "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
     # Decompress the downloaded file
     && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
     && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
@@ -561,12 +563,6 @@ RUN apt-mark hold wine \
     && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
 
 # Install AI dev dependencies
-ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
-ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/resources/nvidia/deepstream/versions"
-ARG DEEPSTREAM_VERSION_MAJOR="6"
-ARG DEEPSTREAM_VERSION_MINOR="4"
-ARG DEEPSTREAM_VERSION_PATCH="0"
-ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
 RUN apt-get update && apt-get install -y \
     # CUDA
     cuda-toolkit-11-8 \
@@ -589,6 +585,25 @@ RUN apt-get update && apt-get install -y \
     curl -sL "http://archive.ubuntu.com/ubuntu/pool/main/y/yaml-cpp/libyaml-cpp0.7_0.7.0+dfsg-8build1_amd64.deb" -o '/tmp/libyaml-cpp.deb' \
     && echo '/tmp/libyaml-cpp.deb' \
     )" \
+    # Cleanup
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AI dev dependencies - NVIDIA DeepStream
+ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
+ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/org/nvidia/resources/deepstream/versions"
+ARG DEEPSTREAM_VERSION_MAJOR="6"
+ARG DEEPSTREAM_VERSION_MINOR="4"
+ARG DEEPSTREAM_VERSION_PATCH="0"
+ARG DEEPSTREAM_VERSION_URL="https://raw.githubusercontent.com/NVIDIA-AI-IOT/deepstream_dockers/main/common/version"
+RUN --mount=type=secret,id=NGC_CLI_API_KEY,env=NGC_CLI_API_KEY \
+    apt-get update \
+    # Generate a Bearer token
+    && TOKEN=$( \
+    curl -s -u "\$oauthtoken:${NGC_CLI_API_KEY}" -H 'Accept:application/json' \
+    'https://authn.nvidia.com/token?service=ngc&scope=group/ngc' \
+    | jq -r '.token' \
+    ) \
     # Get the latest version
     && DEEPSTREAM_VERSION="$( \
     curl -s "${DEEPSTREAM_VERSION_URL}" \
@@ -604,13 +619,16 @@ RUN apt-get update && apt-get install -y \
     && DEEPSTREAM_URL_DOWNLOAD="${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_VERSION_RELEASE}/files" \
     && DEEPSTREAM_FILE_DOWNLOAD="$( \
     curl -s "${DEEPSTREAM_URL_DOWNLOAD}" \
+    --oauth2-bearer "${TOKEN}" \
+    | jq -r '.recipeFiles[].path' \
     | grep -Po "deepstream-${DEEPSTREAM_VERSION_RELEASE}_${DEEPSTREAM_VERSION_FULL}-[0-9]*_$(dpkg --print-architecture).deb" \
-    | sort \
-    | tail -n1 \
+    | sort -rV \
+    | head -n1 \
     )" \
     # Download
     && DEEPSTREAM_FILE="/opt/deepstream-sdk.deb" \
-    && wget -qO "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
+    && curl -Lo "${DEEPSTREAM_FILE}" "${DEEPSTREAM_URL_DOWNLOAD}/${DEEPSTREAM_FILE_DOWNLOAD}" \
+    --oauth2-bearer "${TOKEN}" \
     # Decompress the downloaded file
     && apt-get install -y "${DEEPSTREAM_FILE}" \
     # Install
