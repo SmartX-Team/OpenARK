@@ -1,0 +1,36 @@
+- name: Check whether kiss OS is installed in a disk - Flatcar Container Linux
+  stat:
+    path: /boot/flatcar
+  register: boot_file
+
+- name: Check whether kiss OS is installed in a disk - Flatcar Container Linux - Validate
+  when: boot_file.stat.exists
+  set_fact:
+    kiss_os_default: flatcar
+    kiss_os_exists: true
+
+- name: Check whether kiss OS is installed in a disk - RockyLinux
+  stat:
+    path: /boot/efi/EFI/rocky
+  register: boot_file
+
+- name: Check whether kiss OS is installed in a disk - RockyLinux - Validate
+  when: boot_file.stat.exists
+  set_fact:
+    kiss_os_default: rocky9
+    kiss_os_exists: true
+
+- name: Check whether kiss OS is installed in a disk - Ubuntu
+  stat:
+    path: /boot/efi/EFI/ubuntu
+  register: boot_file
+
+- name: Check whether kiss OS is installed in a disk - Ubuntu - Validate
+  when: boot_file.stat.exists
+  set_fact:
+    kiss_os_default: ubuntu2404
+    kiss_os_exists: true
+
+- name: Check whether kiss OS is installed in a disk
+  set_fact:
+    kiss_os_exists: "{{ kiss_os_exists | default(false) }}"

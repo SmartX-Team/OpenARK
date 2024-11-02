@@ -1,8 +1,8 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write};
+use std::{borrow::Cow, collections::BTreeMap, fmt, io::Write, net::IpAddr, str::FromStr};
 
 use anyhow::{anyhow, bail, Error, Result};
 use ark_core_k8s::data::Url;
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use bytes::{BufMut, Bytes, BytesMut};
 use chrono::Utc;
 use dash_api::{
@@ -29,8 +29,9 @@ use k8s_openapi::{
         apps::v1::{Deployment, DeploymentSpec},
         batch::v1::{Job, JobSpec},
         core::v1::{
-            Affinity, Capabilities, ConfigMap, Container, ContainerPort, EnvVar, EnvVarSource,
-            ExecAction, HTTPGetAction, Lifecycle, LifecycleHandler, NodeAffinity, NodeSelector,
+            Affinity, Capabilities, ConfigMap, Container, ContainerPort, EndpointAddress,
+            EndpointPort, EndpointSubset, Endpoints, EnvVar, EnvVarSource, ExecAction,
+            HTTPGetAction, Lifecycle, LifecycleHandler, NodeAffinity, NodeSelector,
             NodeSelectorRequirement, NodeSelectorTerm, ObjectFieldSelector, PodAffinity,
             PodAffinityTerm, PodSpec, PodTemplateSpec, PreferredSchedulingTerm, Probe,
             ResourceRequirements, Secret, SecurityContext, Service, ServiceAccount, ServicePort,
@@ -80,12 +81,13 @@ pub struct ObjectStorageClient {
 }
 
 impl ObjectStorageClient {
-    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage, metadata), err(Display))]
     pub async fn try_new<'source>(
         kube: &Client,
         namespace: &str,
         metadata: Option<&ObjectMeta>,
         storage: ModelStorageBindingStorageSpec<'source, &ModelStorageObjectSpec>,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
         Ok(Self {
             source: match storage.source {
@@ -100,6 +102,7 @@ impl ObjectStorageClient {
                         source_name,
                         metadata,
                         source,
+                        prometheus_url,
                     )
                     .await
                     .map(|source| (source, sync_policy))?,
@@ -113,6 +116,7 @@ impl ObjectStorageClient {
                 storage.target_name,
                 metadata,
                 storage.target,
+                prometheus_url,
             )
             .await?,
         })
@@ -159,28 +163,50 @@ impl fmt::Debug for ObjectStorageSession {
 }
 
 impl<'model> ObjectStorageSession {
-    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage, metadata), err(Display))]
     pub async fn load_storage_provider(
         kube: &Client,
         namespace: &str,
         name: &str,
         metadata: Option<&ObjectMeta>,
         storage: &ModelStorageObjectSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
         match storage {
             ModelStorageObjectSpec::Borrowed(storage) => {
                 let _ = Self::create_or_get_storage(kube, namespace, metadata).await?;
-                Self::load_storage_provider_by_borrowed(kube, namespace, name, storage).await
+                Self::load_storage_provider_by_borrowed(
+                    kube,
+                    namespace,
+                    name,
+                    storage,
+                    prometheus_url,
+                )
+                .await
             }
             ModelStorageObjectSpec::Cloned(storage) => {
                 let metadata = Self::create_or_get_storage(kube, namespace, metadata).await?;
-                Self::load_storage_provider_by_cloned(kube, namespace, name, &metadata, storage)
-                    .await
+                Self::load_storage_provider_by_cloned(
+                    kube,
+                    namespace,
+                    name,
+                    &metadata,
+                    storage,
+                    prometheus_url,
+                )
+                .await
             }
             ModelStorageObjectSpec::Owned(storage) => {
                 let metadata = Self::create_or_get_storage(kube, namespace, metadata).await?;
-                Self::load_storage_provider_by_owned(kube, namespace, name, &metadata, storage)
-                    .await
+                Self::load_storage_provider_by_owned(
+                    kube,
+                    namespace,
+                    name,
+                    &metadata,
+                    storage,
+                    prometheus_url,
+                )
+                .await
             }
         }
         .map_err(|error| anyhow!("failed to load object storage provider: {error}"))
@@ -192,25 +218,39 @@ impl<'model> ObjectStorageSession {
         namespace: &str,
         name: &str,
         storage: &ModelStorageObjectBorrowedSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
         let ModelStorageObjectBorrowedSpec { reference } = storage;
-        Self::load_storage_provider_by_reference(kube, namespace, name, reference).await
+        Self::load_storage_provider_by_reference(kube, namespace, name, reference, prometheus_url)
+            .await
     }
 
-    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage, metadata), err(Display))]
     async fn load_storage_provider_by_cloned(
         kube: &Client,
         namespace: &str,
         name: &str,
         metadata: &ObjectMeta,
         storage: &ModelStorageObjectClonedSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
-        let reference =
-            Self::load_storage_provider_by_reference(kube, namespace, name, &storage.reference)
-                .await?;
-        let owned =
-            Self::load_storage_provider_by_owned(kube, namespace, name, metadata, &storage.owned)
-                .await?;
+        let reference = Self::load_storage_provider_by_reference(
+            kube,
+            namespace,
+            name,
+            &storage.reference,
+            prometheus_url.clone(),
+        )
+        .await?;
+        let owned = Self::load_storage_provider_by_owned(
+            kube,
+            namespace,
+            name,
+            metadata,
+            &storage.owned,
+            prometheus_url,
+        )
+        .await?;
 
         let admin = MinioAdminClient {
             storage: &reference,
@@ -222,17 +262,26 @@ impl<'model> ObjectStorageSession {
         Ok(owned)
     }
 
-    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage, metadata), err(Display))]
     async fn load_storage_provider_by_owned(
         kube: &Client,
         namespace: &str,
         name: &str,
         metadata: &ObjectMeta,
         storage: &ModelStorageObjectOwnedSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
-        let storage =
-            Self::create_or_get_minio_storage(kube, namespace, name, metadata, storage).await?;
-        Self::load_storage_provider_by_reference(kube, namespace, name, &storage).await
+        let storage = Self::create_or_get_minio_storage(
+            kube,
+            namespace,
+            name,
+            metadata,
+            storage,
+            prometheus_url,
+        )
+        .await?;
+        Self::load_storage_provider_by_reference(kube, namespace, name, &storage, prometheus_url)
+            .await
     }
 
     #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
@@ -241,6 +290,7 @@ impl<'model> ObjectStorageSession {
         namespace: &str,
         name: &str,
         storage: &ModelStorageObjectRefSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<Self> {
         let ModelStorageObjectRefSpec {
             endpoint,
@@ -292,7 +342,7 @@ impl<'model> ObjectStorageSession {
     }
 
     #[must_use]
-    #[instrument(level = Level::INFO, skip(kube), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, metadata), err(Display))]
     async fn create_or_get_storage(
         kube: &Client,
         namespace: &str,
@@ -309,6 +359,7 @@ impl<'model> ObjectStorageSession {
         let ingress_class_controller = format!("k8s.io/dash/{tenant_name}/{namespace}");
         let ingress_class_name = get_ingress_class_name(namespace, tenant_name);
         let service_metrics_name = format!("{tenant_name}-metrics");
+        let service_minio_name = "minio".into();
 
         let port_http_name = "http";
         let port_https_name = "https";
@@ -701,8 +752,8 @@ impl<'model> ObjectStorageSession {
                                 ]),
                                 resources: Some(ResourceRequirements {
                                     limits: Some(btreemap! {
-                                        "cpu".into() => Quantity("2".into()),
-                                        "memory".into() => Quantity("2Gi".into()),
+                                        "cpu".into() => Quantity(ModelStorageObjectOwnedReplicationSpec::default_resources_cpu().into()),
+                                        "memory".into() => Quantity(ModelStorageObjectOwnedReplicationSpec::default_resources_memory().into()),
                                     }),
                                     ..Default::default()
                                 }),
@@ -807,7 +858,10 @@ impl<'model> ObjectStorageSession {
         {
             let api = Api::namespaced(kube.clone(), namespace);
             let data = || Ingress {
-                metadata: metadata.clone(),
+                metadata: ObjectMeta {
+                    annotations: Some(get_default_ingress_annotations()),
+                    ..metadata.clone()
+                },
                 spec: Some(IngressSpec {
                     default_backend: None,
                     ingress_class_name: Some(ingress_class_name.clone()),
@@ -821,7 +875,7 @@ impl<'model> ObjectStorageSession {
                                 backend: IngressBackend {
                                     resource: None,
                                     service: Some(IngressServiceBackend {
-                                        name: "minio".into(),
+                                        name: service_minio_name,
                                         port: Some(ServiceBackendPort {
                                             name: Some("http-minio".into()),
                                             number: None,
@@ -856,19 +910,21 @@ impl<'model> ObjectStorageSession {
         Ok(metadata)
     }
 
-    #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, storage, metadata), err(Display))]
     async fn create_or_get_minio_storage(
         kube: &Client,
         namespace: &str,
         name: &str,
         metadata: &ObjectMeta,
         storage: &ModelStorageObjectOwnedSpec,
+        prometheus_url: Option<&str>,
     ) -> Result<ModelStorageObjectRefSpec> {
         async fn get_latest_minio_image() -> Result<String> {
-            Ok("docker.io/minio/minio:RELEASE.2023-09-16T01-01-47Z".into())
+            Ok("docker.io/minio/minio:RELEASE.2024-08-03T04-33-23Z".into())
         }
 
         let tenant_name = get_default_tenant_name();
+        let annotations = BTreeMap::default();
         let labels = btreemap! {
             "app".into() => "minio".into(),
             "dash.ulagbulag.io/modelstorage-name".into() => name.into(),
@@ -882,9 +938,11 @@ impl<'model> ObjectStorageSession {
 
             let spec = MinioTenantSpec {
                 image: get_latest_minio_image().await?,
+                annotations: &annotations,
                 labels: &labels,
                 owner_references: metadata.owner_references.as_ref(),
                 pool_name,
+                prometheus_url,
                 storage,
             };
             get_or_create_minio_tenant(kube, namespace, name, spec).await?
@@ -1039,7 +1097,11 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
-    pub async fn create_bucket(&self, owner_references: Vec<OwnerReference>) -> Result<()> {
+    pub async fn create_bucket(
+        &self,
+        owner_references: Vec<OwnerReference>,
+        quota: Option<Byte>,
+    ) -> Result<()> {
         let mut bucket_name = self.get_bucket_name();
         if !self.is_bucket_exists().await? {
             let args = MakeBucketArgs::new(&bucket_name)?;
@@ -1049,6 +1111,9 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             };
         }
 
+        if let Some(quota) = quota {
+            self.set_bucket_quota(&bucket_name, quota).await?;
+        }
         self.sync_bucket(bucket_name).await?;
         self.create_bucket_service(owner_references).await
     }
@@ -1060,6 +1125,24 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
         let name = bucket_name.to_string();
 
         let service_http_name = "http";
+
+        let session = match self.source {
+            Some((storage, policy)) if policy.is_none() => storage,
+            Some(_) | None => self.target,
+        };
+        let external_name = session
+            .endpoint
+            .host_str()
+            .ok_or_else(|| anyhow!("unknown endpoint host"))?;
+
+        let service_ports = || {
+            vec![ServicePort {
+                name: Some(service_http_name.into()),
+                protocol: Some("TCP".into()),
+                port: 80,
+                ..Default::default()
+            }]
+        };
 
         let labels = btreemap! {
             "dash.ulagbulag.io/model-name".into() => bucket_name.clone(),
@@ -1074,29 +1157,44 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             ..Default::default()
         };
 
+        let service_spec = match IpAddr::from_str(external_name) {
+            Ok(addr) => {
+                let api = Api::namespaced(self.kube.clone(), self.namespace);
+                let data = || Endpoints {
+                    metadata: metadata.clone(),
+                    subsets: Some(vec![EndpointSubset {
+                        addresses: Some(vec![EndpointAddress {
+                            ip: addr.to_string(),
+                            ..Default::default()
+                        }]),
+                        not_ready_addresses: None,
+                        ports: Some(vec![EndpointPort {
+                            name: Some(service_http_name.into()),
+                            protocol: Some("TCP".into()),
+                            port: 80,
+                            ..Default::default()
+                        }]),
+                    }]),
+                };
+                get_or_create(&api, "service", &name, data).await?;
+
+                ServiceSpec {
+                    ports: Some(service_ports()),
+                    ..Default::default()
+                }
+            }
+            Err(_) => ServiceSpec {
+                type_: Some("ExternalName".into()),
+                external_name: Some(external_name.into()),
+                ports: Some(service_ports()),
+                ..Default::default()
+            },
+        };
         {
             let api = Api::namespaced(self.kube.clone(), self.namespace);
-            let session = match self.source {
-                Some((storage, policy)) if policy.is_none() => storage,
-                Some(_) | None => self.target,
-            };
-            let external_name = session
-                .endpoint
-                .host_str()
-                .ok_or_else(|| anyhow!("unknown endpoint host"))?;
             let data = || Service {
                 metadata: metadata.clone(),
-                spec: Some(ServiceSpec {
-                    type_: Some("ExternalName".into()),
-                    external_name: Some(external_name.into()),
-                    ports: Some(vec![ServicePort {
-                        name: Some(service_http_name.into()),
-                        protocol: Some("TCP".into()),
-                        port: 80,
-                        ..Default::default()
-                    }]),
-                    ..Default::default()
-                }),
+                spec: Some(service_spec),
                 status: None,
             };
             get_or_create(&api, "service", &name, data).await?
@@ -1106,12 +1204,7 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             let ingress_class_name = get_ingress_class_name(self.namespace, tenant_name);
             let data = || Ingress {
                 metadata: ObjectMeta {
-                    annotations: Some(btreemap! {
-                        // max single payload size; it can be virtually increased by using multi-part uploading
-                        "nginx.ingress.kubernetes.io/proxy-body-size".into() => "100M".into(),
-                        "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
-                        "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
-                    }),
+                    annotations: Some(get_default_ingress_annotations()),
                     ..metadata.clone()
                 },
                 spec: Some(IngressSpec {
@@ -1121,20 +1214,36 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
                     rules: Some(vec![IngressRule {
                         host: None,
                         http: Some(HTTPIngressRuleValue {
-                            paths: vec![HTTPIngressPath {
-                                path: Some(format!("/{bucket_name}/")),
-                                path_type: "Prefix".into(),
-                                backend: IngressBackend {
-                                    resource: None,
-                                    service: Some(IngressServiceBackend {
-                                        name: name.clone(),
-                                        port: Some(ServiceBackendPort {
-                                            name: Some(service_http_name.into()),
-                                            number: None,
+                            paths: vec![
+                                HTTPIngressPath {
+                                    path: Some(format!("/{bucket_name}")),
+                                    path_type: "Exact".into(),
+                                    backend: IngressBackend {
+                                        resource: None,
+                                        service: Some(IngressServiceBackend {
+                                            name: name.clone(),
+                                            port: Some(ServiceBackendPort {
+                                                name: Some(service_http_name.into()),
+                                                number: None,
+                                            }),
                                         }),
-                                    }),
+                                    },
                                 },
-                            }],
+                                HTTPIngressPath {
+                                    path: Some(format!("/{bucket_name}/")),
+                                    path_type: "Prefix".into(),
+                                    backend: IngressBackend {
+                                        resource: None,
+                                        service: Some(IngressServiceBackend {
+                                            name: name.clone(),
+                                            port: Some(ServiceBackendPort {
+                                                name: Some(service_http_name.into()),
+                                                number: None,
+                                            }),
+                                        }),
+                                    },
+                                },
+                            ],
                         }),
                     }]),
                 }),
@@ -1143,6 +1252,11 @@ impl<'client, 'model, 'source> ObjectStorageRef<'client, 'model, 'source> {
             get_or_create(&api, "ingress", &name, data).await?
         };
         Ok(())
+    }
+
+    #[instrument(level = Level::INFO, skip(self), err(Display))]
+    async fn set_bucket_quota(&self, bucket_name: &str, quota: Byte) -> Result<()> {
+        self.admin().set_capacity_bucket(bucket_name, quota).await
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
@@ -1817,6 +1931,54 @@ impl<'storage> MinioAdminClient<'storage> {
         .ok();
     }
 
+    async fn set_capacity_bucket(&self, bucket_name: &str, quota: Byte) -> Result<()> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct BucketQuota {
+            /// Deprecated @ Aug 2023
+            quota: u64,
+            size: u64,
+            #[serde(rename = "quotatype")]
+            quota_type: QuotaType,
+        }
+
+        #[derive(Default, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        enum QuotaType {
+            #[default]
+            Hard,
+        }
+
+        info!(
+            "Setting bucket capacity ({name}: {origin}): {quota}",
+            name = &self.storage.name,
+            origin = &self.storage.endpoint,
+            quota = quota.get_appropriate_unit(UnitType::Binary),
+        );
+        let data = BucketQuota {
+            quota: quota.as_u64(),
+            size: quota.as_u64(),
+            quota_type: QuotaType::Hard,
+        };
+        let ciphertext = ::serde_json::to_vec(&data)?.into();
+
+        self.execute::<&str>(
+            Method::PUT,
+            "/admin/v3/set-bucket-quota",
+            &[("bucket", bucket_name)],
+            Some(ciphertext),
+        )
+        .map_ok(|_| ())
+        .map_err(|error| {
+            anyhow!(
+                "failed to set bucket capacity ({name}: {origin}): {error}",
+                name = &self.storage.name,
+                origin = &self.storage.endpoint,
+            )
+        })
+        .await
+    }
+
     #[instrument(level = Level::INFO, skip(self, target), err(Display))]
     async fn set_remote_target(
         &self,
@@ -1961,9 +2123,11 @@ impl<'storage> MinioAdminClient<'storage> {
 
 struct MinioTenantSpec<'a> {
     image: String,
+    annotations: &'a BTreeMap<String, String>,
     labels: &'a BTreeMap<String, String>,
     owner_references: Option<&'a Vec<OwnerReference>>,
     pool_name: &'a str,
+    prometheus_url: Option<&'a str>,
     storage: &'a ModelStorageObjectOwnedSpec,
 }
 
@@ -1974,9 +2138,11 @@ async fn get_or_create_minio_tenant(
     name: &str,
     MinioTenantSpec {
         image,
+        annotations,
         labels,
         owner_references,
         pool_name,
+        prometheus_url,
         storage:
             ModelStorageObjectOwnedSpec {
                 minio_console_external_service,
@@ -2021,6 +2187,7 @@ async fn get_or_create_minio_tenant(
         let name = format!("{name}-env-configuration");
         get_or_create(&api_secret, "secret", &name, || Secret {
             metadata: ObjectMeta {
+                annotations: Some(annotations.clone()),
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
@@ -2049,6 +2216,7 @@ export MINIO_ROOT_PASSWORD="{password}"
         let name = format!("{name}-secret");
         get_or_create(&api_secret, "secret", &name, || Secret {
             metadata: ObjectMeta {
+                annotations: Some(annotations.clone()),
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
@@ -2069,6 +2237,7 @@ export MINIO_ROOT_PASSWORD="{password}"
         let name = format!("{name}-user-0");
         get_or_create(&api_secret, "secret", &name, || Secret {
             metadata: ObjectMeta {
+                annotations: Some(annotations.clone()),
                 labels: Some(labels.clone()),
                 name: Some(name.clone()),
                 namespace: Some(namespace.to_string()),
@@ -2096,127 +2265,131 @@ export MINIO_ROOT_PASSWORD="{password}"
 
     {
         let api = load_api_tenant(kube, namespace).await?;
-        let data = || DynamicObject {
-            types: Some(TypeMeta {
-                api_version: "minio.min.io/v2".into(),
-                kind: "Tenant".into(),
-            }),
-            metadata: ObjectMeta {
-                annotations: Some(
-                    [
-                        ("prometheus.io/path", "/minio/prometheus/metrics"),
-                        ("prometheus.io/port", "9000"),
-                        ("prometheus.io/scrape", "true"),
-                    ]
-                    .iter()
-                    .map(|(key, value)| (key.to_string(), value.to_string()))
-                    .collect(),
-                ),
-                labels: Some(labels.clone()),
-                name: Some(name.to_string()),
-                namespace: Some(namespace.to_string()),
-                owner_references: owner_references.cloned(),
-                ..Default::default()
-            },
-            data: json!({
-                "spec": {
-                    "configuration": {
-                        "name": secret_env_configuration.name_any(),
-                    },
-                    "credsSecret": {
-                        "name": secret_creds.name_any(),
-                    },
-                    "env": [
-                        {
-                            "name": "MINIO_PROMETHEUS_AUTH_TYPE",
-                            "value": "public",
-                        },
-                        {
-                            "name": "MINIO_PROMETHEUS_JOB_ID",
-                            "value": format!("{name}-minio-job"),
-                        },
-                        {
-                            "name": "MINIO_PROMETHEUS_URL",
-                            "value": "kube-prometheus-stack-prometheus.monitoring.svc:9090",
-                        },
-                    ],
-                    "exposeServices": {
-                        "console": minio_console_external_service.is_enabled(),
-                        "minio": minio_external_service.is_enabled(),
-                    },
-                    "image": image,
-                    "imagePullPolicy": "Always",
-                    "imagePullSecret": {},
-                    "mountPath": "/export",
-                    "pools": [
-                        {
-                            "affinity": {
-                                "nodeAffinity": get_default_node_affinity(),
-                                "podAffinity": get_default_pod_affinity(name),
-                                "podAntiAffinity": {
-                                    "requiredDuringSchedulingIgnoredDuringExecution": [
-                                        {
-                                            "labelSelector": {
-                                                "matchExpressions": [
-                                                    {
-                                                        "key": "v1.min.io/tenant",
-                                                        "operator": "In",
-                                                        "values": [
-                                                            name,
-                                                        ],
-                                                    },
-                                                    {
-                                                        "key": "v1.min.io/pool",
-                                                        "operator": "In",
-                                                        "values": [
-                                                            pool_name,
-                                                        ],
-                                                    },
-                                                ],
-                                            },
-                                            "topologyKey": "kubernetes.io/hostname",
-                                        },
-                                    ],
-                                },
-                            },
-                            "labels": labels,
-                            "name": pool_name,
-                            "resources": compute_resources,
-                            "runtimeClassName": runtime_class_name,
-                            "servers": total_nodes,
-                            "volumeClaimTemplate": {
-                                "metadata": {
-                                    "labels": labels,
-                                },
-                                "spec": {
-                                    "accessModes": [
-                                        "ReadWriteOnce",
-                                    ],
-                                    "resources": storage_resources,
-                                    "storageClassName": storage_class_name,
-                                },
-                            },
-                            "volumesPerServer": total_volumes_per_node,
-                        },
-                    ],
-                    "requestAutoCert": false,
-                    "serviceMetadata": {
-                        "consoleServiceAnnotations": {
-                            "metallb.universe.tf/address-pool": minio_console_external_service.address_pool,
-                            "metallb.universe.tf/loadBalancerIPs": minio_console_external_service.ip,
-                        },
-                        "consoleServiceLabels": labels_console,
-                        "minioServiceAnnotations": {
-                            "metallb.universe.tf/address-pool": minio_external_service.address_pool,
-                            "metallb.universe.tf/loadBalancerIPs": minio_external_service.ip,
-                        },
-                        "minioServiceLabels": labels_minio,
-                    },
-                    "users": users,
+        let data = || {
+            Ok(DynamicObject {
+                types: Some(TypeMeta {
+                    api_version: "minio.min.io/v2".into(),
+                    kind: "Tenant".into(),
+                }),
+                metadata: ObjectMeta {
+                    annotations: Some({
+                        let mut annotations = annotations.clone();
+                        annotations.insert(
+                            "prometheus.io/path".into(),
+                            "/minio/v2/metrics/cluster".into(),
+                        );
+                        annotations.insert("prometheus.io/port".into(), "9000".into());
+                        annotations.insert("prometheus.io/scrape".into(), "true".into());
+                        annotations
+                    }),
+                    labels: Some(labels.clone()),
+                    name: Some(name.to_string()),
+                    namespace: Some(namespace.to_string()),
+                    owner_references: owner_references.cloned(),
+                    ..Default::default()
                 },
-            }),
+                data: json!({
+                    "spec": {
+                        "configuration": {
+                            "name": secret_env_configuration.name_any(),
+                        },
+                        "credsSecret": {
+                            "name": secret_creds.name_any(),
+                        },
+                        "env": [
+                            {
+                                "name": "MINIO_PROMETHEUS_AUTH_TYPE",
+                                "value": "public",
+                            },
+                            {
+                                "name": "MINIO_PROMETHEUS_JOB_ID",
+                                "value": format!("{name}-minio-job"),
+                            },
+                            {
+                                "name": "MINIO_PROMETHEUS_URL",
+                                "value": prometheus_url.ok_or_else(|| anyhow!("no such storage: {namespace}/{name}"))?,
+                            },
+                        ],
+                        "exposeServices": {
+                            "console": minio_console_external_service.is_enabled(),
+                            "minio": minio_external_service.is_enabled(),
+                        },
+                        "image": image,
+                        "imagePullPolicy": "Always",
+                        "imagePullSecret": {},
+                        "mountPath": "/export",
+                        "pools": [
+                            {
+                                "affinity": {
+                                    "nodeAffinity": get_default_node_affinity(),
+                                    "podAffinity": get_default_pod_affinity(name),
+                                    "podAntiAffinity": {
+                                        "requiredDuringSchedulingIgnoredDuringExecution": [
+                                            {
+                                                "labelSelector": {
+                                                    "matchExpressions": [
+                                                        {
+                                                            "key": "v1.min.io/tenant",
+                                                            "operator": "In",
+                                                            "values": [
+                                                                name,
+                                                            ],
+                                                        },
+                                                        {
+                                                            "key": "v1.min.io/pool",
+                                                            "operator": "In",
+                                                            "values": [
+                                                                pool_name,
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                                "topologyKey": "kubernetes.io/hostname",
+                                            },
+                                        ],
+                                    },
+                                },
+                                // "annotations": annotations,
+                                "labels": labels,
+                                "name": pool_name,
+                                "resources": compute_resources,
+                                "runtimeClassName": runtime_class_name,
+                                "servers": total_nodes,
+                                "volumeClaimTemplate": {
+                                    "metadata": {
+                                        "annotations": annotations,
+                                        "labels": labels,
+                                    },
+                                    "spec": {
+                                        "accessModes": [
+                                            "ReadWriteOnce",
+                                        ],
+                                        "resources": storage_resources,
+                                        "storageClassName": storage_class_name,
+                                    },
+                                },
+                                "volumesPerServer": total_volumes_per_node,
+                            },
+                        ],
+                        "requestAutoCert": false,
+                        "serviceMetadata": {
+                            "consoleServiceAnnotations": {
+                                "metallb.universe.tf/address-pool": minio_console_external_service.address_pool,
+                                "metallb.universe.tf/loadBalancerIPs": minio_console_external_service.ip,
+                            },
+                            "consoleServiceLabels": labels_console,
+                            "minioServiceAnnotations": {
+                                "metallb.universe.tf/address-pool": minio_external_service.address_pool,
+                                "metallb.universe.tf/loadBalancerIPs": minio_external_service.ip,
+                            },
+                            "minioServiceLabels": labels_minio,
+                        },
+                        "users": users,
+                    },
+                }),
+            })
         };
-        get_or_create(&api, "tenant", name, data).await?
+        get_or_try_create(&api, "tenant", name, data).await?
     };
     {
         let api = load_api_service_monitor(kube, namespace).await?;
@@ -2237,7 +2410,17 @@ export MINIO_ROOT_PASSWORD="{password}"
                 "spec": {
                     "endpoints": [
                         {
-                            "path": "/minio/prometheus/metrics",
+                            "path": "/minio/v2/metrics/bucket",
+                            "port": "http-minio",
+                            "interval": "5s",
+                        },
+                        {
+                            "path": "/minio/v2/metrics/cluster",
+                            "port": "http-minio",
+                            "interval": "5s",
+                        },
+                        {
+                            "path": "/minio/v2/metrics/resource",
                             "port": "http-minio",
                             "interval": "5s",
                         },
@@ -2268,10 +2451,18 @@ struct BucketJobSpec<'a> {
     sync_source_overwrite: bool,
 }
 
-#[instrument(level = Level::INFO, skip(api, data), err(Display))]
 async fn get_or_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
 where
     Data: FnOnce() -> K,
+    K: Clone + fmt::Debug + Serialize + DeserializeOwned,
+{
+    get_or_try_create(api, kind, name, || Ok(data())).await
+}
+
+#[instrument(level = Level::INFO, skip(api, data), err(Display))]
+async fn get_or_try_create<K, Data>(api: &Api<K>, kind: &str, name: &str, data: Data) -> Result<K>
+where
+    Data: FnOnce() -> Result<K>,
     K: Clone + fmt::Debug + Serialize + DeserializeOwned,
 {
     match api.get_opt(name).await {
@@ -2281,7 +2472,7 @@ where
                 dry_run: false,
                 field_manager: Some(crate::NAME.into()),
             };
-            api.create(&pp, &data())
+            api.create(&pp, &data()?)
                 .await
                 .map_err(|error| anyhow!("failed to create {kind} ({name}): {error}"))
         }
@@ -2339,8 +2530,8 @@ fn split_resources(
     let mut compute = resources.clone();
     let storage = ResourceRequirements {
         claims: compute.claims.clone(),
-        limits: split_storage(&mut compute.limits, total_volumes, false)?,
-        requests: split_storage(&mut compute.requests, total_volumes, true)?,
+        limits: split_storage(&mut compute.limits, total_volumes, true)?,
+        requests: split_storage(&mut compute.requests, total_volumes, false)?,
     };
     Ok((
         ModelStorageObjectOwnedReplicationComputeResource(compute),
@@ -2441,6 +2632,15 @@ fn get_default_pod_affinity(tenant_name: &str) -> PodAffinity {
 
 const fn get_default_tenant_name() -> &'static str {
     "object-storage"
+}
+
+fn get_default_ingress_annotations() -> BTreeMap<String, String> {
+    btreemap! {
+        // max single payload size; it can be virtually increased by using multi-part uploading
+        "nginx.ingress.kubernetes.io/proxy-body-size".into() => "100M".into(),
+        "nginx.ingress.kubernetes.io/proxy-read-timeout".into() => "3600".into(),
+        "nginx.ingress.kubernetes.io/proxy-send-timeout".into() => "3600".into(),
+    }
 }
 
 fn get_ingress_class_name(namespace: &str, tenant_name: &str) -> String {

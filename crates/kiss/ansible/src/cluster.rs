@@ -161,11 +161,24 @@ impl<'a> ClusterState<'a> {
     }
 
     pub fn is_control_plane_ready(&self) -> bool {
-        let control_planes_running = self.control_planes.num_running();
+        let control_planes_ready = self.control_planes.num_ready();
         let control_planes_total = self.control_planes.num_total();
 
         info!(
             "Cluster \"{}\" status: {}/{} control-plane nodes are ready",
+            &self.owner_group.cluster_name, control_planes_ready, control_planes_total,
+        );
+
+        // assert all control plane nodes are ready
+        control_planes_ready == control_planes_total
+    }
+
+    pub fn is_control_plane_running(&self) -> bool {
+        let control_planes_running = self.control_planes.num_running();
+        let control_planes_total = self.control_planes.num_total();
+
+        info!(
+            "Cluster \"{}\" status: {}/{} control-plane nodes are running",
             &self.owner_group.cluster_name, control_planes_running, control_planes_total,
         );
 
@@ -178,7 +191,7 @@ impl<'a> ClusterState<'a> {
             return false;
         }
 
-        // assert all control plane nodes are ready
+        // assert all control plane nodes are running
         control_planes_running == control_planes_total
     }
 
@@ -188,9 +201,9 @@ impl<'a> ClusterState<'a> {
 
     pub fn is_joinable(&self) -> bool {
         if self.is_node_control_plane() {
-            self.control_planes.is_next(self.owner_uuid)
+            self.is_control_plane_ready() && self.control_planes.is_next(self.owner_uuid)
         } else {
-            self.is_control_plane_ready()
+            self.is_control_plane_running()
         }
     }
 
@@ -280,6 +293,10 @@ impl ClusterBoxGroup {
             .sorted_by_key(|&(node, _)| (&node.created_at, node))
     }
 
+    fn num_ready(&self) -> usize {
+        self.nodes.iter().filter(|(node, _)| node.is_ready).count()
+    }
+
     fn num_running(&self) -> usize {
         self.nodes
             .iter()
@@ -351,6 +368,7 @@ struct ClusterBoxState {
     created_at: Option<Time>,
     hostname: String,
     ip: Option<IpAddr>,
+    is_ready: bool,
     is_running: bool,
     uuid: Uuid,
 }
@@ -371,6 +389,11 @@ impl ClusterBoxState {
                 .as_ref()
                 .and_then(|status| status.access.primary.as_ref())
                 .map(|interface| interface.address),
+            is_ready: object
+                .status
+                .as_ref()
+                .map(|status| matches!(status.state, BoxState::Ready | BoxState::Running))
+                .unwrap_or_default(),
             is_running: object
                 .status
                 .as_ref()

@@ -2,24 +2,6 @@
 - name: Populate service facts
   service_facts:
 
-- name: Check whether kiss OS is installed in a disk
-  block:
-    - name: Check whether kiss OS is installed in a disk - Flatcar Container Linux
-      when: kiss_os_default in ['flatcar']
-      stat:
-        path: /boot/flatcar
-      register: boot_file
-    - name: Check whether kiss OS is installed in a disk - RockyLinux
-      when: kiss_os_default in ['rocky9']
-      stat:
-        path: /boot/efi/EFI/rocky
-      register: boot_file
-    - name: Check whether kiss OS is installed in a disk - Ubuntu
-      when: kiss_os_default in ['ubuntu2404']
-      stat:
-        path: /boot/efi/EFI/ubuntu
-      register: boot_file
-
 - name: Check whether kiss OS is dirty
   stat:
     path: /opt/.kiss-dirty
@@ -60,7 +42,6 @@
 
 - name: Check whether kiss OS is already configured
   set_fact:
-    kiss_os_exists: "{{ boot_file.stat.exists }}"
     kiss_os_dirty: "{{ kiss_dirty_file.stat.exists }}"
 
 - name: Collect brief device informations

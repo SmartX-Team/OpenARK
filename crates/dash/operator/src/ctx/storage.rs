@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-use ark_core_k8s::manager::Manager;
+use ark_core_k8s::manager::{Manager, TryDefault};
 use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::storage::{
@@ -16,10 +16,20 @@ use kube::{
 use serde_json::json;
 use tracing::{info, instrument, warn, Level};
 
-use crate::validator::storage::ModelStorageValidator;
+use crate::{consts::infer_prometheus_url, validator::storage::ModelStorageValidator};
 
-#[derive(Default)]
-pub struct Ctx {}
+pub struct Ctx {
+    prometheus_url: String,
+}
+
+#[async_trait]
+impl TryDefault for Ctx {
+    async fn try_default() -> Result<Self> {
+        Ok(Self {
+            prometheus_url: infer_prometheus_url(),
+        })
+    }
+}
 
 #[async_trait]
 impl ::ark_core_k8s::manager::Ctx for Ctx {
@@ -77,6 +87,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 namespace: &namespace,
                 kube: &manager.kube,
             },
+            prometheus_url: &manager.ctx.prometheus_url,
         };
 
         match data

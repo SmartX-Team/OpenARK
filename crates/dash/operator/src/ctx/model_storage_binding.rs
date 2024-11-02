@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-use ark_core_k8s::manager::Manager;
+use ark_core_k8s::manager::{Manager, TryDefault};
 use async_trait::async_trait;
 use chrono::Utc;
 use dash_api::model_storage_binding::{
@@ -16,14 +16,27 @@ use kube::{
 use serde_json::json;
 use tracing::{info, instrument, warn, Level};
 
-use crate::validator::{
-    model::ModelValidator,
-    model_storage_binding::{ModelStorageBindingValidator, UpdateContext},
-    storage::ModelStorageValidator,
+use crate::{
+    consts::infer_prometheus_url,
+    validator::{
+        model::ModelValidator,
+        model_storage_binding::{ModelStorageBindingValidator, UpdateContext},
+        storage::ModelStorageValidator,
+    },
 };
 
-#[derive(Default)]
-pub struct Ctx {}
+pub struct Ctx {
+    prometheus_url: String,
+}
+
+#[async_trait]
+impl TryDefault for Ctx {
+    async fn try_default() -> Result<Self> {
+        Ok(Self {
+            prometheus_url: infer_prometheus_url(),
+        })
+    }
+}
 
 #[async_trait]
 impl ::ark_core_k8s::manager::Ctx for Ctx {
@@ -31,7 +44,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
 
     const NAME: &'static str = crate::consts::NAME;
     const NAMESPACE: &'static str = ::dash_api::consts::NAMESPACE;
-    const FALLBACK: Duration = Duration::from_secs(30); // 30 seconds
+    const FALLBACK: Duration = Duration::from_secs(10); // 10 seconds
     const FINALIZER_NAME: &'static str =
         <Self as ::ark_core_k8s::manager::Ctx>::Data::FINALIZER_NAME;
 
@@ -65,6 +78,9 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                     model: status.and_then(|status| status.model.clone()),
                     model_name: status.and_then(|status| status.model_name.clone()),
                     owner_references: None,
+                    resources: status
+                        .map(|status: &ModelStorageBindingStatus| status.resources.clone())
+                        .unwrap_or_default(),
                     state: ModelStorageBindingState::Deleting,
                     storage_source: status
                         .and_then(|status| status.storage_source.as_ref())
@@ -101,7 +117,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
         };
         let validator = ModelStorageBindingValidator {
             model: ModelValidator { kubernetes_storage },
-            model_storage: ModelStorageValidator { kubernetes_storage },
+            model_storage: ModelStorageValidator {
+                kubernetes_storage,
+                prometheus_url: &manager.ctx.prometheus_url,
+            },
             namespace: &namespace,
             name: &name,
         };
@@ -193,6 +212,7 @@ impl Ctx {
             model,
             model_name,
             owner_references,
+            resources,
             state,
             storage_source,
             storage_source_binding_name,
@@ -219,6 +239,7 @@ impl Ctx {
                     deletion_policy,
                     model,
                     model_name,
+                    resources,
                     storage_source,
                     storage_source_binding_name,
                     storage_source_name,

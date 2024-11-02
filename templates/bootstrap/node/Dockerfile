@@ -9,7 +9,7 @@ ARG ROCKYLINUX_VERSION="latest"
 FROM quay.io/rockylinux/rockylinux:${ROCKYLINUX_VERSION} AS server
 
 # SystemD Configuration
-ENV container docker
+ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 VOLUME [ "/sys/fs/cgroup" ]
 

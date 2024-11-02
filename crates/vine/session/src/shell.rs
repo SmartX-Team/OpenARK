@@ -119,7 +119,7 @@ impl App {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         let state = loop {
-            terminal.draw(|f| f.render_widget(&mut self, f.size()))?;
+            terminal.draw(|f| f.render_widget(&mut self, f.area()))?;
 
             match self.handle_events().await {
                 Ok(None) => yield_now().await,

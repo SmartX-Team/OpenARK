@@ -71,7 +71,7 @@ members = [
     "crates/straw/provider",
     "crates/straw/provider/oci",
     "crates/straw/provider/python",
-    "crates/straw/provider/python/standalone",    # exclude(alpine)
+    "crates/straw/provider/python/standalone",     # exclude(alpine)
     "crates/vine/api",
     "crates/vine/bastion",
     "crates/vine/operator",
@@ -82,6 +82,9 @@ members = [
 ]
 resolver = "2"
 
+[profile.dev]
+opt-level = 1 # serde + tracing may causes stack overflow
+
 [workspace.package]
 authors = ["Ho Kim <ho.kim@ulagbulag.io>"]
 description = "Deploy & Integrate & Manage your own Converged K8S Edge Clusters"
@@ -91,7 +94,7 @@ include = ["src/**/*.rs", "Cargo.toml"]
 keywords = ["iac", "kubernetes", "openark"]
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 readme = "./README.md"
-rust-version = "1.78"
+rust-version = "1.80"
 homepage = "https://github.com/ulagbulag/OpenARK"
 repository = "https://github.com/ulagbulag/OpenARK"
 version = "0.1.0"
@@ -102,12 +105,12 @@ blocks_in_conditions = "allow" # opentelemetry tracing macro would be noisy
 [workspace.dependencies]
 actix-cors = { version = "0.7" }
 actix-multipart = { version = "0.7", features = ["derive", "tempfile"] }
-actix-web = { version = "4.6", default-features = false, features = ["macros"] }
+actix-web = { version = "4.9", default-features = false, features = ["macros"] }
 actix-web-opentelemetry = { version = "0.18", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 arrow = { version = "52" } # should be synced with deltalake and lancedb
 argon2 = { version = "0.5" }
-async-nats = { version = "0.35", default-features = false, features = [
+async-nats = { version = "0.36", default-features = false, features = [
     "server_2_10",
 ] }
 async-recursion = { version = "1.1" }
@@ -122,7 +125,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "env", "string"] }
 csv = { version = "1.3" }
 ctrlc = { version = "3.4" }
-deltalake = { version = "0.18", features = [
+deltalake = { version = "0.19", features = [
     "datafusion",
     "datafusion-ext",
     "json",
@@ -130,7 +133,7 @@ deltalake = { version = "0.18", features = [
 derivative = { version = "2.2" }
 dirs = { version = "5.0" }
 duration-string = { version = "0.4" }
-eframe = { version = "0.27", default-features = false, features = [
+eframe = { version = "0.28", default-features = false, features = [
     "accesskit",
     "default_fonts",
     "wayland",
@@ -138,8 +141,8 @@ eframe = { version = "0.27", default-features = false, features = [
     "wgpu",
     "x11",
 ] }
-egui = { version = "0.27" }
-egui_graphs = { version = "0.20" }
+egui = { version = "0.28" }
+egui_graphs = { version = "0.21" }
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.5" }
@@ -151,39 +154,43 @@ home = { version = "0.5" }
 http-cache-reqwest = { version = "0.14", features = ["manager-cacache"] }
 image = { version = "0.25", default-features = false }
 inflector = { package = "Inflector", version = "0.11" }
-ipnet = { version = "2.9", features = ["schemars", "serde"] }
+ipnet = { version = "2.10", features = ["schemars", "serde"] }
 itertools = { version = "0.13" }
 k8s-openapi = { version = "0.22", features = ["latest", "schemars"] }
-kube = { version = "0.93", default-features = false }
-lalrpop = { version = "0.20" }
-lalrpop-util = { version = "0.20", features = ["lexer", "unicode"] }
-lancedb = { version = "0.7", default-features = false }
+kube = { version = "0.94", default-features = false }
+lalrpop = { version = "0.21" }
+lalrpop-util = { version = "0.21", features = ["lexer", "unicode"] }
+lancedb = { version = "0.10", default-features = false }
 # langchain-rust = { version = "4.1", default-features = false }
 mime = { version = "0.3" }
 # FIXME: push a PR: rustls-tls feature support
 minio = { git = "https://github.com/ulagbulag/minio-rs.git", version = "0.2.0-alpha", default-features = false } # not deployed to crates.io
 maplit = { version = "1.0" }
-ndarray = { version = "0.15" }
+ndarray = { version = "0.16" }
 num-traits = { version = "0.2" }
-object_store = { version = "0.10", default-features = false }
-octocrab = { version = "0.38", default-features = false, features = [
+object_store = { version = "0.11", default-features = false }
+octocrab = { version = "0.39", default-features = false, features = [
     "default-client",
 ] }
 opencv = { version = "0.92", default-features = false, features = [
     "clang-runtime",
 ] }
-opentelemetry = { version = "0.24", features = ["logs", "metrics", "trace"] }
-opentelemetry-appender-tracing = { version = "0.5", features = [
+opentelemetry = { version = "0.25", features = [
+    "logs_level_enabled",
+    "metrics",
+    "trace",
+] }
+opentelemetry-appender-tracing = { version = "0.25", features = [
     # "experimental_metadata_attributes",
     "logs_level_enabled",
 ] }
-opentelemetry-otlp = { version = "0.17", features = [
+opentelemetry-otlp = { version = "0.25", features = [
     "logs",
     "metrics",
     "trace",
 ] }
-opentelemetry-proto = { version = "0.7", features = ["with-serde", "zpages"] }
-opentelemetry_sdk = { version = "0.24", features = [
+opentelemetry-proto = { version = "0.25", features = ["with-serde", "zpages"] }
+opentelemetry_sdk = { version = "0.25", features = [
     "logs_level_enabled",
     "metrics",
     "rt-tokio",
@@ -204,7 +211,9 @@ ordered-float = { version = "4.2", default-features = false, features = [
     "std",
 ] }
 petgraph = { version = "0.6" }
-polars = { version = "0.41", features = [
+polars = { version = "0.43", features = [
+    "async",
+    "cloud",
     "diagonal_concat",
     "diff",
     "fmt",
@@ -225,7 +234,7 @@ pyo3 = { version = "0.22" }
 r2r = { version = "0.9" }
 rand = { version = "0.8" }
 rand_distr = { version = "0.4" }
-ratatui = { version = "0.27", default-features = false, features = [
+ratatui = { version = "0.28", default-features = false, features = [
     "crossterm",
     "palette",
     "underline-color",
@@ -277,13 +286,13 @@ sled = { version = "0.34" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
 thiserror = { version = "1.0" }
-tokio = { version = "1.37", features = ["macros", "rt"] }
+tokio = { version = "1", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
 tonic = { version = "0.12", features = [
     "gzip",
 ] } # should be synced with opentelemetry-proto
 tracing = { version = "0.1" }
-tracing-opentelemetry = { version = "0.25", features = [
+tracing-opentelemetry = { version = "0.26", features = [
     "metrics",
     "tracing-log",
 ] } # should be synced with opentelemetry

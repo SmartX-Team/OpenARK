@@ -145,11 +145,11 @@ impl Default for ModelStorageObjectOwnedReplicationSpec {
 
 impl ModelStorageObjectOwnedReplicationSpec {
     pub const fn default_resources_cpu() -> &'static str {
-        "16"
+        "8"
     }
 
     pub const fn default_resources_memory() -> &'static str {
-        "31Gi"
+        "16Gi"
     }
 
     pub const fn default_resources_storage() -> &'static str {
@@ -158,9 +158,11 @@ impl ModelStorageObjectOwnedReplicationSpec {
 
     fn default_resources() -> ResourceRequirements {
         ResourceRequirements {
-            requests: Some(btreemap! {
+            limits: Some(btreemap! {
                 "cpu".into() => Quantity(Self::default_resources_cpu().into()),
                 "memory".into() => Quantity(Self::default_resources_memory().into()),
+            }),
+            requests: Some(btreemap! {
                 "storage".into() => Quantity(Self::default_resources_storage().into()),
             }),
             ..Default::default()

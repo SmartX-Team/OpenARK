@@ -32,8 +32,7 @@ spec:
       name: desktop
       node: "{{ spec.node.metadata.name }}"
   strategy:
-    rollingUpdate:
-      maxUnavailable: 1
+    type: Recreate
 {% else %}
   backoffLimit: 0
   suspend: false
@@ -124,6 +123,8 @@ spec:
 {% endif %}
 {% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
               subPath: .local/share/containers
+{% else %}
+              subPath: null
 {% endif %}
 {% endif %}
             - name: home-public
@@ -217,9 +218,13 @@ spec:
                 - seccomp:unconfined
 {% if spec.boxQuota.desktop.host.privileged %}
             privileged: true
+{% else %}
+            privileged: false
 {% endif %}
 {% if spec.boxQuota.desktop.context.root or spec.boxQuota.desktop.context.sudo %}
             runAsNonRoot: false
+{% else %}
+            runAsNonRoot: true
 {% endif %}
 {% if spec.boxQuota.desktop.context.root %}
             runAsUser: 0
@@ -260,6 +265,8 @@ spec:
 {% endif %}
 {% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
               subPath: .local/share/containers
+{% else %}
+              subPath: null
 {% endif %}
 {% endif %}
             - name: home-public
@@ -291,16 +298,56 @@ spec:
               readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
+{% if spec.boxQuota.desktop.ssh.enabled %}
+        - name: sshd
+          image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
+          imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
+          command: {{ spec.boxQuota.desktop.container.command | json_encode() | safe }}
+          args: {{ spec.boxQuota.desktop.container.args | json_encode() | safe }}
+          env:
+            # TODO(user): change your own style!
+            # - name: USER_PASSWORD
+            #   value: my-ssh-password!
+            - name: USER_SHELL
+              value: /bin/zsh
+            - name: DOCKER_ROOTLESS
+              value: "false"
+          ports:
+            - name: ssh
+              protocol: TCP
+              containerPort: 22
+            - name: http
+              protocol: TCP
+              containerPort: 8080
+          securityContext:
+            capabilities:
+              add:
+                - apparmor:unconfined
+                - seccomp:unconfined
+                - MKNOD
+                - SETFCAP
+                - SYS_ADMIN
+                - SYS_CHROOT
+            privileged: true
+          volumeMounts:
+            - name: home
+              mountPath: /home/user
+            - name: host-ssh
+              mountPath: /etc/ssh
+{% endif %}
 {% if spec.boxQuota.compute is object %}
           resources: {{ spec.boxQuota.compute | json_encode() | safe }}
 {% endif %}
 {% if spec.boxQuota.desktop.host.ipc %}
       hostIPC: true
+{% else %}
+      hostIPC: false
 {% endif %}
 {% if spec.boxQuota.desktop.host.network %}
       hostNetwork: true
 {% else %}
       hostname: "desktop-{{ metadata.namespace }}"
+      hostNetwork: false
 {% endif %}
 {% if not spec.persistence %}
       restartPolicy: Never
@@ -342,47 +389,67 @@ spec:
             type: Directory
         - name: home
 {% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
+          emptyDir: null
           hostPath:
             path: "/opt/vine/sessions/{{ metadata.namespace }}/home"
             type: DirectoryOrCreate
+          persistentVolumeClaim: null
 {% elif spec.boxQuota.desktop.volumes.home == 'LocalShared' %}
+          emptyDir: null
           hostPath:
             path: "/opt/vine/sessions/_shared/home"
             type: DirectoryOrCreate
+          persistentVolumeClaim: null
 {% elif spec.boxQuota.desktop.volumes.home == 'RemoteOwned' and spec.boxQuota.storage is object %}
+          emptyDir: null
+          hostPath: null
           persistentVolumeClaim:
             claimName: desktop
 {% else %} {# 'Temporary' #}
           emptyDir: {}
+          hostPath: null
+          persistentVolumeClaim: null
 {% endif %}
         - name: home-containers
 {% if spec.boxQuota.desktop.volumes.containers == 'LocalOwned' %}
+          emptyDir: null
           hostPath:
             path: "/opt/vine/sessions/{{ metadata.namespace }}/containers"
             type: DirectoryOrCreate
+          persistentVolumeClaim: null
 {% elif spec.boxQuota.desktop.volumes.containers == 'LocalShared' %}
+          emptyDir: null
           hostPath:
             path: "/opt/vine/sessions/_shared/containers"
             type: DirectoryOrCreate
+          persistentVolumeClaim: null
 {% elif spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
+          emptyDir: null
+          hostPath: null
           persistentVolumeClaim:
             claimName: desktop
 {% else %} {# 'Temporary' #}
           emptyDir: {}
+          hostPath: null
+          persistentVolumeClaim: null
 {% endif %}
         - name: home-public
 {% if spec.boxQuota.desktop.volumes.public %}
+          emptyDir: null
           persistentVolumeClaim:
             claimName: desktop-public
 {% else %}
           emptyDir: {}
+          persistentVolumeClaim: null
 {% endif %}
         - name: home-static
 {% if spec.boxQuota.desktop.volumes.static %}
+          emptyDir: null
           persistentVolumeClaim:
             claimName: desktop-static
 {% else %}
           emptyDir: {}
+          persistentVolumeClaim: null
 {% endif %}
         - name: host-sys
           hostPath:

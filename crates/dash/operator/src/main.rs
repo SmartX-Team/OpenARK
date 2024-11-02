@@ -8,7 +8,17 @@ use ark_core_k8s::manager::Ctx;
 use tokio::join;
 
 pub(crate) mod consts {
+    use ark_core::env::infer_string;
+
     pub const NAME: &str = "dash-operator";
+
+    const ENV_PROMETHEUS_URL: &str = "PROMETHEUS_URL";
+
+    pub fn infer_prometheus_url() -> String {
+        infer_string(ENV_PROMETHEUS_URL).unwrap_or_else(|_| {
+            "http://kube-prometheus-stack-prometheus.monitoring.svc:9090".into()
+        })
+    }
 }
 
 #[tokio::main]

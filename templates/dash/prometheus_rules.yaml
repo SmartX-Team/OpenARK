@@ -1,0 +1,49 @@
+# ---
+# apiVersion: monitoring.coreos.com/v1alpha1
+# kind: AlertmanagerConfig
+# metadata:
+#   name: alertmanager-email
+#   namespace: monitoring
+#   labels:
+#     alertmanagerConfig: alert
+# spec:
+#   route:
+#     groupWait: 30s
+#     groupInterval: 5m
+#     repeatInterval: 1d
+#     receiver: "email-notifications"
+#   receivers:
+#     - name: email-notifications
+#       emailConfigs:
+#         - sendResolved: false
+#           to: ho.kim@smartx.kr
+#           from: ulagbulag@smartx.kr
+#           smarthost: smtp.gmail.com:587
+#           authUsername: ulagbulag@smartx.kr
+#           authPassword:
+#             name: alertmanager-email-secret
+#             key: password
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: modelstoragebinding
+  namespace: dash
+  labels:
+    app.kubernetes.io/component: modelstoragebinding
+    role: alert-rules
+spec:
+  groups:
+    - name: object storage
+      rules:
+        - alert: ObjectStorageNearFull
+          annotations:
+            summary: One or more object storages are nearly full
+            description: One or more object storages are nearly full
+          expr: 1 - (minio_capacity_usable_free_total / minio_capacity_usable_total{job="minio"}) >= 0.1
+          for: 5m
+          labels:
+            api_group: dash
+            type: model_storage
+            storage_type: object_storage
+            severity: warning

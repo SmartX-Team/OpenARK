@@ -8,7 +8,9 @@ use dash_api::{
     },
     storage::{ModelStorageCrd, ModelStorageSpec},
 };
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
+use k8s_openapi::{
+    api::core::v1::ResourceRequirements, apimachinery::pkg::apis::meta::v1::OwnerReference,
+};
 use kube::{core::ObjectMeta, Resource, ResourceExt};
 use tracing::{error, instrument, Level};
 
@@ -103,6 +105,7 @@ impl<'namespace, 'kube> ModelStorageBindingValidator<'namespace, 'kube> {
             model: Some(model.spec),
             model_name: Some(model_name),
             owner_references: Some(owner_references),
+            resources: binding.spec.resources.clone(),
             state: ModelStorageBindingState::Ready,
             storage_source: storage_source.map(|spec| spec.storage),
             storage_source_name,
@@ -284,6 +287,7 @@ pub(crate) struct UpdateContext {
     pub(crate) model: Option<ModelSpec>,
     pub(crate) model_name: Option<String>,
     pub(crate) owner_references: Option<Vec<OwnerReference>>,
+    pub(crate) resources: Option<ResourceRequirements>,
     pub(crate) state: ModelStorageBindingState,
     pub(crate) storage_source: Option<ModelStorageSpec>,
     pub(crate) storage_source_binding_name: Option<String>,

@@ -52,16 +52,16 @@ where
 {
     let exprs = match ty {
         GraphDataType::Edge => [
-            dsl::col(&from.src()).alias(&to.src()),
-            dsl::col(&from.sink()).alias(&to.sink()),
-            dsl::col(&from.capacity()).alias(&to.capacity()),
-            dsl::col(&from.unit_cost()).alias(&to.unit_cost()),
+            dsl::col(from.src()).alias(to.src()),
+            dsl::col(from.sink()).alias(to.sink()),
+            dsl::col(from.capacity()).alias(to.capacity()),
+            dsl::col(from.unit_cost()).alias(to.unit_cost()),
         ],
         GraphDataType::Node => [
-            dsl::col(&from.name()).alias(&to.name()),
-            dsl::col(&from.capacity()).alias(&to.capacity()),
-            dsl::col(&from.supply()).alias(&to.supply()),
-            dsl::col(&from.unit_cost()).alias(&to.unit_cost()),
+            dsl::col(from.name()).alias(to.name()),
+            dsl::col(from.capacity()).alias(to.capacity()),
+            dsl::col(from.supply()).alias(to.supply()),
+            dsl::col(from.unit_cost()).alias(to.unit_cost()),
         ],
     };
 
@@ -106,7 +106,9 @@ pub fn find_index(key_name: &str, names: &Series, query: &str) -> Result<i32> {
         .clone()
         .into_frame()
         .lazy()
-        .with_column(dsl::lit(Series::from_iter(0..len_names).with_name(&key_id)))
+        .with_column(dsl::lit(
+            Series::from_iter(0..len_names).with_name((&key_id).into()),
+        ))
         .filter(dsl::col(key_name).eq(dsl::lit(query).cast(names.dtype().clone())))
         .select([dsl::col(&key_id)])
         .first()
@@ -135,7 +137,9 @@ pub fn find_indices(key_name: &str, names: &Series, keys: &Series) -> Result<Opt
                 .clone()
                 .into_frame()
                 .lazy()
-                .with_column(dsl::lit(Series::from_iter(0..len_names).with_name(&key_id)))
+                .with_column(dsl::lit(
+                    Series::from_iter(0..len_names).with_name((&key_id).into()),
+                ))
                 .filter(dsl::col(key_name).is_in(dsl::lit(keys.clone())))
                 .select([dsl::col(&key_id)])
                 .collect()

@@ -9,6 +9,7 @@ iseq ${arch} i386 && set arch x86_64 ||
 iseq ${arch} x86_64 && set arch amd64 ||
 
 set os_ver 24.04
+set os_rev .1
 set repo http://mirror.kakao.com/ubuntu-releases/${os_ver}
 # set repo http://assets.kiss.svc.ops.openark/assets/ubuntu-${os_ver}
 set cloud_config_url http://assets.kiss.svc.ops.openark/boot/cloud-init_ubuntu_${os_ver}.yaml
@@ -20,7 +21,7 @@ kernel --name vmlinuz ${repo}/netboot/${arch}/linux || goto kernel
 initrd --name initrd ${repo}/netboot/${arch}/initrd || goto initrd
 
 :initargs
-imgargs vmlinuz initrd=initrd autoinstall ip=dhcp modprobe.blacklist=rndis_host url=${repo}/ubuntu-${os_ver}-live-server-${arch}.iso cloud-config-url=${cloud_config_url}
+imgargs vmlinuz initrd=initrd autoinstall ip=dhcp modprobe.blacklist=rndis_host url=${repo}/ubuntu-${os_ver}${os_rev}-live-server-${arch}.iso cloud-config-url=${cloud_config_url}
 
 :boot
 boot || goto boot

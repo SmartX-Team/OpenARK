@@ -28,6 +28,7 @@ openssl-tls = [
     "ark-core-k8s/openssl-tls",
     "dash-provider/openssl-tls",
     "kube/openssl-tls",
+    "prometheus-http-query/native-tls",
     "straw-api/openssl-tls",
     "straw-provider/openssl-tls",
 ]
@@ -35,11 +36,13 @@ rustls-tls = [
     "ark-core-k8s/rustls-tls",
     "dash-provider/rustls-tls",
     "kube/rustls-tls",
+    "prometheus-http-query/rustls-tls",
     "straw-api/rustls-tls",
     "straw-provider/rustls-tls",
 ]
 
 [dependencies]
+ark-core = { path = "../../ark/core" }
 ark-core-k8s = { path = "../../ark/core/k8s", features = ["manager"] }
 dash-api = { path = "../api" }
 dash-provider = { path = "../provider" }
@@ -49,12 +52,14 @@ straw-provider = { path = "../../straw/provider" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+byte-unit = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 inflector = { workspace = true }
 itertools = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["client", "runtime", "ws"] }
+prometheus-http-query = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

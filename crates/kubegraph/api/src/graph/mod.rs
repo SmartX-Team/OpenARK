@@ -735,7 +735,7 @@ impl GraphMetadataRaw {
                 continue;
             }
 
-            metadata.insert(key.into(), key.into());
+            metadata.insert(key.to_string(), key.to_string());
         }
         metadata
     }

@@ -1,6 +1,6 @@
 use ark_core_k8s::data::ImagePullPolicy;
-use k8s_openapi::api::core::v1::{ContainerPort, EnvVar, ResourceRequirements};
-use kube::CustomResource;
+use k8s_openapi::api::core::v1::{ContainerPort, EnvVar, ResourceRequirements, ServiceSpec};
+use kube::{api::ObjectMeta, CustomResource};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -37,6 +37,8 @@ pub struct UserBoxQuotaSpec {
     pub compute: ResourceRequirements,
     #[serde(default)]
     pub desktop: UserBoxQuotaDesktopSpec,
+    #[serde(default)]
+    pub ssh: UserBoxQuotaSshSpec,
     #[serde(default)]
     pub storage: ResourceRequirements,
     #[serde(default)]
@@ -387,4 +389,21 @@ pub enum UserBoxQuotaDesktopVolumeKind {
     LocalShared,
     RemoteOwned,
     Temporary,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UserBoxQuotaSshSpec {
+    #[serde(default = "UserBoxQuotaSshSpec::default_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub metadata: ObjectMeta,
+    #[serde(default)]
+    pub service: Option<ServiceSpec>,
+}
+
+impl UserBoxQuotaSshSpec {
+    const fn default_enabled() -> bool {
+        false
+    }
 }

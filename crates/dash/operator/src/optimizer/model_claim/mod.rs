@@ -2,39 +2,60 @@ mod db;
 mod kubernetes;
 mod object;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_trait::async_trait;
+use byte_unit::Byte;
 use dash_api::{
     model::ModelCrd,
+    model_claim::ModelClaimBindingPolicy,
     model_storage_binding::{
-        ModelStorageBindingCrd, ModelStorageBindingStorageKind,
+        ModelStorageBindingCrd, ModelStorageBindingDeletionPolicy, ModelStorageBindingStorageKind,
         ModelStorageBindingStorageKindOwnedSpec,
     },
-    storage::{ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec},
+    storage::{
+        ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec, StorageResourceRequirements,
+    },
 };
 use dash_provider::storage::KubernetesStorageClient;
 use dash_provider_api::data::Capacity;
 use futures::{stream::FuturesUnordered, StreamExt};
+use k8s_openapi::api::core::v1::ResourceRequirements;
 use kube::{Client, ResourceExt};
+use prometheus_http_query::Client as PrometheusClient;
 use tracing::{instrument, warn, Level};
 
 pub struct ModelClaimOptimizer<'namespace, 'kube> {
+    binding_policy: ModelClaimBindingPolicy,
+    field_manager: &'kube str,
     kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
+    prometheus_client: &'kube PrometheusClient,
 }
 
 impl<'namespace, 'kube> ModelClaimOptimizer<'namespace, 'kube> {
-    pub fn new(kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>) -> Self {
-        Self { kubernetes_storage }
+    pub const fn new(
+        field_manager: &'kube str,
+        kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
+        prometheus_client: &'kube PrometheusClient,
+        binding_policy: ModelClaimBindingPolicy,
+    ) -> Self {
+        Self {
+            binding_policy,
+            field_manager,
+            kubernetes_storage,
+            prometheus_client,
+        }
     }
 
     #[instrument(level = Level::INFO, skip_all, err(Display))]
     pub async fn optimize_model_storage_binding(
         &self,
-        field_manager: &str,
         model: &ModelCrd,
         storage: Option<ModelStorageKind>,
+        resources: Option<ResourceRequirements>,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
     ) -> Result<Option<ModelStorageBindingCrd>> {
-        let storages = self
+        // Collect all storages
+        let crs = self
             .kubernetes_storage
             .load_model_storages_by(|spec| {
                 storage
@@ -43,8 +64,9 @@ impl<'namespace, 'kube> ModelClaimOptimizer<'namespace, 'kube> {
             })
             .await?;
 
-        let storage_sizes = storages
-            .into_iter()
+        // Collect all metrics
+        let storages = crs
+            .iter()
             .filter_map(|storage| {
                 storage
                     .status
@@ -54,29 +76,62 @@ impl<'namespace, 'kube> ModelClaimOptimizer<'namespace, 'kube> {
                     .map(|kind| async move {
                         let KubernetesStorageClient { namespace, kube } = self.kubernetes_storage;
                         let storage_name = storage.name_any();
-                        let capacity = kind
-                            .get_capacity(kube, namespace, model, storage_name)
-                            .await
-                            .unwrap_or_else(|error| {
-                                warn!("failed to get capacity: {error}");
-                                None
-                            });
 
-                        Some((storage, capacity?))
+                        Storage {
+                            data: storage,
+                            capacity: kind
+                                .get_capacity(kube, namespace, model, &storage_name)
+                                .await
+                                .unwrap_or_else(|error| {
+                                    warn!("failed to get capacity: {error}");
+                                    None
+                                }),
+                            traffic: kind
+                                .get_traffic(
+                                    self.prometheus_client,
+                                    namespace,
+                                    model,
+                                    &storage_name,
+                                )
+                                .await
+                                .unwrap_or_else(|error| {
+                                    warn!("failed to get capacity: {error}");
+                                    TrafficMetrics::default()
+                                }),
+                        }
                     })
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
-            .await;
+            .await
+            .into_iter();
 
-        let best_storage = match storage_sizes
-            .into_iter()
-            .flatten()
-            .max_by_key(|(_, capacity)| capacity.available())
-            .map(|(storage, _)| storage)
-        {
-            Some(storage) => storage,
-            None => return Ok(None),
+        // Filter by quota
+        let quota = resources.quota();
+        let affordable_storages = storages.filter(|storage| match (quota, storage.capacity) {
+            (Some(quota), Some(capacity)) => quota <= capacity.available(),
+            (Some(_), None) => false,
+            (None, _) => true,
+        });
+
+        // TODO: optimize by given binding policy (ASAP)
+        // TODO: scrap informantions (from prometheus?)
+        let best_storage = match self.binding_policy {
+            ModelClaimBindingPolicy::Balanced => {
+                bail!("Unimplemented yet ({})!", self.binding_policy)
+            }
+            ModelClaimBindingPolicy::LowestCopy => match affordable_storages
+                .filter(|storage| storage.capacity.is_some())
+                .max_by_key(|storage| storage.capacity.unwrap().available())
+                .map(|storage| storage.data)
+            {
+                Some(storage) => storage,
+                None => return Ok(None),
+            },
+            // TODO: scrap latency informantions (from prometheus?)
+            ModelClaimBindingPolicy::LowestLatency => {
+                bail!("Unimplemented yet ({})!", self.binding_policy)
+            }
         };
 
         let storage_binding =
@@ -85,10 +140,22 @@ impl<'namespace, 'kube> ModelClaimOptimizer<'namespace, 'kube> {
             });
 
         self.kubernetes_storage
-            .create_model_storage_binding(field_manager, model.name_any(), storage_binding)
+            .create_model_storage_binding(
+                self.field_manager,
+                model.name_any(),
+                storage_binding,
+                resources,
+                deletion_policy,
+            )
             .await
             .map(Some)
     }
+}
+
+struct Storage<'a> {
+    capacity: Option<Capacity>,
+    data: &'a ModelStorageCrd,
+    traffic: TrafficMetrics,
 }
 
 #[async_trait]
@@ -99,7 +166,7 @@ pub trait GetCapacity {
         kube: &'kube Client,
         namespace: &'namespace str,
         _model: &ModelCrd,
-        storage_name: String,
+        storage_name: &str,
     ) -> Result<Option<Capacity>> {
         self.get_capacity_global(kube, namespace, storage_name)
             .await
@@ -109,44 +176,8 @@ pub trait GetCapacity {
         &self,
         kube: &'kube Client,
         namespace: &'namespace str,
-        storage_name: String,
+        storage_name: &str,
     ) -> Result<Option<Capacity>>;
-}
-
-#[async_trait]
-impl GetCapacity for ModelStorageCrd {
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn get_capacity<'namespace, 'kube>(
-        &self,
-        kube: &'kube Client,
-        namespace: &'namespace str,
-        model: &ModelCrd,
-        storage_name: String,
-    ) -> Result<Option<Capacity>> {
-        match self.status.as_ref().and_then(|status| status.kind.as_ref()) {
-            Some(kind) => {
-                kind.get_capacity(kube, namespace, model, storage_name)
-                    .await
-            }
-            None => Ok(None),
-        }
-    }
-
-    #[instrument(level = Level::INFO, skip_all, err(Display))]
-    async fn get_capacity_global<'namespace, 'kube>(
-        &self,
-        kube: &'kube Client,
-        namespace: &'namespace str,
-        storage_name: String,
-    ) -> Result<Option<Capacity>> {
-        match self.status.as_ref().and_then(|status| status.kind.as_ref()) {
-            Some(kind) => {
-                kind.get_capacity_global(kube, namespace, storage_name)
-                    .await
-            }
-            None => Ok(None),
-        }
-    }
 }
 
 #[async_trait]
@@ -157,7 +188,7 @@ impl GetCapacity for ModelStorageKindSpec {
         kube: &'kube Client,
         namespace: &'namespace str,
         model: &ModelCrd,
-        storage_name: String,
+        storage_name: &str,
     ) -> Result<Option<Capacity>> {
         match self {
             ModelStorageKindSpec::Database(storage) => {
@@ -183,7 +214,7 @@ impl GetCapacity for ModelStorageKindSpec {
         &self,
         kube: &'kube Client,
         namespace: &'namespace str,
-        storage_name: String,
+        storage_name: &str,
     ) -> Result<Option<Capacity>> {
         match self {
             ModelStorageKindSpec::Database(storage) => {
@@ -199,6 +230,54 @@ impl GetCapacity for ModelStorageKindSpec {
             ModelStorageKindSpec::ObjectStorage(storage) => {
                 storage
                     .get_capacity_global(kube, namespace, storage_name)
+                    .await
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct TrafficMetrics {
+    pub global_bps: Option<Byte>,
+    pub model_bps: Option<Byte>,
+}
+
+#[async_trait]
+pub trait GetTraffic {
+    async fn get_traffic<'namespace, 'kube>(
+        &self,
+        _prometheus_client: &'kube PrometheusClient,
+        _namespace: &'namespace str,
+        _model: &ModelCrd,
+        _storage_name: &str,
+    ) -> Result<TrafficMetrics> {
+        Ok(TrafficMetrics::default())
+    }
+}
+
+#[async_trait]
+impl GetTraffic for ModelStorageKindSpec {
+    async fn get_traffic<'namespace, 'kube>(
+        &self,
+        prometheus_client: &'kube PrometheusClient,
+        namespace: &'namespace str,
+        model: &ModelCrd,
+        storage_name: &str,
+    ) -> Result<TrafficMetrics> {
+        match self {
+            ModelStorageKindSpec::Database(storage) => {
+                storage
+                    .get_traffic(prometheus_client, namespace, model, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::Kubernetes(storage) => {
+                storage
+                    .get_traffic(prometheus_client, namespace, model, storage_name)
+                    .await
+            }
+            ModelStorageKindSpec::ObjectStorage(storage) => {
+                storage
+                    .get_traffic(prometheus_client, namespace, model, storage_name)
                     .await
             }
         }

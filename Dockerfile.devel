@@ -76,3 +76,6 @@ RUN true \
 
 # Load scripts
 ADD ./templates/devel/scripts /opt/openark
+
+# Configure runtime environment variables
+ENV RUST_MIN_STACK=2097152

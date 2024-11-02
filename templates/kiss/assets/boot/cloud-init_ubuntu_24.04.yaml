@@ -106,6 +106,7 @@ autoinstall:
       curl
       git
       haveged
+      iw
       libspa-0.2-bluetooth
       network-manager
       nfs-common
@@ -117,6 +118,7 @@ autoinstall:
       ubuntu-server
       vim
       wget
+      wireless-tools
     # Execute Post-installation Scripts
     - >
       curl -o /target/tmp/post-install.sh

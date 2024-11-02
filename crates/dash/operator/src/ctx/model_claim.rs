@@ -11,17 +11,28 @@ use kube::{
     runtime::controller::Action,
     Api, Client, CustomResourceExt, Error, ResourceExt,
 };
+use prometheus_http_query::Client as PrometheusClient;
 use serde_json::json;
 use tracing::{info, instrument, warn, Level};
 
-use crate::validator::model_claim::{ModelClaimValidator, UpdateContext};
+use crate::{
+    consts::infer_prometheus_url,
+    validator::model_claim::{ModelClaimValidator, UpdateContext},
+};
 
-pub struct Ctx {}
+pub struct Ctx {
+    prometheus_client: PrometheusClient,
+    prometheus_url: String,
+}
 
 #[async_trait]
 impl TryDefault for Ctx {
     async fn try_default() -> Result<Self> {
-        Ok(Self {})
+        let prometheus_url = infer_prometheus_url();
+        Ok(Self {
+            prometheus_client: prometheus_url.parse()?,
+            prometheus_url,
+        })
     }
 }
 
@@ -56,8 +67,10 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             let status = data.status.as_ref();
             let ctx = UpdateContext {
                 owner_references: None,
-                spec: status.and_then(|status| status.spec.clone()),
+                resources: status.and_then(|status| status.resources.clone()),
                 state: ModelClaimState::Deleting,
+                storage: status.and_then(|status| status.storage),
+                storage_name: status.and_then(|status| status.storage_name.clone()),
             };
             return Self::update_fields_or_requeue(&namespace, &manager.kube, &name, ctx).await;
         } else if !data
@@ -78,6 +91,8 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 namespace: &namespace,
                 kube: &manager.kube,
             },
+            prometheus_client: &manager.ctx.prometheus_client,
+            prometheus_url: &manager.ctx.prometheus_url,
         };
 
         match data
@@ -86,7 +101,7 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
             .map(|status| status.state)
             .unwrap_or_default()
         {
-            ModelClaimState::Pending | ModelClaimState::Replacing => match validator
+            ModelClaimState::Pending => match validator
                 .validate_model_claim(<Self as ::ark_core_k8s::manager::Ctx>::NAME, &data)
                 .await
             {
@@ -101,8 +116,48 @@ impl ::ark_core_k8s::manager::Ctx for Ctx {
                 }
             },
             ModelClaimState::Ready => {
-                // TODO: implement to finding changes
-                Ok(Action::await_change())
+                match validator
+                    .update(
+                        <Self as ::ark_core_k8s::manager::Ctx>::NAME,
+                        &data,
+                        data.status.as_ref().unwrap(),
+                    )
+                    .await
+                {
+                    Ok(Some(ctx)) => {
+                        Self::update_fields_or_requeue(&namespace, &manager.kube, &name, ctx).await
+                    }
+                    Ok(None) => Ok(Action::await_change()),
+                    Err(e) => {
+                        warn!("failed to update model claim: {name:?}: {e}");
+                        Ok(Action::requeue(
+                            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                        ))
+                    }
+                }
+            }
+            ModelClaimState::Replacing => {
+                match validator
+                    .validate_model_claim_replacement(
+                        <Self as ::ark_core_k8s::manager::Ctx>::NAME,
+                        &data,
+                        data.status.as_ref().unwrap(),
+                    )
+                    .await
+                {
+                    Ok(Some(ctx)) => {
+                        Self::update_fields_or_requeue(&namespace, &manager.kube, &name, ctx).await
+                    }
+                    Ok(None) => Ok(Action::requeue(
+                        <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                    )),
+                    Err(e) => {
+                        warn!("failed to replace model claim storage: {name:?}: {e}");
+                        Ok(Action::requeue(
+                            <Self as ::ark_core_k8s::manager::Ctx>::FALLBACK,
+                        ))
+                    }
+                }
             }
             ModelClaimState::Deleting => match validator.delete(&data).await {
                 Ok(()) => {
@@ -149,15 +204,17 @@ impl Ctx {
         }
     }
 
-    #[instrument(level = Level::INFO, skip(kube, spec), err(Display))]
+    #[instrument(level = Level::INFO, skip(kube, owner_references, resources, state), err(Display))]
     async fn update_fields(
         namespace: &str,
         kube: &Client,
         name: &str,
         UpdateContext {
             owner_references,
-            spec,
+            resources,
             state,
+            storage,
+            storage_name,
         }: UpdateContext,
     ) -> Result<()> {
         let api = Api::<<Self as ::ark_core_k8s::manager::Ctx>::Data>::namespaced(
@@ -170,13 +227,25 @@ impl Ctx {
             "apiVersion": crd.api_version,
             "kind": crd.kind,
             "status": ModelClaimStatus {
+                resources,
                 state,
-                spec,
+                storage,
+                storage_name: storage_name.clone(),
                 last_updated: Utc::now(),
             },
         }));
         let pp = PatchParams::apply(<Self as ::ark_core_k8s::manager::Ctx>::NAME);
         api.patch_status(name, &pp, &patch).await?;
+
+        let patch = Patch::Apply(json!({
+            "apiVersion": &crd.api_version,
+            "kind": crd.kind,
+            "spec": {
+                "storageName": storage_name,
+            },
+        }));
+        let pp = pp.force();
+        api.patch(name, &pp, &patch).await?;
 
         if let Some(owner_references) = owner_references {
             let patch = Patch::Merge(json!({

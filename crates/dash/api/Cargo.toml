@@ -25,6 +25,7 @@ dash-provider-api = { path = "../provider/api" }
 straw-api = { path = "../../straw/api" }
 
 anyhow = { workspace = true }
+byte-unit = { workspace = true }
 chrono = { workspace = true }
 k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["derive"] }

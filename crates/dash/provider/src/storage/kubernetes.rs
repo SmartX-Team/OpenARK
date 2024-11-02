@@ -17,7 +17,7 @@ use dash_api::{
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use itertools::Itertools;
 use k8s_openapi::{
-    api::core::v1::ConfigMap,
+    api::core::v1::{ConfigMap, ResourceRequirements},
     apiextensions_apiserver::pkg::apis::apiextensions::v1::{
         CustomResourceDefinition, CustomResourceDefinitionVersion,
     },
@@ -280,7 +280,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
             Some(status)
                 if matches!(
                     status.state,
-                    ModelClaimState::Ready | ModelClaimState::Replacing | ModelClaimState::Deleting,
+                    ModelClaimState::Ready | ModelClaimState::Deleting,
                 ) =>
             {
                 Ok(Some(claim))
@@ -337,6 +337,8 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
         field_manager: &str,
         model_name: String,
         storage: ModelStorageBindingStorageKind<String>,
+        resources: Option<ResourceRequirements>,
+        deletion_policy: ModelStorageBindingDeletionPolicy,
     ) -> Result<ModelStorageBindingCrd> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let pp = PostParams {
@@ -353,9 +355,9 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
                 ..Default::default()
             },
             spec: ModelStorageBindingSpec {
-                // NOTE: deleting original data is only permitted for humans
-                deletion_policy: ModelStorageBindingDeletionPolicy::Retain,
+                deletion_policy,
                 model: model_name,
+                resources,
                 storage,
             },
             status: None,
@@ -365,7 +367,7 @@ impl<'namespace, 'kube> KubernetesStorageClient<'namespace, 'kube> {
     }
 
     #[instrument(level = Level::INFO, skip(self), err(Display))]
-    async fn delete_model_storage_binding_by_model(&self, model_name: &str) -> Result<()> {
+    pub async fn delete_model_storage_binding_by_model(&self, model_name: &str) -> Result<()> {
         let api = self.api_namespaced::<ModelStorageBindingCrd>();
         let dp = DeleteParams::background();
 

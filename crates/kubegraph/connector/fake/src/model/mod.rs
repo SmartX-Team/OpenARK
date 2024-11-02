@@ -67,7 +67,7 @@ impl<'a> DataGenerator<'a> for NetworkConnectorFakeDataFrame {
             .map(|(key, model)| {
                 model
                     .generate((scope, count))
-                    .map(|data| data.with_name(&key))
+                    .map(|data| data.with_name((&key).into()))
                     .map_err(|error| anyhow!("on {key}: {error}"))
             })
             .collect::<Result<Vec<_>>>()?;

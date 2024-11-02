@@ -17,6 +17,12 @@ use crate::storage::ModelStorageKind;
     shortname = "mc",
     namespaced,
     printcolumn = r#"{
+        "name": "storage",
+        "type": "string",
+        "description": "attached storage name",
+        "jsonPath": ".spec.storageName"
+    }"#,
+    printcolumn = r#"{
         "name": "state",
         "type": "string",
         "description": "state of the model claim",
@@ -53,7 +59,10 @@ pub struct ModelClaimSpec {
     pub deletion_policy: ModelClaimDeletionPolicy,
     #[serde(default)]
     pub resources: Option<ResourceRequirements>,
+    #[serde(default)]
     pub storage: Option<ModelStorageKind>,
+    #[serde(default)]
+    pub storage_name: Option<String>,
 }
 
 impl ModelClaimCrd {
@@ -69,6 +78,7 @@ impl Default for ModelClaimSpec {
             deletion_policy: ModelClaimDeletionPolicy::default(),
             resources: None,
             storage: None,
+            storage_name: None,
         }
     }
 }
@@ -192,7 +202,11 @@ pub struct ModelClaimStatus {
     #[serde(default)]
     pub state: ModelClaimState,
     #[serde(default)]
-    pub spec: Option<ModelClaimSpec>,
+    pub resources: Option<ResourceRequirements>,
+    #[serde(default)]
+    pub storage: Option<ModelStorageKind>,
+    #[serde(default)]
+    pub storage_name: Option<String>,
     pub last_updated: DateTime<Utc>,
 }
 

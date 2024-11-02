@@ -86,7 +86,7 @@ where
         .iter()
         .filter_map(|name| match name {
             ::pl::datatypes::AnyValue::String(value) => Some(value.into()),
-            ::pl::datatypes::AnyValue::StringOwned(value) => Some(value.into()),
+            ::pl::datatypes::AnyValue::StringOwned(value) => Some(value.to_string()),
             _ => None,
         })
         .enumerate()
@@ -139,7 +139,7 @@ impl<'a> Iterator for DataSeriesIter<'a> {
 
         let mut entry = super::GraphEntry::default();
         for column in self.series.columns {
-            let key = column.name().into();
+            let key = column.name().to_string();
             let value = match column.get(index).ok()? {
                 ::pl::datatypes::AnyValue::Null => continue,
                 ::pl::datatypes::AnyValue::Boolean(value) => {
@@ -181,7 +181,7 @@ impl<'a> Iterator for DataSeriesIter<'a> {
                     super::GraphEntryValue::String(value.into())
                 }
                 ::pl::datatypes::AnyValue::StringOwned(value) => {
-                    super::GraphEntryValue::String(value.into())
+                    super::GraphEntryValue::String(value.to_string())
                 }
                 ::pl::datatypes::AnyValue::Date(_)
                 | ::pl::datatypes::AnyValue::Datetime(_, _, _)

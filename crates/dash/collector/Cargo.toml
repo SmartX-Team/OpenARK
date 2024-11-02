@@ -51,6 +51,9 @@ exporter-storage = [
     "opentelemetry-proto/with-schemars",
 ]
 
+# OpenTelemetry feature chain
+opentelemetry-proto = ["dep:opentelemetry_sdk", "dep:opentelemetry-proto"]
+
 # TLS
 openssl-tls = [
     "dash-collector-api?/openssl-tls",
@@ -74,6 +77,7 @@ async-trait = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-proto = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }

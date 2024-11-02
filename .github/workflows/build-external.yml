@@ -11,6 +11,7 @@ on: # yamllint disable-line rule:truthy
 env:
   CARGO_TERM_COLOR: always
   DEBIAN_FRONTEND: noninteractive
+  RUST_MIN_STACK: "2097152"
 
   REGISTRY: quay.io
   REGISTRY_USER: kerryeon

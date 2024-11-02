@@ -178,6 +178,7 @@ RUN apt-get update && apt-get install -y \
     # Core (Filesystem)
     btrfs-progs \
     fuse-overlayfs \
+    libfuse-dev \
     # Core (H/W)
     fancontrol \
     i2c-tools \

@@ -8,7 +8,7 @@ use k8s_openapi::api::core::v1::Node;
 use kube::{api::ListParams, Api, Client, ResourceExt};
 use regex::Regex;
 use tokio::spawn;
-use tracing::{debug, error, instrument, warn, Level};
+use tracing::{debug, instrument, warn, Level};
 
 use crate::exec::SessionExecExt;
 
@@ -71,7 +71,7 @@ impl<C, U> BatchCommandArgs<C, U> {
                                     match process.join().await {
                                         Ok(()) => (),
                                         Err(error) => {
-                                            error!("{error}");
+                                            warn!("{error}");
                                         }
                                     }
                                 })

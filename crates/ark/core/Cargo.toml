@@ -20,7 +20,8 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["otlp-all"]
+default = []
+# default = ["otlp-all"]
 
 # telemetry pillars and functions
 logs = ["otlp"]

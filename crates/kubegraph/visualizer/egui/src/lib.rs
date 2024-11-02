@@ -127,7 +127,7 @@ impl NetworkVisualizer {
             })),
             ..Default::default()
         };
-        let app_creator: AppCreator = Box::new(|_| Box::new(app));
+        let app_creator: AppCreator = Box::new(|_| Ok(Box::new(app)));
 
         match run_native(app_name, native_options, app_creator) {
             Ok(()) => {

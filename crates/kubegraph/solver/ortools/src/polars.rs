@@ -247,7 +247,7 @@ impl ::kubegraph_api::solver::NetworkSolver<GraphData<LazyFrame>> for super::Net
 
 trait CollectFlow {
     fn collect_flow(&self, name: &str, num_edges: ArcIndex) -> Series {
-        Series::from_iter((0..num_edges).map(|index| self.get_flow(index))).with_name(name)
+        Series::from_iter((0..num_edges).map(|index| self.get_flow(index))).with_name(name.into())
     }
 
     fn get_flow(&self, index: ArcIndex) -> FlowQuantity;

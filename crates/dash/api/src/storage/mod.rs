@@ -2,8 +2,14 @@ pub mod db;
 pub mod kubernetes;
 pub mod object;
 
+use std::collections::BTreeMap;
+
 use ark_core_k8s::data::Url;
+use byte_unit::Byte;
 use chrono::{DateTime, Utc};
+use k8s_openapi::{
+    api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
+};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -139,4 +145,29 @@ pub enum ModelStorageState {
     Pending,
     Ready,
     Deleting,
+}
+
+pub trait StorageResourceRequirements {
+    fn quota(&self) -> Option<Byte>;
+}
+
+impl<T> StorageResourceRequirements for Option<T>
+where
+    T: StorageResourceRequirements,
+{
+    fn quota(&self) -> Option<Byte> {
+        self.as_ref().and_then(|this| this.quota())
+    }
+}
+
+impl StorageResourceRequirements for ResourceRequirements {
+    fn quota(&self) -> Option<Byte> {
+        self.requests.quota()
+    }
+}
+
+impl StorageResourceRequirements for BTreeMap<String, Quantity> {
+    fn quota(&self) -> Option<Byte> {
+        self.get("storage").and_then(|quota| quota.0.parse().ok())
+    }
 }

@@ -170,7 +170,7 @@ fn collect_polars_columns(
             .filter_map(|row| row.metric().get(name))
             .map(|value| value.as_str())
             .collect::<Series>()
-            .with_name(name)
+            .with_name(name.into())
     });
 
     // collect all metric values
@@ -180,14 +180,14 @@ fn collect_polars_columns(
                 .iter()
                 .map(|row| row.sample().timestamp())
                 .collect::<Series>()
-                .with_name("timestamp"),
+                .with_name("timestamp".into()),
         ))
         .chain(Some(
             vectors
                 .iter()
                 .map(|row| row.sample().value())
                 .collect::<Series>()
-                .with_name("value"),
+                .with_name("value".into()),
         ));
 
     // collect all constants

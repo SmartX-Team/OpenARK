@@ -20,6 +20,7 @@ use dash_pipe_provider::{
     deltalake::{
         arrow::{compute::concat_batches, datatypes::Schema, record_batch::RecordBatch},
         datafusion::execution::context::SessionContext,
+        delta_datafusion::DataFusionMixins,
         DeltaTable,
     },
     messengers::{init_messenger, Messenger, MessengerArgs},
@@ -33,7 +34,7 @@ use dash_provider::storage::ObjectStorageSession;
 use deltalake::datafusion::prelude::DataFrame;
 use futures::{
     stream::{self, FuturesUnordered},
-    Future, StreamExt, TryFutureExt,
+    Future, StreamExt,
 };
 use inflector::Inflector;
 use itertools::Itertools;
@@ -210,6 +211,7 @@ async fn load_models<'a>(
                         &model_name,
                         None,
                         &storage,
+                        None,
                     )
                     .await
                     .map(|object_storage| {
@@ -240,9 +242,9 @@ async fn load_functions(
         name: &str,
     ) -> Option<Arc<Schema>> {
         let table = tables.get(&name.to_snake_case())?;
-        match async { table.snapshot() }
-            .and_then(|snapshot| snapshot.physical_arrow_schema(table.object_store()))
-            .await
+        match table
+            .snapshot()
+            .and_then(|snapshot| snapshot.arrow_schema())
         {
             Ok(schema) => Some(schema),
             Err(error) => {

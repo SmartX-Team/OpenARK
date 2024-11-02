@@ -1,0 +1,12 @@
+---
+apiVersion: dash.ulagbulag.io/v1alpha1
+kind: ModelClaim
+metadata:
+  name: my-dataset
+spec:
+  allowReplacement: true
+  bindingPolicy: LowestCopy
+  deletionPolicy: Delete
+  resources:
+    requests:
+      storage: 1Gi

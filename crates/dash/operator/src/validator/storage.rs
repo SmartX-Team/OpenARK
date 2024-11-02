@@ -7,7 +7,7 @@ use dash_api::{
     storage::{
         db::ModelStorageDatabaseSpec, kubernetes::ModelStorageKubernetesSpec,
         object::ModelStorageObjectSpec, ModelStorageCrd, ModelStorageKind, ModelStorageKindSpec,
-        ModelStorageSpec,
+        ModelStorageSpec, StorageResourceRequirements,
     },
 };
 use dash_provider::storage::{
@@ -22,6 +22,7 @@ use tracing::{instrument, Level};
 
 pub struct ModelStorageValidator<'namespace, 'kube> {
     pub kubernetes_storage: KubernetesStorageClient<'namespace, 'kube>,
+    pub prometheus_url: &'kube str,
 }
 
 impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
@@ -104,6 +105,7 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
             self.kubernetes_storage.namespace,
             Some(metadata),
             storage,
+            Some(self.prometheus_url),
         )
         .and_then(|client| async move {
             client
@@ -208,11 +210,12 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
                 uid,
             }]
         };
+        let quota = binding.spec.resources.quota();
 
-        ObjectStorageClient::try_new(kube, namespace, None, storage)
+        ObjectStorageClient::try_new(kube, namespace, None, storage, Some(self.prometheus_url))
             .await?
             .get_session(kube, namespace, model)
-            .create_bucket(owner_references)
+            .create_bucket(owner_references, quota)
             .await
     }
 
@@ -319,7 +322,9 @@ impl<'namespace, 'kube> ModelStorageValidator<'namespace, 'kube> {
     ) -> Result<()> {
         let KubernetesStorageClient { kube, namespace } = self.kubernetes_storage;
 
-        let client = ObjectStorageClient::try_new(kube, namespace, None, storage).await?;
+        let client =
+            ObjectStorageClient::try_new(kube, namespace, None, storage, Some(self.prometheus_url))
+                .await?;
         let session = client.get_session(kube, namespace, model);
         match deletion_policy {
             ModelStorageBindingDeletionPolicy::Delete => session.delete_bucket().await,

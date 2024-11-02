@@ -53,6 +53,7 @@ ADD . /src
 WORKDIR /src
 
 # Build it!
+ENV RUST_MIN_STACK=2097152
 RUN \
     # Cache build outputs
     --mount=type=cache,target=/src/target \

@@ -1,4 +1,7 @@
 ---
+- name: Provision OS
+  include_tasks: system-os.yaml
+
 - name: Provision Kernel
   include_tasks: system-kernel.yaml
 

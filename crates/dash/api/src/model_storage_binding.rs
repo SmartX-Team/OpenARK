@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use k8s_openapi::api::core::v1::ResourceRequirements;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -45,6 +46,8 @@ pub struct ModelStorageBindingSpec {
     #[serde(default)]
     pub deletion_policy: ModelStorageBindingDeletionPolicy,
     pub model: String,
+    #[serde(default)]
+    pub resources: Option<ResourceRequirements>,
     pub storage: ModelStorageBindingStorageKind<String>,
 }
 
@@ -248,6 +251,8 @@ pub struct ModelStorageBindingStatus {
     pub model: Option<ModelSpec>,
     #[serde(default)]
     pub model_name: Option<String>,
+    #[serde(default)]
+    pub resources: Option<ResourceRequirements>,
     #[serde(default)]
     pub storage_source: Option<ModelStorageSpec>,
     #[serde(default)]
