@@ -8,6 +8,11 @@ set -e -o pipefail
 # Verbose
 set -x
 
+# Skip if template is not defined
+if [ "x${KISS_DESKTOP_TEMPLATE_GIT}" == 'x' ]; then
+    exec true
+fi
+
 # Skip if already initialized
 LOCKFILE="${HOME}/.kiss-lock"
 if [ -f "${LOCKFILE}" ]; then

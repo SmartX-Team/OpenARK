@@ -15,13 +15,13 @@ if which podman; then
     cp /etc/containers/podman-containers.conf "${HOME}/.config/containers/containers.conf"
 
     # Initialize rootless podman
-    podman system migrate
+    if podman system migrate; then
+        # Generate a CDI specification that refers to all NVIDIA devices
+        if ! nvidia-ctk cdi generate --device-name-strategy=type-index --format=json >/etc/cdi/nvidia.json; then
+            rm -f /etc/cdi/nvidia.json
+        fi
 
-    # Generate a CDI specification that refers to all NVIDIA devices
-    if ! nvidia-ctk cdi generate --device-name-strategy=type-index --format=json >/etc/cdi/nvidia.json; then
-        rm -f /etc/cdi/nvidia.json
+        # Ignore welcome warnings
+        podman version
     fi
-
-    # Ignore welcome warnings
-    podman version
 fi

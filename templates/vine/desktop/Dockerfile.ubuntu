@@ -25,6 +25,7 @@ ARG USER_UID
 
 ENV SHELL="${USER_SHELL}"
 ENV USER_SHELL="${USER_SHELL}"
+ENV XDG_RUNTIME_DIR="/run/user/${USER_UID}"
 
 # Package Manager Configuration
 ARG DEBIAN_FRONTEND='noninteractive'
@@ -37,6 +38,7 @@ STOPSIGNAL SIGRTMIN+3
 WORKDIR /root/
 ENTRYPOINT [ "/usr/bin/env" ]
 CMD [ "/usr/bin/systemctl", "init", "vine-desktop.service", "--user" ]
+ENV NVIDIA_DRIVER_CAPABILITIES="all"
 
 # Volumes Configuration
 ## home.user
@@ -331,6 +333,7 @@ RUN apt-get update && apt-get install -y \
     libvulkan1 \
     mesa-utils \
     vulkan-icd \
+    vulkan-tools \
     # Core (Audio/PipeWire)
     libldacbt-abr2 libldacbt-enc2 \
     libpipewire-0.3-common \
@@ -362,6 +365,13 @@ RUN apt-get update && apt-get install -y \
     python3-yaml \
     # Core (Scheduling)
     schedtool \
+    # Core (Wayland)
+    wayland-protocols \
+    # Core (Wayland RDP)
+    winpr-utils \
+    # Core (Wayland Server)
+    weston \
+    xwayland \
     # Core (X11)
     dbus-x11 \
     wmctrl \
@@ -461,6 +471,9 @@ RUN apt-get update && apt-get install -y \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
     # Remove conflicted repositories
     && rm -f /etc/apt/sources.list.d/vscode.list \
+    # X11 Configuration
+    && mkdir -p /tmp/.X11-unix \
+    && chmod 777 /tmp/.X11-unix \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -686,6 +699,9 @@ RUN /sbin/ldconfig.real \
     && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
     && printf "${USER_UID}:2001:65535" > /etc/subuid \
-    && printf "${USER_GID}:2001:65535" > /etc/subgid
+    && printf "${USER_GID}:2001:65535" > /etc/subgid \
+    && mkdir -p "${XDG_RUNTIME_DIR}" \
+    && chmod 700 "${XDG_RUNTIME_DIR}" \
+    && chown "${USER_UID}:${USER_GID}" "${XDG_RUNTIME_DIR}"
 USER "${USER_NAME}"
 WORKDIR "/home/${USER_NAME}"

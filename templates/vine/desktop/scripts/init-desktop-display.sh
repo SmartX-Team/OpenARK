@@ -8,19 +8,13 @@ set -e -o pipefail
 # Verbose
 set -x
 
+# Apply environment variables
+source "${__ENV_HOME}"
+
 # Configure screen size
 function update_screen_size() {
-    echo "Finding displays..."
-    screens="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
-    if [ "x${screens}" == "x" ]; then
-        echo 'Display not found!'
-        return
-    fi
-
-    for screen in $(echo -en "${screens}"); do
-        echo "Fixing screen size to preferred (${screen})..."
-        xrandr --output "${screen}" --preferred || true
-    done
+    echo "Configuring screen size..."
+    xrandr --auto || true
 
     # Disable screen blanking
     echo "Disabling screen blanking..."

@@ -22,14 +22,14 @@ metadata:
   name: desktop
   namespace: "{{ metadata.namespace }}"
   labels:
-    name: desktop
+    app: desktop
     node: "{{ spec.node.metadata.name }}"
 spec:
 {% if spec.persistence %}
   replicas: 1
   selector:
     matchLabels:
-      name: desktop
+      app: desktop
       node: "{{ spec.node.metadata.name }}"
   strategy:
     type: Recreate
@@ -41,7 +41,7 @@ spec:
   template:
     metadata:
       labels:
-        name: desktop
+        app: desktop
         node: "{{ spec.node.metadata.name }}"
     spec:
       affinity:
@@ -316,6 +316,12 @@ spec:
             - name: ssh
               protocol: TCP
               containerPort: 22
+            - name: rdp-tcp
+              protocol: TCP
+              containerPort: 3389
+            - name: rdp-udp
+              protocol: UDP
+              containerPort: 3389
             - name: http
               protocol: TCP
               containerPort: 8080
@@ -511,7 +517,7 @@ metadata:
   name: novnc
   namespace: "{{ metadata.namespace }}"
   labels:
-    name: novnc
+    app: novnc
     node: "{{ spec.node.metadata.name }}"
 spec:
   replicas: 1
@@ -520,12 +526,12 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      name: novnc
+      app: novnc
       node: "{{ spec.node.metadata.name }}"
   template:
     metadata:
       labels:
-        name: novnc
+        app: novnc
         node: "{{ spec.node.metadata.name }}"
     spec:
       affinity:
@@ -602,13 +608,22 @@ metadata:
   name: desktop
   namespace: "{{ metadata.namespace }}"
   labels:
-    name: desktop
+    app: desktop
     node: "{{ spec.node.metadata.name }}"
 spec:
   selector:
-    name: desktop
+    app: desktop
     node: "{{ spec.node.metadata.name }}"
   ports:
+    - name: ssh
+      protocol: TCP
+      port: 22
+    - name: rdp-tcp
+      protocol: TCP
+      port: 3389
+    - name: rdp-udp
+      protocol: UDP
+      port: 3389
 {% for port in spec.boxQuota.desktop.container.ports %}
     -
 {% if port is containing("name") %}
@@ -630,11 +645,11 @@ metadata:
   name: novnc
   namespace: "{{ metadata.namespace }}"
   labels:
-    name: novnc
+    app: novnc
     node: "{{ spec.node.metadata.name }}"
 spec:
   selector:
-    name: novnc
+    app: novnc
     node: "{{ spec.node.metadata.name }}"
   ports:
     # - name: vnc
@@ -664,7 +679,7 @@ metadata:
     vine.ulagbulag.io/is-service-system: "true"
     vine.ulagbulag.io/service-kind: noVNC ({{ spec.node.metadata.name }})
   labels:
-    name: novnc
+    app: novnc
     node: "{{ spec.node.metadata.name }}"
 spec:
   ingressClassName: ingress-nginx-controller.vine.svc.ops.openark
@@ -704,7 +719,7 @@ metadata:
   name: desktop
   namespace: "{{ metadata.namespace }}"
   labels:
-    name: desktop
+    app: desktop
     node: "{{ spec.node.metadata.name }}"
 spec:
   accessModes:

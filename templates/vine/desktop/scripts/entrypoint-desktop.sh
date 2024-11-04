@@ -12,6 +12,17 @@ set -x
 trap "echo 'Gracefully terminating...'; exit" INT TERM
 trap "echo 'Terminated.'; exit" EXIT
 
+# Configure environment variables
+export __ENV_HOME='/tmp/.openark-vine-env'
+rm -rf "${__ENV_HOME}"
+touch "${__ENV_HOME}"
+
+# Initialize rootless container xdg session
+"$(dirname "$0")/init-desktop-xdg.sh"
+
+# Initialize rootless container wayland session
+"$(dirname "$0")/init-desktop-wayland.sh"
+
 # Initialize rootless container environment
 "$(dirname "$0")/init-desktop-podman.sh"
 

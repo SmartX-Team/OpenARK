@@ -13,6 +13,10 @@ function _mount_overlayfs() {
     local dst=$2
     local read_only="$3"
 
+    if [ ! -d "${src}" ]; then
+        return
+    fi
+
     if [[ "x${read_only}" != 'xtrue' ]]; then
         rm -rf "${dst}"
         ln -sf "${src}" "${dst}"
