@@ -17,4 +17,7 @@ unset __ENV_HOME
 rm -rf "${HOME}/.cache/sessions/" || true
 
 # Run desktop environment
+if find "${XDG_RUNTIME_DIR}" -mindepth 1 -maxdepth 1 -name 'wayland-*' -type s | grep -q .; then
+    exec sleep infinity
+fi
 exec /usr/bin/dbus-launch --auto-syntax xfce4-session

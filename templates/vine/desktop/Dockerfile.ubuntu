@@ -90,6 +90,12 @@ RUN true \
     # Update repositories
     && find /etc/apt/sources.list.d/ -type f -exec sh -c \
     'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
+    # Install apt-fast
+    && add-apt-repository -y 'ppa:apt-fast/stable' \
+    && apt-get update && apt-get install -y apt-fast \
+    && echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections \
+    && echo debconf apt-fast/dlflag boolean true | debconf-set-selections \
+    && echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -240,6 +246,8 @@ RUN apt-get update && apt-get install -y \
     zsh-autosuggestions \
     zsh-completions \
     zsh-syntax-highlighting \
+    # Backup SSH Configuration
+    && cp -r /etc/ssh /etc/.ssh \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -690,6 +698,7 @@ RUN mkdir -p /opt/public/ \
     && chown -R "${USER_UID}:${USER_GID}" /opt/public/
 
 # Add scripts
+ADD ./config/weston.ini /etc/xdg/weston/weston.ini
 ADD ./scripts /opt/scripts/
 RUN chmod 0555 /opt/scripts/*
 

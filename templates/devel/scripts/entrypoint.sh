@@ -54,18 +54,24 @@ fi
 #   Create User Password                                  #
 ###########################################################
 
+set +x
 if [ "x${USER_PASSWORD}" != 'x' ]; then
     echo -e "${USER_PASSWORD}\n${USER_PASSWORD}\n" |
         sudo passwd "${USER_NAME}"
 fi
+unset USER_PASSWORD
+set -x
 
 ###########################################################
 #   Change User Shell                                     #
 ###########################################################
 
+set +x
 if [ "x${USER_SHELL}" != 'x' ]; then
     chsh --shell "${USER_SHELL}" "${USER_NAME}"
 fi
+unset USER_SHELL
+set -x
 
 ###########################################################
 #   Copy podman containers configuration file             #

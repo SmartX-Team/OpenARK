@@ -17,11 +17,27 @@ export __ENV_HOME='/tmp/.openark-vine-env'
 rm -rf "${__ENV_HOME}"
 touch "${__ENV_HOME}"
 
+# Assert home directory's permission
+if sudo whoami >/dev/null; then
+    sudo mkdir -p "${HOME}/.local/share/containers/storage"
+    sudo chown "$(id -u):$(id -g)" \
+        "${HOME}/" \
+        "${HOME}/.local" \
+        "${HOME}/.local/share" \
+        "${HOME}/.local/share/containers" \
+        "${HOME}/.local/share/containers/storage"
+fi
+
 # Initialize rootless container xdg session
 "$(dirname "$0")/init-desktop-xdg.sh"
 
 # Initialize rootless container wayland session
 "$(dirname "$0")/init-desktop-wayland.sh"
+
+# Initialize rootless container ssh session
+"$(dirname "$0")/init-desktop-ssh.sh"
+unset USER_PASSWORD
+unset USER_SHELL
 
 # Initialize rootless container environment
 "$(dirname "$0")/init-desktop-podman.sh"

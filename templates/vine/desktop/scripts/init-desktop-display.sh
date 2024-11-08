@@ -13,6 +13,24 @@ source "${__ENV_HOME}"
 
 # Configure screen size
 function update_screen_size() {
+    echo "Finding displays..."
+    screens="$(xrandr --current | grep ' connected ' | awk '{print $1}')"
+    if [ "x${screens}" == "x" ]; then
+        echo 'Display not found!'
+        return
+    fi
+
+    for screen in $(echo -en "${screens}"); do
+        # Skip virtual displays
+        if echo "${screen}" | grep -Poqs '^None-[0-9-]+$'; then
+            xrandr --output "${screen}" --off || true
+            continue
+        fi
+
+        echo "Fixing screen to preferred (${screen})..."
+        xrandr --output "${screen}" --auto --preferred || true
+    done
+
     echo "Configuring screen size..."
     xrandr --auto || true
 

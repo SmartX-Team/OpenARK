@@ -114,19 +114,14 @@ spec:
 {% else %}
               mountPath: /home/user
 {% endif %}
-{% if spec.boxQuota.desktop.volumes.containers != 'RemoteOwned' or spec.boxQuota.desktop.volumes.home != 'RemoteOwned' or not spec.boxQuota.storage is object %}
+              subPath: home
             - name: home-containers
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root/.local/share/containers
 {% else %}
               mountPath: /home/user/.local/share/containers
 {% endif %}
-{% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
-              subPath: .local/share/containers
-{% else %}
-              subPath: null
-{% endif %}
-{% endif %}
+              subPath: containers
             - name: home-public
               mountPath: /mnt/public
             - name: host-sys
@@ -252,23 +247,18 @@ spec:
               readOnly: true
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
-              mountPath: {{ "/home/user" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
+              mountPath: {{ "/root" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
 {% else %}
               mountPath: {{ "/home/user" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
 {% endif %}
-{% if spec.boxQuota.desktop.volumes.containers != 'RemoteOwned' or spec.boxQuota.desktop.volumes.home != 'RemoteOwned' or not spec.boxQuota.storage is object %}
+              subPath: home
             - name: home-containers
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: /root/.local/share/containers
 {% else %}
               mountPath: /home/user/.local/share/containers
 {% endif %}
-{% if spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
-              subPath: .local/share/containers
-{% else %}
-              subPath: null
-{% endif %}
-{% endif %}
+              subPath: containers
             - name: home-public
               mountPath: /mnt/public
             - name: home-static
@@ -396,21 +386,19 @@ spec:
         - name: home
 {% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
           emptyDir: null
-          hostPath:
-            path: "/opt/vine/sessions/{{ metadata.namespace }}/home"
-            type: DirectoryOrCreate
-          persistentVolumeClaim: null
+          hostPath: null
+          persistentVolumeClaim:
+            claimName: "desktop-local-{{ spec.node.metadata.name }}-owned"
 {% elif spec.boxQuota.desktop.volumes.home == 'LocalShared' %}
-          emptyDir: null
-          hostPath:
-            path: "/opt/vine/sessions/_shared/home"
-            type: DirectoryOrCreate
-          persistentVolumeClaim: null
-{% elif spec.boxQuota.desktop.volumes.home == 'RemoteOwned' and spec.boxQuota.storage is object %}
           emptyDir: null
           hostPath: null
           persistentVolumeClaim:
-            claimName: desktop
+            claimName: "desktop-local-{{ spec.node.metadata.name }}-shared"
+{% elif spec.boxQuota.desktop.volumes.home == 'RemoteOwned' %}
+          emptyDir: null
+          hostPath: null
+          persistentVolumeClaim:
+            claimName: desktop-remote-owned
 {% else %} {# 'Temporary' #}
           emptyDir: {}
           hostPath: null
@@ -419,21 +407,19 @@ spec:
         - name: home-containers
 {% if spec.boxQuota.desktop.volumes.containers == 'LocalOwned' %}
           emptyDir: null
-          hostPath:
-            path: "/opt/vine/sessions/{{ metadata.namespace }}/containers"
-            type: DirectoryOrCreate
-          persistentVolumeClaim: null
+          hostPath: null
+          persistentVolumeClaim:
+            claimName: "desktop-local-{{ spec.node.metadata.name }}-owned"
 {% elif spec.boxQuota.desktop.volumes.containers == 'LocalShared' %}
-          emptyDir: null
-          hostPath:
-            path: "/opt/vine/sessions/_shared/containers"
-            type: DirectoryOrCreate
-          persistentVolumeClaim: null
-{% elif spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' and spec.boxQuota.storage is object %}
           emptyDir: null
           hostPath: null
           persistentVolumeClaim:
-            claimName: desktop
+            claimName: "desktop-local-{{ spec.node.metadata.name }}-shared"
+{% elif spec.boxQuota.desktop.volumes.containers == 'RemoteOwned' %}
+          emptyDir: null
+          hostPath: null
+          persistentVolumeClaim:
+            claimName: desktop-remote-owned
 {% else %} {# 'Temporary' #}
           emptyDir: {}
           hostPath: null
@@ -711,21 +697,100 @@ spec:
 ###########################################################
 #   Storage Deployment                                    #
 ###########################################################
-{% if spec.boxQuota.desktop.volumes.home and spec.boxQuota is object and spec.boxQuota.storage is object %}
+{% if spec.boxQuota is object and spec.boxQuota.storage is object %}
+{% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' or spec.boxQuota.desktop.volumes.containers == 'LocalOwned' %}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "vine-desktop-local-{{ spec.node.metadata.name }}-owned"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    app: desktop
+    local: "true"
+    node: "{{ spec.node.metadata.name }}"
+    shared: "false"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity: {{ spec.boxQuota.storage.requests | json_encode() | safe }}
+  hostPath:
+    path: "/opt/vine/sessions/{{ metadata.namespace }}"
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: manual
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: desktop
+  name: "desktop-local-{{ spec.node.metadata.name }}-owned"
   namespace: "{{ metadata.namespace }}"
   labels:
     app: desktop
+    local: "true"
     node: "{{ spec.node.metadata.name }}"
+    shared: "false"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources: {{ spec.boxQuota.storage | json_encode() | safe }}
+  storageClassName: manual
+  volumeName: "vine-desktop-local-{{ spec.node.metadata.name }}-owned"
+{% endif %}
+{% if spec.boxQuota.desktop.volumes.home == 'LocalShared' or spec.boxQuota.desktop.volumes.containers == 'LocalShared' %}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "vine-desktop-local-{{ spec.node.metadata.name }}-shared"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    app: desktop
+    local: "true"
+    node: "{{ spec.node.metadata.name }}"
+    shared: "true"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity: {{ spec.boxQuota.storage.requests | json_encode() | safe }}
+  hostPath:
+    path: "/opt/vine/sessions/_shared"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "desktop-local-{{ spec.node.metadata.name }}-shared"
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    app: desktop
+    local: "true"
+    node: "{{ spec.node.metadata.name }}"
+    shared: "true"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources: {{ spec.boxQuota.storage | json_encode() | safe }}
+  storageClassName: manual
+  volumeName: "vine-desktop-local-{{ spec.node.metadata.name }}-shared"
+{% endif %}
+{% if spec.boxQuota.desktop.volumes.home == 'RemoteOwned' or spec.boxQuota.desktop.volumes.home == 'RemoteOwned' %}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: desktop-remote-owned
+  namespace: "{{ metadata.namespace }}"
+  labels:
+    app: desktop
+    local: "false"
+    shared: "false"
 spec:
   accessModes:
     - ReadWriteOnce
   resources: {{ spec.boxQuota.storage | json_encode() | safe }}
 {% if spec.boxQuota.storageClassName is string %}
   storageClassName: "{{ spec.boxQuota.storageClassName }}"
+{% endif %}
 {% endif %}
 {% endif %}
