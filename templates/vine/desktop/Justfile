@@ -9,7 +9,7 @@ export OCI_IMAGE_VERSION := env_var_or_default('OCI_IMAGE_VERSION', 'latest')
 export OCI_PLATFORMS := env_var_or_default('OCI_PLATFORMS', 'linux/amd64')
 
 default:
-  @just push 'rockylinux'
+  @just push 'ubuntu'
 
 build DIST *ARGS:
   mkdir -p "${OCI_BUILD_LOG_DIR}"

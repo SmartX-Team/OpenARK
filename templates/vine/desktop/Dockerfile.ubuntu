@@ -55,13 +55,22 @@ RUN true \
     || true \
     # Install base dependencies
     && apt-get update && apt-get install -y \
+    apt-transport-https \
+    apt-utils \
     ca-certificates \
     curl \
     gettext-base \
     gnupg \
     openssl \
+    software-properties-common \
     # Enable multiarch support
     && if test "X$(uname -m)" = 'Xx86_64'; then dpkg --add-architecture 'i386'; fi \
+    # Install apt-fast
+    && add-apt-repository -y 'ppa:apt-fast/stable' \
+    && apt-get install -y apt-fast \
+    && echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections \
+    && echo debconf apt-fast/dlflag boolean true | debconf-set-selections \
+    && echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -90,12 +99,6 @@ RUN true \
     # Update repositories
     && find /etc/apt/sources.list.d/ -type f -exec sh -c \
     'mv "{}" "{}.bak" && envsubst < "{}.bak" >"{}" && rm "{}".bak' \; \
-    # Install apt-fast
-    && add-apt-repository -y 'ppa:apt-fast/stable' \
-    && apt-get update && apt-get install -y apt-fast \
-    && echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections \
-    && echo debconf apt-fast/dlflag boolean true | debconf-set-selections \
-    && echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections \
     # Cleanup
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
@@ -143,11 +146,15 @@ RUN apt-get update && apt-get install -y \
 # Install development environment dependencies
 RUN apt-get update && apt-get install -y \
     # Core
+    bash \
     binutils \
+    busybox \
     cmake \
     curl \
     fakeroot \
+    findutils \
     libtool \
+    just \
     make \
     mold \
     nasm \
@@ -161,8 +168,6 @@ RUN apt-get update && apt-get install -y \
     # Core (CLI)
     jq \
     yq \
-    # Core (Debian)
-    software-properties-common \
     # Core (Devops, CI/CD)
     git \
     git-lfs \
@@ -201,9 +206,6 @@ RUN apt-get update && apt-get install -y \
     libgpgme-dev \
     openssh-client \
     openssh-server \
-    # Core (Package Manager)
-    apt-transport-https \
-    apt-utils \
     # Editor (CLI)
     nano \
     screen \
@@ -229,6 +231,8 @@ RUN apt-get update && apt-get install -y \
     # Language-specific (Python)
     python3 \
     python3-pip \
+    # Language-specific (Rust)
+    rustup \
     # Library (GTK)
     libgtk2.0-dev \
     # Library (H/W)
@@ -611,6 +615,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AI dev dependencies - NVIDIA DeepStream
+ARG DEEPSTREAM_REFERENCES_REPO_TAG="DS-6.4"
 ARG DEEPSTREAM_REFERENCES_REPO_URL="https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps.git"
 ARG DEEPSTREAM_URL_DOWNLOAD="https://api.ngc.nvidia.com/v2/org/nvidia/resources/deepstream/versions"
 ARG DEEPSTREAM_VERSION_MAJOR="6"
@@ -662,6 +667,8 @@ RUN --mount=type=secret,id=NGC_CLI_API_KEY,env=NGC_CLI_API_KEY \
     && DEEPSTREAM_MODELS_DIR="${DEEPSTREAM_HOME}/samples/configs/tao_pretrained_models" \
     && DEEPSTREAM_SAMPLE_HOME="/opt/deepstream_reference_apps" \
     && git clone "${DEEPSTREAM_REFERENCES_REPO_URL}" "${DEEPSTREAM_SAMPLE_HOME}" \
+    --branch "${DEEPSTREAM_REFERENCES_REPO_TAG}" \
+    --single-branch \
     && cd "${DEEPSTREAM_SAMPLE_HOME}/deepstream_app_tao_configs/" \
     && cp -a * "${DEEPSTREAM_MODELS_DIR}" \
     && cd - \
