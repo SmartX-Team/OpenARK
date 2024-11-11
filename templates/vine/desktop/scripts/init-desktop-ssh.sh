@@ -20,9 +20,10 @@ fi
 
 # Generate host SSH keys
 if [ ! -f "/etc/ssh/ssh_host_ed25519_key.pub" ]; then
-    cp -r /etc/.ssh/* /etc/ssh
+    sudo cp -r /etc/.ssh/* /etc/ssh
     sudo ssh-keygen -q -A
 fi
+sudo rm -rf /etc/.ssh
 
 # Generate user SSH keys
 if [ ! -f "${HOME}/.ssh/id_ed25519" ]; then

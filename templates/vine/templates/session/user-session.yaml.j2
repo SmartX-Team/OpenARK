@@ -279,6 +279,9 @@ spec:
             # - name: scripts
             #   mountPath: /opt/scripts
             #   readOnly: true
+            - name: home
+              mountPath: /etc/ssh
+              subPath: ssh
             - name: tmp
               mountPath: /tmp
             - name: vine

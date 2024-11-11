@@ -247,6 +247,7 @@ RUN apt-get update && apt-get install -y \
     zsh-completions \
     zsh-syntax-highlighting \
     # Backup SSH Configuration
+    && rm -rf /etc/ssh/ssh_host_* \
     && cp -r /etc/ssh /etc/.ssh \
     # Cleanup
     && apt-get clean all \
@@ -468,8 +469,6 @@ RUN apt-get update && apt-get install -y \
     # Visual Editors
     android-studio \
     code \
-    # Backup SSH Configurations
-    && cp -r /etc/ssh /etc/.ssh \
     # DBus Configuration
     && sed -i '/^root \+messagebus .*$/ d' /var/lib/dpkg/statoverride \
     ## blueman-applet
