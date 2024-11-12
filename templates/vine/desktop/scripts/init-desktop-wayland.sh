@@ -17,7 +17,7 @@ mkdir -p "/tmp/.X11-unix"
 
 # Detect GPU Devices
 if nvidia-smi >/dev/null 2>/dev/null; then
-    export VK_DRIVER_FILES="/usr/share/vulkan/icd.d/nvidia_icd.json"
+    export VK_DRIVER_FILES="/etc/vulkan/icd.d/nvidia_icd.json"
     export VK_ICD_FILENAMES="${VK_DRIVER_FILES}"
 
     # Make these environment variables persistent
