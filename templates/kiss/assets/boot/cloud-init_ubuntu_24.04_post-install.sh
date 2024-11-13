@@ -101,7 +101,12 @@ if lspci | grep 'NVIDIA'; then
 
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
+            i386_packages="libnvidia-*-550:i386 libnvidia-egl-wayland1:i386"
+            if [ "x$(uname -m)" != 'xx86_64' ]; then
+                i386_packages=''
+            fi
             apt-get install -y \
+                ${i386_packages} \
                 "libnvidia-*-550" \
                 "libnvidia-egl-wayland1" \
                 "nvidia-*-550" \
