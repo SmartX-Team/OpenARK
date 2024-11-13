@@ -156,6 +156,7 @@ RUN apt-get update && apt-get install -y \
     libtool \
     just \
     make \
+    meson \
     mold \
     nasm \
     pkg-config \
@@ -347,6 +348,8 @@ RUN apt-get update && apt-get install -y \
     mesa-utils \
     vulkan-icd \
     vulkan-tools \
+    # Core (NVIDIA)
+    libnvidia-egl-wayland1 \
     # Core (Audio/PipeWire)
     libldacbt-abr2 libldacbt-enc2 \
     libpipewire-0.3-common \
@@ -489,19 +492,53 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
+# Install cutting-edge weston (>=14)
+ARG WESTON_REPO="https://gitlab.freedesktop.org/wayland/weston.git"
+RUN apt-get update && apt-get install -y \
+    freerdp2-dev \
+    freerdp3-dev \
+    gnutls-dev \
+    hwdata \
+    libdisplay-info-dev \
+    libgmp-dev \
+    libinput-dev \
+    liblcms2-dev \
+    libneatvnc-dev \
+    libpam-dev \
+    libpipewire-0.3-dev \
+    libseat-dev \
+    libturbojpeg-dev \
+    libva-dev \
+    libxcb-composite0-dev \
+    libxcb-cursor-dev \
+    libxcb-xkb-dev \
+    nettle-dev \
+    # Download
+    && WESTON_SRC="/opt/weston" \
+    && git clone "${WESTON_REPO}" "${WESTON_SRC}" \
+    && cd "${WESTON_SRC}" \
+    # Build
+    && meson build/ --prefix=/usr \
+    && ninja -C build/ install \
+    # Cleanup
+    && cd - \
+    && rm -rf "${WESTON_SRC}" \
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install cutting-edge ananicy
 ARG ANANICY_REPO="https://github.com/kuche1/minq-ananicy.git"
 RUN apt-get update \
     # Download
-    && ANANICY_TMP="/opt/ananicy" \
-    && git clone "${ANANICY_REPO}" "${ANANICY_TMP}" \
-    && cd "${ANANICY_TMP}" \
+    && ANANICY_SRC="/opt/ananicy" \
+    && git clone "${ANANICY_REPO}" "${ANANICY_SRC}" \
+    && cd "${ANANICY_SRC}" \
     # Build
     && ./package.sh debian \
     && apt-get install -y ./ananicy-*.deb \
     # Cleanup
     && cd - \
-    && rm -rf "${ANANICY_TMP}" \
+    && rm -rf "${ANANICY_SRC}" \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
@@ -513,9 +550,9 @@ ARG PODMAN_VERSION="5.1"
 RUN apt-mark hold crun podman \
     # crun
     ## Download
-    && CRUN_TMP="/opt/crun" \
-    && git clone "${CRUN_REPO}" "${CRUN_TMP}" -b "${CRUN_VERSION}" \
-    && cd "${CRUN_TMP}" \
+    && CRUN_SRC="/opt/crun" \
+    && git clone "${CRUN_REPO}" "${CRUN_SRC}" -b "${CRUN_VERSION}" \
+    && cd "${CRUN_SRC}" \
     ## Build
     && ./autogen.sh \
     && ./configure --enable-shared --prefix=/usr \
@@ -523,15 +560,15 @@ RUN apt-mark hold crun podman \
     && make install \
     # podman
     ## Download
-    && PODMAN_TMP="/opt/podman" \
-    && git clone "${PODMAN_REPO}" "${PODMAN_TMP}" -b "v${PODMAN_VERSION}" \
-    && cd "${PODMAN_TMP}" \
+    && PODMAN_SRC="/opt/podman" \
+    && git clone "${PODMAN_REPO}" "${PODMAN_SRC}" -b "v${PODMAN_VERSION}" \
+    && cd "${PODMAN_SRC}" \
     ## Build
     && make BUILDTAGS='cni seccomp selinux systemd' PREFIX=/usr \
     && make install PREFIX=/usr \
     # Cleanup
     && cd - \
-    && rm -rf "${CRUN_TMP}" "${PODMAN_TMP}" \
+    && rm -rf "${CRUN_SRC}" "${PODMAN_SRC}" \
     && apt-get clean all \
     && rm -rf /var/lib/apt/lists/*
 
@@ -579,13 +616,13 @@ RUN apt-mark hold wine \
     && WINE_OBJ_NAME="wine-${WINE_VERSION}-staging-tkg-${WINE_ARCH}" \
     && WINE_OBJ_FILENAME="${WINE_OBJ_NAME}.tar.xz" \
     && WINE_OBJ_FILE="${WINE_OBJ_FILENAME}" \
-    && WINE_TMP="/opt/${WINE_OBJ_NAME}" \
+    && WINE_SRC="/opt/${WINE_OBJ_NAME}" \
     && curl -Lo "${WINE_OBJ_FILE}" "${WINE_REPO}/${WINE_VERSION}/${WINE_OBJ_FILENAME}" \
     # Decompress the downloaded file
-    && tar -x -C "$(dirname "${WINE_TMP}")" -f "${WINE_OBJ_FILE}" \
-    && tar -cf - -C "${WINE_TMP}" . | tar -xf - -C '/usr' \
+    && tar -x -C "$(dirname "${WINE_SRC}")" -f "${WINE_OBJ_FILE}" \
+    && tar -cf - -C "${WINE_SRC}" . | tar -xf - -C '/usr' \
     # Cleanup
-    && rm -rf "${WINE_OBJ_FILE}" "${WINE_TMP}"
+    && rm -rf "${WINE_OBJ_FILE}" "${WINE_SRC}"
 
 # Install AI dev dependencies
 RUN apt-get update && apt-get install -y \

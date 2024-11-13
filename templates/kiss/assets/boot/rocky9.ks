@@ -250,10 +250,8 @@ if lspci | grep 'NVIDIA'; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
             dnf install -y pulseaudio
             dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel$(rpm -E %rhel)/${ARCH_SBSA}/cuda-rhel$(rpm -E %rhel).repo"
-            # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
-            # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
             #dnf module install -y "nvidia-driver:latest-dkms"
-            dnf module install -y "nvidia-driver:535-dkms"
+            dnf module install -y "nvidia-driver:550-dkms"
             # NOTE: use fixed cuda toolkit
             dnf install -y \
                 cuda-toolkit \

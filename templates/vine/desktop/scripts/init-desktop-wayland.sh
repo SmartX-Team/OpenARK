@@ -32,18 +32,21 @@ if [ ! -S "/tmp/.X11-unix/X$(echo "${DISPLAY}" | grep -Po '[0-9]+$')" ]; then
     echo "export WAYLAND_DISPLAY=\"${WAYLAND_DISPLAY}\"" >>"${__ENV_HOME}"
 
     # Configure wayland
-    WAYLAND_BACKEND_RDP='rdp-backend.so'
-    WAYLAND_BACKEND_VNC='vnc-backend.so'
+    WAYLAND_BACKEND_RDP='rdp'
+    WAYLAND_BACKEND_VNC='vnc'
 
     WAYLAND_ARGS="${WAYLAND_ARGS} --socket=${WAYLAND_DISPLAY}"
     WAYLAND_ARGS="${WAYLAND_ARGS} --xwayland"
     WAYLAND_BACKEND="${WAYLAND_BACKEND:-$WAYLAND_BACKEND_VNC}"
     WAYLAND_TLS_HOME="${HOME}/.rdp"
 
+    # Configure weston
+    WESTON_RENDERER='gl'
+
     # Detect backend kind
-    if [ "x${WAYLAND_BACKEND}" == "x${WAYLAND_BACKEND_RDP}" ]; then
+    if echo "${WAYLAND_BACKEND}" | grep -Posq "(^|,)${WAYLAND_BACKEND_RDP}(,|$)"; then
         WAYLAND_BACKEND_KIND='rdp'
-    elif [ "x${WAYLAND_BACKEND}" == "x${WAYLAND_BACKEND_VNC}" ]; then
+    elif echo "${WAYLAND_BACKEND}" | grep -Posq "(^|,)${WAYLAND_BACKEND_VNC}(,|$)"; then
         WAYLAND_BACKEND_KIND='vnc'
     else
         WAYLAND_BACKEND_KIND=''
@@ -68,10 +71,12 @@ if [ ! -S "/tmp/.X11-unix/X$(echo "${DISPLAY}" | grep -Po '[0-9]+$')" ]; then
     if nvidia-smi >/dev/null 2>/dev/null; then
         export __GLX_VENDOR_LIBRARY_NAME="nvidia"
         export __NV_PRIME_RENDER_OFFLOAD="1"
+        export GBM_BACKEND="nvidia-drm"
 
         # Make these environment variables persistent
         echo "export __GLX_VENDOR_LIBRARY_NAME=\"${__GLX_VENDOR_LIBRARY_NAME}\"" >>"${__ENV_HOME}"
         echo "export __NV_PRIME_RENDER_OFFLOAD=\"${__NV_PRIME_RENDER_OFFLOAD}\"" >>"${__ENV_HOME}"
+        echo "export GBM_BACKEND=\"${GBM_BACKEND}\"" >>"${__ENV_HOME}"
     fi
 
     # Disable default weston terminal
@@ -79,5 +84,8 @@ if [ ! -S "/tmp/.X11-unix/X$(echo "${DISPLAY}" | grep -Po '[0-9]+$')" ]; then
         sudo ln -sf /usr/bin/xfce4-terminal /usr/bin/weston-terminal
     fi
 
-    weston --backend="${WAYLAND_BACKEND}" ${WAYLAND_ARGS} &
+    weston \
+        --backend="${WAYLAND_BACKEND}" \
+        --renderer="${WESTON_RENDERER}" \
+        ${WAYLAND_ARGS} &
 fi

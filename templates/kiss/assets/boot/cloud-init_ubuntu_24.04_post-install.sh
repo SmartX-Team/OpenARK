@@ -78,6 +78,11 @@ chmod 440 /etc/sudoers.d/10-wheel
 # Bluetooth Configuration
 systemctl enable bluetooth.service
 
+# Graphics Configuration
+add-apt-repository -y 'ppa:graphics-drivers/ppa'
+dpkg --add-architecture i386
+apt-get update
+
 # Driver Configuration
 ## GPU - NVIDIA
 if lspci | grep 'NVIDIA'; then
@@ -96,23 +101,11 @@ if lspci | grep 'NVIDIA'; then
 
     if [ "x${_IS_NVIDIA_MANUAL}" == "xfalse" ]; then
         if [ "x${_HAS_NVIDIA_GPU}" == "xtrue" ]; then
-            # TODO: NVIDIA Driver >=545 has breaking changes; not compatible with old (year < 2023) containers.
-            # Issue: https://github.com/NVIDIA/egl-wayland/issues/72#issuecomment-1819549040
             apt-get install -y \
-                "libnvidia-cfg1-535" \
-                "libnvidia-common-535" \
-                "libnvidia-compute-535" \
-                "libnvidia-decode-535" \
-                "libnvidia-encode-535" \
-                "libnvidia-extra-535" \
-                "libnvidia-fbc1-535" \
-                "libnvidia-gl-535" \
-                "libnvidia-nscq-535" \
-                "nvidia-compute-utils-535" \
-                "nvidia-dkms-535" \
-                "nvidia-fabricmanager-535" \
-                "nvidia-utils-535" \
-                "xserver-xorg-video-nvidia-535"
+                "libnvidia-*-550" \
+                "libnvidia-egl-wayland1" \
+                "nvidia-*-550" \
+                "xserver-xorg-video-nvidia-550"
         fi
 
         # Enable NVIDIA FabricManager
