@@ -80,7 +80,9 @@ systemctl enable bluetooth.service
 
 # Graphics Configuration
 add-apt-repository -y 'ppa:graphics-drivers/ppa'
-dpkg --add-architecture i386
+if [ "x$(uname -m)" != 'xx86_64' ]; then
+    dpkg --add-architecture i386
+fi
 apt-get update
 
 # Driver Configuration
