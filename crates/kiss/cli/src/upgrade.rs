@@ -109,7 +109,7 @@ enum ClusterUpgradeStatus {
     Failed,
 }
 
-fn create_job<'a>(target_box: &'a BoxCrd) -> AnsibleJob {
+fn create_job(target_box: &BoxCrd) -> AnsibleJob {
     AnsibleJob {
         cron: None,
         task: "upgrade",

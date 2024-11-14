@@ -106,26 +106,27 @@ blocks_in_conditions = "allow" # opentelemetry tracing macro would be noisy
 actix-cors = { version = "0.7" }
 actix-multipart = { version = "0.7", features = ["derive", "tempfile"] }
 actix-web = { version = "4.9", default-features = false, features = ["macros"] }
-actix-web-opentelemetry = { version = "0.18", features = ["metrics"] }
+actix-web-opentelemetry = { version = "0.19", features = ["metrics"] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 arrow = { version = "52" } # should be synced with deltalake and lancedb
 argon2 = { version = "0.5" }
-async-nats = { version = "0.36", default-features = false, features = [
+async-nats = { version = "0.37", default-features = false, features = [
     "server_2_10",
 ] }
 async-recursion = { version = "1.1" }
 async-stream = { version = "0.3" }
 async-trait = { version = "0.1" }
-avt = { version = "0.11" }
+avt = { version = "0.14" }
 base64 = { version = "0.22" }
 byteorder = { version = "1.5" }
-bytes = { version = "1.6" }
+bytes = { version = "1.8" }
 byte-unit = { version = "5.1" }
 chrono = { version = "0.4", features = ["serde"] }
+ciborium = { package = "ciborium", version = "0.2" }
 clap = { version = "4.5", features = ["derive", "env", "string"] }
 csv = { version = "1.3" }
 ctrlc = { version = "3.4" }
-deltalake = { version = "0.19", features = [
+deltalake = { version = "0.21", features = [
     "datafusion",
     "datafusion-ext",
     "json",
@@ -133,7 +134,7 @@ deltalake = { version = "0.19", features = [
 derivative = { version = "2.2" }
 dirs = { version = "5.0" }
 duration-string = { version = "0.4" }
-eframe = { version = "0.28", default-features = false, features = [
+eframe = { version = "0.29", default-features = false, features = [
     "accesskit",
     "default_fonts",
     "wayland",
@@ -141,8 +142,8 @@ eframe = { version = "0.28", default-features = false, features = [
     "wgpu",
     "x11",
 ] }
-egui = { version = "0.28" }
-egui_graphs = { version = "0.21" }
+egui = { version = "0.29" }
+egui_graphs = { version = "0.22" }
 email_address = { version = "0.2" }
 futures = { version = "0.3" }
 gethostname = { version = "0.5" }
@@ -151,16 +152,16 @@ hickory-server = { version = "*", default-features = false, features = [
     "backtrace",
 ] }
 home = { version = "0.5" }
-http-cache-reqwest = { version = "0.14", features = ["manager-cacache"] }
+http-cache-reqwest = { version = "0.15", features = ["manager-cacache"] }
 image = { version = "0.25", default-features = false }
 inflector = { package = "Inflector", version = "0.11" }
 ipnet = { version = "2.10", features = ["schemars", "serde"] }
 itertools = { version = "0.13" }
-k8s-openapi = { version = "0.22", features = ["latest", "schemars"] }
-kube = { version = "0.94", default-features = false }
-lalrpop = { version = "0.21" }
-lalrpop-util = { version = "0.21", features = ["lexer", "unicode"] }
-lancedb = { version = "0.10", default-features = false }
+k8s-openapi = { version = "0.23", features = ["latest", "schemars"] }
+kube = { version = "0.96", default-features = false }
+lalrpop = { version = "0.22" }
+lalrpop-util = { version = "0.22", features = ["lexer", "unicode"] }
+lancedb = { version = "0.12", default-features = false }
 # langchain-rust = { version = "4.1", default-features = false }
 mime = { version = "0.3" }
 # FIXME: push a PR: rustls-tls feature support
@@ -169,31 +170,31 @@ maplit = { version = "1.0" }
 ndarray = { version = "0.16" }
 num-traits = { version = "0.2" }
 object_store = { version = "0.11", default-features = false }
-octocrab = { version = "0.39", default-features = false, features = [
+octocrab = { version = "0.41", default-features = false, features = [
     "default-client",
 ] }
-opencv = { version = "0.92", default-features = false, features = [
+opencv = { version = "0.93", default-features = false, features = [
     "clang-runtime",
 ] }
-opentelemetry = { version = "0.25", features = [
-    "logs_level_enabled",
+opentelemetry = { version = "0.27", features = [
     "metrics",
+    "spec_unstable_logs_enabled",
     "trace",
 ] }
-opentelemetry-appender-tracing = { version = "0.25", features = [
+opentelemetry-appender-tracing = { version = "0.27", features = [
     # "experimental_metadata_attributes",
-    "logs_level_enabled",
+    "spec_unstable_logs_enabled",
 ] }
-opentelemetry-otlp = { version = "0.25", features = [
+opentelemetry-otlp = { version = "0.27", features = [
     "logs",
     "metrics",
     "trace",
 ] }
-opentelemetry-proto = { version = "0.25", features = ["with-serde", "zpages"] }
-opentelemetry_sdk = { version = "0.25", features = [
-    "logs_level_enabled",
+opentelemetry-proto = { version = "0.27", features = ["with-serde", "zpages"] }
+opentelemetry_sdk = { version = "0.27", features = [
     "metrics",
     "rt-tokio",
+    "spec_unstable_logs_enabled",
     "trace",
 ] }
 or-tools = { git = "https://github.com/ulagbulag/or-tools-rs", version = "0.1", default-features = false, features = [
@@ -204,14 +205,14 @@ or-tools = { git = "https://github.com/ulagbulag/or-tools-rs", version = "0.1", 
 #     "download-binaries",
 #     "load-dynamic",
 # ] }
-ordered-float = { version = "4.2", default-features = false, features = [
+ordered-float = { version = "4.5", default-features = false, features = [
     "bytemuck",
     "schemars",
     "serde",
     "std",
 ] }
 petgraph = { version = "0.6" }
-polars = { version = "0.43", features = [
+polars = { version = "0.44", features = [
     "async",
     "cloud",
     "diagonal_concat",
@@ -228,24 +229,24 @@ polars = { version = "0.43", features = [
     "sql",
     "streaming",
 ] }
-procfs = { version = "0.16" }
+procfs = { version = "0.17" }
 prometheus-http-query = { version = "0.8", default-features = false }
-pyo3 = { version = "0.22" }
+pyo3 = { version = "0.21" }
 r2r = { version = "0.9" }
 rand = { version = "0.8" }
 rand_distr = { version = "0.4" }
-ratatui = { version = "0.28", default-features = false, features = [
+ratatui = { version = "0.29", default-features = false, features = [
     "crossterm",
     "palette",
     "underline-color",
 ] }
 rdkafka = { version = "0.36", features = ["cmake-build"] }
-regex = { version = "1.10" }
+regex = { version = "1.11" }
 reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "stream",
 ] }
-reqwest-middleware = { version = "0.3" }
+reqwest-middleware = { version = "0.4" }
 resolv-conf = { version = "0.7" }
 rmp-serde = { version = "1.3" }
 sas = { version = "0.1", default-features = false, features = [
@@ -258,7 +259,7 @@ schemars = { version = "0.8", features = [
     "preserve_order",
     "uuid1",
 ] }
-sea-orm = { version = "0.12", default-features = false, features = [
+sea-orm = { version = "1.1", default-features = false, features = [
     "macros",
     "sqlx-postgres",
     "sqlx-sqlite",
@@ -267,7 +268,7 @@ sea-orm = { version = "0.12", default-features = false, features = [
     "with-time",
     "with-uuid",
 ] }
-sea-orm-migration = { version = "0.12", default-features = false, features = [
+sea-orm-migration = { version = "1.1", default-features = false, features = [
     "sqlx-postgres",
     "sqlx-sqlite",
     "with-chrono",
@@ -277,7 +278,6 @@ sea-orm-migration = { version = "0.12", default-features = false, features = [
 ] } # should be synced with sea-orm
 semver = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
-serde_cbor = { version = "0.11" }
 serde_json = { version = "1.0" }
 serde_yaml = { version = "0.9" } # NOTE: deprecated on Mar 25, 2024; who will take it over?
 sha2 = { version = "0.10" }
@@ -285,14 +285,14 @@ sio = { git = "https://github.com/ulagbulag/sio-rs.git" }
 sled = { version = "0.34" }
 strum = { version = "0.26", features = ["derive"] }
 tera = { version = "1.19" }
-thiserror = { version = "1.0" }
+thiserror = { version = "2.0" }
 tokio = { version = "1", features = ["macros", "rt"] }
 tokio-stream = { version = "0.1" }
 tonic = { version = "0.12", features = [
     "gzip",
 ] } # should be synced with opentelemetry-proto
 tracing = { version = "0.1" }
-tracing-opentelemetry = { version = "0.26", features = [
+tracing-opentelemetry = { version = "0.28", features = [
     "metrics",
     "tracing-log",
 ] } # should be synced with opentelemetry
@@ -302,9 +302,9 @@ tracing-subscriber = { version = "0.3", features = [
     "tracing-log",
 ] }
 url = { version = "2.5", features = ["serde"] }
-uuid = { version = "1.8", features = ["js", "serde", "v4"] }
-which = { version = "6.0" }
-winit = { version = "0.29", features = [
+uuid = { version = "1.11", features = ["js", "serde", "v4"] }
+which = { version = "7.0" }
+winit = { version = "0.30", features = [
     "wayland",
 ] } # should be synced with eframe
 

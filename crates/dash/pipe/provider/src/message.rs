@@ -342,7 +342,7 @@ where
         match value.first().copied().map(Into::into) {
             None | Some(OpCode::AsciiEnd) => ::serde_json::from_slice(value).map_err(Into::into),
             Some(OpCode::MessagePack) => ::rmp_serde::from_slice(&value[1..]).map_err(Into::into),
-            Some(OpCode::Cbor) => ::serde_cbor::from_slice(&value[1..]).map_err(Into::into),
+            Some(OpCode::Cbor) => ::ciborium::from_reader(&value[1..]).map_err(Into::into),
             Some(OpCode::Unsupported) => bail!("cannot infer serde opcode"),
         }
     }
@@ -550,7 +550,7 @@ where
                 // opcode
                 let mut buf = vec![OpCode::Cbor as u8];
 
-                ::serde_cbor::to_writer(&mut buf, self)
+                ::ciborium::into_writer(self, &mut buf)
                     .map(|()| buf.into())
                     .map_err(Into::into)
             }

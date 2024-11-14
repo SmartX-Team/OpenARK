@@ -57,7 +57,7 @@ async fn solver_simple() {
 
     let edges_cost = (edges_flow * edges_unit_cost)
         .expect("failed to get edges cost")
-        .with_name("cost");
+        .with_name("cost".into());
     optimized_edges
         .with_column(edges_cost)
         .expect("failed to insert edge cost column");

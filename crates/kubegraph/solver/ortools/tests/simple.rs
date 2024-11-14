@@ -23,17 +23,24 @@ fn max_flow() {
     )
     .expect("failed to create edges dataframe");
 
-    let edges_src = edges.column("src").unwrap().cast(&DataType::Int32).unwrap();
+    let edges_src = edges
+        .column("src")
+        .unwrap()
+        .cast(&DataType::Int32)
+        .unwrap()
+        .take_materialized_series();
     let edges_sink = edges
         .column("sink")
         .unwrap()
         .cast(&DataType::Int32)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
     let edges_capacity = edges
         .column("capacity")
         .unwrap()
         .cast(&DataType::Int64)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
 
     // Step 2. Add nodes
     let nodes_name = edges_src
@@ -81,7 +88,7 @@ fn max_flow() {
 
     let edges_flow =
         Series::from_iter((0..edges_capacity.len()).map(|edge| output.flow(edge as ArcIndex)))
-            .with_name("flow");
+            .with_name("flow".into());
 
     let mut optimized_edges = edges.clone();
     optimized_edges
@@ -103,22 +110,30 @@ fn min_cost_flow() {
     )
     .expect("failed to create edges dataframe");
 
-    let edges_src = edges.column("src").unwrap().cast(&DataType::Int32).unwrap();
+    let edges_src = edges
+        .column("src")
+        .unwrap()
+        .cast(&DataType::Int32)
+        .unwrap()
+        .take_materialized_series();
     let edges_sink = edges
         .column("sink")
         .unwrap()
         .cast(&DataType::Int32)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
     let edges_capacity = edges
         .column("capacity")
         .unwrap()
         .cast(&DataType::Int64)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
     let edges_unit_cost = edges
         .column("unit_cost")
         .unwrap()
         .cast(&DataType::Int64)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
 
     // Step 2. Add nodes
     let nodes_name = edges_src
@@ -139,7 +154,8 @@ fn min_cost_flow() {
         .column("supply")
         .unwrap()
         .cast(&DataType::Int64)
-        .unwrap();
+        .unwrap()
+        .take_materialized_series();
 
     let num_nodes = nodes_name.len() as NodeIndex;
     let num_edges = edges_capacity.len() as ArcIndex;
@@ -182,10 +198,10 @@ fn min_cost_flow() {
 
     let edges_flow =
         Series::from_iter((0..edges_capacity.len()).map(|edge| output.flow(edge as ArcIndex)))
-            .with_name("flow");
+            .with_name("flow".into());
     let edges_cost = (edges_flow.clone() * edges_unit_cost)
         .expect("failed to get edges cost")
-        .with_name("cost");
+        .with_name("cost".into());
 
     let mut optimized_edges = edges.clone();
     optimized_edges

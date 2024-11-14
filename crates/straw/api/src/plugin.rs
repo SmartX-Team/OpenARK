@@ -350,7 +350,7 @@ where
                                     sources: Some(vec![
                                         VolumeProjection {
                                             secret: Some(SecretProjection {
-                                                name: Some(nats_token_secret_name),
+                                                name: nats_token_secret_name,
                                                 items: Some(vec![
                                                     KeyToPath {
                                                         key: "token".into(),
@@ -540,7 +540,7 @@ macro_rules! context_env_fields {
                             EnvVarSource {
                                 secret_key_ref: Some(SecretKeySelector {
                                     key: $env_from_secret_secret_key.into(),
-                                    name: Some($env_from_secret_secret_name.into()),
+                                    name: $env_from_secret_secret_name.into(),
                                     optional: Some(false),
                                 }),
                                 ..Default::default()

@@ -226,7 +226,7 @@ impl AnsibleClient {
                                 name: "ansible_user".into(),
                                 value_from: Some(EnvVarSource {
                                     config_map_key_ref: Some(ConfigMapKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "auth_ssh_username".into(),
                                         ..Default::default()
                                     }),
@@ -396,7 +396,7 @@ impl AnsibleClient {
                                 name: "kiss_network_wireless_wifi_key_mgmt".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "network_wireless_wifi_key_mgmt".into(),
                                         ..Default::default()
                                     }),
@@ -408,7 +408,7 @@ impl AnsibleClient {
                                 name: "kiss_network_wireless_wifi_key_psk".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "network_wireless_wifi_key_psk".into(),
                                         ..Default::default()
                                     }),
@@ -420,7 +420,7 @@ impl AnsibleClient {
                                 name: "kiss_network_wireless_wifi_ssid".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "network_wireless_wifi_ssid".into(),
                                         ..Default::default()
                                     }),
@@ -454,7 +454,7 @@ impl AnsibleClient {
                                 name: "kiss_power_intel_amt_username".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "power_intel_amt_username".into(),
                                         ..Default::default()
                                     }),
@@ -466,7 +466,7 @@ impl AnsibleClient {
                                 name: "kiss_power_intel_amt_password".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "power_intel_amt_password".into(),
                                         ..Default::default()
                                     }),
@@ -490,7 +490,7 @@ impl AnsibleClient {
                                 name: "kiss_power_ipmi_username".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "power_ipmi_username".into(),
                                         ..Default::default()
                                     }),
@@ -502,7 +502,7 @@ impl AnsibleClient {
                                 name: "kiss_power_ipmi_password".into(),
                                 value_from: Some(EnvVarSource {
                                     secret_key_ref: Some(SecretKeySelector {
-                                        name: Some("kiss-config".into()),
+                                        name: "kiss-config".into(),
                                         key: "power_ipmi_password".into(),
                                         ..Default::default()
                                     }),
@@ -545,10 +545,7 @@ impl AnsibleClient {
                         Volume {
                             name: "ansible".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some(format!(
-                                    "ansible-control-planes-{}",
-                                    &group.cluster_name,
-                                )),
+                                name: format!("ansible-control-planes-{}", &group.cluster_name,),
                                 default_mode: Some(0o400),
                                 optional: Some(!self.kiss.group_enforce_ansible_control_planes),
                                 ..Default::default()
@@ -558,7 +555,7 @@ impl AnsibleClient {
                         Volume {
                             name: "ansible-defaults".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some("ansible-control-planes-default".into()),
+                                name: "ansible-control-planes-default".into(),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
@@ -567,7 +564,7 @@ impl AnsibleClient {
                         Volume {
                             name: "playbook".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some("ansible-task-common".into()),
+                                name: "ansible-task-common".into(),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),
@@ -576,7 +573,7 @@ impl AnsibleClient {
                         Volume {
                             name: "tasks".into(),
                             config_map: Some(ConfigMapVolumeSource {
-                                name: Some(format!("ansible-task-{}", &job.task)),
+                                name: format!("ansible-task-{}", &job.task),
                                 default_mode: Some(0o400),
                                 ..Default::default()
                             }),

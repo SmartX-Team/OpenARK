@@ -6,7 +6,7 @@ use kubegraph_api::{
 };
 use sea_orm::{
     ActiveModelBehavior, ActiveValue, DeriveEntityModel, DerivePrimaryKey, DeriveRelation,
-    EntityTrait, EnumIter, PrimaryKeyTrait,
+    EnumIter, PrimaryKeyTrait,
 };
 use serde_json::Value;
 

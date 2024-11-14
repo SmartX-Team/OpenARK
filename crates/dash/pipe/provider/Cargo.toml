@@ -66,6 +66,7 @@ async-stream = { workspace = true, optional = true }
 async-trait = { workspace = true }
 bytes = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, optional = true }
+ciborium = { workspace = true }
 clap = { workspace = true }
 deltalake = { workspace = true, optional = true }
 derivative = { workspace = true }
@@ -84,7 +85,6 @@ rmp-serde = { workspace = true }
 sas = { workspace = true }
 schemars = { workspace = true, features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
-serde_cbor = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

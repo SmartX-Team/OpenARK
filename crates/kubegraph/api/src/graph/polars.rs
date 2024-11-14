@@ -83,6 +83,7 @@ where
     })?;
 
     Ok(name
+        .as_materialized_series()
         .iter()
         .filter_map(|name| match name {
             ::pl::datatypes::AnyValue::String(value) => Some(value.into()),
@@ -96,7 +97,7 @@ where
 
 #[cfg(feature = "petgraph")]
 struct DataSeries<'a> {
-    columns: &'a [::pl::series::Series],
+    columns: &'a [::pl::prelude::Column],
 }
 
 #[cfg(feature = "petgraph")]
@@ -185,11 +186,19 @@ impl<'a> Iterator for DataSeriesIter<'a> {
                 }
                 ::pl::datatypes::AnyValue::Date(_)
                 | ::pl::datatypes::AnyValue::Datetime(_, _, _)
+                | ::pl::datatypes::AnyValue::DatetimeOwned(_, _, _)
                 | ::pl::datatypes::AnyValue::Duration(_, _)
                 | ::pl::datatypes::AnyValue::Time(_)
+                // | ::pl::datatypes::AnyValue::Categorical(_, _, _)
+                // | ::pl::datatypes::AnyValue::CategoricalOwned(_, _, _)
+                // | ::pl::datatypes::AnyValue::Enum(_, _, _)
+                // | ::pl::datatypes::AnyValue::EnumOwned(_, _, _)
+                // | ::pl::datatypes::AnyValue::Array(_, _)
                 | ::pl::datatypes::AnyValue::List(_)
                 | ::pl::datatypes::AnyValue::Struct(_, _, _)
                 | ::pl::datatypes::AnyValue::StructOwned(_)
+                // | ::pl::datatypes::AnyValue::Object(_)
+                // | ::pl::datatypes::AnyValue::ObjectOwned(_)
                 | ::pl::datatypes::AnyValue::Binary(_)
                 | ::pl::datatypes::AnyValue::BinaryOwned(_)
                 | ::pl::datatypes::AnyValue::Decimal(_, _) => continue,

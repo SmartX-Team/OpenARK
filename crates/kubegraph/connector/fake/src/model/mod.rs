@@ -11,7 +11,7 @@ use kubegraph_api::{
     },
     graph::GraphScope,
 };
-use polars::{error::PolarsError, frame::DataFrame, series::Series};
+use polars::{error::PolarsError, frame::DataFrame, prelude::IntoColumn, series::Series};
 
 pub trait DataGenerator<'a> {
     type Args;
@@ -67,7 +67,7 @@ impl<'a> DataGenerator<'a> for NetworkConnectorFakeDataFrame {
             .map(|(key, model)| {
                 model
                     .generate((scope, count))
-                    .map(|data| data.with_name((&key).into()))
+                    .map(|data| data.with_name((&key).into()).into_column())
                     .map_err(|error| anyhow!("on {key}: {error}"))
             })
             .collect::<Result<Vec<_>>>()?;

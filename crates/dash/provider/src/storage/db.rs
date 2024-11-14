@@ -14,6 +14,7 @@ use dash_api::{
 };
 use kube::ResourceExt;
 use sea_orm::{
+    prelude::StringLen,
     sea_query::{ColumnDef, Expr, IntoIden, Table, TableRef},
     ActiveModelBehavior, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
@@ -368,9 +369,9 @@ pub struct Model {
     pub id: i32,
     #[sea_orm(column_type = "Timestamp")]
     pub created_at: NaiveDateTime,
-    #[sea_orm(column_type = "String(Some(64))")]
+    #[sea_orm(column_type = "String(StringLen::N(64))")]
     pub model_hash: String,
-    #[sea_orm(column_type = "String(Some(64))")]
+    #[sea_orm(column_type = "String(StringLen::N(64))")]
     pub model_name: String,
     pub model_value: Value,
     pub model_version: i64,

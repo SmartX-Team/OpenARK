@@ -6,7 +6,7 @@ use pl::{
         dsl,
         frame::{IntoLazy, LazyFrame},
     },
-    prelude::{Literal, UnionArgs},
+    prelude::{Column, Literal, UnionArgs},
     series::Series,
 };
 
@@ -85,7 +85,8 @@ pub fn get_column(
 ) -> Result<Series> {
     let column = df
         .column(name)
-        .map_err(|error| anyhow!("failed to get {kind} {key} column: {error}"))?;
+        .map_err(|error| anyhow!("failed to get {kind} {key} column: {error}"))?
+        .as_materialized_series();
 
     match dtype {
         Some(dtype) => column
@@ -95,7 +96,7 @@ pub fn get_column(
     }
 }
 
-pub fn find_index(key_name: &str, names: &Series, query: &str) -> Result<i32> {
+pub fn find_index(key_name: &str, names: &Column, query: &str) -> Result<i32> {
     let len_names = names
         .len()
         .try_into()
@@ -148,6 +149,7 @@ pub fn find_indices(key_name: &str, names: &Series, keys: &Series) -> Result<Opt
                 .map_err(|error| {
                     anyhow!("failed to get node id column; it should be a BUG: {error}")
                 })
+                .map(Column::as_materialized_series)
                 .map(Clone::clone)
                 .map(Some)
         }
