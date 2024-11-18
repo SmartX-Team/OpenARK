@@ -116,7 +116,7 @@ impl ModelStorageObjectOwnedSpec {
 
     #[inline]
     fn endpoint(&self, namespace: &str) -> Option<Url> {
-        get_kubernetes_minio_endpoint(namespace)
+        get_object_storage_endpoint(namespace)
     }
 }
 
@@ -210,8 +210,13 @@ impl ModelStorageObjectRefSpec {
 }
 
 #[inline]
-pub fn get_kubernetes_minio_endpoint(namespace: &str) -> Option<Url> {
+pub fn get_object_storage_endpoint(namespace: &str) -> Option<Url> {
     format!("http://object-storage.{namespace}.svc")
         .parse()
         .ok()
+}
+
+#[inline]
+pub fn get_object_storage_owned_endpoint(namespace: &str) -> Option<Url> {
+    format!("http://minio.{namespace}.svc").parse().ok()
 }
