@@ -271,7 +271,7 @@ impl<'model> ObjectStorageSession {
         storage: &ModelStorageObjectOwnedSpec,
         prometheus_url: Option<&str>,
     ) -> Result<Self> {
-        let storage_ref = Self::create_or_get_minio_storage(
+        let storage = Self::create_or_get_minio_storage(
             kube,
             namespace,
             name,
