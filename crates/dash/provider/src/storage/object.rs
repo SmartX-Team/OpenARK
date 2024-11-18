@@ -15,10 +15,9 @@ use dash_api::{
     model_user::ModelUserAccessTokenSecretRefSpec,
     storage::{
         object::{
-            get_object_storage_endpoint, get_object_storage_owned_endpoint,
-            ModelStorageObjectBorrowedSpec, ModelStorageObjectClonedSpec,
-            ModelStorageObjectOwnedReplicationSpec, ModelStorageObjectOwnedSpec,
-            ModelStorageObjectRefSpec, ModelStorageObjectSpec,
+            get_object_storage_owned_endpoint, ModelStorageObjectBorrowedSpec,
+            ModelStorageObjectClonedSpec, ModelStorageObjectOwnedReplicationSpec,
+            ModelStorageObjectOwnedSpec, ModelStorageObjectRefSpec, ModelStorageObjectSpec,
         },
         ModelStorageCrd,
     },
@@ -281,18 +280,8 @@ impl<'model> ObjectStorageSession {
             prometheus_url,
         )
         .await?;
-        Self::load_storage_provider_by_reference(
-            kube,
-            namespace,
-            name,
-            &storage_ref,
-            prometheus_url,
-        )
-        .await
-        .map(|mut session| {
-            session.endpoint = get_object_storage_owned_endpoint(namespace).unwrap();
-            session
-        })
+        Self::load_storage_provider_by_reference(kube, namespace, name, &storage, prometheus_url)
+            .await
     }
 
     #[instrument(level = Level::INFO, skip(kube, storage), err(Display))]
@@ -960,7 +949,7 @@ impl<'model> ObjectStorageSession {
         };
 
         Ok(ModelStorageObjectRefSpec {
-            endpoint: get_object_storage_endpoint(namespace)
+            endpoint: get_object_storage_owned_endpoint(namespace)
                 .ok_or_else(|| anyhow!("failed to get minio storage endpoint"))?,
             secret_ref: ModelUserAccessTokenSecretRefSpec {
                 map_access_key: "CONSOLE_ACCESS_KEY".into(),
