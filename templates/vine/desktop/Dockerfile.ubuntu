@@ -217,6 +217,7 @@ RUN apt-get update && apt-get install -y \
     llvm-dev \
     # Language-specific (C/C++)
     build-essential \
+    clang \
     gcc \
     g++ \
     libclang-dev \
@@ -225,6 +226,8 @@ RUN apt-get update && apt-get install -y \
     golang-go \
     # Language-specific (Mobile/Android)
     #android-build-tools-installer \
+    # Language-specific (NPM)
+    npm \
     # Language-specific (Java)
     default-jre \
     # Language-specific (Javascript)
