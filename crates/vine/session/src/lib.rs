@@ -269,7 +269,7 @@ impl SessionManager {
         let api = Api::<Pod>::namespaced(self.client.kube.clone(), &ctx.metadata.namespace);
         let dp = DeleteParams::background();
         let lp = ListParams {
-            label_selector: Some("name=desktop".into()),
+            label_selector: Some("app=desktop".into()),
             ..Default::default()
         };
         api.delete_collection(&dp, &lp)

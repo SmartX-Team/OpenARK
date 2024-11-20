@@ -111,7 +111,7 @@ impl<'a> SessionExec for SessionRef<'a> {
     {
         let api = Api::<Pod>::namespaced(kube, &self.namespace);
         let lp = ListParams {
-            label_selector: Some("name=desktop".into()),
+            label_selector: Some("app=desktop".into()),
             ..Default::default()
         };
         let pods = api.list(&lp).await?.into_iter().filter(|pod| {
