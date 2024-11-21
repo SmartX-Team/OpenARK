@@ -247,6 +247,7 @@ RUN apt-get update && apt-get install -y \
     libprotobuf-c-dev \
     libprotoc-dev \
     libssl-dev \
+    protobuf-compiler \
     # Linkers
     mold \
     # Shell Complementary
