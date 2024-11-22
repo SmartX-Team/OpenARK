@@ -160,6 +160,7 @@ RUN apt-get update && apt-get install -y \
     mold \
     nasm \
     pkg-config \
+    rclone \
     rsync \
     sudo \
     uidmap \
