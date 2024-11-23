@@ -1,4 +1,8 @@
 ---
+- name: Try to fix debian package manager
+  when: ansible_os_family in ["Debian"]
+  command: dpkg --configure -a
+
 - name: Install TuneD
   package:
     name: tuned
