@@ -15,6 +15,9 @@ source /etc/os-release
 _IS_DESKTOP="false"
 _IS_NVIDIA_MANUAL="false"
 
+## Keep DHCP
+sudo dhcpcd || true
+
 # Advanced Network configuration
 mkdir -p /etc/NetworkManager/system-connections/
 
