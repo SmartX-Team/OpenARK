@@ -451,16 +451,20 @@ fn get_label(node_name: &str, user_name: Option<&str>, persistent: bool) -> Valu
 
 pub fn is_allocable<'a>(
     labels: &'a BTreeMap<String, String>,
-    node_name: &str,
+    node_name: Option<&str>,
     user_name: &str,
 ) -> AllocationState<'a> {
-    let check_by_key = |key, value| labels.get(key).filter(|&label_value| label_value != value);
+    let check_by_key = |key: &str, value: Option<&str>| {
+        value.and_then(|value| labels.get(key).filter(|&label_value| label_value != value))
+    };
 
-    if check_by_key(::ark_api::consts::LABEL_BIND_STATUS, "false").is_none() {
+    if check_by_key(::ark_api::consts::LABEL_BIND_STATUS, Some("false")).is_none() {
         AllocationState::NotAllocated
     } else if let Some(node_name) = check_by_key(::ark_api::consts::LABEL_BIND_NODE, node_name) {
         AllocationState::AllocatedByOtherNode { node_name }
-    } else if let Some(user_name) = check_by_key(::ark_api::consts::LABEL_BIND_BY_USER, user_name) {
+    } else if let Some(user_name) =
+        check_by_key(::ark_api::consts::LABEL_BIND_BY_USER, Some(user_name))
+    {
         AllocationState::AllocatedByOtherUser { user_name }
     } else {
         AllocationState::AllocatedByMyself

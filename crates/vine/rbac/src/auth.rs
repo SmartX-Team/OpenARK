@@ -4,17 +4,26 @@ use anyhow::{anyhow, Result};
 use ark_api::SessionRef;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+#[cfg(feature = "actix")]
 use k8s_openapi::api::core::v1::Node;
-use kube::{api::ListParams, Api, Client, ResourceExt};
-use tracing::{instrument, warn, Level};
+#[cfg(feature = "actix")]
+use kube::Client;
+use kube::{api::ListParams, Api, ResourceExt};
+#[cfg(feature = "actix")]
+use tracing::warn;
+use tracing::{instrument, Level};
 use vine_api::{
     user::UserCrd,
     user_auth::UserAuthError,
+    user_role::{UserRoleCrd, UserRoleSpec},
+    user_role_binding::UserRoleBindingCrd,
+    user_session::UserSession,
+};
+#[cfg(feature = "actix")]
+use vine_api::{
     user_box_binding::{UserBoxBindingCrd, UserBoxBindingSpec},
     user_box_quota::UserBoxQuotaCrd,
     user_box_quota_binding::{UserBoxQuotaBindingCrd, UserBoxQuotaBindingSpec},
-    user_role::UserRoleSpec,
-    user_session::UserSession,
 };
 
 #[async_trait(?Send)]
@@ -288,7 +297,7 @@ pub fn get_user_name(request: &::actix_web::HttpRequest) -> Result<String, UserA
 #[cfg(all(feature = "actix", feature = "unsafe-mock"))]
 fn get_user_name_with_timestamp(
     request: &::actix_web::HttpRequest,
-    now: ::chrono::DateTime<Utc>,
+    now: DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
     ::std::env::var("DASH_UNSAFE_MOCK_USERNAME").or_else(|_| {
         get_user_token(request).and_then(|token| get_user_name_with_timestamp_impl(&token, now))
@@ -299,7 +308,7 @@ fn get_user_name_with_timestamp(
 #[inline]
 fn get_user_name_with_timestamp(
     request: &::actix_web::HttpRequest,
-    now: ::chrono::DateTime<Utc>,
+    now: DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
     let token = get_user_token(request)?;
     get_user_name_with_timestamp_impl(&token, now)
@@ -308,7 +317,7 @@ fn get_user_name_with_timestamp(
 #[cfg(feature = "actix")]
 fn get_user_name_with_timestamp_impl(
     token: &str,
-    now: ::chrono::DateTime<Utc>,
+    now: DateTime<Utc>,
 ) -> Result<String, UserAuthError> {
     use base64::Engine;
     use vine_api::user_auth::UserAuthPayload;
@@ -361,10 +370,8 @@ fn get_user_namespace(
 async fn get_user_role(
     client: &::kube::Client,
     user: &UserCrd,
-    now: ::chrono::DateTime<Utc>,
+    now: DateTime<Utc>,
 ) -> Result<UserRoleSpec, UserAuthError> {
-    use vine_api::{user_role::UserRoleCrd, user_role_binding::UserRoleBindingCrd};
-
     // get available roles
     let roles = {
         let api = Api::<UserRoleCrd>::all(client.clone());

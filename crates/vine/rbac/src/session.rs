@@ -34,12 +34,12 @@ where
     let user = {
         let api = Api::<UserCrd>::all(client.clone());
         match api.get_opt(user_name).await? {
-            Some(user) => match assert_allocable(&user, box_name, user_name, now) {
+            Some(user) => match assert_allocable(&user, None, user_name, now) {
                 Some(error) => return Ok(error),
                 None => user,
             },
             None => {
-                warn!("[{now}] failed to find an user: {user_name:?} => {box_name:?}");
+                warn!("[{now}] failed to find an user: {user_name:?}");
                 return Ok(UserAuthError::UserNotRegistered.into());
             }
         }
@@ -59,7 +59,7 @@ where
     let node = {
         let api = Api::<Node>::all(client.clone());
         match api.get_opt(box_name).await? {
-            Some(node) => match assert_allocable(&node, box_name, &user_name, now) {
+            Some(node) => match assert_allocable(&node, Some(box_name), &user_name, now) {
                 Some(error) => return Ok(error),
                 None => node,
             },
@@ -201,7 +201,7 @@ where
 
 fn assert_allocable<T>(
     object: &T,
-    box_name: &str,
+    box_name: Option<&str>,
     user_name: &str,
     now: DateTime<Utc>,
 ) -> Option<UserSessionResponse>
