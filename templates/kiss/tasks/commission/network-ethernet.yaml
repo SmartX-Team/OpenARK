@@ -218,6 +218,13 @@
     interface_primary_name: "{{ interfaces[0].name }}"
     interface_primary_speed_mbps: "{{ interfaces[0].speed }}"
 
+- name: Make the interface_primary_speed_mbps be positive
+  when:
+    - interface_primary_speed_mbps is defined
+    - interface_primary_speed_mbps < 0
+  set_fact:
+    interface_primary_speed_mbps: 0
+
 - name: Collect physical MAC Address
   when:
     - all_bonds | length == 0
