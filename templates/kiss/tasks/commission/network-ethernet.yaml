@@ -221,7 +221,7 @@
 - name: Make the interface_primary_speed_mbps be positive
   when:
     - interface_primary_speed_mbps is defined
-    - interface_primary_speed_mbps < 0
+    - (interface_primary_speed_mbps | int) < 0
   set_fact:
     interface_primary_speed_mbps: 0
 
