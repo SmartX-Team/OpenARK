@@ -520,16 +520,6 @@ fi
 ## Apply
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# Boot Order
-BOOT_NUM="$(
-    efibootmgr |
-        grep -P '^Boot[0-9A-F]+(\*)?[ \t]+Ubuntu[ \t]+' |
-        grep -P '\\EFI\\ubuntu\\shimx64.efi\)$' |
-        grep -Po '^Boot\K[0-9A-F]+'
-)"
-#efibootmgr --bootnum "${BOOT_NUM}" --active
-efibootmgr --bootorder "${BOOT_NUM}"
-
 # Hostname
 UUID="$(cat /sys/class/dmi/id/product_uuid)"
 echo "127.0.0.1 ${UUID}" >>/etc/hosts
