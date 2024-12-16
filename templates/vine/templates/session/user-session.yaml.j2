@@ -719,6 +719,7 @@ spec:
   capacity: {{ spec.boxQuota.storage.requests | json_encode() | safe }}
   hostPath:
     path: "/opt/vine/sessions/{{ metadata.namespace }}"
+    type: DirectoryOrCreate
   persistentVolumeReclaimPolicy: Recycle
   storageClassName: manual
 ---
@@ -757,6 +758,7 @@ spec:
   capacity: {{ spec.boxQuota.storage.requests | json_encode() | safe }}
   hostPath:
     path: "/opt/vine/sessions/_shared"
+    type: DirectoryOrCreate
   persistentVolumeReclaimPolicy: Retain
   storageClassName: manual
 ---

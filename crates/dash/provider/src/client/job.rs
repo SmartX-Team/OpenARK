@@ -271,6 +271,12 @@ impl TaskActorJobClient {
                 ),
             };
 
+            // Detect the immutable resources
+            let immutable = matches!(
+                (ar.group.as_str(), ar.kind.as_str()),
+                ("", "PersistentVolume") | ("storage.k8s.io", "StorageClass")
+            );
+
             // Use the discovered kind in an Api, and Controller with the ApiResource as its DynamicType
             let api: Api<DynamicObject> = match caps.scope {
                 Scope::Cluster => Api::all_with(self.kube.clone(), &ar),
@@ -278,6 +284,7 @@ impl TaskActorJobClient {
             };
             apis.push(Template {
                 api,
+                immutable,
                 name: name.clone(),
                 template,
             });
@@ -289,6 +296,7 @@ impl TaskActorJobClient {
 #[derive(Debug)]
 struct Template {
     api: Api<DynamicObject>,
+    immutable: bool,
     name: String,
     template: DynamicObject,
 }
@@ -304,6 +312,11 @@ impl From<&Template> for TemplateRef {
 #[instrument(level = Level::INFO, skip(template), fields(template.name = %template.name), err(Display))]
 async fn try_create(template: Template, exists: bool) -> Result<()> {
     if exists {
+        // Skip applying to immutable resources
+        if template.immutable {
+            return Ok(());
+        }
+
         let pp = PatchParams {
             field_manager: Some(crate::NAME.into()),
             force: true,
