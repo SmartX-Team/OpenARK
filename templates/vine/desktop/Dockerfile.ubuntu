@@ -167,6 +167,8 @@ RUN apt-get update && apt-get install -y \
     "${USER_SHELL}" \
     wget \
     zip \
+    # Core (BMC)
+    ipmitool \
     # Core (CLI)
     jq \
     yq \
@@ -488,6 +490,10 @@ RUN apt-get update && apt-get install -y \
     # Link default system-wide font config
     && ln -sf "/home/${USER_NAME}/.config/fontconfig/conf.d/99-openark.conf" /etc/fonts/conf.d/99-openark.conf \
     && rm -f /etc/fonts/conf.d/65-nonlatin.conf \
+    # Printer Configuration
+    && echo 'a4' >/etc/papersize \
+    && mkdir -p /etc/cups /etc/cupshelpers /var/log/cups /usr/lib/cups /var/cache/cups /run/cups /var/spool/cups \
+    && chown -R user:lpadmin /etc/cups /etc/cupshelpers /var/log/cups /usr/lib/cups /var/cache/cups /run/cups /var/spool/cups \
     # Remove conflicted repositories
     && rm -f /etc/apt/sources.list.d/vscode.list \
     # X11 Configuration
@@ -747,13 +753,15 @@ RUN mkdir -p /opt/public/ \
 
 # Add scripts
 ADD ./config/weston.ini /etc/xdg/weston/weston.ini
+ADD ./polkit/rules.d/* /etc/polkit-1/rules.d/
 ADD ./scripts /opt/scripts/
-RUN chmod 0555 /opt/scripts/*
+RUN chmod 0400 /etc/polkit-1/rules.d/* \
+    && chmod 0555 /opt/scripts/*
 
 # Add a user
 RUN /sbin/ldconfig.real \
     && groupadd -g "${USER_GID}" -o "${USER_NAME}" \
-    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,render,video" \
+    && useradd -u "${USER_UID}" -g "${USER_GID}" -G "audio,cdrom,input,lpadmin,render,video" \
     -s "/bin/${USER_SHELL}" -m -o "${USER_NAME}" \
     && printf "${USER_UID}:2001:65535" > /etc/subuid \
     && printf "${USER_GID}:2001:65535" > /etc/subgid \

@@ -8,6 +8,9 @@ set -e -o pipefail
 # Verbose
 set -x
 
+# Run Printer (CUPS) daemon
+cupsd || true
+
 # Remove Google Chrome singletons
 rm -rf \
     "${HOME}/.config/google-chrome/SingletonCookie" \
