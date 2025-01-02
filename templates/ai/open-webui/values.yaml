@@ -1,0 +1,145 @@
+---
+ollama:
+  # -- Automatically install Ollama Helm chart from https://otwld.github.io/ollama-helm/. Use [Helm Values](https://github.com/otwld/ollama-helm/#helm-values) to configure
+  enabled: false
+
+pipelines:
+  # -- Automatically install Pipelines chart to extend Open WebUI functionality using Pipelines: https://github.com/open-webui/pipelines
+  enabled: true
+  # -- This section can be used to pass required environment variables to your pipelines (e.g. Langfuse hostname)
+  extraEnvVars: []
+
+  # -- Value of cluster domain
+  clusterDomain: ops.openark
+
+  persistence:
+    enabled: true
+    size: 100Gi
+    # -- If using multiple replicas, you must update accessModes to ReadWriteMany
+    accessModes:
+      - ReadWriteMany
+    storageClass: ceph-filesystem
+
+  # -- Affinity for pod assignment
+  affinity:
+    nodeAffinity:
+      # KISS normal control plane nodes should be preferred
+      preferredDuringSchedulingIgnoredDuringExecution:
+        # KISS normal control plane nodes should be preferred
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+                operator: DoesNotExist
+        # KISS compute nodes should be more preferred
+        - weight: 2
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - ControlPlane
+                  - Compute
+
+tika:
+  # -- Automatically install Apache Tika to extend Open WebUI
+  enabled: false
+
+# -- A list of Ollama API endpoints. These can be added in lieu of automatically installing the Ollama Helm chart, or in addition to it.
+ollamaUrls: []
+
+# -- Value of cluster domain
+clusterDomain: ops.openark
+
+ingress:
+  enabled: true
+  # class: ""
+  # -- Use appropriate annotations for your Ingress controller, e.g., for NGINX:
+  # nginx.ingress.kubernetes.io/rewrite-target: /
+  annotations:
+    # cert-manager.io/cluster-issuer: ""
+    # nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-Email,X-Auth-Request-Preferred-Username,X-Auth-Request-User
+    # nginx.ingress.kubernetes.io/auth-url: https://$http_x_forwarded_auth/oauth2/auth
+    # nginx.ingress.kubernetes.io/auth-signin: https://$http_x_forwarded_auth/oauth2/start?rd=$http_x_forwarded_proto://$http_x_forwarded_host$escaped_request_uri
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    vine.ulagbulag.io/is-service: "true"
+    vine.ulagbulag.io/is-service-public: "true"
+    vine.ulagbulag.io/is-service-system: "false"
+  # host: ""
+  tls: true
+
+persistence:
+  enabled: true
+  size: 100Gi
+  # -- If using multiple replicas, you must update accessModes to ReadWriteMany
+  accessModes:
+    - ReadWriteMany
+  storageClass: ceph-filesystem
+
+# -- Affinity for pod assignment
+affinity:
+  nodeAffinity:
+    # KISS normal control plane nodes should be preferred
+    preferredDuringSchedulingIgnoredDuringExecution:
+      # KISS normal control plane nodes should be preferred
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
+              operator: DoesNotExist
+      # KISS compute nodes should be more preferred
+      - weight: 2
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Compute
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - ControlPlane
+                - Compute
+
+extraEnvVars:
+  - name: ENABLE_OAUTH_SIGNUP
+    value: "true"
+  - name: ENABLE_SIGNUP
+    value: "false"
+  # - name: HOST
+  #   value: 127.0.0.1
+  - name: OAUTH_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: oidc
+        key: OAUTH_CLIENT_ID
+  - name: OAUTH_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: oidc
+        key: OAUTH_CLIENT_SECRET
+  - name: OPENID_PROVIDER_URL
+    valueFrom:
+      secretKeyRef:
+        name: oidc
+        key: OPENID_PROVIDER_URL
+  # -- Default API key value for Pipelines. Should be updated in a production deployment, or be changed to the required API key if not using Pipelines
+  - name: OPENAI_API_KEY
+    value: ""
+  # - name: WEBUI_AUTH_TRUSTED_EMAIL_HEADER
+  #   value: X-Auth-Request-Email
+  # - name: WEBUI_AUTH_TRUSTED_NAME_HEADER
+  #   value: X-Auth-Request-Preferred-Username
