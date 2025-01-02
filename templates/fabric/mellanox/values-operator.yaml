@@ -19,7 +19,6 @@ sriov-network-operator:
                 operator: In
                 values:
                   - ControlPlane
-          - matchExpressions:
               - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
                 operator: DoesNotExist
 
@@ -36,7 +35,6 @@ operator:
                 operator: In
                 values:
                   - ControlPlane
-          - matchExpressions:
               - key: node-role.kubernetes.io/kiss-ephemeral-control-plane
                 operator: DoesNotExist
 

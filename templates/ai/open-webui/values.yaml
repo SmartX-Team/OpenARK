@@ -1,7 +1,97 @@
 ---
 ollama:
   # -- Automatically install Ollama Helm chart from https://otwld.github.io/ollama-helm/. Use [Helm Values](https://github.com/otwld/ollama-helm/#helm-values) to configure
-  enabled: false
+  enabled: true
+  # -- If enabling embedded Ollama, update fullnameOverride to your desired Ollama name value, or else it will use the default ollama.name value from the Ollama chart
+  fullnameOverride: "open-webui-ollama"
+
+  # Knative configuration
+  knative:
+    # -- Enable Knative integration
+    enabled: false
+
+  # Ollama parameters
+  ollama:
+    gpu:
+      # -- Enable GPU integration
+      enabled: true
+
+      # -- GPU type: 'nvidia' or 'amd'
+      # If 'ollama.gpu.enabled', default value is nvidia
+      # If set to 'amd', this will add 'rocm' suffix to image tag if 'image.tag' is not override
+      # This is due cause AMD and CPU/CUDA are different images
+      type: nvidia
+
+      # -- Specify the number of GPU
+      # If you use MIG section below then this parameter is ignored
+      number: 8
+
+      # -- only for nvidia cards; change to (example) 'nvidia.com/mig-1g.10gb' to use MIG slice
+      nvidiaResource: nvidia.com/gpu
+      # nvidiaResource: "nvidia.com/mig-1g.10gb" # example
+      # If you want to use more than one NVIDIA MIG you can use the following syntax (then nvidiaResource is ignored and only the configuration in the following MIG section is used)
+
+      mig:
+        # -- Enable multiple mig devices
+        # If enabled you will have to specify the mig devices
+        # If enabled is set to false this section is ignored
+        enabled: false
+
+  # -- Specify runtime class
+  runtimeClassName: nvidia
+
+  # Configure the ingress resource that allows you to access the
+  ingress:
+    # -- Enable ingress controller resource
+    enabled: false
+
+  # Configure autoscaling
+  autoscaling:
+    # -- Enable autoscaling
+    enabled: false
+
+  # Enable persistence using Persistent Volume Claims
+  # ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  persistentVolume:
+    # -- Enable persistence using PVC
+    enabled: true
+
+    # -- Ollama server data Persistent Volume access modes
+    # Must match those of existing PV or dynamic provisioner
+    # Ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+    accessModes:
+      - ReadWriteMany
+
+    # -- Ollama server data Persistent Volume size
+    size: 10Ti
+
+    # -- Ollama server data Persistent Volume Storage Class
+    # If defined, storageClassName: <storageClass>
+    # If set to "-", storageClassName: "", which disables dynamic provisioning
+    # If undefined (the default) or set to null, no storageClassName spec is
+    # set, choosing the default provisioner.  (gp2 on AWS, standard on
+    # GKE, AWS & OpenStack)
+    storageClass: ceph-filesystem
+
+  # -- Affinity for pod assignment
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+              - key: nvidia.com/gpu.product
+                operator: In
+                values:
+                  - NVIDIA-A100-SXM4-40GB
+
+  # How to replace existing pods
+  updateStrategy:
+    # -- Deployment strategy can be "Recreate" or "RollingUpdate". Default is Recreate
+    type: Recreate
 
 pipelines:
   # -- Automatically install Pipelines chart to extend Open WebUI functionality using Pipelines: https://github.com/open-webui/pipelines
@@ -138,7 +228,7 @@ extraEnvVars:
         key: OPENID_PROVIDER_URL
   # -- Default API key value for Pipelines. Should be updated in a production deployment, or be changed to the required API key if not using Pipelines
   - name: OPENAI_API_KEY
-    value: ""
+    value: " "
   # - name: WEBUI_AUTH_TRUSTED_EMAIL_HEADER
   #   value: X-Auth-Request-Email
   # - name: WEBUI_AUTH_TRUSTED_NAME_HEADER

@@ -1,0 +1,82 @@
+---
+# Knative configuration
+knative:
+  # -- Enable Knative integration
+  enabled: false
+
+# Ollama parameters
+ollama:
+  gpu:
+    # -- Enable GPU integration
+    enabled: true
+
+    # -- GPU type: 'nvidia' or 'amd'
+    # If 'ollama.gpu.enabled', default value is nvidia
+    # If set to 'amd', this will add 'rocm' suffix to image tag if 'image.tag' is not override
+    # This is due cause AMD and CPU/CUDA are different images
+    type: nvidia
+
+    # -- Specify the number of GPU
+    # If you use MIG section below then this parameter is ignored
+    number: 1
+
+    # -- only for nvidia cards; change to (example) 'nvidia.com/mig-1g.10gb' to use MIG slice
+    nvidiaResource: nvidia.com/gpu
+    # nvidiaResource: "nvidia.com/mig-1g.10gb" # example
+    # If you want to use more than one NVIDIA MIG you can use the following syntax (then nvidiaResource is ignored and only the configuration in the following MIG section is used)
+
+    mig:
+      # -- Enable multiple mig devices
+      # If enabled you will have to specify the mig devices
+      # If enabled is set to false this section is ignored
+      enabled: false
+
+# -- Specify runtime class
+runtimeClassName: nvidia
+
+# Configure the ingress resource that allows you to access the
+ingress:
+  # -- Enable ingress controller resource
+  enabled: false
+
+# Configure autoscaling
+autoscaling:
+  # -- Enable autoscaling
+  enabled: false
+
+# Enable persistence using Persistent Volume Claims
+# ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+persistentVolume:
+  # -- Enable persistence using PVC
+  enabled: true
+
+  # -- Ollama server data Persistent Volume access modes
+  # Must match those of existing PV or dynamic provisioner
+  # Ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+  accessModes:
+    - ReadWriteMany
+
+  # -- If you'd like to bring your own PVC for persisting Ollama state, pass the name of the
+  # created + ready PVC here. If set, this Chart will not create the default PVC.
+  # Requires server.persistentVolume.enabled: true
+  existingClaim: open-webui-ollama
+
+# -- Affinity for pod assignment
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Compute
+            - key: nvidia.com/gpu.product
+              operator: In
+              values:
+                - NVIDIA-A10
+
+# How to replace existing pods
+updateStrategy:
+  # -- Deployment strategy can be "Recreate" or "RollingUpdate". Default is Recreate
+  type: Recreate

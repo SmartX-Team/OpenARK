@@ -50,7 +50,6 @@ echo "- Installing Operator ... "
 # helm upgrade --install "openwebui" \
 #     "${NAMESPACE}-open-webui/open-webui" \
 #     --create-namespace \
-#     --disable-openapi-validation \
 #     --namespace "${NAMESPACE}" \
 #     --values "./values.yaml" \
 #     --set clusterDomain="${CLUSTER_NAME}" \
@@ -69,7 +68,6 @@ echo "- Installing Operator ... "
 helm upgrade --install "openwebui" \
     "${NAMESPACE}-open-webui/open-webui" \
     --create-namespace \
-    --disable-openapi-validation \
     --namespace "${NAMESPACE}" \
     --values "./values.yaml" \
     --set clusterDomain="${CLUSTER_NAME}" \
