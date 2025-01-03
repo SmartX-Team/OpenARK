@@ -50,6 +50,12 @@ ollama:
     # -- Enable autoscaling
     enabled: false
 
+  # -- Additional environments variables on the output Deployment definition.
+  # For extra OLLAMA env, please refer to https://github.com/ollama/ollama/blob/main/envconfig/config.go
+  extraEnv:
+    - name: OLLAMA_KEEP_ALIVE
+      value: "72h"
+
   # Enable persistence using Persistent Volume Claims
   # ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   persistentVolume:
