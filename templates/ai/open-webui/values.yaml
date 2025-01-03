@@ -160,6 +160,7 @@ ingress:
     # nginx.ingress.kubernetes.io/auth-signin: https://$http_x_forwarded_auth/oauth2/start?rd=$http_x_forwarded_proto://$http_x_forwarded_host$escaped_request_uri
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
     nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     vine.ulagbulag.io/is-service: "true"
