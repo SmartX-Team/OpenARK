@@ -55,7 +55,7 @@ spec:
               mountPath: /var/lib/tftpboot
       containers:
         - name: dnsmasq
-          image: quay.io/poseidon/dnsmasq:latest
+          image: quay.io/poseidon/dnsmasq:v0.5.0
           args:
             - -d
             - --enable-tftp
