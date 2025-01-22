@@ -212,6 +212,8 @@ affinity:
                 - Compute
 
 extraEnvVars:
+  - name: ENABLE_LOGIN_FORM
+    value: "false"
   - name: ENABLE_OAUTH_SIGNUP
     value: "true"
   - name: ENABLE_SIGNUP
