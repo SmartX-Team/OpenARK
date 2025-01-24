@@ -77,8 +77,7 @@ helm upgrade --install "gitlab" \
     --set global.hosts.kas.name="kas.gitlab.${DOMAIN_NAME}" \
     --set global.hosts.minio.name="minio.gitlab.${DOMAIN_NAME}" \
     --set global.hosts.registry.name="registry.gitlab.${DOMAIN_NAME}" \
-    --set global.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}" \
-    --set global.ingress.class="${DOMAIN_NAME}"
+    --set global.ingress.annotations."cert-manager\.io/cluster-issuer"="${DOMAIN_NAME}"
 
 # Finished!
 echo "Installed!"
