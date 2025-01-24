@@ -1,0 +1,233 @@
+---
+## NOTICE
+#
+# Due to the scope and complexity of this chart, all possible values are
+# not documented in this file. Extensive documentation is available.
+#
+# Please read the docs: https://docs.gitlab.com/charts/
+#
+# Because properties are regularly added, updated, or relocated, it is
+# _strongly suggest_ to not "copy and paste" this YAML. Please provide
+# Helm only those properties you need, and allow the defaults to be
+# provided by the version of this chart at the time of deployment.
+
+## Advanced Configuration
+## https://docs.gitlab.com/charts/advanced
+#
+# Documentation for advanced configuration, such as
+# - External PostgreSQL
+# - External Gitaly
+# - External Redis
+# - External NGINX
+# - External Object Storage providers
+# - PersistentVolume configuration
+
+## The global properties are used to configure multiple charts at once.
+## https://docs.gitlab.com/charts/charts/globals
+global:
+  ## https://docs.gitlab.com/charts/installation/deployment#deploy-the-community-edition
+  edition: ce # Community Edition
+
+  ## https://docs.gitlab.com/charts/charts/globals#configure-host-settings
+  hosts:
+    domain: example.com
+    https: true
+    minio:
+      name: minio.gitlab.example.com
+
+  ## https://docs.gitlab.com/charts/charts/globals#configure-ingress-settings
+  ingress:
+    enabled: true
+    provider: nginx
+    class: example.com
+    configureCertmanager: false
+    useNewIngressForCerts: true
+    tls:
+      enabled: true
+    annotations: {}
+
+  # Global default StorageClass for Persistent Volume(s)
+  defaultStorageClass: ceph-block
+
+  # Override the API version to use for HorizontalPodAutoscaler
+  # hpa:
+  #   apiVersion: ""
+
+  # # Enable KEDA globally (https://keda.sh/)
+  # keda:
+  #   enabled: false
+
+  # Override enablement of ServiceMonitor and PodMonitor objects.
+  monitoring:
+    enabled: true
+
+  ## https://docs.gitlab.com/charts/charts/globals#configure-appconfig-settings
+  ## Rails based portions of this chart share many settings
+  appConfig:
+    ## https://docs.gitlab.com/charts/charts/globals#lfs-artifacts-uploads-packages-external-mr-diffs-and-dependency-proxy
+    object_store:
+      enabled: false
+
+    lfs:
+      enabled: true
+      proxy_download: true
+
+    ## https://docs.gitlab.com/charts/installation/command-line-options.html#incoming-email-configuration
+    ## https://docs.gitlab.com/charts/charts/gitlab/mailroom/index.html#incoming-email
+    incomingEmail:
+      enabled: false
+
+    ## https://docs.gitlab.com/charts/charts/gitlab/mailroom/index.html#service-desk-email
+    serviceDeskEmail:
+      enabled: false
+
+    ## https://docs.gitlab.com/charts/charts/globals#omniauth
+    omniauth:
+      enabled: true
+      autoSignInWithProvider: openid_connect
+      allowSingleSignOn: true
+      autoLinkUser: true
+      blockAutoCreatedUsers: false
+      providers:
+        - secret: gitlab-auth-provider-example.com
+          key: provider
+
+    # Config that only applies to the defaults on initial install
+    initialDefaults:
+      passwordAuthenticationEnabledForWeb: false
+      signinEnabled: false
+      signupEnabled: false
+
+  ## https://docs.gitlab.com/charts/charts/gitlab/spamcheck/
+  spamcheck:
+    enabled: false
+
+  ## https://docs.gitlab.com/charts/charts/globals#outgoing-email
+  ## Outgoing email server settings
+  smtp:
+    enabled: false
+
+  ## Timezone for containers.
+  time_zone: UTC
+
+  # Setting a global nodeAffinity only applies to the registry chart for now.
+  # See issue https://gitlab.com/gitlab-com/gl-infra/production-engineering/-/issues/25403 for more information
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Compute
+        weight: 1
+      - preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Gateway
+        weight: 2
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/kiss
+              operator: In
+              values:
+                - Compute
+                - ControlPlane
+                - Gateway
+
+  ## https://docs.gitlab.com/charts/charts/globals#service-accounts
+  serviceAccount:
+    enabled: true
+
+upgradeCheck:
+  enabled: true
+
+## Installation & configuration of jetstack/cert-manager
+## See requirements.yaml for current version
+certmanager:
+  installCRDs: false
+  # Install cert-manager chart. Set to false if you already have cert-manager
+  # installed or if you are not using cert-manager.
+  install: false
+
+# https://docs.gitlab.com/charts/charts/gitlab/gitaly
+gitaly:
+  install: true
+
+## Settings for individual sub-charts under GitLab
+## Note: Many of these settings are configurable via globals
+gitlab:
+  ## https://docs.gitlab.com/charts/charts/gitlab/toolbox
+  gitaly:
+    persistence:
+      enabled: true
+      storageClass: ceph-block
+      size: 100Gi
+  # https://docs.gitlab.com/charts/charts/gitlab/kas
+  kas:
+    ingress:
+      tls:
+        secretName: gitlab-kas-tls
+  # https://docs.gitlab.com/charts/charts/gitlab/webservice
+  webservice:
+    ingress:
+      tls:
+        secretName: gitlab-webservice-default-tls
+
+## Installation & configuration of gitlab/gitlab-runner
+## See requirements.yaml for current version
+gitlab-runner:
+  install: true
+
+minio:
+  install: true
+  ingress:
+    tls:
+      secretName: gitlab-minio-tls
+  persistence:
+    enabled: true
+    storageClass: ceph-block
+    size: 1Ti
+
+## https://docs.gitlab.com/charts/charts/nginx/
+## https://docs.gitlab.com/charts/architecture/decisions#nginx-ingress
+## Installation & configuration of charts/ingress-nginx:
+nginx-ingress:
+  enabled: false
+
+## Installation & configuration of stable/postgresql
+## See requirements.yaml for current version
+postgresql:
+  install: true
+  primary:
+    persistence:
+      enabled: true
+      storageClass: ceph-block
+      size: 20Gi
+
+## Installation & configuration of stable/prometheus
+## See requirements.yaml for current version
+prometheus:
+  install: false
+
+## Configuration of Redis
+## https://docs.gitlab.com/charts/architecture/decisions#redis
+## https://docs.gitlab.com/charts/installation/deployment.html#redis
+redis:
+  install: true
+  master:
+    persistence:
+      enabled: true
+      storageClass: ceph-block
+      size: 20Gi
+
+## Installation & configuration charts/registry
+## https://docs.gitlab.com/charts/architecture/decisions#registry
+## https://docs.gitlab.com/charts/charts/registry/
+registry:
+  ingress:
+    tls:
+      secretName: gitlab-registry-tls
