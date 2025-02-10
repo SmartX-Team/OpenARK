@@ -1,0 +1,19 @@
+---
+# Enable each function, like kustomize https://github.com/kubernetes-sigs/kueue/blob/main/config/default/kustomization.yaml
+enablePrometheus: true
+# Enable x509 automated certificate management using cert-manager (cert-manager.io)
+enableCertManager: false
+# Enable API Priority and Fairness configuration for the visibility API
+enableVisibilityAPF: true
+
+# Customize controllerManager
+controllerManager:
+  #featureGates:
+  #  - name: PartialAdmission
+  #    enabled: true
+  manager:
+    image:
+      # This should be set to 'IfNotPresent' for released version
+      pullPolicy: IfNotPresent
+
+kubernetesClusterDomain: ops.openark # placeholder
