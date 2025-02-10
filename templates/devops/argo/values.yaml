@@ -1,0 +1,342 @@
+---
+## Argo CD configuration
+## Ref: https://github.com/argoproj/argo-cd
+##
+
+# -- Create aggregated roles that extend existing cluster roles to interact with argo-cd resources
+## Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#aggregated-clusterroles
+createAggregateRoles: true
+
+openshift:
+  # -- enables using arbitrary uid for argo repo server
+  enabled: false
+
+## Globally shared configuration
+global:
+  # -- Default domain used by all components
+  ## Used for ingresses, certificates, SSO, notifications, etc.
+  domain: argocd.example.com
+
+  # -- Add Prometheus scrape annotations to all metrics services. This can be used as an alternative to the ServiceMonitors.
+  addPrometheusAnnotations: true
+
+## Argo Configs
+configs:
+  # General Argo CD configuration
+  ## Ref: https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/argocd-cm.yaml
+  cm:
+    # -- Enable exec feature in Argo UI
+    ## Ref: https://argo-cd.readthedocs.io/en/latest/operator-manual/rbac/#exec-resource
+    exec.enabled: true
+
+    # -- Enable local admin user
+    ## Ref: https://argo-cd.readthedocs.io/en/latest/faq/#how-to-disable-admin-user
+    admin.enabled: false
+
+    # -- Enable Status Badge
+    ## Ref: https://argo-cd.readthedocs.io/en/stable/user-guide/status-badge/
+    statusbadge.enabled: true
+
+    # OIDC configuration as an alternative to dex (optional).
+    oidc.config: |
+      name: $oidc.openid_connect.name
+      issuer: $oidc.openid_connect.issuer
+      clientID: $oidc.openid_connect.clientID
+      clientSecret: $oidc.openid_connect.clientSecret
+      enablePKCEAuthentication: false
+      requestedIDTokenClaims:
+        groups:
+          essential: true
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        # - groups
+
+  # Argo CD configuration parameters
+  ## Ref: https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/argocd-cmd-params-cm.yaml
+  params:
+    ## Server properties
+    # -- Run server without TLS
+    ## NOTE: This value should be set when you generate params by other means as it changes ports used by ingress template.
+    server.insecure: true
+
+  # Argo CD RBAC policy configuration
+  ## Ref: https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/rbac.md
+  rbac:
+    # -- File containing user-defined policies and role definitions.
+    # @default -- `''` (See [values.yaml])
+    policy.csv: |
+      g, ArgoCDAdmins, role:admin
+      g, mobilex, role:readonly
+
+## Application controller
+controller:
+  # -- Enable dynamic cluster distribution (alpha)
+  # Ref: https://argo-cd.readthedocs.io/en/stable/operator-manual/dynamic-cluster-distribution
+  ## This is done using a deployment instead of a statefulSet
+  ## When replicas are added or removed, the sharding algorithm is re-run to ensure that the
+  ## clusters are distributed according to the algorithm. If the algorithm is well-balanced,
+  ## like round-robin, then the shards will be well-balanced.
+  dynamicClusterDistribution: true
+
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+  ## Application controller metrics configuration
+  metrics:
+    # -- Deploy metrics service
+    enabled: true
+
+## Dex
+dex:
+  # -- Enable dex
+  enabled: false
+
+## Redis
+redis:
+  # -- Enable redis
+  enabled: true
+
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+  metrics:
+    # -- Deploy metrics service
+    enabled: true
+
+## Redis-HA subchart replaces custom redis deployment when `redis-ha.enabled=true`
+# Ref: https://github.com/DandyDeveloper/charts/blob/master/charts/redis-ha/values.yaml
+redis-ha:
+  # -- Enables the Redis HA subchart and disables the custom Redis single node deployment
+  enabled: false
+
+redisSecretInit:
+  # -- Enable Redis secret initialization. If disabled, secret must be provisioned by alternative methods
+  enabled: true
+
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+## Server
+server:
+  ## Argo CD server Horizontal Pod Autoscaler
+  autoscaling:
+    # -- Enable Horizontal Pod Autoscaler ([HPA]) for the Argo CD server
+    enabled: false
+
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Gateway
+          weight: 2
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+                  - Gateway
+
+  ## Server metrics service configuration
+  metrics:
+    # -- Deploy metrics service
+    enabled: true
+
+  # Argo CD server ingress configuration
+  ingress:
+    # -- Enable an ingress resource for the Argo CD server
+    enabled: true
+    # -- Specific implementation for ingress controller. One of `generic`, `aws` or `gke`
+    ## Additional configuration might be required in related configuration sections
+    controller: generic
+    # -- Additional ingress annotations
+    ## Ref: https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#option-1-ssl-passthrough
+    annotations:
+      cert-manager.io/cluster-issuer: ingress-nginx-controller.vine.svc.ops.openark
+      nginx.ingress.kubernetes.io/rewrite-target: /
+
+    # -- Defines which ingress controller will implement the resource
+    ingressClassName: ""
+
+    # -- Argo CD server hostname
+    # @default -- `""` (defaults to global.domain)
+    hostname: ""
+
+    # -- Enable TLS configuration for the hostname defined at `server.ingress.hostname`
+    ## TLS certificate will be retrieved from a TLS secret `argocd-server-tls`
+    ## You can create this secret via `certificate` or `certificateSecret` option
+    tls: true
+
+  # Dedicated gRPC ingress for ingress controllers that supports only single backend protocol per Ingress resource
+  # Ref: https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#option-2-multiple-ingress-objects-and-hosts
+  ingressGrpc:
+    # -- Enable an ingress resource for the Argo CD server for dedicated [gRPC-ingress]
+    enabled: false
+
+## Repo Server
+repoServer:
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+  ## Repo server metrics service configuration
+  metrics:
+    # -- Deploy metrics service
+    enabled: true
+
+## ApplicationSet controller
+applicationSet:
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+  ## Metrics service configuration
+  metrics:
+    # -- Deploy metrics service
+    enabled: true
+
+## Notifications controller
+notifications:
+  # -- Enable notifications controller
+  enabled: true
+
+  # -- Assign custom [affinity] rules to the deployment
+  # @default -- `{}` (defaults to global.affinity preset)
+  affinity:
+    # Node affinity rules
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+          weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/kiss
+                operator: In
+                values:
+                  - Compute
+                  - ControlPlane
+
+  metrics:
+    # -- Enables prometheus metrics server
+    enabled: true
+
+commitServer:
+  # -- Enable commit server
+  enabled: false
