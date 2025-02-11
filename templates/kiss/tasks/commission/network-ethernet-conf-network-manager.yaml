@@ -67,7 +67,7 @@
 
 - name: Reload NetworkManager
   when: kiss_allow_pruning_network_interfaces | default(False)
-  command: nmcli connection reload
+  command: nmcli connection reload && reboot
 
 - name: Reboot the boxes if network is changed (The task will be restarted)
   when: kiss_allow_pruning_network_interfaces | default(False)
