@@ -182,7 +182,8 @@ all:
         # CNI / Cilium
         #############################
 
-        kube_proxy_remove: "{{ (kube_network_plugin | default('')) == 'custom_cni' }}" # set to true for Cilium to work
+        kube_proxy_deployed: "{{ not kube_proxy_remove }}"
+        kube_proxy_remove: "{{ (kube_network_plugin | default('')) in ['cni', 'custom_cni'] }}" # set to true for Cilium to work
 
         custom_cni_chart_namespace: kube-system
         custom_cni_chart_release_name: cilium
