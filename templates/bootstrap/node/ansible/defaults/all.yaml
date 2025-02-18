@@ -863,6 +863,7 @@ all:
         kubelet_streaming_connection_idle_timeout: 5m
         kubelet_make_iptables_util_chains: true
         kubelet_feature_gates:
+          - CPUManagerPolicyAlphaOptions=true
           - RotateKubeletServerCertificate=true
         kubelet_seccomp_default: true
         kubelet_systemd_hardening: false
