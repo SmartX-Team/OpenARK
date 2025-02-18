@@ -243,8 +243,6 @@ ingress:
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/rewrite-target: /dashboard/csi/rook-ceph/$2
-      nginx.ingress.kubernetes.io/server-snippet: |
-        proxy_ssl_verify off;
       vine.ulagbulag.io/is-service: "true"
       vine.ulagbulag.io/is-service-public: "true"
       vine.ulagbulag.io/is-service-system: "false"

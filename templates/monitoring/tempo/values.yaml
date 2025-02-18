@@ -263,6 +263,7 @@ queryFrontend:
     # ingressClassName: nginx
     # -- Annotations for the Jaeger ingress
     annotations:
+      cert-manager.io/cluster-issuer: example.com
       nginx.ingress.kubernetes.io/auth-url: https://$http_x_forwarded_auth/oauth2/auth
       nginx.ingress.kubernetes.io/auth-signin: https://$http_x_forwarded_auth/oauth2/start?rd=$http_x_forwarded_proto://$http_x_forwarded_host$escaped_request_uri
       nginx.ingress.kubernetes.io/cors-allow-origin: "*"
