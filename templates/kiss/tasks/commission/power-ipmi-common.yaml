@@ -17,3 +17,9 @@
   until: ipmi_pull_docker_image.rc == 0
   retries: 5
   delay: 5
+
+- name: Cleanup old container | IPMI
+  when: ipmi.stat.exists
+  shell: /bin/ctr container rm "kiss-ipmitool"
+  ignore_errors: true
+  no_log: true
