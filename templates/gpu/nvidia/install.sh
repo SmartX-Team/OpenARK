@@ -21,17 +21,25 @@ HELM_CHART="${HELM_CHART:-$HELM_CHART_DEFAULT}"
 NAMESPACE="${NAMESPACE:-$NAMESPACE_DEFAULT}"
 
 # Parse from kiss-config
-export OS_DEFAULT="$(
+export OS_DIST="$(
     kubectl -n kiss get configmap kiss-config -o yaml |
-        yq -r '.data.os_default // ""'
+        yq -r '.data.os_dist // ""'
+)"
+export OS_VERSION="$(
+    kubectl -n kiss get configmap kiss-config -o yaml |
+        yq -r '.data.os_version // ""'
 )"
 
 ###########################################################
 #   Check Environment Variables                           #
 ###########################################################
 
-if [ "x${OS_DEFAULT}" == "x" ]; then
-    echo 'Skipping installation: "OS_DEFAULT" not set'
+if [ "x${OS_DIST}" == "x" ]; then
+    echo 'Skipping installation: "OS_DIST" not set'
+    exit 0
+fi
+if [ "x${OS_VERSION}" == "x" ]; then
+    echo 'Skipping installation: "OS_VERSION" not set'
     exit 0
 fi
 
@@ -54,15 +62,15 @@ TOOLKIT_VERSION="$(
         yq '.toolkit.version' |
         grep -Po '^v[0-9\.]+'
 )"
-case "${OS_DEFAULT}" in
-"rocky9")
+case "${OS_DIST}" in
+"rocky")
     TOOLKIT_OS="ubi8"
     ;;
-"ubuntu2404")
+"ubuntu")
     TOOLKIT_OS="ubuntu20.04"
     ;;
 *)
-    echo "Unknown OS: ${OS_DEFAULT}" >&2
+    echo "Unknown OS: ${OS_DIST}" >&2
     exit 1
     ;;
 esac

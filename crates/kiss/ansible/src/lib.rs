@@ -429,13 +429,18 @@ impl AnsibleClient {
                                 ..Default::default()
                             },
                             EnvVar {
-                                name: "kiss_os_default".into(),
-                                value: Some(self.kiss.os_default.to_string()),
+                                name: "kiss_os_dist".into(),
+                                value: Some(self.kiss.os_dist.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {
                                 name: "kiss_os_kernel".into(),
                                 value: Some(self.kiss.os_kernel.to_string()),
+                                ..Default::default()
+                            },
+                            EnvVar {
+                                name: "kiss_os_version".into(),
+                                value: Some(self.kiss.os_version.to_string()),
                                 ..Default::default()
                             },
                             EnvVar {

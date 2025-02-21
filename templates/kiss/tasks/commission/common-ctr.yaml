@@ -7,7 +7,7 @@
 - name: Install ContainerD | RockyLinux
   when:
     - not ctr_file.stat.exists
-    - kiss_os_default in ['rocky9']
+    - kiss_os_dist in ['rocky']
   package:
     name: containerd.io
     state: present
@@ -16,7 +16,7 @@
 - name: Install ContainerD | Ubuntu
   when:
     - not ctr_file.stat.exists
-    - kiss_os_default in ['ubuntu2404']
+    - kiss_os_dist in ['ubuntu']
   package:
     name: containerd
     state: present

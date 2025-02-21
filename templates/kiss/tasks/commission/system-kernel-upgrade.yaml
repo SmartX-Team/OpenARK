@@ -3,25 +3,25 @@
   when: kiss_os_kernel is defined and kiss_os_kernel == 'edge'
   block:
     - name: Check whether the latest kernel is running - Flatcar Container Linux
-      when: kiss_os_default in ['flatcar']
+      when: kiss_os_dist in ['flatcar']
       set_fact:
         kiss_is_kernel_latest: true
     - name: Check whether the latest kernel is running - RockyLinux
-      when: kiss_os_default in ['rocky9']
+      when: kiss_os_dist in ['rocky']
       set_fact:
         kiss_is_kernel_latest: "{{ '.fc' in ansible_facts.kernel }}"
       register: boot_file
-    - name: Check whether the latest kernel is running - RockyLinux
-      when: kiss_os_default in ['ubuntu2404']
+    - name: Check whether the latest kernel is running - Ubuntu
+      when: kiss_os_dist in ['ubuntu']
       set_fact:
-        kiss_is_kernel_latest: true # Only when Ubuntu 24.04
+        kiss_is_kernel_latest: true # Only when Ubuntu
       register: boot_file
 
 - name: Upgrade kernel - RockyLinux
   when:
     - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
     - kiss_is_kernel_latest is defined and not kiss_is_kernel_latest
-    - kiss_os_default in ['rocky9']
+    - kiss_os_dist in ['rocky']
   block:
     - name: Upgrade kernel - RockyLinux - Upgrade OS
       dnf:
@@ -69,13 +69,13 @@
 - name: Reboot the boxes if upgraded (The task will be restarted)
   when:
     - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
-    - not kiss_is_kernel_latest
+    - kiss_is_kernel_latest is defined and not kiss_is_kernel_latest
   reboot:
     reboot_timeout: 3600 # 1h (booting can take a long time)
 
 - name: Assert rebooting
   when:
     - kiss_os_kernel is defined and kiss_os_kernel == 'edge'
-    - not kiss_is_kernel_latest
+    - kiss_is_kernel_latest is defined and not kiss_is_kernel_latest
   fail:
     msg: The nodes should be rebooted!

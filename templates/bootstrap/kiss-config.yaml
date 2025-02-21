@@ -83,8 +83,9 @@ data:
   ###########################################################################
   # OS Configuration
   ###########################################################################
-  os_default: ubuntu2404 # One of: flatcar, rocky9, ubuntu2404 (default)
-  os_kernel: stable # One of: edge, stable (default)
+  os_dist: ubuntu # One of: flatcar, rocky, ubuntu (default)
+  os_kernel: edge # One of: edge (default), stable
+  os_version: "24.04"
 
   ###########################################################################
   # Service/CSI Configuration

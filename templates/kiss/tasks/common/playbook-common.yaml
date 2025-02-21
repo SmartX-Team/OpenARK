@@ -66,13 +66,14 @@
         kiss_network_ipv4_subnet_mask: "{{ lookup('env', 'kiss_network_ipv4_subnet_mask') }}"
         kiss_network_ipv4_subnet_mask_prefix: "{{ lookup('env', 'kiss_network_ipv4_subnet_mask_prefix') }}"
         kiss_network_nameserver_incluster_ipv4: "{{ lookup('env', 'kiss_network_nameserver_incluster_ipv4') }}"
-        kiss_network_service: "{{ 'systemd-networkd' if lookup('env', 'kiss_os_default') in ['flatcar'] else 'NetworkManager' }}"
+        kiss_network_service: "{{ 'systemd-networkd' if lookup('env', 'kiss_os_dist') in ['flatcar'] else 'NetworkManager' }}"
         kiss_network_wireless_wifi_key_mgmt: "{{ lookup('env', 'kiss_network_wireless_wifi_key_mgmt') }}"
         kiss_network_wireless_wifi_key_psk: "{{ lookup('env', 'kiss_network_wireless_wifi_key_psk') }}"
         kiss_network_wireless_wifi_ssid: "{{ lookup('env', 'kiss_network_wireless_wifi_ssid') }}"
-        kiss_os_default: "{{ lookup('env', 'kiss_os_default') }}"
-        kiss_os_hot_install: "{{ lookup('env', 'kiss_os_default') in ['flatcar'] }}"
+        kiss_os_dist: "{{ lookup('env', 'kiss_os_dist') }}"
+        kiss_os_hot_install: "{{ lookup('env', 'kiss_os_dist') in ['flatcar'] }}"
         kiss_os_kernel: "{{ lookup('env', 'kiss_os_kernel') }}"
+        kiss_os_version: "{{ lookup('env', 'kiss_os_version') }}"
         kiss_power_intel_amt_host: "{{ lookup('env', 'kiss_power_intel_amt_host') }}"
         kiss_power_intel_amt_username: "{{ lookup('env', 'kiss_power_intel_amt_username') }}"
         kiss_power_intel_amt_password: "{{ lookup('env', 'kiss_power_intel_amt_password') }}"
@@ -80,13 +81,13 @@
         kiss_power_ipmi_username: "{{ lookup('env', 'kiss_power_ipmi_username') }}"
         kiss_power_ipmi_password: "{{ lookup('env', 'kiss_power_ipmi_password') }}"
         name: "{{ lookup('env', 'ansible_host') }}"
-        reset_restart_network_service_name: "{{ 'systemd-networkd' if lookup('env', 'kiss_os_default') in ['flatcar'] else 'NetworkManager' }}"
+        reset_restart_network_service_name: "{{ 'systemd-networkd' if lookup('env', 'kiss_os_dist') in ['flatcar'] else 'NetworkManager' }}"
         upgrade_cluster_setup: "{{ ( lookup('env', 'kiss_ansible_task_name', errors='ignore') | default('') ) == 'upgrade' }}"
         groups:
           - all
           - kube_node
           - "k8s_cluster_{{ lookup('env', 'kiss_cluster_name_snake_case') }}"
-          - "os_{{ lookup('env', 'kiss_os_default') }}"
+          - "os_{{ lookup('env', 'kiss_os_dist') }}"
           - target
 
 - hosts: k8s_cluster

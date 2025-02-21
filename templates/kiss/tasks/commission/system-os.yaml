@@ -6,8 +6,9 @@
 - name: Check whether kiss OS is installed in a disk - Flatcar Container Linux - Validate
   when: boot_file.stat.exists
   set_fact:
-    kiss_os_default: flatcar
+    kiss_os_dist: flatcar
     kiss_os_exists: true
+    kiss_os_version: latest
 
 - name: Check whether kiss OS is installed in a disk - RockyLinux
   stat:
@@ -17,8 +18,9 @@
 - name: Check whether kiss OS is installed in a disk - RockyLinux - Validate
   when: boot_file.stat.exists
   set_fact:
-    kiss_os_default: rocky9
+    kiss_os_dist: rocky
     kiss_os_exists: true
+    kiss_os_version: "9"
 
 - name: Check whether kiss OS is installed in a disk - Ubuntu
   stat:
@@ -28,8 +30,9 @@
 - name: Check whether kiss OS is installed in a disk - Ubuntu - Validate
   when: boot_file.stat.exists
   set_fact:
-    kiss_os_default: ubuntu2404
-    kiss_os_exists: true
+  kiss_os_dist: ubuntu
+  kiss_os_exists: true
+  kiss_os_version: "24.04"
 
 - name: Check whether kiss OS is installed in a disk
   set_fact:

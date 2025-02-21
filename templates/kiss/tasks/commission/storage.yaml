@@ -60,12 +60,12 @@
       }] }}
 
 - name: Find the most suitable device (>=200Gi)
-  when: kiss_os_default == 'flatcar'
+  when: kiss_os_dist == 'flatcar'
   set_fact:
     device: "{{ devices | selectattr('size', 'ge', 200 * 1024 * 1024 * 1024) | sort(attribute='size,name') | first }}"
 
 - name: Find the root device
-  when: kiss_os_default != 'flatcar'
+  when: kiss_os_dist != 'flatcar'
   set_fact:
     # [5:] = "/dev/"
     device: >

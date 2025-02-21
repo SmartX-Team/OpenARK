@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: socks5-proxy
+  namespace: vine
   labels:
     name: socks5-proxy
     kissService: "false"

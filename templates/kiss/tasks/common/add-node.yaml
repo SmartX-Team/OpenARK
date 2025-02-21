@@ -24,7 +24,7 @@
     groups:
       - all
       - "{{ node[0] }}"
-      - "os_{{ lookup('env', 'kiss_os_default') }}"
+      - "os_{{ lookup('env', 'kiss_os_dist') }}"
 
 - name: Add a node | Kubernetes Cluster | {{ node[1] }}
   when:
