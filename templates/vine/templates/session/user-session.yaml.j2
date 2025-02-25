@@ -127,37 +127,6 @@ spec:
             - name: host-sys
               mountPath: /host-sys
       containers:
-        - name: ananicy
-          # TODO: use dedicated image
-          image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
-          imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
-          command:
-            - /usr/bin/env
-            - /usr/bin/ananicy
-          args:
-            - start
-          env:
-            - name: USER
-              value: "0"
-          resources:
-            limits:
-              cpu: 100m
-              memory: 100Mi
-          securityContext:
-            capabilities:
-              add:
-                - apparmor:unconfined
-                - seccomp:unconfined
-            privileged: true
-            runAsNonRoot: false
-            runAsUser: 0
-          workingDir: /
-          volumeMounts:
-            - name: cgroup
-              mountPath: /sys/fs/cgroup
-              readOnly: true
-            - name: dev
-              mountPath: /dev
         - name: desktop-environment
           image: {{ spec.boxQuota.desktop.container.image | json_encode() | safe }}
           imagePullPolicy: "{{ spec.boxQuota.desktop.container.imagePullPolicy }}"
@@ -361,10 +330,6 @@ spec:
         - operator: Exists
           effect: NoSchedule
       volumes:
-        - name: cgroup
-          hostPath:
-            path: /sys/fs/cgroup
-            type: Directory
         - name: dev
           hostPath:
             path: /dev
