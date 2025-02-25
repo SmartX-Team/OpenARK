@@ -253,8 +253,6 @@ spec:
               subPath: ssh
             - name: tmp
               mountPath: /tmp
-            - name: vine
-              mountPath: /tmp/.vine
             - name: vulkan-icd-loader
               mountPath: /etc/vulkan/icd.d
               readOnly: true
@@ -448,10 +446,6 @@ spec:
         #     defaultMode: 365
         - name: tmp
           emptyDir: {}
-        - name: vine
-          hostPath:
-            path: /tmp/.vine
-            type: Directory
         - name: vulkan-icd-loader
           hostPath:
             path: /usr/share/vulkan/icd.d
