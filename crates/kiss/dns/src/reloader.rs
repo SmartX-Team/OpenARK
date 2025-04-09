@@ -7,9 +7,8 @@ use hickory_server::{
     authority::ZoneType,
     proto::rr::{
         rdata::{A, AAAA},
-        RData, Record,
+        Name, RData, Record,
     },
-    resolver::Name,
     store::in_memory::InMemoryAuthority,
 };
 use kiss_api::r#box::BoxCrd;
@@ -104,7 +103,8 @@ async fn handle_apply(
 
             let zone_type = ZoneType::Primary;
             let allow_axfr = false;
-            let authority = InMemoryAuthority::empty(origin, zone_type, allow_axfr);
+            let nx_proof_kind = None;
+            let authority = InMemoryAuthority::empty(origin, zone_type, allow_axfr, nx_proof_kind);
 
             let ttl = 300;
             let rdata = match addr {
@@ -120,7 +120,7 @@ async fn handle_apply(
                 .catalog
                 .write()
                 .await
-                .upsert(name.into(), Box::new(Arc::new(authority))))
+                .upsert(name.into(), vec![Arc::new(authority)]))
         })
         .collect::<FuturesUnordered<_>>()
         .try_collect()

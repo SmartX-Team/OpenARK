@@ -18,6 +18,7 @@ CMD [ "/bin/sh" ]
 RUN apt-get update && apt-get install -y \
     curl \
     hwloc \
+    openssl \
     s3fs \
     sqlite3 \
     udev \

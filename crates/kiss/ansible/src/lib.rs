@@ -667,14 +667,7 @@ impl From<AnsibleResourceType> for ResourceRequirements {
         match value {
             AnsibleResourceType::Minimal => Self {
                 claims: None,
-                requests: Some(
-                    vec![
-                        ("cpu".into(), Quantity("50m".into())),
-                        ("memory".into(), Quantity("20Mi".into())),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
+                requests: None,
                 limits: Some(
                     vec![
                         ("cpu".into(), Quantity("100m".into())),
@@ -686,14 +679,7 @@ impl From<AnsibleResourceType> for ResourceRequirements {
             },
             AnsibleResourceType::Normal => Self {
                 claims: None,
-                requests: Some(
-                    vec![
-                        ("cpu".into(), Quantity("1".into())),
-                        ("memory".into(), Quantity("20Mi".into())),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
+                requests: None,
                 limits: Some(
                     vec![
                         ("cpu".into(), Quantity("1".into())),

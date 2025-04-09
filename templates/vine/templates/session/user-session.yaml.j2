@@ -211,9 +211,6 @@ spec:
             - name: dev-shm
               mountPath: /dev/shm
 {% endif %}
-            - name: egl-icd-loader
-              mountPath: /etc/glvnd/egl_vendor.d
-              readOnly: true
             - name: home
 {% if spec.boxQuota.desktop.context.root %}
               mountPath: {{ "/root" ~ spec.boxQuota.desktop.volumes.homeBase | json_encode() | safe }}
@@ -253,9 +250,6 @@ spec:
               subPath: ssh
             - name: tmp
               mountPath: /tmp
-            - name: vulkan-icd-loader
-              mountPath: /etc/vulkan/icd.d
-              readOnly: true
             - name: x11
               mountPath: /tmp/.X11-unix
 {% if spec.boxQuota.desktop.ssh.enabled %}
@@ -345,10 +339,6 @@ spec:
           emptyDir:
             medium: Memory
 {% endif %}
-        - name: egl-icd-loader
-          hostPath:
-            path: /usr/share/glvnd/egl_vendor.d
-            type: Directory
         - name: home
 {% if spec.boxQuota.desktop.volumes.home == 'LocalOwned' %}
           emptyDir: null
@@ -446,10 +436,6 @@ spec:
         #     defaultMode: 365
         - name: tmp
           emptyDir: {}
-        - name: vulkan-icd-loader
-          hostPath:
-            path: /usr/share/vulkan/icd.d
-            type: Directory
         - name: x11
           hostPath:
             path: /tmp/.X11-unix

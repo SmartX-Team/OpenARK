@@ -40,6 +40,10 @@ async fn main() -> Result<()> {
     // initialize tracer
     ::ark_core::tracer::init_once();
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     // create the handlers
     let current = self::current::Handler::try_default().await?;
     let latest = self::latest::Handler::default();

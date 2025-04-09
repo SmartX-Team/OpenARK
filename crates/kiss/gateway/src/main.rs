@@ -195,6 +195,10 @@ async fn main() {
     }
 
     tracer::init_once();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     try_main().await.expect("running a server");
     global::shutdown_tracer_provider()
 }

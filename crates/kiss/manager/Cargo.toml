@@ -23,7 +23,7 @@ workspace = true
 default = ["default-tls"]
 
 # TLS
-default-tls = ["rustls-tls"]
+default-tls = ["openssl-tls"]
 openssl-tls = [
     "kiss-ansible/openssl-tls",
     "kube/openssl-tls",
@@ -41,6 +41,7 @@ k8s-openapi = { workspace = true }
 kube = { workspace = true, features = ["client", "runtime", "ws"] }
 maplit = { workspace = true }
 octocrab = { workspace = true }
+rustls = "0.23"
 semver = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

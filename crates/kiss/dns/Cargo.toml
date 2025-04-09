@@ -23,17 +23,17 @@ workspace = true
 default = ["default-tls"]
 
 # TLS
-default-tls = ["rustls-tls"]
+default-tls = ["openssl-tls"]
 openssl-tls = [
     "ark-core-k8s/openssl-tls",
-    "hickory-server/dns-over-openssl",
-    "hickory-server/dnssec-openssl",
+    "hickory-server/dnssec-aws-lc-rs",
+    "hickory-server/https-aws-lc-rs",
     "kube/openssl-tls",
 ]
 rustls-tls = [
     "ark-core-k8s/rustls-tls",
-    "hickory-server/dns-over-https-rustls",
     "hickory-server/dnssec-ring",
+    "hickory-server/https-ring",
     "kube/rustls-tls",
 ]
 
@@ -47,5 +47,6 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 hickory-server = { workspace = true }
 kube = { workspace = true, features = ["client", "runtime", "ws"] }
+rustls = "0.23"
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

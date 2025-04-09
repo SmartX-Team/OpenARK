@@ -19,10 +19,12 @@ dcgmExporter:
   enabled: true
 
 driver:
+  enabled: false
+
   # Flatcar Container Linux should need some patches for driver installer
   repository: quay.io/ulagbulag
   image: openark-gpu-nvidia-driver
-  enabled: false
+  version: 535.183.01
 
   # vGPU licensing configuration
   licensingConfig:

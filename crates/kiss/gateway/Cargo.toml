@@ -23,7 +23,7 @@ workspace = true
 default = ["default-tls"]
 
 # TLS
-default-tls = ["rustls-tls"]
+default-tls = ["openssl-tls"]
 openssl-tls = ["actix-web/openssl", "kube/openssl-tls"]
 rustls-tls = ["actix-web/rustls", "kube/rustls-tls"]
 
@@ -37,5 +37,6 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 kube = { workspace = true, features = ["client", "runtime", "ws"] }
 opentelemetry = { workspace = true }
+rustls = "0.23"
 serde_json = { workspace = true }
 tracing = { workspace = true }

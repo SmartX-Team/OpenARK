@@ -68,6 +68,10 @@ async fn main() {
     ::ark_core::tracer::init_once();
     info!("Welcome to kiss-dns!");
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     info!("Booting...");
     let handler = match Handler::try_default().await {
         Ok(handler) => handler,

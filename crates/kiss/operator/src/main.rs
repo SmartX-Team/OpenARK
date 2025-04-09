@@ -8,5 +8,9 @@ pub(crate) mod consts {
 
 #[tokio::main]
 async fn main() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     self::ctx::Ctx::spawn_crd().await
 }
