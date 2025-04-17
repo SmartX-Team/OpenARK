@@ -25,6 +25,9 @@ if nvidia-smi >/dev/null 2>/dev/null; then
     echo "export VK_ICD_FILENAMES=\"${VK_ICD_FILENAMES}\"" >>"${__ENV_HOME}"
 fi
 
+# Remove old wayland sessions
+rm -f ${XDG_RUNTIME_DIR}/wayland-*
+
 # Create a xwayland session, if not exists
 if [ ! -S "/tmp/.X11-unix/X$(echo "${DISPLAY}" | grep -Po '[0-9]+$')" ]; then
     # Configure environment variables
