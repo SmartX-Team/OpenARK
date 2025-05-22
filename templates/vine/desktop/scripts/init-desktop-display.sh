@@ -20,19 +20,21 @@ function update_screen_size() {
         return
     fi
 
-    for screen in $(echo -en "${screens}"); do
-        # Skip virtual displays
-        if echo "${screen}" | grep -Poqs '^None-[0-9-]+$'; then
-            xrandr --output "${screen}" --off || true
-            continue
-        fi
+    if [ ! -f "${HOME}/.config/xfce4/xfconf/xfce-perchannel-xml/displays.xml" ]; then
+        for screen in $(echo -en "${screens}"); do
+            # Skip virtual displays
+            if echo "${screen}" | grep -Poqs '^None-[0-9-]+$'; then
+                xrandr --output "${screen}" --off || true
+                continue
+            fi
 
-        echo "Fixing screen to preferred (${screen})..."
-        xrandr --output "${screen}" --auto --preferred || true
-    done
+            echo "Fixing screen to preferred (${screen})..."
+            xrandr --output "${screen}" --auto --preferred || true
+        done
 
-    echo "Configuring screen size..."
-    xrandr --auto || true
+        echo "Configuring screen size..."
+        xrandr --auto || true
+    fi
 
     # Disable screen blanking
     echo "Disabling screen blanking..."
